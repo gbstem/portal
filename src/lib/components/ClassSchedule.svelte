@@ -37,6 +37,7 @@
     import { bind } from 'lodash-es'
     import { SubRequestStatus } from './helpers/SubRequestStatus'
     import { curriculums } from './helpers/curriculum'
+    import { generateCurriculumLink } from './helpers/curriculumLink'
 
   export let semesterDates: Data.SemesterDates
   let editMode: boolean = false
@@ -548,7 +549,7 @@ onMount(() => {
         ? 'No Upcoming Classes'
         : values.course + ', ' + formatDateString(editedMeetingTimes[nextClassIndex])}
     </div>
-    <Button color="blue" class="mt-2" on:click={() => window.open(`${curriculums.filter((curriculum) => curriculum.class === values.course)[0].url}`)}>Curriculum</Button>
+    <Button color="blue" class="mt-2" on:click={() => window.open(`${generateCurriculumLink(values.course)}`, "_blank")}>Curriculum</Button>
     <Button
       color="blue"
       class="mt-4"
