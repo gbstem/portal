@@ -83,8 +83,13 @@
       </div>
     {:else}
       <div class="mb-4 font-bold">Next Upcoming Class For {selectedStudentName}:</div>
-      <div class="mb-6 text-blue-700 font-semibold">
+      <div class="text-blue-700 font-semibold">
         {nextClass === undefined ? 'No Upcoming Classes' :  nextClass.course + ' ' + formatDate(nextClass.meetingTime)}
+      </div>
+      <div class="mb-6">
+        <a href={nextClass.link} target="_blank">
+          <Button color="blue" class="mt-4">Join Class</Button>
+        </a>
       </div>
       <div class="font-bold mb-2">{selectedStudentName}'s Class Schedule</div>
       <ul class="space-y-3">
