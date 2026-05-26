@@ -1,5 +1,5 @@
 import type { RequestHandler } from '@sveltejs/kit';
-import { CLIENT_ID, CLIENT_SECRET } from '$env/static/private';
+import { VITE_CLIENT_ID, VITE_CLIENT_SECRET } from '$env/static/private';
 
 export const POST: RequestHandler = async (): Promise<Response> => {
   try {
@@ -9,9 +9,9 @@ export const POST: RequestHandler = async (): Promise<Response> => {
         'Content-Type': 'application/x-www-form-urlencoded'
       },
       body: new URLSearchParams({
-        'client_id': CLIENT_ID,
+        'client_id': VITE_CLIENT_ID,
         'scope': 'https://graph.microsoft.com/.default',
-        'client_secret': CLIENT_SECRET,
+        'client_secret': VITE_CLIENT_SECRET,
         'grant_type': 'client_credentials'
       }).toString()
     }).then(res => res.json());
