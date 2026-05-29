@@ -7,12 +7,14 @@ const originalConsoleLog = console.log
 let consoleLogSpy: any
 
 beforeAll(() => {
-  consoleLogSpy = jest.spyOn(console, 'log').mockImplementation((message, ...args) => {
-    if (typeof message === 'string' && message.includes('Email sent')) {
-      return
-    }
-    originalConsoleLog(message, ...args)
-  })
+  consoleLogSpy = jest
+    .spyOn(console, 'log')
+    .mockImplementation((message, ...args) => {
+      if (typeof message === 'string' && message.includes('Email sent')) {
+        return
+      }
+      originalConsoleLog(message, ...args)
+    })
 })
 
 afterAll(() => {
@@ -22,23 +24,43 @@ afterAll(() => {
 })
 
 // Global mock for SvelteKit Public Env
-jest.mock('$env/static/public', () => ({
-  PUBLIC_FIREBASE_API_KEY: 'apiKey',
-  PUBLIC_FIREBASE_AUTH_DOMAIN: 'authDomain',
-  PUBLIC_FIREBASE_PROJECT_ID: 'projectId',
-  PUBLIC_FIREBASE_STORAGE_BUCKET: 'storageBucket',
-  PUBLIC_FIREBASE_MESSAGE_SENDER_ID: 'senderId',
-  PUBLIC_FIREBASE_APP_ID: 'appId',
-  PUBLIC_FIREBASE_MEASUREMENT_ID: 'measurementId',
-}), { virtual: true })
+jest.mock(
+  '$env/static/public',
+  () => ({
+    PUBLIC_FIREBASE_API_KEY: 'apiKey',
+    PUBLIC_FIREBASE_AUTH_DOMAIN: 'authDomain',
+    PUBLIC_FIREBASE_PROJECT_ID: 'projectId',
+    PUBLIC_FIREBASE_STORAGE_BUCKET: 'storageBucket',
+    PUBLIC_FIREBASE_MESSAGE_SENDER_ID: 'senderId',
+    PUBLIC_FIREBASE_APP_ID: 'appId',
+    PUBLIC_FIREBASE_MEASUREMENT_ID: 'measurementId',
+  }),
+  { virtual: true },
+)
 
 // Global mock for SvelteKit Private Env
-jest.mock('$env/static/private', () => ({
-  FIREBASE_PROJECT_ID: 'projectIdPrivate',
-  FIREBASE_CLIENT_EMAIL: 'clientEmail',
-  FIREBASE_PRIVATE_KEY: 'privateKey',
-  SENDGRID_API_TOKEN: 'sgToken',
-}), { virtual: true })
+jest.mock(
+  '$env/static/private',
+  () => ({
+    FIREBASE_PROJECT_ID: 'projectIdPrivate',
+    FIREBASE_CLIENT_EMAIL: 'clientEmail',
+    FIREBASE_PRIVATE_KEY: 'privateKey',
+    SENDGRID_API_TOKEN: 'sgToken',
+  }),
+  { virtual: true },
+)
+
+// Global mock for SvelteKit Environment Module
+jest.mock(
+  '$app/environment',
+  () => ({
+    building: false,
+    browser: false,
+    dev: true,
+    version: '1.0.0',
+  }),
+  { virtual: true },
+)
 
 // Global mock for @sendgrid/mail
 jest.mock('@sendgrid/mail', () => ({

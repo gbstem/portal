@@ -160,9 +160,10 @@
 
       if (user && isStudent) {
         if (user.object.email) userEmail = user.object.email
-        if (user.object.displayName)
-          (userName = user.profile.firstName),
-            await determineStudentEnrollment(user)
+        if (user.object.displayName) {
+          userName = user.profile.firstName
+          await determineStudentEnrollment(user)
+        }
       }
       loading = false
     })
