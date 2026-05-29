@@ -29,7 +29,22 @@ This project relies on several key modern web technologies:
 
 ## Getting Started with Development
 
-First, run the development server:
+### 1. Environment Configuration
+
+Before running the development server, you must configure your local environment variables:
+
+1. Copy the `.env.example` file to create a `.env.local` file:
+
+   ```bash
+   cp .env.example .env.local
+   ```
+
+2. Open `.env.local` and adjust the placeholder values with your actual service credentials, preferably development credentials if available.
+
+> [!WARNING]
+> **Never commit your `.env.local` file or actual secrets to GitHub.** This file is configured to be ignored by Git to prevent exposing sensitive API keys and credentials. For details on how `.env` files work and how to avoid exposing credentials, read the [dotenv environment secrets guide](https://github.com/motdotla/dotenv#should-i-commit-my-env-file) and [GitHub's guide on ignoring files](https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files).
+
+### 2. Run the Development Server
 
 ```bash
 # install dependencies
@@ -78,7 +93,7 @@ Once `ncu` is installed, follow this sequence of commands to update dependencies
 
 ```bash
 # Update the dependencies in package.json to the latest versions (minor/patch)
-ncu -t minor -u
+ncu -u
 
 # Install the updated packages and update package-lock.json
 npm install
