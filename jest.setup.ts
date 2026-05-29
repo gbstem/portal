@@ -50,6 +50,20 @@ jest.mock(
   { virtual: true },
 )
 
+// Global mock for SvelteKit Dynamic Private Env
+jest.mock(
+  '$env/dynamic/private',
+  () => ({
+    env: {
+      FIREBASE_AUTH_EMULATOR_HOST:
+        process.env.FIREBASE_AUTH_EMULATOR_HOST || '',
+      FIRESTORE_EMULATOR_HOST: process.env.FIRESTORE_EMULATOR_HOST || '',
+      STORAGE_EMULATOR_HOST: process.env.STORAGE_EMULATOR_HOST || '',
+    },
+  }),
+  { virtual: true },
+)
+
 // Global mock for SvelteKit Environment Module
 jest.mock(
   '$app/environment',

@@ -7,7 +7,7 @@ jest.mock('firebase/firestore', () => {
     constructor(
       public seconds: number,
       public nanoseconds: number,
-    ) {}
+    ) { }
     static now() {
       return new MockTimestamp(Date.now() / 1000, 0)
     }
@@ -43,23 +43,24 @@ jest.mock('$lib/data/constants', () => ({
 
 import { alert } from '$lib/stores'
 import {
-  cn,
-  clickOutside,
-  trapFocus,
   addDataToHtmlTemplate,
-  formatTime24to12,
-  timestampToDate,
   classTodayHeld,
-  normalizeCapitals,
-  formatDateString,
+  cleanEnvVar,
+  clickOutside,
+  cn,
+  copyToClipboard,
   formatDate,
   formatDateLocal,
+  formatDateString,
   formatDateStringLocal,
-  htmlToPlainText,
-  copyToClipboard,
-  toLocalISOString,
-  isClassUpcoming,
+  formatTime24to12,
   getInstructorClasses,
+  htmlToPlainText,
+  isClassUpcoming,
+  normalizeCapitals,
+  timestampToDate,
+  toLocalISOString,
+  trapFocus,
   updateInstructorClassMappings,
 } from '../src/lib/utils'
 
@@ -378,7 +379,7 @@ describe('utils', () => {
       it('returns empty dictionary if doc fetch throws error', async () => {
         const consoleErrorSpy = jest
           .spyOn(console, 'error')
-          .mockImplementation(() => {})
+          .mockImplementation(() => { })
         const { getDoc } = require('firebase/firestore')
         getDoc.mockRejectedValueOnce(new Error('Firestore error'))
 
@@ -416,6 +417,40 @@ describe('utils', () => {
         expect(updateDoc).toHaveBeenCalledTimes(1)
         expect(setDoc).toHaveBeenCalledTimes(1)
       })
+    })
+  })
+
+  describe('cleanEnvVar', () => {
+    it('removes double quotes', () => {
+      expect(cleanEnvVar('"value"')).toBe('value')
+    })
+
+    it('removes single quotes', () => {
+      expect(cleanEnvVar("'value'")).toBe('value')
+    })
+
+    it('trims whitespace', () => {
+      expect(cleanEnvVar('  value  ')).toBe('value')
+    })
+
+    it('removes both quotes and whitespace', () => {
+      expect(cleanEnvVar('  "value"  ')).toBe('value')
+    })
+
+    it('returns empty string for empty input', () => {
+      expect(cleanEnvVar('')).toBe('')
+    })
+
+    it('returns empty string for undefined', () => {
+      expect(cleanEnvVar(undefined)).toBe('')
+    })
+
+    it('returns value unchanged if not quoted', () => {
+      expect(cleanEnvVar('value')).toBe('value')
+    })
+
+    it('handles special characters in value', () => {
+      expect(cleanEnvVar('"user-agent: Mozilla..."')).toBe('user-agent: Mozilla...')
     })
   })
 })

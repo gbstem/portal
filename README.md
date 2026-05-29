@@ -44,7 +44,24 @@ Before running the development server, you must configure your local environment
 > [!WARNING]
 > **Never commit your `.env.local` file or actual secrets to GitHub.** This file is configured to be ignored by Git to prevent exposing sensitive API keys and credentials. For details on how `.env` files work and how to avoid exposing credentials, read the [dotenv environment secrets guide](https://github.com/motdotla/dotenv#should-i-commit-my-env-file) and [GitHub's guide on ignoring files](https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files).
 
-### 2. Run the Development Server
+### 2. Firebase Emulator Suite (Local Development)
+
+For local development and testing, you can use the **Firebase Emulator Suite** to run local instances of Firebase products (Firestore, Authentication, and Storage). This allows you to test application features offline without affecting production or development cloud resources.
+
+1. Follow the official [Firebase Emulator Suite: Connect and Prototype](https://firebase.google.com/docs/emulator-suite/connect_and_prototype?database=Firestore) guide to set up and run the emulators on your local machine.
+2. Update your `.env.local` file to point to the local emulators by uncommenting the relevant lines at the bottom of the file (see snippet below). The Firebase Admin SDK automatically routes operations to the emulators when the following environment variables are set:
+
+   ```env
+   FIRESTORE_EMULATOR_HOST="127.0.0.1:8080"
+   FIREBASE_AUTH_EMULATOR_HOST="127.0.0.1:9099"
+   STORAGE_EMULATOR_HOST="127.0.0.1:9199"
+   ```
+
+   Make sure the host and port values match your emulator configurations in `firebase.json`.
+
+3. For new emulator instances, run `npm run seed` in the [admin project](https://github.com/gbstem/admin) to seed the database with a demo admin user and a demo signup token as described in the `admin` project's [README.md](https://github.com/gbstem/admin/blob/main/README.md).
+
+### 3. Run the Development Server
 
 ```bash
 # install dependencies

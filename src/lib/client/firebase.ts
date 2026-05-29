@@ -23,10 +23,32 @@ const config = {
   measurementId: PUBLIC_FIREBASE_MEASUREMENT_ID,
 }
 
+import { dev, browser } from '$app/environment'
+import { connectAuthEmulator } from 'firebase/auth'
+import { connectFirestoreEmulator } from 'firebase/firestore'
+import { connectStorageEmulator } from 'firebase/storage'
+
 initializeApp(config)
 export const auth = getAuth()
 export const db = getFirestore()
 export const storage = getStorage()
+
+if (browser && dev) {
+  if (
+    PUBLIC_FIREBASE_PROJECT_ID &&
+    (PUBLIC_FIREBASE_PROJECT_ID.startsWith('demo-') ||
+      PUBLIC_FIREBASE_API_KEY.includes('AIzaSyA1234567890'))
+  ) {
+    console.log('Connecting Firebase client SDKs to local emulators...')
+    try {
+      connectAuthEmulator(auth, 'http://127.0.0.1:9099')
+      connectFirestoreEmulator(db, '127.0.0.1', 8080)
+      connectStorageEmulator(storage, '127.0.0.1', 9199)
+    } catch (err) {
+      console.warn('Failed to connect to Firebase emulators:', err)
+    }
+  }
+}
 
 function userStore() {
   const { subscribe } = readable<Data.User.Store | null | undefined>(
