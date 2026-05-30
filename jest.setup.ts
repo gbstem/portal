@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 import '@testing-library/jest-dom'
 import { jest, beforeAll, afterAll } from '@jest/globals'
 

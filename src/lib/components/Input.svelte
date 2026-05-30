@@ -48,7 +48,6 @@
       self.setCustomValidity(state === undefined ? '' : state[1])
     }
   }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function handleInput(e: any) {
     if (e.target instanceof HTMLInputElement) {
       if (type === 'checkbox') {

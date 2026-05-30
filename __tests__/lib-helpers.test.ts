@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
-
 // Mock Svelte Stores
 const readableResets: Array<() => void> = []
 

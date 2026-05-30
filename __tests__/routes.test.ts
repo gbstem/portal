@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 ;(global as any).Response = class MockResponse {
   constructor(
     public body: any,

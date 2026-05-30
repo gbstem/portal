@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-var-requires */
 // Set timezone to America/New_York so that date formatting tests are deterministic
 process.env.TZ = 'America/New_York'
 
@@ -7,7 +6,7 @@ jest.mock('firebase/firestore', () => {
     constructor(
       public seconds: number,
       public nanoseconds: number,
-    ) { }
+    ) {}
     static now() {
       return new MockTimestamp(Date.now() / 1000, 0)
     }
@@ -379,7 +378,7 @@ describe('utils', () => {
       it('returns empty dictionary if doc fetch throws error', async () => {
         const consoleErrorSpy = jest
           .spyOn(console, 'error')
-          .mockImplementation(() => { })
+          .mockImplementation(() => {})
         const { getDoc } = require('firebase/firestore')
         getDoc.mockRejectedValueOnce(new Error('Firestore error'))
 
@@ -450,7 +449,9 @@ describe('utils', () => {
     })
 
     it('handles special characters in value', () => {
-      expect(cleanEnvVar('"user-agent: Mozilla..."')).toBe('user-agent: Mozilla...')
+      expect(cleanEnvVar('"user-agent: Mozilla..."')).toBe(
+        'user-agent: Mozilla...',
+      )
     })
   })
 })
