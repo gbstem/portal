@@ -24,7 +24,7 @@ This project relies on several key modern web technologies:
 - **[dotenv](https://github.com/motdotla/dotenv)**: Module that loads environment variables from a `.env` file into `process.env`.
 - **[file-saver](https://github.com/eligrey/FileSaver.js/)**: An implementation of the HTML5 `saveAs()` FileSaver interface, used to save certificates and files on client machines.
 - **[qrious](https://github.com/neocotic/qrious)**: A pure JavaScript library to generate QR codes using HTML5 Canvas.
-- **[Postmark](https://postmarkapp.com/) / [SendGrid](https://sendgrid.com/)**: Transactional email services used to send system notifications, confirmations, and reminders.
+- **[SendGrid](https://sendgrid.com/)**: Transactional email service used to send system notifications, confirmations, and reminders.
 - **[Jest](https://jestjs.io/) & [Svelte Testing Tools](https://testing-library.com/)**: Our primary testing suite. We use Jest to write unit tests for utility functions, helper files, and mock Firestore queries.
 
 ## Getting Started with Development

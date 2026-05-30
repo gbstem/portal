@@ -65,11 +65,6 @@ jest.mock(
   { virtual: true },
 )
 
-// Mock postmark
-jest.mock('postmark', () => ({
-  ServerClient: jest.fn(),
-}))
-
 // Mock firebase-admin
 const mockAdminAuth = {
   verifyIdToken: jest.fn(),

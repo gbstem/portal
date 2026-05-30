@@ -1,6 +1,5 @@
 import { error, json } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
-import postmark from 'postmark'
 import {
   SENDGRID_API_TOKEN,
 } from '$env/static/private'
