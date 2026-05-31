@@ -61,6 +61,15 @@ For local development and testing, you can use the **Firebase Emulator Suite** t
 
 3. For new emulator instances, run `npm run seed` in the [admin project](https://github.com/gbstem/admin) to seed the database with a demo admin user and a demo signup token as described in the `admin` project's [README.md](https://github.com/gbstem/admin/blob/main/README.md).
 
+> [!WARNING]
+> By default, the Firestore emulator runs in-memory. This means all seeded data and modifications are lost whenever you restart the emulator. If you want to persist the database state across restarts, start the emulator with the `--import` and `--export-on-exit` flags:
+>
+> ```bash
+> firebase emulators:start --import=./emulator-data --export-on-exit
+> ```
+>
+> Otherwise, you must re-run the seed script every time you restart the emulator.
+
 ### 3. Run the Development Server
 
 ```bash
