@@ -4,12 +4,12 @@ jest.mock('$lib/utils', () => ({
   cleanEnvVar: (val: any) => (typeof val === 'string' ? val.trim() : val),
 }))
 
-const mockDocGet = jest.fn()
-const mockDocSet = jest.fn()
-const mockDocUpdate = jest.fn()
-const mockDocDelete = jest.fn()
-const mockDocCreate = jest.fn()
-const mockCollectionAdd = jest.fn()
+const mockDocGet = jest.fn<(...args: any[]) => any>()
+const mockDocSet = jest.fn<(...args: any[]) => any>()
+const mockDocUpdate = jest.fn<(...args: any[]) => any>()
+const mockDocDelete = jest.fn<(...args: any[]) => any>()
+const mockDocCreate = jest.fn<(...args: any[]) => any>()
+const mockCollectionAdd = jest.fn<(...args: any[]) => any>()
 
 // Define Firestore classes with prototype methods so the wrapper can hook into them
 class DocumentReference {
@@ -106,6 +106,10 @@ describe('firebase.ts server setup', () => {
     })
 
     it('rejects with timeout error when operation takes too long', async () => {
+      const consoleErrorSpy = jest
+        .spyOn(console, 'error')
+        .mockImplementation(() => {})
+
       jest.useFakeTimers()
       mockDocGet.mockImplementationOnce(() => new Promise(() => {})) // hangs
 
@@ -116,6 +120,7 @@ describe('firebase.ts server setup', () => {
         'Firestore operation timed out on DocumentReference.get',
       )
       jest.useRealTimers()
+      consoleErrorSpy.mockRestore()
     })
 
     it('logs error and rethrows when operation fails', async () => {
