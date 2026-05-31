@@ -150,7 +150,7 @@
     <div class="relative">
       <input
         class={cn(
-          'peer block h-12 w-full appearance-none rounded-md border border-gray-400 pl-3 pr-9 pt-1 transition-colors focus:border-gray-600 focus:outline-none disabled:bg-white disabled:text-gray-400',
+          'peer block h-12 w-full appearance-none rounded-md border border-gray-400 pl-3 pr-9 pt-1 transition-colors focus:border-gray-600 focus:outline-hidden disabled:bg-white disabled:text-gray-400',
           className,
         )}
         type="text"
@@ -204,7 +204,7 @@
     </div>
     {#if open}
       <div
-        class="absolute left-0 top-14 z-20 max-h-60 w-full overflow-hidden overflow-y-auto rounded-md border border-gray-200 bg-white py-1 shadow-sm"
+        class="absolute left-0 top-14 z-20 max-h-60 w-full overflow-hidden overflow-y-auto rounded-md border border-gray-200 bg-white py-1 shadow-xs"
         transition:fade={{ duration: 100 }}
       >
         {#if filteredOptions.length === 0}
@@ -278,7 +278,7 @@
       </div>
       <input
         class={cn(
-          'mt-1 block h-12 w-full appearance-none rounded-md border border-gray-400 pl-3 pr-9 transition-colors placeholder:text-gray-500 focus:border-gray-600 focus:outline-none disabled:bg-white disabled:text-gray-400 disabled:placeholder:text-gray-400',
+          'mt-1 block h-12 w-full appearance-none rounded-md border border-gray-400 pl-3 pr-9 transition-colors placeholder:text-gray-500 focus:border-gray-600 focus:outline-hidden disabled:bg-white disabled:text-gray-400 disabled:placeholder:text-gray-400',
           className,
         )}
         type="text"
@@ -296,7 +296,7 @@
       />
       {#if open}
         <div
-          class="absolute left-0 top-14 z-20 max-h-60 w-full overflow-hidden overflow-y-auto rounded-md border border-gray-200 bg-white py-1 shadow-sm"
+          class="absolute left-0 top-14 z-20 max-h-60 w-full overflow-hidden overflow-y-auto rounded-md border border-gray-200 bg-white py-1 shadow-xs"
           transition:fade={{ duration: 100 }}
         >
           {#if filteredOptions.length === 0}

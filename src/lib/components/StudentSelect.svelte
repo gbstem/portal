@@ -93,7 +93,7 @@
   }
 </script>
 
-<div class="bg-white rounded-lg shadow-sm p-4">
+<div class="bg-white rounded-lg shadow-xs p-4">
   <span class="block text-sm font-medium text-gray-700 mb-2"
     >Select Student</span
   >
@@ -101,7 +101,7 @@
     <Loading />
   {:else if studentsOptions.length === 1}
     <div
-      class="bg-blue-50 text-blue-900 rounded px-4 py-2 font-semibold text-center"
+      class="bg-blue-50 text-blue-900 rounded-sm px-4 py-2 font-semibold text-center"
     >
       {studentsOptions[0].name}
     </div>

@@ -383,7 +383,7 @@
     {/if}
     {#if values.meta.submitted}
       <div
-        class="rounded-md bg-green-100 px-4 py-2 text-green-900 shadow-sm w-full border border-green-200"
+        class="rounded-md bg-green-100 px-4 py-2 text-green-900 shadow-xs w-full border border-green-200"
       >
         An account has been created for {values.personal.studentFirstName}! You
         will be able to enroll this child in classes once enrollment opens.
@@ -399,7 +399,7 @@
       <fieldset class="space-y-14" {disabled}>
         {#if values.personal.studentFirstName !== ''}
           <div
-            class="rounded-md bg-red-100 px-4 py-2 text-center text-green-900 shadow-sm w-full"
+            class="rounded-md bg-red-100 px-4 py-2 text-center text-green-900 shadow-xs w-full"
           >
             You have a student account creation in progress for {values.personal
               .studentFirstName}. Remember to complete this form and submit it
@@ -422,10 +422,10 @@
           </p>
           <span class="font-bold">Personal</span>
           <Card class="my-2 grid gap-3">
-            <div class="rounded-md bg-gray-100 px-3 py-2 shadow-sm">
+            <div class="rounded-md bg-gray-100 px-3 py-2 shadow-xs">
               {`Parent Name: ${values.personal.parentFirstName} ${values.personal.parentLastName}`}
             </div>
-            <div class="rounded-md bg-gray-100 px-3 py-2 shadow-sm">
+            <div class="rounded-md bg-gray-100 px-3 py-2 shadow-xs">
               {`Email: ${values.personal.email}`}
             </div>
             <div class="text-sm">
@@ -567,7 +567,7 @@
         >
           {#if values.meta.submitted}
             <div
-              class="rounded-md bg-green-100 px-4 py-2 text-center text-green-900 shadow-sm"
+              class="rounded-md bg-green-100 px-4 py-2 text-center text-green-900 shadow-xs"
             >
               Registration submitted!
             </div>
@@ -575,12 +575,12 @@
             <button
               type="button"
               on:click={() => handleSave(true)}
-              class="rounded-md bg-gray-100 px-4 py-2 text-gray-900 shadow-sm transition-colors duration-300 hover:bg-gray-200 disabled:bg-gray-200 disabled:text-gray-500"
+              class="rounded-md bg-gray-100 px-4 py-2 text-gray-900 shadow-xs transition-colors duration-300 hover:bg-gray-200 disabled:bg-gray-200 disabled:text-gray-500"
               >Save draft</button
             >
             <button
               type="submit"
-              class="rounded-md bg-blue-100 px-4 py-2 text-blue-900 shadow-sm transition-colors duration-300 hover:bg-blue-200 disabled:bg-blue-200 disabled:text-blue-500"
+              class="rounded-md bg-blue-100 px-4 py-2 text-blue-900 shadow-xs transition-colors duration-300 hover:bg-blue-200 disabled:bg-blue-200 disabled:text-blue-500"
               >Submit</button
             >
 

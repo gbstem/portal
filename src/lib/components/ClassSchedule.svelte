@@ -716,7 +716,7 @@
 
           <Input
             type="datetime-local"
-            class="rounded border p-1"
+            class="rounded-sm border p-1"
             bind:value={classToBeAdded}
           />
           <Button
@@ -749,7 +749,7 @@
   <ul class="list-none space-y-4">
     {#each editedMeetingTimes as classTime, classNumber}
       <li
-        class="rounded-xl shadow border flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 bg-white relative transition hover:shadow-lg"
+        class="rounded-xl shadow-sm border flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 bg-white relative transition hover:shadow-lg"
       >
         <div class="flex items-center gap-4 flex-1 min-w-0">
           <!-- Status badge -->
@@ -868,7 +868,7 @@
           {#if editMode}
             <Input
               type="datetime-local"
-              class="rounded border p-1"
+              class="rounded-sm border p-1"
               bind:value={editedMeetingTimes[classNumber]}
             />
             <Button
@@ -938,21 +938,21 @@
     <div slot="description" class="space-y-4">
       <Input
         type="number"
-        class="rounded border p-1"
+        class="rounded-sm border p-1"
         bind:value={subRequestClassNumber}
         floating
         label="Please confirm the class number ."
       />
       <Input
         type="datetime-local"
-        class="rounded border p-1"
+        class="rounded-sm border p-1"
         bind:value={subRequestDate}
         floating
         label="Please confirm the date and time of the class you would like to request a sub for."
       />
       <Input
         type="text"
-        class="rounded border p-1"
+        class="rounded-sm border p-1"
         bind:value={subRequestNotes}
         label="Please describe what topic/lesson the substitute class will cover, and any helpful notes for the substitute instructor."
       />

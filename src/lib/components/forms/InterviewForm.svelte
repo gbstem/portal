@@ -212,7 +212,7 @@
           on:submit={handleSubmit}
         >
           {#if value.length === 0}
-            <div class="rounded-md bg-red-100 px-4 py-2 text-red-900 shadow-sm">
+            <div class="rounded-md bg-red-100 px-4 py-2 text-red-900 shadow-xs">
               There are no interview slots available currently. Please request a
               new time to be added that works for you. You may request multiple
               times.
@@ -240,7 +240,7 @@
           </div>
           <button
             type="submit"
-            class="rounded-md bg-blue-100 px-4 py-2 text-blue-900 shadow-sm transition-colors duration-300 hover:bg-blue-200 disabled:bg-blue-200 disabled:text-blue-500"
+            class="rounded-md bg-blue-100 px-4 py-2 text-blue-900 shadow-xs transition-colors duration-300 hover:bg-blue-200 disabled:bg-blue-200 disabled:text-blue-500"
             >Submit</button
           >
           {#if showRequestNewTime}
@@ -256,7 +256,7 @@
 
               <button
                 type="submit"
-                class="mt-2 rounded-md bg-blue-100 px-4 py-2 text-blue-900 shadow-sm transition-colors duration-300 hover:bg-blue-200 disabled:bg-blue-200 disabled:text-blue-500"
+                class="mt-2 rounded-md bg-blue-100 px-4 py-2 text-blue-900 shadow-xs transition-colors duration-300 hover:bg-blue-200 disabled:bg-blue-200 disabled:text-blue-500"
                 >Submit</button
               >
             </Form>
@@ -264,14 +264,14 @@
             <button
               type="button"
               on:click={() => (showRequestNewTime = true)}
-              class="rounded-md bg-blue-100 px-4 py-2 text-blue-900 shadow-sm transition-colors duration-300 hover:bg-blue-200 disabled:bg-blue-200 disabled:text-blue-500"
+              class="rounded-md bg-blue-100 px-4 py-2 text-blue-900 shadow-xs transition-colors duration-300 hover:bg-blue-200 disabled:bg-blue-200 disabled:text-blue-500"
               >Request A Time</button
             >
           {/if}
         </Form>
       {:else if scheduledInterview.interviewSlotStatus === 'pending'}
         <div
-          class="rounded-md bg-green-100 px-4 py-2 text-center text-green-900 shadow-sm"
+          class="rounded-md bg-green-100 px-4 py-2 text-center text-green-900 shadow-xs"
         >
           <p>
             Your interview will be on {scheduledInterview.date} with
@@ -289,7 +289,7 @@
         </div>
       {:else}
         <div
-          class="rounded-md bg-green-100 px-4 py-2 text-center text-green-900 shadow-sm"
+          class="rounded-md bg-green-100 px-4 py-2 text-center text-green-900 shadow-xs"
         >
           Your interview was on {scheduledInterview.date}.
         </div>

@@ -89,7 +89,7 @@
   }
 </script>
 
-<div class="bg-white rounded-lg shadow-sm p-6">
+<div class="bg-white rounded-lg shadow-xs p-6">
   {#if selectedStudentUid}
     {#if classes.length === 0}
       <div class="flex flex-col items-center justify-center py-8">
@@ -135,7 +135,7 @@
       <ul class="space-y-3">
         {#each classes as classSession}
           <li
-            class="flex items-center bg-blue-50 rounded-lg px-4 py-3 shadow-sm"
+            class="flex items-center bg-blue-50 rounded-lg px-4 py-3 shadow-xs"
           >
             <div class="flex-1">
               <div class="font-semibold text-blue-900">

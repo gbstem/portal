@@ -58,7 +58,7 @@
   </button>
   {#if open}
     <div
-      class="absolute right-0 top-14 w-40 rounded-md border border-gray-200 bg-white shadow"
+      class="absolute right-0 top-14 w-40 rounded-md border border-gray-200 bg-white shadow-sm"
       transition:fade={{ duration: 300, easing: circInOut }}
     >
       <a
@@ -76,11 +76,11 @@
   {/if}
   <div class="grid grid-cols-2 gap-3 text-center sm:hidden">
     <a
-      class="block w-full rounded-md border border-gray-200 px-6 py-2 shadow-sm transition-colors duration-300 hover:bg-gray-100"
+      class="block w-full rounded-md border border-gray-200 px-6 py-2 shadow-xs transition-colors duration-300 hover:bg-gray-100"
       href="/profile">Profile</a
     >
     <button
-      class="w-full rounded-md border border-gray-200 px-6 py-2 shadow-sm transition-colors duration-300 hover:bg-gray-100"
+      class="w-full rounded-md border border-gray-200 px-6 py-2 shadow-xs transition-colors duration-300 hover:bg-gray-100"
       type="button"
       on:click={handleSignOut}
     >

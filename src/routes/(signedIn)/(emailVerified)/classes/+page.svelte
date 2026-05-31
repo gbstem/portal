@@ -367,7 +367,7 @@
       <!-- Status Badge -->
       <div class="flex justify-end">
         <span
-          class="inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold text-white shadow-sm {dialogClassDetails.spotsRemaining <=
+          class="inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold text-white shadow-xs {dialogClassDetails.spotsRemaining <=
           0
             ? 'bg-red-500'
             : 'bg-green-500'}"
@@ -629,12 +629,12 @@
         {#if classFilter == '' || classFilter == classInfo.course}
           {#if !onlyShowEnrolled || Object.entries(studentUidToClassIds).some( ([studentUid, classIds]) => classIds.includes(classInfo.id), )}
             <Card
-              class="group relative overflow-hidden rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition-all duration-200 hover:shadow-lg hover:border-gray-300"
+              class="group relative overflow-hidden rounded-xl border border-gray-200 bg-white p-6 shadow-xs transition-all duration-200 hover:shadow-lg hover:border-gray-300"
             >
               <!-- Status Badge -->
               <div class="absolute top-4 right-4">
                 <span
-                  class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold text-white shadow-sm {classInfo.spotsRemaining <=
+                  class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold text-white shadow-xs {classInfo.spotsRemaining <=
                   0
                     ? 'bg-red-500'
                     : 'bg-green-500'}"

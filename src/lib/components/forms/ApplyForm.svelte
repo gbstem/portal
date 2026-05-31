@@ -329,10 +329,10 @@
     <div class="grid gap-1">
       <span class="font-bold">Personal</span>
       <Card class="my-2 grid gap-3">
-        <div class="rounded-md bg-gray-100 px-3 py-2 shadow-sm">
+        <div class="rounded-md bg-gray-100 px-3 py-2 shadow-xs">
           {`Name: ${values.personal.firstName} ${values.personal.lastName}`}
         </div>
-        <div class="rounded-md bg-gray-100 px-3 py-2 shadow-sm">
+        <div class="rounded-md bg-gray-100 px-3 py-2 shadow-xs">
           {`Email: ${values.personal.email}`}
         </div>
         <div class="text-sm">
@@ -527,7 +527,7 @@
       <div class={clsx('grid gap-3', !values.meta.submitted && 'grid-cols-2')}>
         {#if values.meta.submitted}
           <div
-            class="rounded-md bg-green-100 px-4 py-2 text-center text-green-900 shadow-sm"
+            class="rounded-md bg-green-100 px-4 py-2 text-center text-green-900 shadow-xs"
           >
             Application submitted and in review!
           </div>
@@ -535,12 +535,12 @@
           <button
             type="button"
             on:click={() => handleSave(true)}
-            class="rounded-md bg-gray-100 px-4 py-2 text-gray-900 shadow-sm transition-colors duration-300 hover:bg-gray-200 disabled:bg-gray-200 disabled:text-gray-500"
+            class="rounded-md bg-gray-100 px-4 py-2 text-gray-900 shadow-xs transition-colors duration-300 hover:bg-gray-200 disabled:bg-gray-200 disabled:text-gray-500"
             >Save draft</button
           >
           <button
             type="submit"
-            class="rounded-md bg-blue-100 px-4 py-2 text-blue-900 shadow-sm transition-colors duration-300 hover:bg-blue-200 disabled:bg-blue-200 disabled:text-blue-500"
+            class="rounded-md bg-blue-100 px-4 py-2 text-blue-900 shadow-xs transition-colors duration-300 hover:bg-blue-200 disabled:bg-blue-200 disabled:text-blue-500"
             >Submit</button
           >
         {/if}

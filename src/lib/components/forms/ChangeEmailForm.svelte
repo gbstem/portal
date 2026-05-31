@@ -79,7 +79,7 @@
     />
     <div class="relative">
       <Input
-        class="pr-[5.25rem]"
+        class="pr-21"
         type="email"
         bind:value={values.newEmail}
         label="New email"

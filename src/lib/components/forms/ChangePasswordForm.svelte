@@ -78,7 +78,7 @@
     />
     <div class="relative">
       <Input
-        class="pr-[5.25rem]"
+        class="pr-21"
         type="password"
         bind:value={values.confirmPassword}
         label="Confirm password"

@@ -88,9 +88,9 @@
         {#each pages as page}
           <a
             class={cn(
-              'relative rounded-full px-1.5 py-1 text-[11px] md:px-2 md:py-1.5 md:text-xs lg:px-2.5 lg:py-2 lg:text-sm xl:px-4 xl:text-base font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 text-center leading-tight flex items-center justify-center min-h-[2.5rem] max-w-[120px] shrink-0',
+              'relative rounded-full px-1.5 py-1 text-[11px] md:px-2 md:py-1.5 md:text-xs lg:px-2.5 lg:py-2 lg:text-sm xl:px-4 xl:text-base font-medium transition-colors duration-200 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-400 text-center leading-tight flex items-center justify-center min-h-10 max-w-[120px] shrink-0',
               pathname === page.href
-                ? 'bg-blue-100 text-blue-700 shadow-sm'
+                ? 'bg-blue-100 text-blue-700 shadow-xs'
                 : 'hover:bg-gray-100 hover:text-blue-600',
             )}
             href={page.href}
@@ -111,7 +111,7 @@
     <div class="flex items-center gap-1 sm:gap-3 md:gap-4">
       <ProfileMenu class="hidden sm:block" />
       <button
-        class="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-gray-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 sm:hidden"
+        class="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-gray-200 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-400 sm:hidden"
         type="button"
         aria-label={open ? 'Close menu' : 'Open menu'}
         on:click={() => {
@@ -166,9 +166,9 @@
       {#each pages as page}
         <a
           class={cn(
-            'rounded-full px-3 py-2 font-medium transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
+            'rounded-full px-3 py-2 font-medium transition-colors duration-200 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-400',
             pathname === page.href
-              ? 'bg-blue-100 text-blue-700 shadow-sm'
+              ? 'bg-blue-100 text-blue-700 shadow-xs'
               : 'hover:bg-gray-100 hover:text-blue-600',
           )}
           href={page.href}

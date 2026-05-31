@@ -44,7 +44,7 @@
       <div class="text-xs font-semibold uppercase tracking-wider text-red-800">
         Error Message
       </div>
-      <p class="mt-1 text-sm font-medium text-red-900 break-words">
+      <p class="mt-1 text-sm font-medium text-red-900 wrap-break-word">
         {$page.error?.message || 'Something went wrong.'}
       </p>
 
@@ -74,13 +74,13 @@
     <div class="flex gap-4">
       <button
         on:click={() => window.location.reload()}
-        class="flex w-full justify-center rounded-lg bg-blue-600 py-3 px-4 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 transition"
+        class="flex w-full justify-center rounded-lg bg-blue-600 py-3 px-4 text-sm font-semibold text-white shadow-xs hover:bg-blue-500 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 transition"
       >
         Try Again
       </button>
       <a
         href="/"
-        class="flex w-full justify-center rounded-lg border border-gray-300 bg-white py-3 px-4 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-600 transition"
+        class="flex w-full justify-center rounded-lg border border-gray-300 bg-white py-3 px-4 text-sm font-semibold text-gray-700 shadow-xs hover:bg-gray-50 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-600 transition"
       >
         Go to Home
       </a>

@@ -400,21 +400,21 @@
                 <div slot="description">
                   <Input
                     type="number"
-                    class="rounded border p-1"
+                    class="rounded-sm border p-1"
                     bind:value={subRequestsFromUser[i].classNumber}
                     floating
                     label="Please confirm the class number ."
                   />
                   <Input
                     type="datetime-local"
-                    class="rounded border p-1"
+                    class="rounded-sm border p-1"
                     bind:value={stringSubRequestDates[i]}
                     floating
                     label="Please confirm the date and time of the class you would like to request a sub for."
                   />
                   <Input
                     type="text"
-                    class="rounded border p-1"
+                    class="rounded-sm border p-1"
                     bind:value={subRequestsFromUser[i].notes}
                     label="Please describe what topic/lesson the substitute class will cover, and any helpful notes for the substitute instructor."
                   />

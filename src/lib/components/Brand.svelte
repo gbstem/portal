@@ -1,6 +1,6 @@
 <div>
   <div
-    class="inline-flex items-center gap-2 rounded-md border border-gray-200 p-2 shadow"
+    class="inline-flex items-center gap-2 rounded-md border border-gray-200 p-2 shadow-sm"
   >
     <a class="shrink-0" href="https://gbstem.org" target="_blank">
       <img class="h-8 w-8" src="/favicon.png" alt="" />

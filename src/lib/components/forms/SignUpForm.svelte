@@ -159,7 +159,7 @@
 
       {#if values.role === 'Parent registering my child for classes'}
         <!-- <div
-          class="relative mb-4 rounded border border-red-400 bg-red-100 px-4 py-3 text-red-700"
+          class="relative mb-4 rounded-sm border border-red-400 bg-red-100 px-4 py-3 text-red-700"
           role="alert"
         >
           <strong class="font-bold"
@@ -170,7 +170,7 @@
         </div> -->
 
         <div
-          class="relative mb-4 rounded border border-green-400 bg-green-100 px-4 py-3 text-green-700"
+          class="relative mb-4 rounded-sm border border-green-400 bg-green-100 px-4 py-3 text-green-700"
           role="alert"
         >
           <strong class="font-bold"
