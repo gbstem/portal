@@ -311,11 +311,15 @@
           />
         </svg>
         <div>
-          <h3 class="font-semibold text-red-800">Application Deadline Passed</h3>
+          <h3 class="font-semibold text-red-800">
+            Application Deadline Passed
+          </h3>
           <p class="text-red-700 text-sm mt-1">
-            The instructor application deadline has passed. Applications were due <span class="font-semibold">
+            The instructor application deadline has passed. Applications were
+            due <span class="font-semibold">
               {new Date(semesterDates.newInstructorAppsDue).toDateString()}
-            </span> at 11:59 PM ET. Unfortunately, you cannot submit an application for this semester.
+            </span> at 11:59 PM ET. Unfortunately, you cannot submit an application
+            for this semester.
           </p>
         </div>
       </div>
@@ -436,9 +440,9 @@
         />
       </div>
       <Input
-      type="checkbox"
-      bind:value={values.program.inPerson}
-      label="gbSTEM will offer FIRST Lego League Robotics in-person at the Cambridge Public Library. Check this box if you would be able to mentor and instruct Lego Robotics on Saturdays 1:00-3:00 pm. Please note that if you are interested in instructing Lego Robotics, you must be able to teach in-person and therefore must check this box."
+        type="checkbox"
+        bind:value={values.program.inPerson}
+        label="gbSTEM will offer FIRST Lego League Robotics in-person at the Cambridge Public Library. Check this box if you would be able to mentor and instruct Lego Robotics on Saturdays 1:00-3:00 pm. Please note that if you are interested in instructing Lego Robotics, you must be able to teach in-person and therefore must check this box."
       />
 
       <div class="mt-2">

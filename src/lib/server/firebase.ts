@@ -30,10 +30,19 @@ if (storageHost) {
 
 import firebase from 'firebase-admin'
 import { getAuth } from 'firebase-admin/auth'
-import { CollectionReference, DocumentReference, getFirestore, Query } from 'firebase-admin/firestore'
+import {
+  CollectionReference,
+  DocumentReference,
+  getFirestore,
+  Query,
+} from 'firebase-admin/firestore'
 
 // Wrap prototype methods with a timeout and error logger
-function wrapPrototypePromise(Class: any, methodName: string, className: string) {
+function wrapPrototypePromise(
+  Class: any,
+  methodName: string,
+  className: string,
+) {
   if (!Class || !Class.prototype) return
   const original = Class.prototype[methodName]
   if (typeof original !== 'function') return
@@ -48,7 +57,11 @@ function wrapPrototypePromise(Class: any, methodName: string, className: string)
     let timer: NodeJS.Timeout
     const timeoutPromise = new Promise<never>((_, reject) => {
       timer = setTimeout(() => {
-        reject(new Error(`Firestore operation timed out on ${className}.${methodName}`))
+        reject(
+          new Error(
+            `Firestore operation timed out on ${className}.${methodName}`,
+          ),
+        )
       }, timeoutMs)
     })
 

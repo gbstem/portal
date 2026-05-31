@@ -16,11 +16,13 @@
   const nameToUid: Record<string, string> = {}
 
   const initializeFromPreloadedData = () => {
-    studentsOptions = preloadedStudents.map(student => ({ name: student.name }))
-    preloadedStudents.forEach(student => {
+    studentsOptions = preloadedStudents.map((student) => ({
+      name: student.name,
+    }))
+    preloadedStudents.forEach((student) => {
       nameToUid[student.name] = student.uid
     })
-    
+
     // Set the selected student to the first student if available
     if (studentsOptions.length > 0 && !selectedStudent) {
       selectedStudent = studentsOptions[0].name
@@ -86,17 +88,23 @@
     return {
       props: {
         selectedStudentUid: selectedStudentUid,
-      }
+      },
     }
   }
 </script>
 
 <div class="bg-white rounded-lg shadow-sm p-4">
-  <label class="block text-sm font-medium text-gray-700 mb-2">Select Student</label>
+  <label class="block text-sm font-medium text-gray-700 mb-2"
+    >Select Student</label
+  >
   {#if loading}
     <Loading />
   {:else if studentsOptions.length === 1}
-    <div class="bg-blue-50 text-blue-900 rounded px-4 py-2 font-semibold text-center">{studentsOptions[0].name}</div>
+    <div
+      class="bg-blue-50 text-blue-900 rounded px-4 py-2 font-semibold text-center"
+    >
+      {studentsOptions[0].name}
+    </div>
   {:else if studentsOptions.length === 0}
     <div class="text-gray-500 italic">No students found.</div>
   {:else}

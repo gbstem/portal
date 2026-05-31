@@ -12,15 +12,20 @@
     collection,
     getDocs,
     getDoc,
-    updateDoc
+    updateDoc,
   } from 'firebase/firestore'
   import { onMount } from 'svelte'
-    import { classesCollection, instructorFeedbackCollection, registrationsCollection, substituteRequestsCollection } from '$lib/data/constants'
-    import Dialog from '../Dialog.svelte'
-    import Card from '../Card.svelte'
-    import { SubRequestStatus } from '../helpers/SubRequestStatus'
-    import { valuesIn } from 'lodash-es'
-    import { ClassStatus } from '../helpers/ClassStatus'
+  import {
+    classesCollection,
+    instructorFeedbackCollection,
+    registrationsCollection,
+    substituteRequestsCollection,
+  } from '$lib/data/constants'
+  import Dialog from '../Dialog.svelte'
+  import Card from '../Card.svelte'
+  import { SubRequestStatus } from '../helpers/SubRequestStatus'
+  import { valuesIn } from 'lodash-es'
+  import { ClassStatus } from '../helpers/ClassStatus'
 
   // export let feedbackDialogEl: Dialog
   export let classBeingSubbed: Data.SubRequest | undefined
@@ -32,7 +37,12 @@
   let currentUser: Data.User.Store
   let loading = true
   let classDate = ''
-  let classNumber = sessionNumber !== undefined ? sessionNumber : classBeingSubbed === undefined ? 0 : classBeingSubbed.classNumber
+  let classNumber =
+    sessionNumber !== undefined
+      ? sessionNumber
+      : classBeingSubbed === undefined
+        ? 0
+        : classBeingSubbed.classNumber
   let course = ''
   let feedbackCompletedArray: boolean[] = []
   let classStatusesArray: string[] = []
@@ -54,85 +64,96 @@
 
   let classList: string[] = []
 
-   user.subscribe(async (user) => {
-      if (user) {
-        currentUser = user
-        getData()
-        loading = false
-      }
-    })
+  user.subscribe(async (user) => {
+    if (user) {
+      currentUser = user
+      getData()
+      loading = false
+    }
+  })
 
   async function getData() {
-    let id = classBeingSubbed === undefined ? (classId || currentUser.object.uid) : classBeingSubbed.id.split('---')[0]
+    let id =
+      classBeingSubbed === undefined
+        ? classId || currentUser.object.uid
+        : classBeingSubbed.id.split('---')[0]
     const document = await getDoc(doc(db, classesCollection, id))
-     if(document.exists()) {
-        const data = document.data() as Data.Class
-        const {students, feedbackCompleted, classStatuses} = data
-        const uids = students
-        feedbackCompletedArray = feedbackCompleted
-        classStatusesArray = classStatuses
-        const classListPromises = uids.map((uid: string) =>
-          getDoc(doc(db, registrationsCollection, uid))
-            .then((userDoc) => {
-              const userData = userDoc.data()?.personal
-              return `${userData['studentFirstName']} ${userData['studentLastName']}`
-            })
-            .catch((error) => {
-              console.error('Error fetching student data:', error)
-              return 'Error' // Or handle the error as appropriate
-            }),
-        )
-        Promise.all(classListPromises)
-          .then((list) => {
-            classList = list
-            values.courseName = data.course
-            values.classNumber = classBeingSubbed === undefined ? 0: classBeingSubbed.classNumber
-            values.instructorName = classBeingSubbed === undefined ? currentUser.profile.firstName + ' ' + currentUser.profile.lastName : classBeingSubbed.subInstructorFirstName
-            classList.forEach((student: string) => {
-              values.attendanceList[student] = {
-                present: false,
-              }
-            })
+    if (document.exists()) {
+      const data = document.data() as Data.Class
+      const { students, feedbackCompleted, classStatuses } = data
+      const uids = students
+      feedbackCompletedArray = feedbackCompleted
+      classStatusesArray = classStatuses
+      const classListPromises = uids.map((uid: string) =>
+        getDoc(doc(db, registrationsCollection, uid))
+          .then((userDoc) => {
+            const userData = userDoc.data()?.personal
+            return `${userData['studentFirstName']} ${userData['studentLastName']}`
           })
           .catch((error) => {
-            // Handle any errors that occurred during Promise.all
-            console.error('Error with class list:', error)
+            console.error('Error fetching student data:', error)
+            return 'Error' // Or handle the error as appropriate
+          }),
+      )
+      Promise.all(classListPromises)
+        .then((list) => {
+          classList = list
+          values.courseName = data.course
+          values.classNumber =
+            classBeingSubbed === undefined ? 0 : classBeingSubbed.classNumber
+          values.instructorName =
+            classBeingSubbed === undefined
+              ? currentUser.profile.firstName +
+                ' ' +
+                currentUser.profile.lastName
+              : classBeingSubbed.subInstructorFirstName
+          classList.forEach((student: string) => {
+            values.attendanceList[student] = {
+              present: false,
+            }
           })
-      }
+        })
+        .catch((error) => {
+          // Handle any errors that occurred during Promise.all
+          console.error('Error with class list:', error)
+        })
+    }
     return classList
   }
 
   function handleSubmit() {
     if ($user) {
       const frozenUser = $user
-      let id = classBeingSubbed === undefined ? (classId || frozenUser.object.uid) : classBeingSubbed.id.split('---')[0]
+      let id =
+        classBeingSubbed === undefined
+          ? classId || frozenUser.object.uid
+          : classBeingSubbed.id.split('---')[0]
       if (classDate === '') {
         alert.trigger('error', 'Please enter class date.')
       } else {
         disabled = true
         values.date = classDate
         values.classNumber = classNumber
-        if(classNumber - 1 < 0 || classNumber - 1 >= feedbackCompletedArray.length) {
+        if (
+          classNumber - 1 < 0 ||
+          classNumber - 1 >= feedbackCompletedArray.length
+        ) {
           alert.trigger('error', 'Invalid class number.')
           return
         }
         feedbackCompletedArray[classNumber - 1] = true
         classStatusesArray[classNumber - 1] = ClassStatus.EverythingComplete
         setDoc(
-          doc(
-            db,
-            instructorFeedbackCollection,
-            `${id}-${Date.now()}`,
-          ),
+          doc(db, instructorFeedbackCollection, `${id}-${Date.now()}`),
           values,
         ).catch((error) => {
           console.log(error)
         })
-        updateDoc(
-          doc(db, classesCollection, id),
-          { feedbackCompleted: feedbackCompletedArray, classStatuses: classStatusesArray },
-        )
-        if(classBeingSubbed !== undefined) {
+        updateDoc(doc(db, classesCollection, id), {
+          feedbackCompleted: feedbackCompletedArray,
+          classStatuses: classStatusesArray,
+        })
+        if (classBeingSubbed !== undefined) {
           updateDoc(
             doc(db, substituteRequestsCollection, classBeingSubbed.id),
             { subRequestStatus: SubRequestStatus.NoSubstituteNeeded },
@@ -144,10 +165,11 @@
     }
   }
 </script>
+
 <!-- <Dialog bind:this={feedbackDialogEl} size="full" alert>
   <svelte:fragment slot="title"><div class = "flex justify-between items-center">{course} {classBeingSubbed !== undefined ? 'Substitute' : 'Weekly'} Class Feedback Form <Button color = 'red' class="font-light" on:click={feedbackDialogEl.cancel}>Close</Button></div> </svelte:fragment>
   <div slot="description"> -->
-    <Card class="sticky top-2 z-50 flex justify-between gap-3 p-3 md:p-3">
+<Card class="sticky top-2 z-50 flex justify-between gap-3 p-3 md:p-3">
   <hr class="mb-3 mt-5" />
   <Form
     class={cn(showValidation && 'show-validation')}
@@ -204,5 +226,5 @@
     </div>
   </Form>
 </Card>
-  <!-- </div>
+<!-- </div>
 </Dialog> -->

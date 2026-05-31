@@ -31,7 +31,7 @@
   import { cloneDeep, isEqual } from 'lodash-es'
   import Link from '../Link.svelte'
   import Button from '../Button.svelte'
-    import { registrationsCollection } from '$lib/data/constants'
+  import { registrationsCollection } from '$lib/data/constants'
 
   export let childUid: string = ''
 
@@ -187,7 +187,7 @@
           },
         )
       }
-   })
+    })
   }
 
   onMount(() => initializeForm())
@@ -270,10 +270,7 @@
         values.meta.submitted = true
         setDoc(doc(db, registrationsCollection, childUid), modifiedValues())
           .then(() => {
-            alert.trigger(
-              'success',
-              'Your student account has been created!',
-            )
+            alert.trigger('success', 'Your student account has been created!')
             getDoc(doc(db, registrationsCollection, childUid)).then(
               (applicationDoc) => {
                 fetch('/api/registration', {
@@ -330,28 +327,7 @@
   class={clsx('max-w-2xl', showValidation && 'show-validation')}
   on:submit={handleSubmit}
 >
-  {#if new Date() < new Date (semesterDates.registrationsOpen)}
-  <Card class="mb-6 bg-red-50 border-red-200">
-      <div class="flex items-start gap-3">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke-width="1.5"
-          stroke="currentColor"
-          class="h-6 w-6 text-red-600 shrink-0 mt-0.5"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
-          />
-        </svg>
-      You may register for the upcoming semester starting on <b>{new Date(semesterDates.registrationsOpen).toDateString()}</b>.
-    </div>
-  </Card>
-  {:else}
-  {#if new Date() >= new Date(semesterDates.registrationsDue + 604800000) && !values.meta.submitted}
+  {#if new Date() < new Date(semesterDates.registrationsOpen)}
     <Card class="mb-6 bg-red-50 border-red-200">
       <div class="flex items-start gap-3">
         <svg
@@ -368,215 +344,256 @@
             d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
           />
         </svg>
-        <div>
-          <h3 class="font-semibold text-red-800">Registration Deadline Passed</h3>
-          <p class="text-red-700 text-sm mt-1">
-            The student registration deadline has passed. Registrations were due <span class="font-semibold">
-              {new Date(semesterDates.registrationsDue).toDateString()}
-            </span> at 11:59 PM ET. Unfortunately, you cannot register students for this semester.
-          </p>
-        </div>
+        You may register for the upcoming semester starting on
+        <b>{new Date(semesterDates.registrationsOpen).toDateString()}</b>.
       </div>
     </Card>
-  {/if}
-{#if values.meta.submitted}
-<div
-  class="rounded-md bg-green-100 px-4 py-2 text-green-900 shadow-sm w-full border border-green-200"
->
-  An account has been created for {values.personal.studentFirstName}! You will be able to enroll this child in classes once enrollment opens. Please make sure that you have successfully created an account for each child you wish to enroll this semester. 
-  <br/> <br/> Parent orientation will be on {new Date(semesterDates.parentOrientation).toDateString()}, so keep an eye out for an email with details!
-  <br/> <br/> If you have any questions, or want to update something about a student account, reach out to contact@gbstem.org!
-</div>
-{:else}
-  <fieldset class="space-y-14" {disabled}>
-    {#if values.personal.studentFirstName !== ''}
-      <div
-        class="rounded-md bg-red-100 px-4 py-2 text-center text-green-900 shadow-sm w-full"
-      >
-        You have a student account creation in progress for {values.personal.studentFirstName}. Remember to complete this form and submit it by the deadline of {new Date(semesterDates.registrationsDue).toDateString()}! If you have any questions or problems with the form, please reach out to us at contact@gbstem.org!
-      </div>
-    {/if}
-    <div class="grid gap-1">
-      <span class="mt-3 font-bold">Student Account Creation Form</span>
-      <p class="mb-2">
-        Please fill out this form with some basic information to create a student account for the semester. 
-        Once you have created an account for a student, you can sign that student up for classes when enrollment opens in a few weeks.
-        Please ensure to create a different account for each student you intend to sign up.        
-        You will receive an email notification when class enrollment opens. 
-        Slots are on a first-come, first-served basis.
-      </p>
-      <span class="font-bold">Personal</span>
-      <Card class="my-2 grid gap-3">
-        <div class="rounded-md bg-gray-100 px-3 py-2 shadow-sm">
-          {`Parent Name: ${values.personal.parentFirstName} ${values.personal.parentLastName}`}
-        </div>
-        <div class="rounded-md bg-gray-100 px-3 py-2 shadow-sm">
-          {`Email: ${values.personal.email}`}
-        </div>
-        <div class="text-sm">
-          Wrong name or email? Go to your <a class="link" href="/profile"
-            >profile</a
-          > to update your information.
+  {:else}
+    {#if new Date() >= new Date(semesterDates.registrationsDue + 604800000) && !values.meta.submitted}
+      <Card class="mb-6 bg-red-50 border-red-200">
+        <div class="flex items-start gap-3">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="1.5"
+            stroke="currentColor"
+            class="h-6 w-6 text-red-600 shrink-0 mt-0.5"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
+            />
+          </svg>
+          <div>
+            <h3 class="font-semibold text-red-800">
+              Registration Deadline Passed
+            </h3>
+            <p class="text-red-700 text-sm mt-1">
+              The student registration deadline has passed. Registrations were
+              due <span class="font-semibold">
+                {new Date(semesterDates.registrationsDue).toDateString()}
+              </span> at 11:59 PM ET. Unfortunately, you cannot register students
+              for this semester.
+            </p>
+          </div>
         </div>
       </Card>
-
-      <Input
-        type="text"
-        bind:value={values.personal.studentFirstName}
-        label="Student first name"
-        floating
-        required
-      />
-
-      <Input
-        type="text"
-        bind:value={values.personal.studentLastName}
-        label="Student last name"
-        floating
-        required
-      />
-
-      <Input
-        type="email"
-        bind:value={values.personal.secondaryEmail}
-        label="Secondary email"
-        floating
-      />
-      <Input
-        type="tel"
-        bind:value={values.personal.phoneNumber}
-        label="Phone number"
-        floating
-        required
-      />
-      <Input
-        type="date"
-        bind:value={values.personal.dateOfBirth}
-        label="Student Date of birth"
-        floating
-        required
-      />
-      <Select
-        bind:value={values.personal.gender}
-        label="Student gender"
-        options={gendersJson}
-        floating
-        required
-      />
-      <div class="grid gap-1 mt-5">
-        <span>Race / ethnicity (check all that apply)</span>
-        <div class="grid grid-cols-2">
-          {#each raceJson as race}
-            <Input
-              type="checkbox"
-              bind:value={values.personal.race}
-              label={race.name}
-            />
-          {/each}
-        </div>
+    {/if}
+    {#if values.meta.submitted}
+      <div
+        class="rounded-md bg-green-100 px-4 py-2 text-green-900 shadow-sm w-full border border-green-200"
+      >
+        An account has been created for {values.personal.studentFirstName}! You
+        will be able to enroll this child in classes once enrollment opens.
+        Please make sure that you have successfully created an account for each
+        child you wish to enroll this semester.
+        <br /> <br /> Parent orientation will be on {new Date(
+          semesterDates.parentOrientation,
+        ).toDateString()}, so keep an eye out for an email with details!
+        <br /> <br /> If you have any questions, or want to update something about
+        a student account, reach out to contact@gbstem.org!
       </div>
+    {:else}
+      <fieldset class="space-y-14" {disabled}>
+        {#if values.personal.studentFirstName !== ''}
+          <div
+            class="rounded-md bg-red-100 px-4 py-2 text-center text-green-900 shadow-sm w-full"
+          >
+            You have a student account creation in progress for {values.personal
+              .studentFirstName}. Remember to complete this form and submit it
+            by the deadline of {new Date(
+              semesterDates.registrationsDue,
+            ).toDateString()}! If you have any questions or problems with the
+            form, please reach out to us at contact@gbstem.org!
+          </div>
+        {/if}
+        <div class="grid gap-1">
+          <span class="mt-3 font-bold">Student Account Creation Form</span>
+          <p class="mb-2">
+            Please fill out this form with some basic information to create a
+            student account for the semester. Once you have created an account
+            for a student, you can sign that student up for classes when
+            enrollment opens in a few weeks. Please ensure to create a different
+            account for each student you intend to sign up. You will receive an
+            email notification when class enrollment opens. Slots are on a
+            first-come, first-served basis.
+          </p>
+          <span class="font-bold">Personal</span>
+          <Card class="my-2 grid gap-3">
+            <div class="rounded-md bg-gray-100 px-3 py-2 shadow-sm">
+              {`Parent Name: ${values.personal.parentFirstName} ${values.personal.parentLastName}`}
+            </div>
+            <div class="rounded-md bg-gray-100 px-3 py-2 shadow-sm">
+              {`Email: ${values.personal.email}`}
+            </div>
+            <div class="text-sm">
+              Wrong name or email? Go to your <a class="link" href="/profile"
+                >profile</a
+              > to update your information.
+            </div>
+          </Card>
 
-      <Select
-        bind:value={values.personal.frlp}
-        label="Eligible for federal free or reduced lunch program?"
-        options={frlpJson}
-        floating
-        required
-      />
-      <Select
-        bind:value={values.personal.parentEducation}
-        label="Parent's highest level of education"
-        options={parentEducationJson}
-        floating
-        required
-      />
-    </div>
-    <div class="grid gap-1">
-      <span class="font-bold">Academic</span>
-      <div class="grid gap-1 sm:grid-cols-3 sm:gap-3">
-        <div class="sm:col-span-2">
           <Input
             type="text"
-            bind:value={values.academic.school}
-            label="Student's current school"
+            bind:value={values.personal.studentFirstName}
+            label="Student first name"
+            floating
+            required
+          />
+
+          <Input
+            type="text"
+            bind:value={values.personal.studentLastName}
+            label="Student last name"
+            floating
+            required
+          />
+
+          <Input
+            type="email"
+            bind:value={values.personal.secondaryEmail}
+            label="Secondary email"
+            floating
+          />
+          <Input
+            type="tel"
+            bind:value={values.personal.phoneNumber}
+            label="Phone number"
+            floating
+            required
+          />
+          <Input
+            type="date"
+            bind:value={values.personal.dateOfBirth}
+            label="Student Date of birth"
+            floating
+            required
+          />
+          <Select
+            bind:value={values.personal.gender}
+            label="Student gender"
+            options={gendersJson}
+            floating
+            required
+          />
+          <div class="grid gap-1 mt-5">
+            <span>Race / ethnicity (check all that apply)</span>
+            <div class="grid grid-cols-2">
+              {#each raceJson as race}
+                <Input
+                  type="checkbox"
+                  bind:value={values.personal.race}
+                  label={race.name}
+                />
+              {/each}
+            </div>
+          </div>
+
+          <Select
+            bind:value={values.personal.frlp}
+            label="Eligible for federal free or reduced lunch program?"
+            options={frlpJson}
+            floating
+            required
+          />
+          <Select
+            bind:value={values.personal.parentEducation}
+            label="Parent's highest level of education"
+            options={parentEducationJson}
             floating
             required
           />
         </div>
-        <Select
-          bind:value={values.academic.grade}
-          label="Student Grade"
-          options={gradesJson}
-          floating
-          required
-        />
-      </div>
-    </div>
-    <div class="grid gap-1">
-      <span class="font-bold">Agreements</span>
-      <div class="grid">
-        <Input
-          type="checkbox"
-          bind:value={values.agreements.mediaRelease}
-          label="If your child is participating in an in-person program, do you give consent to your child's picture being used in gbSTEM publications, including website, newsletter, and social media posts? Names and personal information will not be shared."
-          required
-        />
-        <Input
-          type="checkbox"
-          bind:value={values.agreements.entireProgram}
-          label={`gbSTEM will run from ${new Date(semesterDates.classesStart).toDateString()} to ${new Date(semesterDates.classesEnd).toDateString()}. Will the student be able to participate throughout the entirety of the program?`}
-          required
-        />
-        <Input
-          type="checkbox"
-          bind:value={values.agreements.timeCommitment}
-          label="Do you hereby confirm that the student can meet the gbSTEM weekly time commitment? Please understand that an unused spot for your child prevents others from joining or getting their preferred time slots. Students should not miss classes unless for medical reasons or family emergencies."
-          required
-        />
-        <Input
-          type="checkbox"
-          bind:value={values.agreements.submitting}
-          label="I understand submitting means I can no longer make changes to my registration. Don't check this box until you are sure that you are ready to submit."
-          required
-        />
-      </div>
-      <span class="mt-4"
-        >If you have any questions or concerns, please email
-        <a href="mailto:contact@gbstem.org" class="link" target="_blank">
-          contact@gbstem.org
-        </a>.
-      </span>
-    </div>
-    <div class={clsx('grid gap-3', !values.meta.submitted && 'grid-cols-2')}>
-      {#if values.meta.submitted}
-        <div
-          class="rounded-md bg-green-100 px-4 py-2 text-center text-green-900 shadow-sm"
-        >
-          Registration submitted!
+        <div class="grid gap-1">
+          <span class="font-bold">Academic</span>
+          <div class="grid gap-1 sm:grid-cols-3 sm:gap-3">
+            <div class="sm:col-span-2">
+              <Input
+                type="text"
+                bind:value={values.academic.school}
+                label="Student's current school"
+                floating
+                required
+              />
+            </div>
+            <Select
+              bind:value={values.academic.grade}
+              label="Student Grade"
+              options={gradesJson}
+              floating
+              required
+            />
+          </div>
         </div>
-      {:else}
-        <button
-          type="button"
-          on:click={() => handleSave(true)}
-          class="rounded-md bg-gray-100 px-4 py-2 text-gray-900 shadow-sm transition-colors duration-300 hover:bg-gray-200 disabled:bg-gray-200 disabled:text-gray-500"
-          >Save draft</button
+        <div class="grid gap-1">
+          <span class="font-bold">Agreements</span>
+          <div class="grid">
+            <Input
+              type="checkbox"
+              bind:value={values.agreements.mediaRelease}
+              label="If your child is participating in an in-person program, do you give consent to your child's picture being used in gbSTEM publications, including website, newsletter, and social media posts? Names and personal information will not be shared."
+              required
+            />
+            <Input
+              type="checkbox"
+              bind:value={values.agreements.entireProgram}
+              label={`gbSTEM will run from ${new Date(semesterDates.classesStart).toDateString()} to ${new Date(semesterDates.classesEnd).toDateString()}. Will the student be able to participate throughout the entirety of the program?`}
+              required
+            />
+            <Input
+              type="checkbox"
+              bind:value={values.agreements.timeCommitment}
+              label="Do you hereby confirm that the student can meet the gbSTEM weekly time commitment? Please understand that an unused spot for your child prevents others from joining or getting their preferred time slots. Students should not miss classes unless for medical reasons or family emergencies."
+              required
+            />
+            <Input
+              type="checkbox"
+              bind:value={values.agreements.submitting}
+              label="I understand submitting means I can no longer make changes to my registration. Don't check this box until you are sure that you are ready to submit."
+              required
+            />
+          </div>
+          <span class="mt-4"
+            >If you have any questions or concerns, please email
+            <a href="mailto:contact@gbstem.org" class="link" target="_blank">
+              contact@gbstem.org
+            </a>.
+          </span>
+        </div>
+        <div
+          class={clsx('grid gap-3', !values.meta.submitted && 'grid-cols-2')}
         >
-        <button
-          type="submit"
-          class="rounded-md bg-blue-100 px-4 py-2 text-blue-900 shadow-sm transition-colors duration-300 hover:bg-blue-200 disabled:bg-blue-200 disabled:text-blue-500"
-          >Submit</button
-        >
+          {#if values.meta.submitted}
+            <div
+              class="rounded-md bg-green-100 px-4 py-2 text-center text-green-900 shadow-sm"
+            >
+              Registration submitted!
+            </div>
+          {:else}
+            <button
+              type="button"
+              on:click={() => handleSave(true)}
+              class="rounded-md bg-gray-100 px-4 py-2 text-gray-900 shadow-sm transition-colors duration-300 hover:bg-gray-200 disabled:bg-gray-200 disabled:text-gray-500"
+              >Save draft</button
+            >
+            <button
+              type="submit"
+              class="rounded-md bg-blue-100 px-4 py-2 text-blue-900 shadow-sm transition-colors duration-300 hover:bg-blue-200 disabled:bg-blue-200 disabled:text-blue-500"
+              >Submit</button
+            >
 
-        <!-- <Button
+            <!-- <Button
           type="button"
           color={'red'}
           on:click={() => {
             handleDelete()
           }}>Delete draft</Button
         > -->
-      {/if}
-    </div>
-  </fieldset>
-{/if}
-{/if}
+          {/if}
+        </div>
+      </fieldset>
+    {/if}
+  {/if}
 </Form>

@@ -22,8 +22,12 @@
   import coursesJson from '$lib/data/courses.json'
   import Alert from '$lib/components/Alert.svelte'
   import { formatDate, formatTime24to12 } from '$lib/utils'
-    import { classesCollection, registrationsCollection, semesterDatesDocument } from '$lib/data/constants'
-    import Link from '$lib/components/Link.svelte'
+  import {
+    classesCollection,
+    registrationsCollection,
+    semesterDatesDocument,
+  } from '$lib/data/constants'
+  import Link from '$lib/components/Link.svelte'
 
   type ClassInfo = {
     id: string
@@ -51,7 +55,7 @@
   let classFilter = ''
   let onlyShowEnrolled = false
 
-    let semesterDates: Data.SemesterDates = {
+  let semesterDates: Data.SemesterDates = {
     classesEnd: '',
     classesStart: '',
     leadershipAppsDue: '',
@@ -73,7 +77,7 @@
   const studentUidToGrade: Record<string, string> = {}
 
   const uidToName: Record<string, string> = {}
-  
+
   // Preload student data for the StudentSelect component
   let preloadedStudents: { uid: string; name: string }[] = []
 
@@ -89,7 +93,7 @@
     'Engineering I': 2,
     'Engineering II': 4,
     'Engineering III': 5,
-    'Lego Robotics Competition' : 5,
+    'Lego Robotics Competition': 5,
   }
 
   let isStudent = true
@@ -110,11 +114,11 @@
           }`.trim() || `Child ${i}`
         uidToName[studentUid] = name
         studentUidToGrade[studentUid] = docRef.data()?.academic.grade ?? ''
-        
+
         // Add to preloaded students for StudentSelect component
         preloadedStudents.push({
           uid: studentUid,
-          name: name
+          name: name,
         })
       }
     }
@@ -171,10 +175,10 @@
 
   onMount(() => {
     getDoc(doc(db, 'semesterDates', semesterDatesDocument)).then((datesDoc) => {
-        const datesDocExists = datesDoc.exists()
-        if (datesDocExists) {
-          semesterDates = datesDoc.data() as Data.SemesterDates
-        }
+      const datesDocExists = datesDoc.exists()
+      if (datesDocExists) {
+        semesterDates = datesDoc.data() as Data.SemesterDates
+      }
     })
     getData()
   })
@@ -353,7 +357,10 @@
 
   <div slot="description" class="space-y-6 p-6">
     <!-- Hidden focusable element to prevent auto-focus on StudentSelect -->
-    <div tabindex="0" style="position: absolute; left: -9999px; width: 1px; height: 1px;"></div>
+    <div
+      tabindex="0"
+      style="position: absolute; left: -9999px; width: 1px; height: 1px;"
+    ></div>
     {#if dialogClassDetails !== null}
       <!-- Status Badge -->
       <div class="flex justify-end">
@@ -365,12 +372,20 @@
         >
           {#if dialogClassDetails.spotsRemaining <= 0}
             <svg class="mr-2 h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+              <path
+                fill-rule="evenodd"
+                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                clip-rule="evenodd"
+              />
             </svg>
             Class Full
           {:else}
             <svg class="mr-2 h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+              <path
+                fill-rule="evenodd"
+                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                clip-rule="evenodd"
+              />
             </svg>
             {dialogClassDetails.spotsRemaining} spots available
           {/if}
@@ -394,11 +409,26 @@
         <!-- Class Type & Instructor -->
         <div class="space-y-3">
           <div class="flex items-center p-3 bg-gray-50 rounded-lg">
-            <svg class="mr-3 h-5 w-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg
+              class="mr-3 h-5 w-5 text-gray-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
               {#if dialogClassDetails.online}
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                />
               {:else}
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                />
               {/if}
             </svg>
             <div>
@@ -406,14 +436,26 @@
                 {dialogClassDetails.online ? 'Online Class' : 'In-Person Class'}
               </div>
               <div class="text-sm text-gray-600">
-                {dialogClassDetails.online ? 'Virtual classroom' : 'Cambridge Public Library Main Branch'}
+                {dialogClassDetails.online
+                  ? 'Virtual classroom'
+                  : 'Cambridge Public Library Main Branch'}
               </div>
             </div>
           </div>
 
           <div class="flex items-center p-3 bg-gray-50 rounded-lg">
-            <svg class="mr-3 h-5 w-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            <svg
+              class="mr-3 h-5 w-5 text-gray-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+              />
             </svg>
             <div>
               <div class="font-semibold text-gray-900">Instructor</div>
@@ -426,17 +468,39 @@
 
         <!-- Class Times -->
         <div class="p-4 bg-blue-50 rounded-lg border border-blue-200">
-          <h4 class="text-lg font-semibold text-blue-900 mb-3 flex items-center">
-            <svg class="mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <h4
+            class="text-lg font-semibold text-blue-900 mb-3 flex items-center"
+          >
+            <svg
+              class="mr-2 h-5 w-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
             </svg>
-            Class Schedule ({dialogClassDetails.online ? '1-hour classes' : '2-hour class'})
+            Class Schedule ({dialogClassDetails.online
+              ? '1-hour classes'
+              : '2-hour class'})
           </h4>
           <div class="space-y-2">
             {#each formatClassTimes(dialogClassDetails.classDays, dialogClassDetails.classTimes) as classTime}
               <div class="flex items-center text-blue-800">
-                <svg class="mr-3 h-4 w-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13a1 1 0 102 0V9.414l2.293 2.293a1 1 0 001.414-1.414z" clip-rule="evenodd" />
+                <svg
+                  class="mr-3 h-4 w-4 text-blue-600"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fill-rule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13a1 1 0 102 0V9.414l2.293 2.293a1 1 0 001.414-1.414z"
+                    clip-rule="evenodd"
+                  />
                 </svg>
                 <span class="font-medium">{classTime}</span>
               </div>
@@ -447,9 +511,21 @@
         <!-- Enrollment Section -->
         {#if isStudent}
           <div class="p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <h4 class="text-lg font-semibold text-gray-900 mb-3 flex items-center">
-              <svg class="mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            <h4
+              class="text-lg font-semibold text-gray-900 mb-3 flex items-center"
+            >
+              <svg
+                class="mr-2 h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                />
               </svg>
               Enrollment
             </h4>
@@ -468,11 +544,26 @@
                   }
                 }}
               >
-                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg
+                  class="h-5 w-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
                   {#if isEnrolled(dialogClassDetails.id, selectedStudentUid)}
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                    />
                   {:else}
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                    />
                   {/if}
                 </svg>
                 {isEnrolled(dialogClassDetails.id, selectedStudentUid)
@@ -496,22 +587,31 @@
     <Loading />
   {:else if new Date() < new Date(semesterDates.registrationsDue)}
     <div class="p-4 bg-red-50 rounded-lg text-2xl text-red-700">
-      <p>{`Class enrollment is not open yet. Class times will be posted and class enrollment will open on ${semesterDates.registrationsDue}.`}
+      <p>
+        {`Class enrollment is not open yet. Class times will be posted and class enrollment will open on ${semesterDates.registrationsDue}.`}
       </p>
-      <p>Before then, ensure you have filled out the form for each student you wish to enroll this semester, <Link href="/apply">here</Link>. This is a mandatory step; without it, you will not be able to enroll your student when classes are posted. You will be notified by email when enrollment opens.</p>
+      <p>
+        Before then, ensure you have filled out the form for each student you
+        wish to enroll this semester, <Link href="/apply">here</Link>. This is a
+        mandatory step; without it, you will not be able to enroll your student
+        when classes are posted. You will be notified by email when enrollment
+        opens.
+      </p>
     </div>
   {:else}
     <div class="mb-5 flex items-center justify-between">
       <div class="flex gap-2 items-center">
-      <Select
-        bind:value={classFilter}
-        placeholder="Filter by course"
-        options={coursesJson}
-      />
-      {#if classFilter !== ''}
-       <Button color="blue" on:click={() => clearFilter()}>Remove Filter</Button>
-      {/if}
-    </div>
+        <Select
+          bind:value={classFilter}
+          placeholder="Filter by course"
+          options={coursesJson}
+        />
+        {#if classFilter !== ''}
+          <Button color="blue" on:click={() => clearFilter()}
+            >Remove Filter</Button
+          >
+        {/if}
+      </div>
       {#if isStudent}
         <Button
           color={onlyShowEnrolled ? 'blue' : 'gray'}
@@ -538,13 +638,29 @@
                     : 'bg-green-500'}"
                 >
                   {#if classInfo.spotsRemaining <= 0}
-                    <svg class="mr-1 h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-                      <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                    <svg
+                      class="mr-1 h-3 w-3"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fill-rule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                        clip-rule="evenodd"
+                      />
                     </svg>
                     Class Full
                   {:else}
-                    <svg class="mr-1 h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-                      <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                    <svg
+                      class="mr-1 h-3 w-3"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fill-rule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                        clip-rule="evenodd"
+                      />
                     </svg>
                     {classInfo.spotsRemaining} spots
                   {/if}
@@ -553,7 +669,9 @@
 
               <!-- Course Header -->
               <div class="mb-4">
-                <h2 class="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
+                <h2
+                  class="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors"
+                >
                   {classInfo.course}
                   {#if classInfo.gradeRecommendation}
                     <span class="text-sm font-medium text-gray-500 ml-2">
@@ -566,18 +684,45 @@
               <!-- Class Type & Instructor -->
               <div class="mb-4 space-y-2">
                 <div class="flex items-center text-sm text-gray-600">
-                  <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg
+                    class="mr-2 h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
                     {#if classInfo.online}
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                      />
                     {:else}
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                      />
                     {/if}
                   </svg>
-                  {classInfo.online ? 'Online Class' : 'In-Person (Cambridge Public Library)'}
+                  {classInfo.online
+                    ? 'Online Class'
+                    : 'In-Person (Cambridge Public Library)'}
                 </div>
                 <div class="flex items-center text-sm text-gray-600">
-                  <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  <svg
+                    class="mr-2 h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                    />
                   </svg>
                   {`${classInfo.instructorFirstName} ${classInfo.instructorLastName}`}
                 </div>
@@ -585,17 +730,39 @@
 
               <!-- Class Times -->
               <div class="mb-4">
-                <h4 class="text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                  <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <h4
+                  class="text-sm font-semibold text-gray-700 mb-2 flex items-center"
+                >
+                  <svg
+                    class="mr-2 h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
                   </svg>
-                  Class Times ({classInfo.online ? '1-hour classes' : '2-hour class'})
+                  Class Times ({classInfo.online
+                    ? '1-hour classes'
+                    : '2-hour class'})
                 </h4>
                 <div class="space-y-1">
                   {#each formatClassTimes(classInfo.classDays, classInfo.classTimes) as classTime}
                     <div class="flex items-center text-sm text-gray-600">
-                      <svg class="mr-2 h-3 w-3 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13a1 1 0 102 0V9.414l2.293 2.293a1 1 0 001.414-1.414z" clip-rule="evenodd" />
+                      <svg
+                        class="mr-2 h-3 w-3 text-gray-400"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fill-rule="evenodd"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13a1 1 0 102 0V9.414l2.293 2.293a1 1 0 001.414-1.414z"
+                          clip-rule="evenodd"
+                        />
                       </svg>
                       {classTime}
                     </div>
@@ -605,10 +772,24 @@
 
               <!-- Enrolled Students Section -->
               {#if Object.entries(studentUidToClassIds).some( ([studentUid, classIds]) => classIds.includes(classInfo.id), )}
-                <div class="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                  <h4 class="text-sm font-semibold text-blue-800 mb-2 flex items-center">
-                    <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+                <div
+                  class="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200"
+                >
+                  <h4
+                    class="text-sm font-semibold text-blue-800 mb-2 flex items-center"
+                  >
+                    <svg
+                      class="mr-2 h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"
+                      />
                     </svg>
                     Your Enrolled Students
                   </h4>
@@ -616,20 +797,36 @@
                     {#each Object.entries(studentUidToClassIds) as [studentUid, classIds]}
                       {#if classIds.includes(classInfo.id)}
                         <div class="flex items-center text-sm text-blue-700">
-                          <svg class="mr-2 h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          <svg
+                            class="mr-2 h-3 w-3"
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                          >
+                            <path
+                              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
                           </svg>
                           {uidToName[studentUid]}
                         </div>
                       {/if}
                     {/each}
                   </div>
-                  
+
                   <!-- Meeting Link -->
                   <div class="mt-3 pt-3 border-t border-blue-200">
                     <div class="flex items-center text-sm text-blue-700">
-                      <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9v-9m0-9v9" />
+                      <svg
+                        class="mr-2 h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9v-9m0-9v9"
+                        />
                       </svg>
                       <a
                         href={classInfo.meetingLink}
@@ -640,11 +837,21 @@
                         Join Meeting
                       </a>
                     </div>
-                    
+
                     <!-- Instructor Email -->
                     <div class="flex items-center text-sm text-blue-700 mt-1">
-                      <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      <svg
+                        class="mr-2 h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                        />
                       </svg>
                       <a
                         href={`mailto:${classInfo.instructorEmail}`}
@@ -668,8 +875,18 @@
                       dialogEl.open()
                     }}
                   >
-                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    <svg
+                      class="h-5 w-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                      />
                     </svg>
                     Add/Drop Class
                   </Button>

@@ -1,9 +1,5 @@
-import type {
-  Timestamp as ServerTimestamp,
-} from 'firebase-admin/firestore'
-import type {
-  Timestamp as ClientTimestamp,
-} from 'firebase/firestore'
+import type { Timestamp as ServerTimestamp } from 'firebase-admin/firestore'
+import type { Timestamp as ClientTimestamp } from 'firebase/firestore'
 import type { User as ClientUser } from 'firebase/auth'
 import { SubRequestStatus } from '$lib/components/helpers/SubRequestStatus'
 
@@ -14,10 +10,10 @@ declare global {
     type Token<T extends 'client' | 'server' | 'pojo'> = {
       role: Role
       expires: T extends 'client'
-      ? ClientTimestamp
-      : T extends 'server'
-      ? ServerTimestamp
-      : Date
+        ? ClientTimestamp
+        : T extends 'server'
+          ? ServerTimestamp
+          : Date
       consumable: boolean
       consumers: Array<string>
     }
@@ -49,43 +45,42 @@ declare global {
     type Decision = 'accepted' | 'waitlisted' | 'rejected' | 'substitute'
 
     type EmailData = {
-      subject: string,
-      from: string,
-      to: string,
-      cc: string,
-      replyTo: string,
-      text: string,
-      html: string,
+      subject: string
+      from: string
+      to: string
+      cc: string
+      replyTo: string
+      text: string
+      html: string
     }
 
     type SemesterDates = {
-      classesEnd: string,
-      classesStart: string,
-      leadershipAppsDue: string,
-      newInstructorAppsDue: string,
-      returningInstructorAppsDue: string,
-      instructorOrientation: string,
-      newInstructorAppsOpen: string,
-      returningInstructorAppsOpen: string,
-      studentOrientation: string,
-      registrationsOpen: string,
-      registrationsDue: string,
-      parentOrientation: string,
+      classesEnd: string
+      classesStart: string
+      leadershipAppsDue: string
+      newInstructorAppsDue: string
+      returningInstructorAppsDue: string
+      instructorOrientation: string
+      newInstructorAppsOpen: string
+      returningInstructorAppsOpen: string
+      studentOrientation: string
+      registrationsOpen: string
+      registrationsDue: string
+      parentOrientation: string
     }
 
     type InterviewSlot = {
-      date: string,
-      id: string,
-      interviewerName: string,
-      intervieweeFirstName: string,
-      intervieweeLastName: string,
-      intervieweeEmail: string,
-      intervieweeId: string,
-      interviewerEmail: string,
-      interviewSlotStatus: string,
-      meetingLink: string,
+      date: string
+      id: string
+      interviewerName: string
+      intervieweeFirstName: string
+      intervieweeLastName: string
+      intervieweeEmail: string
+      intervieweeId: string
+      interviewerEmail: string
+      interviewSlotStatus: string
+      meetingLink: string
     }
-
 
     type Application = {
       personal: {
@@ -201,11 +196,11 @@ declare global {
 
     type ClassDetails = {
       id: string
-      classStatuses: string[],
+      classStatuses: string[]
       meetingTimes: Date[]
-      completedClassDates: Date[],
-      feedbackCompleted: boolean[],
-      otherInstructorEmails: string,
+      completedClassDates: Date[]
+      feedbackCompleted: boolean[]
+      otherInstructorEmails: string
       course: string
       instructorFirstName: string
       instructorLastName: string
@@ -226,16 +221,16 @@ declare global {
       subRequestStatus: SubRequestStatus
       link: string
       notes: string
-    } 
+    }
 
     type Announcement<T extends 'client' | 'server' | 'pojo'> = {
       title: string
       content: string
       timestamp: T extends 'client'
-      ? ClientTimestamp
-      : T extends 'server'
-      ? ServerTimestamp
-      : Date
+        ? ClientTimestamp
+        : T extends 'server'
+          ? ServerTimestamp
+          : Date
     }
   }
 }

@@ -17,10 +17,10 @@
   import { onMount } from 'svelte'
   import Loading from '../Loading.svelte'
   import Input from '$lib/components/Input.svelte'
-    import { formatDateLocal, timestampToDate } from '$lib/utils'
-    import { applicationsCollection } from '$lib/data/constants'
-    import { interviewCollection } from '$lib/data/constants'
-    import { last } from 'lodash-es'
+  import { formatDateLocal, timestampToDate } from '$lib/utils'
+  import { applicationsCollection } from '$lib/data/constants'
+  import { interviewCollection } from '$lib/data/constants'
+  import { last } from 'lodash-es'
 
   export let semesterDates: Data.SemesterDates
 
@@ -35,23 +35,28 @@
   let dateToAdd = '9/20/24'
 
   async function sendSlotRequest() {
-      if (
-        new Date(dateToAdd) > new Date(semesterDates.instructorOrientation))
-     {
-        alert.trigger(
-          'error',
-          'Instructor interviews close on ' +
-            semesterDates.instructorOrientation +
-            '. Please pick a time before then.',
-        )
-        return
-      }
-    await setDoc(doc(db, 'interviewTimeRequests', currentUser.object.uid+'-'+dateToAdd), {
-      firstName: currentUser.profile.firstName,
-      lastName: currentUser.profile.lastName,
-      email: currentUser.object.email,
-      date: new Date(dateToAdd),
-    })
+    if (new Date(dateToAdd) > new Date(semesterDates.instructorOrientation)) {
+      alert.trigger(
+        'error',
+        'Instructor interviews close on ' +
+          semesterDates.instructorOrientation +
+          '. Please pick a time before then.',
+      )
+      return
+    }
+    await setDoc(
+      doc(
+        db,
+        'interviewTimeRequests',
+        currentUser.object.uid + '-' + dateToAdd,
+      ),
+      {
+        firstName: currentUser.profile.firstName,
+        lastName: currentUser.profile.lastName,
+        email: currentUser.object.email,
+        date: new Date(dateToAdd),
+      },
+    )
     await fetch('/api/slotRequest', {
       method: 'POST',
       headers: {
@@ -138,7 +143,7 @@
     return user.subscribe(async (user) => {
       if (user) {
         currentUser = user
-        data = await getData() 
+        data = await getData()
         // const semesterDatesDoc = await getDoc(doc(db, 'data', 'semesterDates')).then((semesterData) => {
         //   const data = semesterData.data()
         //   if(data) dueDate = data.instructorOrientation
@@ -153,7 +158,11 @@
     const querySnapshot = await getDocs(q)
     querySnapshot.forEach((doc) => {
       const interviewInfo = doc.data()
-      if (interviewInfo['intervieweeId'] === currentUser.object.uid && timestampToDate(interviewInfo['date']) > new Date(semesterDates.returningInstructorAppsOpen)) {
+      if (
+        interviewInfo['intervieweeId'] === currentUser.object.uid &&
+        timestampToDate(interviewInfo['date']) >
+          new Date(semesterDates.returningInstructorAppsOpen)
+      ) {
         scheduledInterview = {
           ...interviewInfo,
           id: doc.id,
@@ -169,12 +178,15 @@
         const inFourHours = new Date(new Date().getTime() + 4 * 60 * 60 * 1000)
         if (
           interviewInfo['interviewSlotStatus'] === 'available' &&
-          interviewDate > inFourHours && interviewDate < new Date(semesterDates.instructorOrientation)
+          interviewDate > inFourHours &&
+          interviewDate < new Date(semesterDates.instructorOrientation)
         ) {
           valuesJson.push({
             ...interviewInfo,
             id: doc.id,
-            date: formatDateLocal(new Date(interviewInfo['date'].seconds * 1000)),
+            date: formatDateLocal(
+              new Date(interviewInfo['date'].seconds * 1000),
+            ),
           } as Data.InterviewSlot)
         }
       }
@@ -192,98 +204,96 @@
     <Loading />
   {:else}
     {#await data then value}
-        {#if scheduled === false}
-          <h2 class="font-bold">Available Interview Slots</h2>
+      {#if scheduled === false}
+        <h2 class="font-bold">Available Interview Slots</h2>
 
-          <Form
-            class={clsx('max-w-2xl', showValidation && 'show-validation')}
-            on:submit={handleSubmit}
-          >
-            {#if value.length === 0}
-              <div
-                class="rounded-md bg-red-100 px-4 py-2 text-red-900 shadow-sm"
-              >
-                There are no interview slots available currently. Please request
-                a new time to be added that works for you. You may request
-                multiple times.
-              </div>
-            {:else}
-              <div>
-                Please sign up for one of the following interview slots. If none
-                of them work for you, please request a new time to be added. You
-                may request multiple times.
-              </div>
-            {/if}
-            <div class="mb-4">
-              <div class="grid grid-cols-2 gap-2">
-                {#each value as val}
-                  <label>
-                    <input
-                      type="radio"
-                      bind:group={scheduledInterview}
-                      value={val}
-                    />
-                    {val.date} ({val.interviewerName})
-                  </label>
-                {/each}
-              </div>
+        <Form
+          class={clsx('max-w-2xl', showValidation && 'show-validation')}
+          on:submit={handleSubmit}
+        >
+          {#if value.length === 0}
+            <div class="rounded-md bg-red-100 px-4 py-2 text-red-900 shadow-sm">
+              There are no interview slots available currently. Please request a
+              new time to be added that works for you. You may request multiple
+              times.
             </div>
-            <button
-              type="submit"
-              class="rounded-md bg-blue-100 px-4 py-2 text-blue-900 shadow-sm transition-colors duration-300 hover:bg-blue-200 disabled:bg-blue-200 disabled:text-blue-500"
-              >Submit</button
+          {:else}
+            <div>
+              Please sign up for one of the following interview slots. If none
+              of them work for you, please request a new time to be added. You
+              may request multiple times.
+            </div>
+          {/if}
+          <div class="mb-4">
+            <div class="grid grid-cols-2 gap-2">
+              {#each value as val}
+                <label>
+                  <input
+                    type="radio"
+                    bind:group={scheduledInterview}
+                    value={val}
+                  />
+                  {val.date} ({val.interviewerName})
+                </label>
+              {/each}
+            </div>
+          </div>
+          <button
+            type="submit"
+            class="rounded-md bg-blue-100 px-4 py-2 text-blue-900 shadow-sm transition-colors duration-300 hover:bg-blue-200 disabled:bg-blue-200 disabled:text-blue-500"
+            >Submit</button
+          >
+          {#if showRequestNewTime}
+            <Form
+              class={clsx('max-w-2xl', showValidation && 'show-validation')}
+              on:submit={sendSlotRequest}
             >
-            {#if showRequestNewTime}
-              <Form
-                class={clsx('max-w-2xl', showValidation && 'show-validation')}
-                on:submit={sendSlotRequest}
-              >
-                <Input
-                  type="datetime-local"
-                  bind:value={dateToAdd}
-                  label="Set Date (your local time)"
-                />
+              <Input
+                type="datetime-local"
+                bind:value={dateToAdd}
+                label="Set Date (your local time)"
+              />
 
-                <button
-                  type="submit"
-                  class="mt-2 rounded-md bg-blue-100 px-4 py-2 text-blue-900 shadow-sm transition-colors duration-300 hover:bg-blue-200 disabled:bg-blue-200 disabled:text-blue-500"
-                  >Submit</button
-                >
-              </Form>
-            {:else}
               <button
-                type="button"
-                on:click={() => (showRequestNewTime = true)}
-                class="rounded-md bg-blue-100 px-4 py-2 text-blue-900 shadow-sm transition-colors duration-300 hover:bg-blue-200 disabled:bg-blue-200 disabled:text-blue-500"
-                >Request A Time</button
+                type="submit"
+                class="mt-2 rounded-md bg-blue-100 px-4 py-2 text-blue-900 shadow-sm transition-colors duration-300 hover:bg-blue-200 disabled:bg-blue-200 disabled:text-blue-500"
+                >Submit</button
               >
-            {/if}
-          </Form>
-        {:else if scheduledInterview.interviewSlotStatus === 'pending'}
-          <div
-            class="rounded-md bg-green-100 px-4 py-2 text-center text-green-900 shadow-sm"
-          >
-            <p>
-              Your interview will be on {scheduledInterview.date} with
-              {scheduledInterview.interviewerName}.
-            </p>
-            <p>
-              Your interview meeting link is <Link
-                href={scheduledInterview.meetingLink}
-                target="_blank"
-                rel="noopener">{scheduledInterview.meetingLink}</Link
-              >.
-            </p>
+            </Form>
+          {:else}
+            <button
+              type="button"
+              on:click={() => (showRequestNewTime = true)}
+              class="rounded-md bg-blue-100 px-4 py-2 text-blue-900 shadow-sm transition-colors duration-300 hover:bg-blue-200 disabled:bg-blue-200 disabled:text-blue-500"
+              >Request A Time</button
+            >
+          {/if}
+        </Form>
+      {:else if scheduledInterview.interviewSlotStatus === 'pending'}
+        <div
+          class="rounded-md bg-green-100 px-4 py-2 text-center text-green-900 shadow-sm"
+        >
+          <p>
+            Your interview will be on {scheduledInterview.date} with
+            {scheduledInterview.interviewerName}.
+          </p>
+          <p>
+            Your interview meeting link is <Link
+              href={scheduledInterview.meetingLink}
+              target="_blank"
+              rel="noopener">{scheduledInterview.meetingLink}</Link
+            >.
+          </p>
 
-            <p>Please check your inbox for an email with interview details.</p>
-          </div>
-        {:else}
-          <div
-            class="rounded-md bg-green-100 px-4 py-2 text-center text-green-900 shadow-sm"
-          >
-            Your interview was on {scheduledInterview.date}.
-          </div>
-        {/if}
+          <p>Please check your inbox for an email with interview details.</p>
+        </div>
+      {:else}
+        <div
+          class="rounded-md bg-green-100 px-4 py-2 text-center text-green-900 shadow-sm"
+        >
+          Your interview was on {scheduledInterview.date}.
+        </div>
+      {/if}
     {/await}
   {/if}
 </div>

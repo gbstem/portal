@@ -2,9 +2,7 @@ import { error, json } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 import { adminAuth } from '$lib/server/firebase'
 import type { FirebaseError } from 'firebase-admin'
-import {
-  SENDGRID_API_TOKEN,
-} from '$env/static/private'
+import { SENDGRID_API_TOKEN } from '$env/static/private'
 import { addDataToHtmlTemplate } from '$lib/utils'
 import { actionEmailTemplate } from '$lib/data/emailTemplates/actionEmailTemplate'
 import MailService, { type MailDataRequired } from '@sendgrid/mail'
@@ -24,7 +22,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         description: string
       }
     }
-    const firstName = body.firstName;
+    const firstName = body.firstName
     try {
       switch (body.type) {
         case 'verifyEmail': {
@@ -107,7 +105,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
       // get html template from firebase
 
-      const htmlBody = addDataToHtmlTemplate(actionEmailTemplate, template);
+      const htmlBody = addDataToHtmlTemplate(actionEmailTemplate, template)
 
       const emailData: MailDataRequired = {
         from: 'donotreply@gbstem.org',
@@ -121,13 +119,16 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
       MailService.setApiKey(SENDGRID_API_TOKEN)
       try {
-        await MailService.send(emailData);
-        console.log('Email sent');
+        await MailService.send(emailData)
+        console.log('Email sent')
       } catch (mailError) {
-        console.error('Error sending email:', mailError);
-        return json({ error: 'Failed to send email. Please try again later.' }, { status: 500 });
-    }
-       return json({ message: 'Email sent successfully.' });
+        console.error('Error sending email:', mailError)
+        return json(
+          { error: 'Failed to send email. Please try again later.' },
+          { status: 500 },
+        )
+      }
+      return json({ message: 'Email sent successfully.' })
     } catch (err) {
       if (typeof err === 'string') {
         topError = error(400, err)
@@ -135,14 +136,14 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         const typedErr = err as
           | FirebaseError
           | {
-            errorInfo: FirebaseError
-            codePrefix: string
-          }
+              errorInfo: FirebaseError
+              codePrefix: string
+            }
         if ('errorInfo' in typedErr) {
           topError = error(
             400,
             typedErr.errorInfo.message ||
-            'Please wait a few minutes before trying again.',
+              'Please wait a few minutes before trying again.',
           )
         } else if ('message' in typedErr) {
           topError = error(400, typedErr.message)

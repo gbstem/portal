@@ -1,17 +1,17 @@
 [
-    {
-        "name" : "American Indian"
-    },
-    {
-        "name" : "Asian"
-    },
-    {
-        "name" : "Black"
-    },
-    {
-        "name" : "White"
-    },
-    {
-        "name": "Unknown"
-    }
+  {
+    "name": "American Indian"
+  },
+  {
+    "name": "Asian"
+  },
+  {
+    "name": "Black"
+  },
+  {
+    "name": "White"
+  },
+  {
+    "name": "Unknown"
+  }
 ]

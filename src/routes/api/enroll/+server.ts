@@ -1,9 +1,7 @@
 import { error, json } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 import type { FirebaseError } from 'firebase-admin'
-import {
-  SENDGRID_API_TOKEN,
-} from '$env/static/private'
+import { SENDGRID_API_TOKEN } from '$env/static/private'
 import { addDataToHtmlTemplate, formatTime24to12 } from '$lib/utils'
 import { onlineClassEnrolledEmailTemplate } from '$lib/data/emailTemplates/onlineClassEnrolledEmailTemplate'
 import { inPersonClassEnrolledEmailTemplate } from '$lib/data/emailTemplates/inPersonClassEnrolledEmailTemplate'
@@ -41,13 +39,15 @@ export const POST: RequestHandler = async ({ request, locals }) => {
               instructorEmail: body.instructorEmail,
               online: body.online,
               studentName: body.studentName,
-            }
+            },
           },
         }
 
-        const emailTemplate = body.online ? onlineClassEnrolledEmailTemplate : inPersonClassEnrolledEmailTemplate
+        const emailTemplate = body.online
+          ? onlineClassEnrolledEmailTemplate
+          : inPersonClassEnrolledEmailTemplate
 
-        const htmlBody = addDataToHtmlTemplate(emailTemplate, template);
+        const htmlBody = addDataToHtmlTemplate(emailTemplate, template)
 
         const emailData: MailDataRequired = {
           to: locals.user.email,
@@ -60,14 +60,17 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         }
         MailService.setApiKey(SENDGRID_API_TOKEN)
         try {
-          await MailService.send(emailData);
-          console.log('Email sent');
+          await MailService.send(emailData)
+          console.log('Email sent')
         } catch (mailError) {
-          console.error('Error sending email:', mailError);
-          return json({ error: 'Failed to send email. Please try again later.' }, { status: 500 });
-      }
-         return json({ message: 'Email sent successfully.' });
-        
+          console.error('Error sending email:', mailError)
+          return json(
+            { error: 'Failed to send email. Please try again later.' },
+            { status: 500 },
+          )
+        }
+        return json({ message: 'Email sent successfully.' })
+
         return new Response()
       }
     } catch (err) {
@@ -77,14 +80,14 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         const typedErr = err as
           | FirebaseError
           | {
-            errorInfo: FirebaseError
-            codePrefix: string
-          }
+              errorInfo: FirebaseError
+              codePrefix: string
+            }
         if ('errorInfo' in typedErr) {
           topError = error(
             400,
             typedErr.errorInfo.message ||
-            'Please wait a few minutes before trying again.',
+              'Please wait a few minutes before trying again.',
           )
         } else if ('message' in typedErr) {
           topError = error(400, typedErr.message)
@@ -98,4 +101,3 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   }
   throw topError
 }
-

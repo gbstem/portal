@@ -1,92 +1,56 @@
 import { alert } from '$lib/stores'
-import { normalizeCapitals} from '$lib/utils'
+import { normalizeCapitals } from '$lib/utils'
 import type Student from '../types/Student'
 
-  /**
-   * Send a class reminder email to the student
-   * @param studentName The name of the student to send the email to, use "all" if you want to send it ot all of them
-   * @param studentEmail The email of the student to send the email to
-   * @param instructorName The name of the instructor
-   * @param instructorEmail The email of the instructor
-   * @param otherInstructorEmails The emails of other instructors as a comma-separated string
-   * @param className The name of the class
-   * @param nextMeetingTime The time of the next class
-   */
-  function sendClassReminder(
-    opts: {
-      studentList: Student[],
-      studentName?: string,
-      studentEmail?: string,
-      instructorName: string,
-      instructorEmail: string,
-      otherInstructorEmails: string,
-      className: string,
-      nextMeetingTime: string,
-    }
-  ) {
+/**
+ * Send a class reminder email to the student
+ * @param studentName The name of the student to send the email to, use "all" if you want to send it ot all of them
+ * @param studentEmail The email of the student to send the email to
+ * @param instructorName The name of the instructor
+ * @param instructorEmail The email of the instructor
+ * @param otherInstructorEmails The emails of other instructors as a comma-separated string
+ * @param className The name of the class
+ * @param nextMeetingTime The time of the next class
+ */
+function sendClassReminder(opts: {
+  studentList: Student[]
+  studentName?: string
+  studentEmail?: string
+  instructorName: string
+  instructorEmail: string
+  otherInstructorEmails: string
+  className: string
+  nextMeetingTime: string
+}) {
+  // destructure
+  const {
+    studentList,
+    studentName,
+    studentEmail,
+    instructorName,
+    instructorEmail,
+    otherInstructorEmails,
+    className,
+    nextMeetingTime,
+  } = opts
 
-    // destructure
-    const {
-      studentList,
-      studentName,
-      studentEmail,
-      instructorName,
-      instructorEmail,
-      otherInstructorEmails,
-      className,
-      nextMeetingTime,
-    } = opts;
-
-    /* if student name is not specified, assume it is all */
-    if (!studentEmail || !studentEmail) {
-      const confirmSend = confirm('Send class reminder to all students?')
-      if (confirmSend) {
-        if (nextMeetingTime === 'No Upcoming Classes') {
-          alert.trigger('error', 'No upcoming classes found!')
-          return
-        }
-        studentList.map((student) => {
-          fetch('/api/remindStudents', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              name: normalizeCapitals(student.name),
-              email: student.email,
-              instructorEmail: instructorEmail,
-              otherInstructorEmails: otherInstructorEmails,
-              class: className,
-              classTime: nextMeetingTime,
-              instructorName: normalizeCapitals(instructorName),
-            }),
-          }).then(async (res) => {
-            if (res.ok) {
-              alert.trigger('success', 'Reminder emails were sent!')
-            } else {
-              const { message } = await res.json()
-              alert.trigger('error', message)
-            }
-          })
-        })
+  /* if student name is not specified, assume it is all */
+  if (!studentEmail || !studentEmail) {
+    const confirmSend = confirm('Send class reminder to all students?')
+    if (confirmSend) {
+      if (nextMeetingTime === 'No Upcoming Classes') {
+        alert.trigger('error', 'No upcoming classes found!')
+        return
       }
-    } else {
-      const confirmSend = confirm(
-        'Send class reminder to student ' + studentName + '?',
-      )
-      if (confirmSend) {
-        if (nextMeetingTime === 'No Upcoming Classes') {
-          alert.trigger('error', 'No upcoming classes found!')
-          return
-        }
+      studentList.map((student) => {
         fetch('/api/remindStudents', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            name: studentName,
-            email: studentEmail,
+            name: normalizeCapitals(student.name),
+            email: student.email,
             instructorEmail: instructorEmail,
             otherInstructorEmails: otherInstructorEmails,
             class: className,
@@ -95,18 +59,50 @@ import type Student from '../types/Student'
           }),
         }).then(async (res) => {
           if (res.ok) {
-            alert.trigger(
-              'success',
-              'Reminder email was sent to ' + studentName + '!',
-            )
+            alert.trigger('success', 'Reminder emails were sent!')
           } else {
             const { message } = await res.json()
             alert.trigger('error', message)
           }
         })
+      })
+    }
+  } else {
+    const confirmSend = confirm(
+      'Send class reminder to student ' + studentName + '?',
+    )
+    if (confirmSend) {
+      if (nextMeetingTime === 'No Upcoming Classes') {
+        alert.trigger('error', 'No upcoming classes found!')
+        return
       }
+      fetch('/api/remindStudents', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: studentName,
+          email: studentEmail,
+          instructorEmail: instructorEmail,
+          otherInstructorEmails: otherInstructorEmails,
+          class: className,
+          classTime: nextMeetingTime,
+          instructorName: normalizeCapitals(instructorName),
+        }),
+      }).then(async (res) => {
+        if (res.ok) {
+          alert.trigger(
+            'success',
+            'Reminder email was sent to ' + studentName + '!',
+          )
+        } else {
+          const { message } = await res.json()
+          alert.trigger('error', message)
+        }
+      })
     }
   }
+}
 
-
-  export default sendClassReminder;
+export default sendClassReminder

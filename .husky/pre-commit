@@ -1,8 +1,7 @@
 #!/usr/bin/env sh
 
-# TODO: enable this once we're converted to consistent formatting
-# echo "🎨 Running npm run format..."
-# npm run format
+echo "🎨 Running npm run format..."
+npm run format
 
 echo "📝 Checking for unstaged changes..."
 if ! git diff --quiet; then

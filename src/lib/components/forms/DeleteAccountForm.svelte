@@ -14,7 +14,7 @@
   import Button from '../Button.svelte'
   import DialogActions from '../DialogActions.svelte'
   import { cn } from '$lib/utils'
-    import { decisionsCollection } from '$lib/data/constants'
+  import { decisionsCollection } from '$lib/data/constants'
 
   let className = ''
   export { className as class }

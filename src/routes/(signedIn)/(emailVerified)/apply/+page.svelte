@@ -9,7 +9,10 @@
   import { getDoc, doc } from 'firebase/firestore'
   import { onMount } from 'svelte'
   import { alert } from '$lib/stores'
-    import { registrationsCollection, semesterDatesDocument } from '$lib/data/constants'
+  import {
+    registrationsCollection,
+    semesterDatesDocument,
+  } from '$lib/data/constants'
 
   // if this is a registration, iterate through the user's uid and check if uid-1, uid-2, etc. exists
   // if it does, add it to the options array
@@ -37,12 +40,14 @@
 
   const fetchData = async (user: Data.User.Store) => {
     uid = user.object.uid
-    await getDoc(doc(db, 'semesterDates', semesterDatesDocument)).then((datesDoc) => {
+    await getDoc(doc(db, 'semesterDates', semesterDatesDocument)).then(
+      (datesDoc) => {
         const datesDocExists = datesDoc.exists()
         if (datesDocExists) {
           semesterDates = datesDoc.data() as Data.SemesterDates
         }
-    })
+      },
+    )
     for (let i = 1; i < 6; ++i) {
       const docRef = await getDoc(
         doc(db, registrationsCollection, `${uid}-${i}`),
@@ -103,7 +108,7 @@
 {#if $user?.profile.role === 'instructor'}
   <PageLayout>
     <svelte:fragment slot="title">Apply</svelte:fragment>
-    <ApplyForm semesterDates = {semesterDates}/>
+    <ApplyForm {semesterDates} />
   </PageLayout>
 {:else}
   <PageLayout>
@@ -133,10 +138,10 @@
       </div>
     {/if}
     {#if nameToUid[value]}
-    <!-- <div class="rounded-lg bg-red-100 p-4 mt-8 w-full text-center"> This form is not available yet. Student account creation for this semester will open on {semesterDates.newInstructorAppsOpen}!</div> -->
-    <Card class="mx-auto w-fit mt-4">
-      <RegistrationForm childUid={nameToUid[value]} semesterDates = {semesterDates}/>
-    </Card>
+      <!-- <div class="rounded-lg bg-red-100 p-4 mt-8 w-full text-center"> This form is not available yet. Student account creation for this semester will open on {semesterDates.newInstructorAppsOpen}!</div> -->
+      <Card class="mx-auto w-fit mt-4">
+        <RegistrationForm childUid={nameToUid[value]} {semesterDates} />
+      </Card>
     {/if}
   </PageLayout>
 {/if}

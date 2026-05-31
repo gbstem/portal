@@ -3,7 +3,16 @@ import { classesCollection } from '$lib/data/constants'
 import { alert } from '$lib/stores'
 import type { ClassValue } from 'clsx'
 import clsx from 'clsx'
-import { Timestamp, arrayUnion, collection, doc, getDoc, getDocs, setDoc, updateDoc } from 'firebase/firestore'
+import {
+  Timestamp,
+  arrayUnion,
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  setDoc,
+  updateDoc,
+} from 'firebase/firestore'
 import { twMerge } from 'tailwind-merge'
 
 export function cn(...classes: Array<ClassValue>) {
@@ -59,20 +68,23 @@ export function trapFocus(node: HTMLElement) {
 }
 
 // replace html template with data
-export function addDataToHtmlTemplate(html: string, template: { data: Record<string, any> }): string {
+export function addDataToHtmlTemplate(
+  html: string,
+  template: { data: Record<string, any> },
+): string {
   const htmlBody = html.replace(/{{(.*?)}}/g, (_: string, key: string) => {
-    const keys = key.trim().split('.');
-    let value: any = template.data;
+    const keys = key.trim().split('.')
+    let value: any = template.data
     for (const k of keys) {
       if (value && typeof value === 'object' && k in value) {
-        value = value[k];
+        value = value[k]
       } else {
-        return '';
+        return ''
       }
     }
-    return String(value ?? '');
-  });
-  return htmlBody;
+    return String(value ?? '')
+  })
+  return htmlBody
 }
 
 export function formatTime24to12(time24: string): string {
@@ -206,21 +218,21 @@ export function toLocalISOString(date: Date) {
 }
 
 export function cleanEnvVar(value: string | undefined): string | undefined {
-  if (!value) return '';
+  if (!value) return ''
 
-  const trimmed = value.trim();
-  const firstChar = trimmed[0];
-  const lastChar = trimmed[trimmed.length - 1];
+  const trimmed = value.trim()
+  const firstChar = trimmed[0]
+  const lastChar = trimmed[trimmed.length - 1]
 
   // Check if the string is wrapped in matching single or double quotes
   if (
     (firstChar === '"' && lastChar === '"') ||
     (firstChar === "'" && lastChar === "'")
   ) {
-    return trimmed.slice(1, -1);
+    return trimmed.slice(1, -1)
   }
 
-  return trimmed;
+  return trimmed
 }
 
 export const isClassUpcoming = (date: Date) => {
@@ -233,14 +245,19 @@ export const isClassUpcoming = (date: Date) => {
 
 /**
  * Get all classes that an instructor has access to (both owned and co-taught)
- * @param instructorUID - The instructor's Firebase UID  
+ * @param instructorUID - The instructor's Firebase UID
  * @param instructorEmail - The instructor's email address
  * @returns Object with classId as key and class data as value
  */
-export async function getInstructorClasses(instructorUID: string, instructorEmail: string): Promise<{ [classId: string]: Data.Class }> {
+export async function getInstructorClasses(
+  instructorUID: string,
+  instructorEmail: string,
+): Promise<{ [classId: string]: Data.Class }> {
   try {
     // Get instructor's class access mapping using email
-    const instructorClassesDoc = await getDoc(doc(db, 'instructorClasses', instructorEmail))
+    const instructorClassesDoc = await getDoc(
+      doc(db, 'instructorClasses', instructorEmail),
+    )
     let accessibleClassIds: string[] = []
 
     if (instructorClassesDoc.exists()) {
@@ -262,8 +279,8 @@ export async function getInstructorClasses(instructorUID: string, instructorEmai
     const allClassIds = [...new Set([...accessibleClassIds, ...ownedClassIds])]
 
     // Fetch all accessible classes
-    const classPromises = allClassIds.map(classId =>
-      getDoc(doc(db, classesCollection, classId))
+    const classPromises = allClassIds.map((classId) =>
+      getDoc(doc(db, classesCollection, classId)),
     )
 
     const classDocs = await Promise.all(classPromises)
@@ -274,10 +291,14 @@ export async function getInstructorClasses(instructorUID: string, instructorEmai
         const classData = classDoc.data() as Data.Class
         // Convert Firestore timestamps to dates
         if (classData.meetingTimes) {
-          classData.meetingTimes = classData.meetingTimes.map((time: Timestamp | Date) => timestampToDate(time))
+          classData.meetingTimes = classData.meetingTimes.map(
+            (time: Timestamp | Date) => timestampToDate(time),
+          )
         }
         if (classData.completedClassDates) {
-          classData.completedClassDates = classData.completedClassDates.map((time: Timestamp | Date) => timestampToDate(time))
+          classData.completedClassDates = classData.completedClassDates.map(
+            (time: Timestamp | Date) => timestampToDate(time),
+          )
         }
         classes[allClassIds[index]] = classData
       }
@@ -299,7 +320,7 @@ export async function getInstructorClasses(instructorUID: string, instructorEmai
 export async function updateInstructorClassMappings(
   classId: string,
   mainInstructorEmail: string,
-  otherInstructorEmails: string
+  otherInstructorEmails: string,
 ): Promise<void> {
   try {
     // Always ensure main instructor has access
@@ -309,8 +330,8 @@ export async function updateInstructorClassMappings(
       // Parse co-instructor emails
       const coInstructorEmails = otherInstructorEmails
         .split(',')
-        .map(email => email.trim())
-        .filter(email => email.length > 0)
+        .map((email) => email.trim())
+        .filter((email) => email.length > 0)
 
       // Add access for each co-instructor
       for (const email of coInstructorEmails) {
@@ -325,20 +346,21 @@ export async function updateInstructorClassMappings(
 /**
  * Add an instructor to a class mapping
  */
-async function addInstructorToClass(instructorEmail: string, classId: string): Promise<void> {
+async function addInstructorToClass(
+  instructorEmail: string,
+  classId: string,
+): Promise<void> {
   const instructorClassesRef = doc(db, 'instructorClasses', instructorEmail)
 
   try {
     // Try to update existing document
     await updateDoc(instructorClassesRef, {
-      classIds: arrayUnion(classId)
+      classIds: arrayUnion(classId),
     })
   } catch (error) {
     // If document doesn't exist, create it
     await setDoc(instructorClassesRef, {
-      classIds: [classId]
+      classIds: [classId],
     })
   }
 }
-
-

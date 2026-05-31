@@ -58,7 +58,7 @@
       },
     }
   }
-  
+
   // Only run validation, don't modify value in reactive statements
   $: {
     filterOptionsBy(value)

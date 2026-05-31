@@ -8,16 +8,20 @@
   import { doc, getDoc, setDoc } from 'firebase/firestore'
   import Card from '../Card.svelte'
   import StudentSelect from '../StudentSelect.svelte'
-    import { classesCollection, registrationsCollection, studentFeedbackCollection } from '$lib/data/constants'
+  import {
+    classesCollection,
+    registrationsCollection,
+    studentFeedbackCollection,
+  } from '$lib/data/constants'
 
   let disabled = false
   let showValidation = false
   let selectedStudentUid = ''
 
   const subscribe = selectedStudentId.subscribe((value) => {
-		selectedStudentUid = value;
-	});
-  
+    selectedStudentUid = value
+  })
+
   let selectedStudentCourses: any[] = []
   let pastSelected = ''
 
@@ -85,10 +89,10 @@
             disabled = false
             alert.trigger('error', err.code, true)
           })
-          values.classId = ''
-          values.rating = 0
-          values.feedback = ''
-          values.date = new Date().toISOString().slice(0, 10)
+        values.classId = ''
+        values.rating = 0
+        values.feedback = ''
+        values.date = new Date().toISOString().slice(0, 10)
       }
     } else {
       showValidation = true
@@ -115,20 +119,20 @@
   }
 </script>
 
-  <Form
-    class={cn(showValidation && 'show-validation')}
-    on:submit={handleSubmit}
-  >
-    {#if disabled}
-      <Button color="blue" class="mb-5" on:click={() => (disabled = false)}
-        >Edit class feedback</Button
-      >
-    {:else}
-      <fieldset class="space-y-4" {disabled}>
-        <h2 class="font-bold">Weekly Class Feedback Form{' '}{#if values.studentName} For {values.studentName}{/if}</h2>
-        {#if selectedStudentCourses.length == 0}
-          <div>This student is not currently enrolled in a course.</div>
-        {:else}
+<Form class={cn(showValidation && 'show-validation')} on:submit={handleSubmit}>
+  {#if disabled}
+    <Button color="blue" class="mb-5" on:click={() => (disabled = false)}
+      >Edit class feedback</Button
+    >
+  {:else}
+    <fieldset class="space-y-4" {disabled}>
+      <h2 class="font-bold">
+        Weekly Class Feedback Form{' '}{#if values.studentName}
+          For {values.studentName}{/if}
+      </h2>
+      {#if selectedStudentCourses.length == 0}
+        <div>This student is not currently enrolled in a course.</div>
+      {:else}
         <div class="mb-5">
           <h2 class="text-lg font-bold">Select Course:</h2>
           {#each selectedStudentCourses as { instructor, course, classId }}
@@ -171,7 +175,7 @@
         <div class="justify flex">
           <Button color="blue" type="submit">Submit</Button>
         </div>
-        {/if}
-      </fieldset>
-    {/if}
-  </Form>
+      {/if}
+    </fieldset>
+  {/if}
+</Form>

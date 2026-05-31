@@ -4,9 +4,9 @@
 declare global {
   namespace App {
     interface Error {
-      message: string;
-      code?: string;
-      details?: string;
+      message: string
+      code?: string
+      details?: string
     }
     interface Locals {
       user: Data.User.Peek | null
