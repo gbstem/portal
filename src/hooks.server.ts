@@ -1,5 +1,5 @@
 import { adminAuth } from '$lib/server/firebase'
-import { redirect, type Handle } from '@sveltejs/kit'
+import { redirect, type Handle, type HandleServerError } from '@sveltejs/kit'
 
 export const handle = (async ({ event, resolve }) => {
   const sessionCookie = event.cookies.get('__session')
@@ -34,3 +34,12 @@ export const handle = (async ({ event, resolve }) => {
   }
   return resolve(event)
 }) satisfies Handle
+
+export const handleError = (({ error }) => {
+  console.error('[SvelteKit Server Error]:', error)
+  return {
+    message: (error as any)?.message || 'An unexpected error occurred.',
+    code: (error as any)?.code || 'INTERNAL_ERROR',
+    details: (error as any)?.stack || String(error),
+  }
+}) satisfies HandleServerError

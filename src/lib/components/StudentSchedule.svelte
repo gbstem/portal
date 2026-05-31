@@ -9,7 +9,7 @@
 
   type ClassDate = {course: string, meetingTime: Date, link: string}
   let classes: ClassDate[] = []
-  let nextClass: ClassDate = null 
+  let nextClass: ClassDate | null = null 
   let listView: boolean = false
   let courses = new Set()
   let selectedStudentUid = ''
@@ -33,7 +33,7 @@
           data.meetingTimes.map((date) => {
             fetchedClasses.push({
               course: data.course,
-              meetingTime: new Date(date.seconds * 1000),
+              meetingTime: timestampToDate(date),
               link: data.meetingLink,
             })
           })
@@ -51,12 +51,21 @@
           const classIds = data.classes || []
           selectedStudentName = data.personal.studentFirstName
           classes = await fetchClassSchedules(classIds)
-          const classesToday = classes.filter(classDate => new Date(classDate.meetingTime).toDateString() === new Date().toDateString())
+          const now = new Date()
+          const classesToday = classes.filter(classDate => classDate.meetingTime.toDateString() === now.toDateString())
           if (classesToday.length > 0) {
-            const futureTodayClasses = classesToday.filter((classDate) => new Date(classDate.meetingTime).getHours() >= new Date().getHours()).sort((a, b) => new Date(a.meetingTime) - new Date(b.meetingTime))
-            nextClass = futureTodayClasses.length > 0 ? futureTodayClasses[0] : classes.filter(classDate => new Date(classDate.meetingTime) > new Date()).sort((a, b) => new Date(a.meetingTime) - new Date(b.meetingTime))[0]
+            const futureTodayClasses = classesToday
+              .filter((classDate) => classDate.meetingTime.getHours() >= now.getHours())
+              .sort((a, b) => a.meetingTime.getTime() - b.meetingTime.getTime())
+            nextClass = futureTodayClasses.length > 0 
+              ? futureTodayClasses[0] 
+              : classes
+                  .filter(classDate => classDate.meetingTime > now)
+                  .sort((a, b) => a.meetingTime.getTime() - b.meetingTime.getTime())[0] || null
           } else {
-            nextClass = classes.filter(classDate => new Date(classDate.meetingTime) > new Date()).sort((a, b) => new Date(a.meetingTime) - new Date(b.meetingTime))[0]
+            nextClass = classes
+              .filter(classDate => classDate.meetingTime > now)
+              .sort((a, b) => a.meetingTime.getTime() - b.meetingTime.getTime())[0] || null
           }
         }
       },
@@ -81,13 +90,15 @@
     {:else}
       <div class="mb-4 font-bold">Next Upcoming Class For {selectedStudentName}:</div>
       <div class="text-blue-700 font-semibold">
-        {nextClass === undefined ? 'No Upcoming Classes' :  nextClass.course + ' ' + formatDate(nextClass.meetingTime)}
+        {nextClass === null || nextClass === undefined ? 'No Upcoming Classes' :  nextClass.course + ' ' + formatDate(nextClass.meetingTime)}
       </div>
-      <div class="mb-6">
-        <a href={nextClass.link} target="_blank">
-          <Button color="blue" class="mt-4">Join Class</Button>
-        </a>
-      </div>
+      {#if nextClass}
+        <div class="mb-6">
+          <a href={nextClass.link} target="_blank">
+            <Button color="blue" class="mt-4">Join Class</Button>
+          </a>
+        </div>
+      {/if}
       <div class="font-bold mb-2">{selectedStudentName}'s Class Schedule</div>
       <ul class="space-y-3">
         {#each classes as classSession}

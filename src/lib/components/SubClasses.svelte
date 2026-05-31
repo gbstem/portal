@@ -20,9 +20,9 @@
 
     export let subInstructor: boolean
 
-    let feedbackDialogEl: Dialog[] = []
-    let notesDialogEl: Dialog[] = []
-    let subRequestDialogEl: Dialog[] = []
+    let feedbackDialogEl: (Dialog | null)[] = []
+    let notesDialogEl: (Dialog | null)[] = []
+    let subRequestDialogEl: (Dialog | null)[] = []
     let currentUser: Data.User.Store
     let classesMissingSubs: Data.SubRequest[] = []
     let userSubClassesList: Data.SubRequest[] = []
@@ -240,11 +240,11 @@ function getStudentList(studentUids: string[]): Promise<Student[]> {
         <p>{classBeingSubbed.course} class #{classBeingSubbed.classNumber} at {formatDate(timestampToDate(classBeingSubbed.dateOfClass))}</p>
     </div>
     <div class='text-sm italic'>{classBeingSubbed.subRequestStatus === SubRequestStatus.SubstituteFeedbackNeeded ? 'Please remember to fill out the feedback form for this class!' : timestampToDate(classBeingSubbed.dateOfClass) > new Date() ? 'Please remember to review the notes and prep for the class. Thank you for substituting!' : 'Looks like the substitute class was not held! Please reach out to the usual instructor to let them know.'}</div>
-    <Button color = 'blue' class = "mt-2 mb-4" on:click={() => {notesDialogEl[i].open()}}>View Prep Notes</Button>
+    <Button color = 'blue' class = "mt-2 mb-4" on:click={() => {notesDialogEl[i]?.open()}}>View Prep Notes</Button>
     <Button color = 'blue' class = "mt-2" on:click={() => window.open(`${curriculums.filter((curriculum) => curriculum.class === classBeingSubbed.course)[0].url}`)}>Curriculum</Button>
     <Button color = 'blue' class = "mt-2" on:click={() => recordClass(classBeingSubbed)}>Join</Button>
     <Button color = 'blue' on:click={() => sendReminder(classBeingSubbed)}> Send Reminder</Button>
-    <Button color = 'blue' on:click={() => {feedbackDialogEl[i].open()}}>Submit Feedback</Button>
+    <Button color = 'blue' on:click={() => {feedbackDialogEl[i]?.open()}}>Submit Feedback</Button>
     {/each}
     {:else}
         <p>You are not currently substituting any classes.</p>
@@ -283,7 +283,7 @@ function getStudentList(studentUids: string[]): Promise<Student[]> {
                     color="green"
                     on:click={() => {
                         sendSubRequest(i)
-                        subRequestDialogEl[i].close()
+                        subRequestDialogEl[i]?.close()
                     }}>Save Edits</Button
                     >
                 </div>
@@ -292,21 +292,21 @@ function getStudentList(studentUids: string[]): Promise<Student[]> {
                 <div class="flex items-center justify-between rounded-lg bg-blue-100 p-4 mt-2">
                     <p>{subRequest.course} class #{subRequest.classNumber} at {formatDate(timestampToDate(subRequest.dateOfClass))}</p>
                     <p><strong>Status: Substitute Found</strong></p>
-                    <Button color="gray" on:click={() => {subRequestDialogEl[i].open()}}>Edit</Button>
+                    <Button color="gray" on:click={() => {subRequestDialogEl[i]?.open()}}>Edit</Button>
                     <Button color="red" on:click={() => deleteSubRequest(originalSubClassNumbers[i], true)}><Trash2Icon class="h-8"/></Button>
                 </div>
             {:else if subRequest.subRequestStatus === SubRequestStatus.SubstituteNeeded}
                 <div class="flex items-center justify-between rounded-lg bg-red-100 p-4 mt-2">
                     <p>{subRequest.course} class #{subRequest.classNumber} at {formatDate(timestampToDate(subRequest.dateOfClass))}</p>
                     <p><strong>Status: Substitute Needed</strong></p>
-                    <Button color="gray" on:click={() => {subRequestDialogEl[i].open()}}>Edit</Button>
+                    <Button color="gray" on:click={() => {subRequestDialogEl[i]?.open()}}>Edit</Button>
                     <Button color="red" on:click={() => deleteSubRequest(originalSubClassNumbers[i], true)}><Trash2Icon class="h-8" /></Button>
                 </div>
             {:else if subRequest.subRequestStatus === SubRequestStatus.SubstituteFeedbackNeeded}
                 <div class="flex items-center justify-between rounded-lg bg-yellow-100 p-4 mt-2">
                     <p>{subRequest.course} class #{subRequest.classNumber} at {formatDate(timestampToDate(subRequest.dateOfClass))}</p>
                     <p><strong>Status: Awaiting Substitute Feedback Submission</strong></p>
-                    <Button color="gray" on:click={() => {subRequestDialogEl[i].open()}}>Edit</Button>
+                    <Button color="gray" on:click={() => {subRequestDialogEl[i]?.open()}}>Edit</Button>
                     <Button color="red" on:click={() => deleteSubRequest(originalSubClassNumbers[i], true)}><Trash2Icon class="h-8" /></Button>
                 </div>
             {:else}

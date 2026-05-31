@@ -5,7 +5,7 @@
   export let data: LayoutData
 </script>
 
-<Nav user={data.user} />
+<Nav />
 <div class="grow">
   <main class="mt-20 px-d py-8">
     <slot />

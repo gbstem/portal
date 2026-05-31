@@ -14,7 +14,16 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   try {
     const body = await request.json()
     let to
-    let data
+    let data!: {
+      subject: string
+      name?: string
+      action: {
+        link: string
+        name: string
+        firstName?: string
+        description: string
+      }
+    }
     const firstName = body.firstName;
     try {
       switch (body.type) {

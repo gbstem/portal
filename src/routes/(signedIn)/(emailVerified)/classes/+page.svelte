@@ -77,7 +77,7 @@
   // Preload student data for the StudentSelect component
   let preloadedStudents: { uid: string; name: string }[] = []
 
-  const courseToMinGrade = {
+  const courseToMinGrade: Record<string, number> = {
     'Environmental Science': 5,
     'Python I': 3,
     'Web Development': 5,

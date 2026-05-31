@@ -30,7 +30,49 @@ if (storageHost) {
 
 import firebase from 'firebase-admin'
 import { getAuth } from 'firebase-admin/auth'
-import { getFirestore } from 'firebase-admin/firestore'
+import { CollectionReference, DocumentReference, getFirestore, Query } from 'firebase-admin/firestore'
+
+// Wrap prototype methods with a timeout and error logger
+function wrapPrototypePromise(Class: any, methodName: string, className: string) {
+  if (!Class || !Class.prototype) return
+  const original = Class.prototype[methodName]
+  if (typeof original !== 'function') return
+
+  Class.prototype[methodName] = function (...args: any[]) {
+    const promise = original.apply(this, args)
+    if (!(promise instanceof Promise)) {
+      return promise
+    }
+
+    const timeoutMs = 10000
+    let timer: NodeJS.Timeout
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => {
+        reject(new Error(`Firestore operation timed out on ${className}.${methodName}`))
+      }, timeoutMs)
+    })
+
+    return Promise.race([promise, timeoutPromise])
+      .then((val) => {
+        clearTimeout(timer)
+        return val
+      })
+      .catch((err) => {
+        clearTimeout(timer)
+        console.error(`[Firestore Error] ${className}.${methodName}:`, err)
+        throw err
+      })
+  }
+}
+
+// Apply wraps
+wrapPrototypePromise(DocumentReference, 'get', 'DocumentReference')
+wrapPrototypePromise(DocumentReference, 'set', 'DocumentReference')
+wrapPrototypePromise(DocumentReference, 'update', 'DocumentReference')
+wrapPrototypePromise(DocumentReference, 'delete', 'DocumentReference')
+wrapPrototypePromise(DocumentReference, 'create', 'DocumentReference')
+wrapPrototypePromise(Query, 'get', 'Query')
+wrapPrototypePromise(CollectionReference, 'add', 'CollectionReference')
 
 export let adminAuth: any
 export let adminDb: any
