@@ -357,10 +357,12 @@
 
   <div slot="description" class="space-y-6 p-6">
     <!-- Hidden focusable element to prevent auto-focus on StudentSelect -->
-    <div
+    <button
+      type="button"
       tabindex="0"
+      aria-label="hidden focus catch"
       style="position: absolute; left: -9999px; width: 1px; height: 1px;"
-    ></div>
+    ></button>
     {#if dialogClassDetails !== null}
       <!-- Status Badge -->
       <div class="flex justify-end">

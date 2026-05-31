@@ -94,8 +94,8 @@
 </script>
 
 <div class="bg-white rounded-lg shadow-sm p-4">
-  <label class="block text-sm font-medium text-gray-700 mb-2"
-    >Select Student</label
+  <span class="block text-sm font-medium text-gray-700 mb-2"
+    >Select Student</span
   >
   {#if loading}
     <Loading />

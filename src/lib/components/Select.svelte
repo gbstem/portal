@@ -4,6 +4,16 @@
     setOpen: (newState: boolean) => void
   }
   let current: SelectData
+
+  function registerOpenSelect(
+    id: string,
+    setOpen: (newState: boolean) => void,
+  ) {
+    if (current && current.id !== id) {
+      current.setOpen(false)
+    }
+    current = { id, setOpen }
+  }
 </script>
 
 <script lang="ts">
@@ -47,16 +57,9 @@
   }, 150)
 
   $: if (open) {
-    // close any other open select element
-    if (current && current.id !== id) {
-      current.setOpen(false)
-    }
-    current = {
-      id,
-      setOpen: (value) => {
-        open = value
-      },
-    }
+    registerOpenSelect(id, (value) => {
+      open = value
+    })
   }
 
   // Only run validation, don't modify value in reactive statements
@@ -175,6 +178,7 @@
     <div class="absolute right-0 top-0 flex h-12 items-center pr-2">
       <button
         type="button"
+        aria-label="Toggle dropdown"
         on:click={() => {
           open = !open
           if (open && self) {
@@ -248,6 +252,7 @@
       <div class="absolute right-0 top-0 flex h-12 items-center pr-2">
         <button
           type="button"
+          aria-label="Toggle dropdown"
           on:click={() => {
             open = !open
             if (open && self) {
