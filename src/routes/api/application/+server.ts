@@ -4,8 +4,12 @@ import { addDataToHtmlTemplate } from '$lib/utils'
 import { error, json } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 
+export interface ApplicationRequestBody {
+  firstName: string
+}
+
 export const POST: RequestHandler = async ({ request, locals }) => {
-  const body = await request.json()
+  const body = (await request.json()) as ApplicationRequestBody
   const firstName = body.firstName
   if (locals.user === null) {
     throw error(400, 'User not signed in.')

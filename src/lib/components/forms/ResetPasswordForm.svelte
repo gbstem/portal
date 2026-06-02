@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { ActionRequestBody } from '../../../routes/api/action/+server'
   import Input from '$lib/components/Input.svelte'
   import { alert } from '$lib/stores'
   import Brand from '$lib/components/Brand.svelte'
@@ -17,15 +18,16 @@
     if (e.detail.error === null) {
       showValidation = false
       disabled = true
+      const payload: ActionRequestBody = {
+        type: 'resetPassword',
+        email: values.email,
+      }
       fetch('/api/action', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          type: 'resetPassword',
-          email: values.email,
-        }),
+        body: JSON.stringify(payload),
       }).then(async (res) => {
         if (res.ok) {
           alert.trigger(

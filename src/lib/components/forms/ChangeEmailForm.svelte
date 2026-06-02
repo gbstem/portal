@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { ActionRequestBody } from '../../../routes/api/action/+server'
   import Input from '$lib/components/Input.svelte'
   import { alert } from '$lib/stores'
   import Dialog from '$lib/components/Dialog.svelte'
@@ -38,16 +39,17 @@
   function handleReauthenticate() {
     if ($user) {
       dialogEl.close()
+      const payload: ActionRequestBody = {
+        type: 'changeEmail',
+        newEmail: values.newEmail,
+        firstName: $user.profile.firstName,
+      }
       fetch('/api/action', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          type: 'changeEmail',
-          newEmail: values.newEmail,
-          firstName: $user.profile.firstName,
-        }),
+        body: JSON.stringify(payload),
       }).then(async (res) => {
         if (res.ok) {
           alert.trigger('info', 'A verification email was sent.')

@@ -4,8 +4,18 @@ import { addDataToHtmlTemplate } from '$lib/utils'
 import { error, json } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 
+export interface CommunityServiceRequestBody {
+  firstName: string
+  hours: number | string
+  season: string
+  year: number | string
+  course: string
+  presidents: string
+  email: string
+}
+
 export const POST: RequestHandler = async ({ request, locals }) => {
-  const body = await request.json()
+  const body = (await request.json()) as CommunityServiceRequestBody
   const firstName = body.firstName
   const email = body.email
   if (locals.user === null) {

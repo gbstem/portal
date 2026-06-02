@@ -6,10 +6,22 @@ import { error, json } from '@sveltejs/kit'
 import type { FirebaseError } from 'firebase-admin'
 import type { RequestHandler } from './$types'
 
+export interface EnrollRequestBody {
+  classTimes: string[]
+  classDays: string[]
+  course: string
+  studentName: string
+  instructor: string
+  firstName: string
+  meetingLink: string
+  instructorEmail: string
+  online: boolean
+}
+
 export const POST: RequestHandler = async ({ request, locals }) => {
   let topError
   try {
-    const body = await request.json()
+    const body = (await request.json()) as EnrollRequestBody
     try {
       if (locals.user === null) {
         throw error(400, 'User not signed in.')

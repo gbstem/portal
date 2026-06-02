@@ -1,4 +1,6 @@
 <script lang="ts">
+  import type { SlotRequestRequestBody } from '../../../routes/api/slotRequest/+server'
+  import type { InterviewRequestBody } from '../../../routes/api/interview/+server'
   import {
     collection,
     query,
@@ -57,16 +59,17 @@
         date: new Date(dateToAdd),
       },
     )
+    const payload: SlotRequestRequestBody = {
+      firstName: currentUser.profile.firstName,
+      intervieweeEmail: currentUser.object.email || '',
+      timeSlot: formatDateLocal(new Date(dateToAdd)),
+    }
     await fetch('/api/slotRequest', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        firstName: currentUser.profile.firstName,
-        intervieweeEmail: currentUser.object.email,
-        timeSlot: formatDateLocal(new Date(dateToAdd)),
-      }),
+      body: JSON.stringify(payload),
     }).then(async (res) => {
       if (!res.ok) {
         const { message } = await res.json()
@@ -111,18 +114,19 @@
       intervieweeEmail: currentUser.object.email,
       intervieweeId: currentUser.object.uid,
     })
+    const payload: InterviewRequestBody = {
+      email: scheduledInterview.interviewerEmail,
+      date: scheduledInterview.date,
+      link: scheduledInterview.meetingLink,
+      interviewer: scheduledInterview.interviewerName,
+      firstName: currentUser.profile.firstName,
+    }
     fetch('/api/interview', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        email: scheduledInterview.interviewerEmail,
-        date: scheduledInterview.date,
-        link: scheduledInterview.meetingLink,
-        interviewer: scheduledInterview.interviewerName,
-        firstName: currentUser.profile.firstName,
-      }),
+      body: JSON.stringify(payload),
     }).then(async (res) => {
       if (!res.ok) {
         const { message } = await res.json()

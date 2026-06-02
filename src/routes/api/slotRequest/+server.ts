@@ -4,8 +4,14 @@ import { addDataToHtmlTemplate } from '$lib/utils'
 import { error, json } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 
+export interface SlotRequestRequestBody {
+  firstName: string
+  timeSlot: string
+  intervieweeEmail: string
+}
+
 export const POST: RequestHandler = async ({ request, locals }) => {
-  const body = await request.json()
+  const body = (await request.json()) as SlotRequestRequestBody
   if (locals.user === null) {
     throw error(400, 'User not signed in.')
   } else {

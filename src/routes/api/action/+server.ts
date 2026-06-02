@@ -6,11 +6,18 @@ import { error, json } from '@sveltejs/kit'
 import type { FirebaseError } from 'firebase-admin'
 import type { RequestHandler } from './$types'
 
+export interface ActionRequestBody {
+  type: 'verifyEmail' | 'changeEmail' | 'resetPassword'
+  email?: string
+  newEmail?: string
+  firstName?: string
+}
+
 export const POST: RequestHandler = async ({ request, locals }) => {
   let topError
   try {
-    const body = await request.json()
-    let to
+    const body = (await request.json()) as ActionRequestBody
+    let to: string = ''
     let data!: {
       subject: string
       name?: string
@@ -33,7 +40,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
               email = locals.user.email
             }
           } else {
-            email = body.email
+            email = body.email || ''
           }
           const link = await adminAuth.generateEmailVerificationLink(email)
           to = email
@@ -74,8 +81,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
           break
         }
         case 'resetPassword': {
-          const link = await adminAuth.generatePasswordResetLink(body.email)
-          to = body.email
+          const link = await adminAuth.generatePasswordResetLink(
+            body.email || '',
+          )
+          to = body.email || ''
           data = {
             subject: 'Reset Password for gbSTEM Account',
             action: {

@@ -4,8 +4,15 @@ import { addDataToHtmlTemplate } from '$lib/utils'
 import { error, json } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 
+export interface RegistrationRequestBody {
+  firstName: string
+  studentName: string
+  secondaryEmail?: string
+  parentOrientationDate: string
+}
+
 export const POST: RequestHandler = async ({ request, locals }) => {
-  const body = await request.json()
+  const body = (await request.json()) as RegistrationRequestBody
   const firstName = body.firstName
   const studentName = body.studentName
   const secondaryEmail = body.secondaryEmail

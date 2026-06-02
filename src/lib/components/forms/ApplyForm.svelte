@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { ApplicationRequestBody } from '../../../routes/api/application/+server'
   import clsx from 'clsx'
   import {
     doc,
@@ -241,11 +242,15 @@
             alert.trigger('success', 'Your application has been submitted!')
             getDoc(doc(db, applicationsCollection, frozenUser.object.uid)).then(
               (applicationDoc) => {
+                const payload: ApplicationRequestBody = {
+                  firstName: frozenUser.profile.firstName,
+                }
                 fetch('/api/application', {
                   method: 'POST',
-                  body: JSON.stringify({
-                    firstName: frozenUser.profile.firstName,
-                  }),
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify(payload),
                 }).then(async (res) => {
                   if (!res.ok) {
                     const { message } = await res.json()

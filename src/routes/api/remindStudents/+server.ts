@@ -5,10 +5,19 @@ import { error, json } from '@sveltejs/kit'
 import type { FirebaseError } from 'firebase-admin'
 import type { RequestHandler } from './$types'
 
+export interface RemindStudentsRequestBody {
+  email: string
+  otherInstructorEmails: string
+  name: string
+  class: string
+  classTime: string
+  instructorName: string
+}
+
 export const POST: RequestHandler = async ({ request, locals }) => {
   let topError
   try {
-    const body = await request.json()
+    const body = (await request.json()) as RemindStudentsRequestBody
     try {
       const email = body.email
       const otherInstructorEmails = body.otherInstructorEmails

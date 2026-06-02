@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { RegistrationRequestBody } from '../../../routes/api/registration/+server'
   import clsx from 'clsx'
   import {
     doc,
@@ -273,14 +274,18 @@
             alert.trigger('success', 'Your student account has been created!')
             getDoc(doc(db, registrationsCollection, childUid)).then(
               (applicationDoc) => {
+                const payload: RegistrationRequestBody = {
+                  firstName: frozenUser.profile.firstName,
+                  studentName: values.personal.studentFirstName,
+                  parentOrientationDate: semesterDates.parentOrientation,
+                  secondaryEmail: values.personal.secondaryEmail,
+                }
                 fetch('/api/registration', {
                   method: 'POST',
-                  body: JSON.stringify({
-                    firstName: frozenUser.profile.firstName,
-                    studentName: values.personal.studentFirstName,
-                    parentOrientationDate: semesterDates.parentOrientation,
-                    secondaryEmail: values.personal.secondaryEmail,
-                  }),
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify(payload),
                 }).then(async (res) => {
                   if (!res.ok) {
                     const { message } = await res.json()

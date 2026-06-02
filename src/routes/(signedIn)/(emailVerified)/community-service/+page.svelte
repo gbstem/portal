@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { CommunityServiceRequestBody } from '../../../api/communityService/+server'
   import { db, user } from '$lib/client/firebase'
   import Button from '$lib/components/Button.svelte'
   import Card from '$lib/components/Card.svelte'
@@ -76,20 +77,21 @@
   })
 
   function sendEmail() {
+    const payload: CommunityServiceRequestBody = {
+      firstName: currentUser.profile.firstName,
+      hours: numRegHours * 1.25 + numSubHours * 1.5,
+      season: (isFall ? 'fall' : 'spring') as 'fall' | 'spring',
+      course: course,
+      email: currentUser.object.email || '',
+      year: year,
+      presidents: 'Kendree Chen, Dea Pance, and Michael Bolgov',
+    }
     fetch('/api/communityService', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        firstName: currentUser.profile.firstName,
-        hours: numRegHours * 1.25 + numSubHours * 1.5,
-        season: isFall ? 'fall' : 'spring',
-        course: course,
-        email: currentUser.object.email,
-        year: year,
-        presidents: 'Kendree Chen, Dea Pance, and Michael Bolgov',
-      }),
+      body: JSON.stringify(payload),
     }).then((response) => {
       if (response.ok) {
         alert.trigger('success', 'Email sent successfully!')

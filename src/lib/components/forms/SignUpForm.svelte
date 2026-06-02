@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { ActionRequestBody } from '../../../routes/api/action/+server'
   import Input from '$lib/components/Input.svelte'
   import { goto } from '$app/navigation'
   import Brand from '$lib/components/Brand.svelte'
@@ -91,15 +92,16 @@
                           body: JSON.stringify({ idToken }),
                         })
                           .then(() => {
+                            const payload: ActionRequestBody = {
+                              type: 'verifyEmail',
+                              email: values.email,
+                            }
                             fetch('/api/action', {
                               method: 'POST',
                               headers: {
                                 'Content-Type': 'application/json',
                               },
-                              body: JSON.stringify({
-                                type: 'verifyEmail',
-                                email: values.email,
-                              }),
+                              body: JSON.stringify(payload),
                             }).then(async (res) => {
                               if (!res.ok) {
                                 const { message } = await res.json()

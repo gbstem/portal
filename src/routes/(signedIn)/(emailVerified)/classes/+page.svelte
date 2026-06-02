@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { EnrollRequestBody } from '../../../api/enroll/+server'
   import { db, user } from '$lib/client/firebase'
   import { onMount } from 'svelte'
   import Card from '$lib/components/Card.svelte'
@@ -275,23 +276,24 @@
     })
       .then(() => {
         alert.trigger('success', 'Enrolled in class!')
+        if (!dialogClassDetails) return
+        const payload: EnrollRequestBody = {
+          firstName: userName,
+          instructor: dialogClassDetails.instructorFirstName,
+          instructorEmail: dialogClassDetails.instructorEmail,
+          classTimes: dialogClassDetails.classTimes,
+          classDays: dialogClassDetails.classDays,
+          course: dialogClassDetails.course,
+          meetingLink: dialogClassDetails.meetingLink,
+          online: dialogClassDetails.online,
+          studentName: uidToName[selectedStudentUid],
+        }
         fetch('/api/enroll', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            email: userEmail,
-            firstName: userName,
-            instructor: dialogClassDetails?.instructorFirstName,
-            instructorEmail: dialogClassDetails?.instructorEmail,
-            classTimes: dialogClassDetails?.classTimes,
-            classDays: dialogClassDetails?.classDays,
-            course: dialogClassDetails?.course,
-            meetingLink: dialogClassDetails?.meetingLink,
-            online: dialogClassDetails?.online,
-            studentName: uidToName[selectedStudentUid],
-          }),
+          body: JSON.stringify(payload),
         }).then(async (res) => {
           if (!res.ok) {
             const { message } = await res.json()
