@@ -1,11 +1,10 @@
-import { error, json } from '@sveltejs/kit'
-import type { RequestHandler } from './$types'
-import type { FirebaseError } from 'firebase-admin'
-import { SENDGRID_API_TOKEN } from '$env/static/private'
-import { addDataToHtmlTemplate, formatTime24to12 } from '$lib/utils'
-import { onlineClassEnrolledEmailTemplate } from '$lib/data/emailTemplates/onlineClassEnrolledEmailTemplate'
 import { inPersonClassEnrolledEmailTemplate } from '$lib/data/emailTemplates/inPersonClassEnrolledEmailTemplate'
-import MailService, { type MailDataRequired } from '@sendgrid/mail'
+import { onlineClassEnrolledEmailTemplate } from '$lib/data/emailTemplates/onlineClassEnrolledEmailTemplate'
+import { sendEmail } from '$lib/server/email'
+import { addDataToHtmlTemplate, formatTime24to12 } from '$lib/utils'
+import { error, json } from '@sveltejs/kit'
+import type { FirebaseError } from 'firebase-admin'
+import type { RequestHandler } from './$types'
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   let topError
@@ -49,29 +48,20 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
         const htmlBody = addDataToHtmlTemplate(emailTemplate, template)
 
-        const emailData: MailDataRequired = {
-          to: locals.user.email,
-          cc: body.instructorEmail,
-          from: 'donotreply@gbstem.org',
-          subject: String(template.data.subject),
-          html: htmlBody,
-          replyTo: 'contact@gbstem.org',
-          text: 'Class Enrollment Confirmation',
-        }
-        MailService.setApiKey(SENDGRID_API_TOKEN)
         try {
-          await MailService.send(emailData)
-          console.log('Email sent')
+          await sendEmail({
+            to: locals.user.email,
+            cc: body.instructorEmail,
+            subject: String(template.data.subject),
+            html: htmlBody,
+          })
         } catch (mailError) {
-          console.error('Error sending email:', mailError)
           return json(
             { error: 'Failed to send email. Please try again later.' },
             { status: 500 },
           )
         }
         return json({ message: 'Email sent successfully.' })
-
-        return new Response()
       }
     } catch (err) {
       if (typeof err === 'string') {
