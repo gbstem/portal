@@ -29,7 +29,11 @@ export async function sendEmail(options: EmailOptions): Promise<void> {
   const toEmails = parseEmails(to)
   const toStr = toEmails.join(', ')
 
-  if (!SENDGRID_API_TOKEN) {
+  if (
+    !SENDGRID_API_TOKEN ||
+    SENDGRID_API_TOKEN ===
+      'SG.abcdefghijklmnopqrstuvwxyz.1234567890abcdefghijklmnopqrstuvwxyz'
+  ) {
     console.warn("SENDGRID_API_TOKEN isn't set. Email sends are simulated.")
     console.log(`Email sent to: ${toStr} | Subject: ${subject}`)
     return
