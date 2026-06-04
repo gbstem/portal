@@ -92,26 +92,28 @@ export let adminDb: any
 
 if (!building) {
   try {
-    if (
-      FIREBASE_PRIVATE_KEY &&
-      FIREBASE_PRIVATE_KEY.includes('-----BEGIN PRIVATE KEY-----') &&
-      !FIREBASE_PRIVATE_KEY.includes('...')
-    ) {
-      firebase.initializeApp({
-        credential: firebase.credential.cert({
-          projectId: FIREBASE_PROJECT_ID,
-          clientEmail: FIREBASE_CLIENT_EMAIL,
-          privateKey: FIREBASE_PRIVATE_KEY,
-        }),
-      })
-    } else {
-      firebase.initializeApp({
-        projectId: FIREBASE_PROJECT_ID || 'demo-gbstem',
-      })
+    if ((firebase.apps || []).length === 0) {
+      if (
+        FIREBASE_PRIVATE_KEY &&
+        FIREBASE_PRIVATE_KEY.includes('-----BEGIN PRIVATE KEY-----') &&
+        !FIREBASE_PRIVATE_KEY.includes('...')
+      ) {
+        firebase.initializeApp({
+          credential: firebase.credential.cert({
+            projectId: FIREBASE_PROJECT_ID,
+            clientEmail: FIREBASE_CLIENT_EMAIL,
+            privateKey: FIREBASE_PRIVATE_KEY,
+          }),
+        })
+      } else {
+        firebase.initializeApp({
+          projectId: FIREBASE_PROJECT_ID || 'demo-gbstem',
+        })
+      }
     }
   } catch (err: any) {
     if (!/already exists/u.test(err.message)) {
-      console.log('Firebase Admin Error:', err.stack)
+      console.error('Firebase Admin init error:', err)
     }
   }
   adminAuth = getAuth()

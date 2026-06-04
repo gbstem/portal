@@ -84,6 +84,8 @@ jest.mock('@sendgrid/mail', () => ({
 // Global mock for firebase/app
 jest.mock('firebase/app', () => ({
   initializeApp: jest.fn(),
+  getApps: jest.fn(() => []),
+  getApp: jest.fn(),
 }))
 
 // Global mock for firebase/auth

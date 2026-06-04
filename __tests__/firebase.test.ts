@@ -209,16 +209,16 @@ describe('firebase.ts server setup', () => {
       mockInitializeApp.mockImplementationOnce(() => {
         throw new Error('some other error')
       })
-      const consoleLogSpy = jest
-        .spyOn(console, 'log')
+      const consoleErrorSpy = jest
+        .spyOn(console, 'error')
         .mockImplementation(() => {})
 
       require('../src/lib/server/firebase')
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        'Firebase Admin Error:',
-        expect.any(String),
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Firebase Admin init error:',
+        expect.any(Error),
       )
-      consoleLogSpy.mockRestore()
+      consoleErrorSpy.mockRestore()
     })
 
     it('does not initialize app when building is true', () => {

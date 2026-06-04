@@ -7,11 +7,12 @@ import {
   PUBLIC_FIREBASE_APP_ID,
   PUBLIC_FIREBASE_MEASUREMENT_ID,
 } from '$env/static/public'
-import { initializeApp } from 'firebase/app'
-import { getAuth, onAuthStateChanged } from 'firebase/auth'
-import { doc, getDoc, getFirestore } from 'firebase/firestore'
-import { getStorage } from 'firebase/storage'
+import { initializeApp, getApps, type FirebaseApp } from 'firebase/app'
+import { getAuth, onAuthStateChanged, connectAuthEmulator, type Auth } from 'firebase/auth'
+import { doc, getDoc, getFirestore, connectFirestoreEmulator, type Firestore } from 'firebase/firestore'
+import { getStorage, connectStorageEmulator, type FirebaseStorage } from 'firebase/storage'
 import { readable } from 'svelte/store'
+import { dev, browser } from '$app/environment'
 
 const config = {
   apiKey: PUBLIC_FIREBASE_API_KEY,
@@ -23,17 +24,17 @@ const config = {
   measurementId: PUBLIC_FIREBASE_MEASUREMENT_ID,
 }
 
-import { dev, browser } from '$app/environment'
-import { connectAuthEmulator } from 'firebase/auth'
-import { connectFirestoreEmulator } from 'firebase/firestore'
-import { connectStorageEmulator } from 'firebase/storage'
+const isBrowser = browser || (typeof process !== 'undefined' && process.env.NODE_ENV === 'test')
 
-initializeApp(config)
-export const auth = getAuth()
-export const db = getFirestore()
-export const storage = getStorage()
+const app = isBrowser
+  ? (typeof getApps === 'function' && getApps().length > 0 ? getApps()[0] : initializeApp(config))
+  : undefined
 
-if (browser && dev) {
+export const auth = app ? getAuth(app) : (undefined as unknown as Auth)
+export const db = app ? getFirestore(app) : (undefined as unknown as Firestore)
+export const storage = app ? getStorage(app) : (undefined as unknown as FirebaseStorage)
+
+if (isBrowser && dev && auth && db && storage) {
   if (
     PUBLIC_FIREBASE_PROJECT_ID &&
     (PUBLIC_FIREBASE_PROJECT_ID.startsWith('demo-') ||
@@ -54,6 +55,7 @@ function userStore() {
   const { subscribe } = readable<Data.User.Store | null | undefined>(
     undefined,
     (set) => {
+      if (!isBrowser) return
       return onAuthStateChanged(auth, (userObject) => {
         if (userObject) {
           if (!userObject.emailVerified) {
@@ -73,6 +75,7 @@ function userStore() {
     },
   )
   async function loaded() {
+    if (!isBrowser) return true
     return new Promise((resolve) => {
       const unsubscribe = subscribe((userData) => {
         if (userData !== undefined) {
