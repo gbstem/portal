@@ -253,7 +253,7 @@
               if (disable) {
                 disabled = false
               }
-              console.log(err)
+              console.error('Registration save error:', err)
               alert.trigger('error', err.code, true)
               reject()
             })

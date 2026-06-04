@@ -1,34 +1,25 @@
 <script lang="ts">
-  import type { ApplicationRequestBody } from '../../../routes/api/application/+server'
+  import { db, storage, user } from '$lib/client/firebase'
+  import Card from '$lib/components/Card.svelte'
+  import Form from '$lib/components/Form.svelte'
+  import Input from '$lib/components/Input.svelte'
+  import Select from '$lib/components/Select.svelte'
+  import Textarea from '$lib/components/Textarea.svelte'
+  import { coursesJson, gendersJson, raceJson, reasonsJson } from '$lib/data'
+  import { alert } from '$lib/stores'
   import clsx from 'clsx'
   import {
     doc,
     getDoc,
-    setDoc,
     serverTimestamp,
+    setDoc,
     Timestamp,
   } from 'firebase/firestore'
-  import Input from '$lib/components/Input.svelte'
-  import Select from '$lib/components/Select.svelte'
-  import Textarea from '$lib/components/Textarea.svelte'
-  import {
-    gendersJson,
-    reasonsJson,
-    raceJson,
-    coursesJson,
-    coriRacesJson,
-    coriSexesJson,
-  } from '$lib/data'
-  import { alert } from '$lib/stores'
-  import { onDestroy, onMount } from 'svelte'
-  import Card from '$lib/components/Card.svelte'
-  import Form from '$lib/components/Form.svelte'
   import { getDownloadURL, ref, uploadBytes } from 'firebase/storage'
-  import { db, storage, user } from '$lib/client/firebase'
   import { cloneDeep, isEqual } from 'lodash-es'
+  import { onDestroy, onMount } from 'svelte'
+  import type { ApplicationRequestBody } from '../../../routes/api/application/+server'
   // import value from '$lib/components/value.svelte'
-  import Button from '../Button.svelte'
-  import Link from '../Link.svelte'
   import { applicationsCollection } from '$lib/data/constants'
 
   export let semesterDates: Data.SemesterDates = {
@@ -183,7 +174,7 @@
               if (disable) {
                 disabled = false
               }
-              console.log(err)
+              console.error('Apply form save error:', err)
               alert.trigger('error', err.code, true)
               reject()
             })
@@ -254,7 +245,7 @@
                 }).then(async (res) => {
                   if (!res.ok) {
                     const { message } = await res.json()
-                    console.log(message)
+                    console.error('Application request server error:', message)
                   }
                   const applicationData =
                     applicationDoc.data() as Data.Application

@@ -1,28 +1,28 @@
 <script lang="ts">
-  import type { SlotRequestRequestBody } from '../../../routes/api/slotRequest/+server'
-  import type { InterviewRequestBody } from '../../../routes/api/interview/+server'
-  import {
-    collection,
-    query,
-    getDocs,
-    updateDoc,
-    doc,
-    getDoc,
-    setDoc,
-  } from 'firebase/firestore'
   import { db, user } from '$lib/client/firebase'
   import Form from '$lib/components/Form.svelte'
-  import clsx from 'clsx'
-  import { alert } from '$lib/stores'
-  import Card from '../Card.svelte'
-  import Link from '../Link.svelte'
-  import { onMount } from 'svelte'
-  import Loading from '../Loading.svelte'
   import Input from '$lib/components/Input.svelte'
+  import {
+    applicationsCollection,
+    interviewCollection,
+  } from '$lib/data/constants'
+  import { alert } from '$lib/stores'
   import { formatDateLocal, timestampToDate } from '$lib/utils'
-  import { applicationsCollection } from '$lib/data/constants'
-  import { interviewCollection } from '$lib/data/constants'
-  import { last } from 'lodash-es'
+  import clsx from 'clsx'
+  import {
+    collection,
+    doc,
+    getDoc,
+    getDocs,
+    query,
+    setDoc,
+    updateDoc,
+  } from 'firebase/firestore'
+  import { onMount } from 'svelte'
+  import type { InterviewRequestBody } from '../../../routes/api/interview/+server'
+  import type { SlotRequestRequestBody } from '../../../routes/api/slotRequest/+server'
+  import Link from '../Link.svelte'
+  import Loading from '../Loading.svelte'
 
   export let semesterDates: Data.SemesterDates
 
@@ -73,7 +73,7 @@
     }).then(async (res) => {
       if (!res.ok) {
         const { message } = await res.json()
-        console.log(message)
+        console.error('Interview slot request failed:', message)
       }
       window.scrollTo({
         top: 0,
@@ -130,7 +130,7 @@
     }).then(async (res) => {
       if (!res.ok) {
         const { message } = await res.json()
-        console.log(message)
+        console.error('Interview scheduling error:', message)
       }
       window.scrollTo({
         top: 0,

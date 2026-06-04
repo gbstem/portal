@@ -1,10 +1,11 @@
 <script lang="ts">
   import { db, user } from '$lib/client/firebase'
-  import { alert } from '$lib/stores'
   import Form from '$lib/components/Form.svelte'
-  import Button from '../Button.svelte'
-  import Select from '$lib/components/Select.svelte'
   import Input from '$lib/components/Input.svelte'
+  import Select from '$lib/components/Select.svelte'
+  import { coursesJson, daysOfWeekJson } from '$lib/data'
+  import { classesCollection } from '$lib/data/constants'
+  import { alert } from '$lib/stores'
   import {
     cn,
     getInstructorClasses,
@@ -12,14 +13,13 @@
   } from '$lib/utils'
   import { doc, setDoc } from 'firebase/firestore'
   import { onMount } from 'svelte'
-  import { coursesJson, daysOfWeekJson } from '$lib/data'
-  import { classesCollection } from '$lib/data/constants'
+  import Button from '../Button.svelte'
   import { ClassStatus } from '../helpers/ClassStatus'
 
   export let semesterDates: Data.SemesterDates
 
-  import Dialog from '../Dialog.svelte'
   import Card from '../Card.svelte'
+  import Dialog from '../Dialog.svelte'
 
   export let classDetailsDialogEl: Dialog | undefined = undefined
   export let dialog = false
@@ -249,11 +249,10 @@
     })
       .then((response) => response.json())
       .then((res) => {
-        console.log(res)
         return res.access_token
       })
       .catch((err) => {
-        console.log(err)
+        console.error('Token request error:', err)
         alert.trigger(
           'error',
           'Failed to get authentication token. Please try again.',
@@ -275,12 +274,11 @@
     )
       .then((response) => response.json())
       .then((res) => {
-        console.log(res)
         url = res.onlineMeeting.joinUrl
         return res.onlineMeeting.joinUrl
       })
       .catch((err) => {
-        console.log(err)
+        console.error('Meeting link creation error:', err)
         alert.trigger(
           'error',
           'Failed to create meeting link. Please try again.',

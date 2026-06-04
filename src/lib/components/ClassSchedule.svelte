@@ -1,47 +1,41 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
   import { db, user } from '$lib/client/firebase'
-  import {
-    doc,
-    getDoc,
-    updateDoc,
-    DocumentReference,
-    setDoc,
-    getDocs,
-    collection,
-  } from 'firebase/firestore'
-  import Input from './Input.svelte'
-  import { slide } from 'svelte/transition'
-  import { alert } from '$lib/stores'
-  import Dialog from '$lib/components/Dialog.svelte'
   import Button from '$lib/components/Button.svelte'
+  import Dialog from '$lib/components/Dialog.svelte'
   import DialogActions from '$lib/components/DialogActions.svelte'
-  import Card from './Card.svelte'
-  import { MailIcon } from 'svelte-feather-icons'
-  import {
-    classTodayHeld,
-    copyToClipboard,
-    formatDateString,
-    isClassUpcoming,
-    normalizeCapitals,
-    timestampToDate,
-    toLocalISOString,
-    getInstructorClasses,
-  } from '$lib/utils'
-  import sendClassReminder from './helpers/sendClassReminder'
-  import type Student from './types/Student'
-  import generateMeetingTimeChangeEmail from './helpers/generateMeetingTimeChangeEmail'
   import {
     classesCollection,
     registrationsCollection,
   } from '$lib/data/constants'
-  import { ClassStatus } from './helpers/ClassStatus'
-  import InstructorFeedbackForm from './forms/InstructorFeedbackForm.svelte'
+  import { alert } from '$lib/stores'
+  import {
+    classTodayHeld,
+    copyToClipboard,
+    formatDateString,
+    getInstructorClasses,
+    isClassUpcoming,
+    normalizeCapitals,
+    toLocalISOString,
+  } from '$lib/utils'
+  import {
+    doc,
+    DocumentReference,
+    getDoc,
+    setDoc,
+    updateDoc,
+  } from 'firebase/firestore'
+  import { onMount } from 'svelte'
+  import { MailIcon } from 'svelte-feather-icons'
+  import Card from './Card.svelte'
+  import Input from './Input.svelte'
   import ClassDetailsForm from './forms/ClassDetailsForm.svelte'
-  import { bind } from 'lodash-es'
+  import InstructorFeedbackForm from './forms/InstructorFeedbackForm.svelte'
+  import { ClassStatus } from './helpers/ClassStatus'
   import { SubRequestStatus } from './helpers/SubRequestStatus'
-  import { curriculums } from './helpers/curriculum'
   import { generateCurriculumLink } from './helpers/curriculumLink'
+  import generateMeetingTimeChangeEmail from './helpers/generateMeetingTimeChangeEmail'
+  import sendClassReminder from './helpers/sendClassReminder'
+  import type Student from './types/Student'
 
   export let semesterDates: Data.SemesterDates
   let editMode: boolean = false
@@ -288,7 +282,6 @@
       if (!classTodayHeld(completedClassDates))
         completedClassDates = [...completedClassDates, new Date()]
       let classToday = false
-      console.log(nextClassIndex)
       if (
         nextClassIndex !== -1 &&
         nextClassIndex < meetingTimes.length &&

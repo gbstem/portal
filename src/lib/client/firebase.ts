@@ -8,9 +8,24 @@ import {
   PUBLIC_FIREBASE_MEASUREMENT_ID,
 } from '$env/static/public'
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app'
-import { getAuth, onAuthStateChanged, connectAuthEmulator, type Auth } from 'firebase/auth'
-import { doc, getDoc, getFirestore, connectFirestoreEmulator, type Firestore } from 'firebase/firestore'
-import { getStorage, connectStorageEmulator, type FirebaseStorage } from 'firebase/storage'
+import {
+  getAuth,
+  onAuthStateChanged,
+  connectAuthEmulator,
+  type Auth,
+} from 'firebase/auth'
+import {
+  doc,
+  getDoc,
+  getFirestore,
+  connectFirestoreEmulator,
+  type Firestore,
+} from 'firebase/firestore'
+import {
+  getStorage,
+  connectStorageEmulator,
+  type FirebaseStorage,
+} from 'firebase/storage'
 import { readable } from 'svelte/store'
 import { dev, browser } from '$app/environment'
 
@@ -24,15 +39,20 @@ const config = {
   measurementId: PUBLIC_FIREBASE_MEASUREMENT_ID,
 }
 
-const isBrowser = browser || (typeof process !== 'undefined' && process.env.NODE_ENV === 'test')
+const isBrowser =
+  browser || (typeof process !== 'undefined' && process.env.NODE_ENV === 'test')
 
 const app = isBrowser
-  ? (typeof getApps === 'function' && getApps().length > 0 ? getApps()[0] : initializeApp(config))
+  ? typeof getApps === 'function' && getApps().length > 0
+    ? getApps()[0]
+    : initializeApp(config)
   : undefined
 
 export const auth = app ? getAuth(app) : (undefined as unknown as Auth)
 export const db = app ? getFirestore(app) : (undefined as unknown as Firestore)
-export const storage = app ? getStorage(app) : (undefined as unknown as FirebaseStorage)
+export const storage = app
+  ? getStorage(app)
+  : (undefined as unknown as FirebaseStorage)
 
 if (isBrowser && dev && auth && db && storage) {
   if (

@@ -50,7 +50,7 @@
           alert.trigger('info', 'Verification email was sent.')
         } else {
           const { message } = await res.json()
-          console.log(message)
+          console.error('Email verification send error:', message)
           alert.trigger('error', message)
         }
         disabled = false

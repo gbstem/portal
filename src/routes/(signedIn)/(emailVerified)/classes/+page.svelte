@@ -297,7 +297,7 @@
         }).then(async (res) => {
           if (!res.ok) {
             const { message } = await res.json()
-            console.log(message)
+            console.error('Enrollment API error:', message)
           }
           dialogEl.close()
           window.scrollTo({

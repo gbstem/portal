@@ -1,20 +1,20 @@
 <script lang="ts">
+  import { db, storage, user } from '$lib/client/firebase'
+  import Dialog from '$lib/components/Dialog.svelte'
+  import Form from '$lib/components/Form.svelte'
+  import Input from '$lib/components/Input.svelte'
+  import { decisionsCollection } from '$lib/data/constants'
   import { alert } from '$lib/stores'
+  import { cn } from '$lib/utils'
   import {
     EmailAuthProvider,
     deleteUser,
     reauthenticateWithCredential,
   } from 'firebase/auth'
-  import Dialog from '$lib/components/Dialog.svelte'
-  import Form from '$lib/components/Form.svelte'
-  import Input from '$lib/components/Input.svelte'
-  import { doc, deleteDoc } from 'firebase/firestore'
-  import { ref, deleteObject } from 'firebase/storage'
-  import { db, storage, user } from '$lib/client/firebase'
+  import { deleteDoc, doc } from 'firebase/firestore'
+  import { deleteObject, ref } from 'firebase/storage'
   import Button from '../Button.svelte'
   import DialogActions from '../DialogActions.svelte'
-  import { cn } from '$lib/utils'
-  import { decisionsCollection } from '$lib/data/constants'
 
   let className = ''
   export { className as class }
@@ -80,12 +80,12 @@
                     }, 2000)
                   })
                   .catch((err) => {
-                    console.log(err)
+                    console.error('User deletion error:', err)
                     disabled = false
                   })
               })
               .catch((err) => {
-                // console.log('id/User Object Deletion:', err)
+                console.error('id/User Object Deletion error:', err)
                 disabled = false
               })
           })

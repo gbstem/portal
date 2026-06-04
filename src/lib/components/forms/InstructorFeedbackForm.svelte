@@ -1,31 +1,20 @@
 <script lang="ts">
   import { db, user } from '$lib/client/firebase'
-  import { alert } from '$lib/stores'
   import Form from '$lib/components/Form.svelte'
-  import Button from '../Button.svelte'
   import Input from '$lib/components/Input.svelte'
-  import { cn } from '$lib/utils'
-  import {
-    doc,
-    setDoc,
-    query,
-    collection,
-    getDocs,
-    getDoc,
-    updateDoc,
-  } from 'firebase/firestore'
-  import { onMount } from 'svelte'
   import {
     classesCollection,
     instructorFeedbackCollection,
     registrationsCollection,
     substituteRequestsCollection,
   } from '$lib/data/constants'
-  import Dialog from '../Dialog.svelte'
+  import { alert } from '$lib/stores'
+  import { cn } from '$lib/utils'
+  import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
+  import Button from '../Button.svelte'
   import Card from '../Card.svelte'
-  import { SubRequestStatus } from '../helpers/SubRequestStatus'
-  import { valuesIn } from 'lodash-es'
   import { ClassStatus } from '../helpers/ClassStatus'
+  import { SubRequestStatus } from '../helpers/SubRequestStatus'
 
   // export let feedbackDialogEl: Dialog
   export let classBeingSubbed: Data.SubRequest | undefined
@@ -147,7 +136,7 @@
           doc(db, instructorFeedbackCollection, `${id}-${Date.now()}`),
           values,
         ).catch((error) => {
-          console.log(error)
+          console.error('Instructor feedback save error:', error)
         })
         updateDoc(doc(db, classesCollection, id), {
           feedbackCompleted: feedbackCompletedArray,

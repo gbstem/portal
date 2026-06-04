@@ -105,27 +105,30 @@
                             }).then(async (res) => {
                               if (!res.ok) {
                                 const { message } = await res.json()
-                                console.log(message)
+                                console.error(
+                                  'Email verification send error:',
+                                  message,
+                                )
                               }
                               disabled = false
                               goto('/profile')
                             })
                           })
                           .catch((err) => {
-                            console.log('Sign In Error:', err)
+                            console.error('Sign in error:', err)
                             disabled = false
                           })
                       })
                     })
                   })
                   .catch((err) => {
-                    console.log(err)
+                    console.error('ID collection write error:', err)
                     disabled = false
                   })
               }
             })
             .catch((err) => {
-              console.log(err)
+              console.error('User profile update error:', err)
               disabled = false
             })
         })
