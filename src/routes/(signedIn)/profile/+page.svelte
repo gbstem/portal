@@ -5,6 +5,7 @@
   import DeleteAccountForm from '$lib/components/forms/DeleteAccountForm.svelte'
   import { fade } from 'svelte/transition'
   import { alert } from '$lib/stores'
+  import { writeToClipboard } from '$lib/utils'
   import ChangeNameForm from '$lib/components/forms/ChangeNameForm.svelte'
   import Card from '$lib/components/Card.svelte'
   import type { PageData } from './$types'
@@ -135,7 +136,7 @@
             aria-label="Copy User ID"
             on:click={() => {
               if ($user) {
-                navigator.clipboard.writeText($user.profile.id)
+                writeToClipboard($user.profile.id)
               }
             }}
           >

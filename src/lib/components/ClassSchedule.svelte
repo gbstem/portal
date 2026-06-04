@@ -16,6 +16,7 @@
     isClassUpcoming,
     normalizeCapitals,
     toLocalISOString,
+    writeToClipboard,
   } from '$lib/utils'
   import {
     doc,
@@ -349,12 +350,11 @@
       )
       .join(', ')
 
-    navigator.clipboard
-      .writeText(emailList)
+    writeToClipboard(emailList)
       .then(() => {
         alert.trigger('success', 'Emails copied to clipboard!')
       })
-      .catch((err) => {
+      .catch(() => {
         alert.trigger('error', 'Failed to copy emails to clipboard!')
       })
   }

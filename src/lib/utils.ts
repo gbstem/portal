@@ -196,6 +196,21 @@ export function htmlToPlainText(html: string): string {
   return doc.body.textContent?.replace(/\n+/g, '\n').trim() || ''
 }
 
+export function writeToClipboard(text: string): Promise<void> {
+  if (
+    typeof navigator === 'undefined' ||
+    !navigator.clipboard ||
+    typeof navigator.clipboard.writeText !== 'function'
+  ) {
+    return Promise.reject(new Error('Clipboard API not supported'))
+  }
+  const promise = navigator.clipboard.writeText(text)
+  if (promise && typeof promise.then === 'function') {
+    return promise
+  }
+  return Promise.resolve()
+}
+
 export function copyToClipboard(emailHtmlContent: string) {
   const el = document.createElement('textarea')
   el.value = htmlToPlainText(emailHtmlContent)
