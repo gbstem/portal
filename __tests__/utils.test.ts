@@ -47,6 +47,7 @@ import {
   cleanEnvVar,
   clickOutside,
   cn,
+  copyEmails,
   copyToClipboard,
   formatDate,
   formatDateLocal,
@@ -327,6 +328,76 @@ describe('utils', () => {
       expect(alert.trigger).toHaveBeenCalledWith(
         'success',
         'Email copied to clipboard!',
+      )
+    })
+  })
+
+  describe('copyEmails', () => {
+    let originalClipboard: any
+
+    beforeAll(() => {
+      originalClipboard = { ...navigator.clipboard }
+      Object.defineProperty(navigator, 'clipboard', {
+        value: {
+          writeText: jest.fn(),
+        },
+        writable: true,
+        configurable: true,
+      })
+    })
+
+    afterAll(() => {
+      Object.defineProperty(navigator, 'clipboard', {
+        value: originalClipboard,
+        writable: true,
+        configurable: true,
+      })
+    })
+
+    beforeEach(() => {
+      jest.clearAllMocks()
+    })
+
+    it('filters false-y/blank values, joins them, and triggers success alert', async () => {
+      ;(navigator.clipboard.writeText as jest.Mock).mockResolvedValue(undefined)
+
+      copyEmails([
+        'test1@example.com',
+        '',
+        null,
+        undefined,
+        '  ',
+        'test2@example.com',
+      ])
+
+      // Wait for promise microtasks
+      await new Promise(process.nextTick)
+
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+        'test1@example.com, test2@example.com',
+      )
+      expect(alert.trigger).toHaveBeenCalledWith(
+        'success',
+        'Emails copied to clipboard!',
+      )
+    })
+
+    it('triggers error alert when email copying fails', async () => {
+      ;(navigator.clipboard.writeText as jest.Mock).mockRejectedValue(
+        new Error('Permission denied'),
+      )
+
+      copyEmails(['test@example.com'])
+
+      // Wait for promise microtasks
+      await new Promise(process.nextTick)
+
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+        'test@example.com',
+      )
+      expect(alert.trigger).toHaveBeenCalledWith(
+        'error',
+        'Failed to copy emails to clipboard!',
       )
     })
   })

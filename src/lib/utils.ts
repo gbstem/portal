@@ -221,6 +221,20 @@ export function copyToClipboard(emailHtmlContent: string) {
   alert.trigger('success', 'Email copied to clipboard!')
 }
 
+export function copyEmails(emails: Array<string | null | undefined>) {
+  const cleanEmails = emails.filter(
+    (email): email is string =>
+      typeof email === 'string' && email.trim() !== '',
+  )
+  writeToClipboard(cleanEmails.join(', '))
+    .then(() => {
+      alert.trigger('success', 'Emails copied to clipboard!')
+    })
+    .catch(() => {
+      alert.trigger('error', 'Failed to copy emails to clipboard!')
+    })
+}
+
 export function toLocalISOString(date: Date) {
   const pad = (number: number) => (number < 10 ? '0' + number : number)
   const year = date.getFullYear()

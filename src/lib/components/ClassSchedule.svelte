@@ -10,13 +10,13 @@
   import { alert } from '$lib/stores'
   import {
     classTodayHeld,
+    copyEmails,
     copyToClipboard,
     formatDateString,
     getInstructorClasses,
     isClassUpcoming,
     normalizeCapitals,
     toLocalISOString,
-    writeToClipboard,
   } from '$lib/utils'
   import {
     doc,
@@ -340,25 +340,6 @@
       })
   }
 
-  function copyEmails() {
-    const emailList = studentList
-      .map(
-        (student) =>
-          `${student.email}${
-            student.secondaryEmail ? `, ${student.secondaryEmail}` : ''
-          }`,
-      )
-      .join(', ')
-
-    writeToClipboard(emailList)
-      .then(() => {
-        alert.trigger('success', 'Emails copied to clipboard!')
-      })
-      .catch(() => {
-        alert.trigger('error', 'Failed to copy emails to clipboard!')
-      })
-  }
-
   function selectClass(newClassId: string) {
     selectedClassId = newClassId
     classId = newClassId
@@ -505,7 +486,13 @@
     <Card slot="description" class="mb-4">
       <div class="mb-4 flex items-center justify-end">
         <Button
-          on:click={copyEmails}
+          on:click={() =>
+            copyEmails(
+              studentList.flatMap((student) => [
+                student.email,
+                student.secondaryEmail,
+              ]),
+            )}
           class="flex items-center gap-1 justify-end"
         >
           <svg
