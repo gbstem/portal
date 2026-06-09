@@ -29,12 +29,13 @@ if (storageHost) {
 }
 
 import firebase from 'firebase-admin'
-import { getAuth } from 'firebase-admin/auth'
+import { getAuth, type Auth } from 'firebase-admin/auth'
 import {
   CollectionReference,
   DocumentReference,
   getFirestore,
   Query,
+  type Firestore,
 } from 'firebase-admin/firestore'
 
 // Wrap prototype methods with a timeout and error logger
@@ -87,8 +88,8 @@ wrapPrototypePromise(DocumentReference, 'create', 'DocumentReference')
 wrapPrototypePromise(Query, 'get', 'Query')
 wrapPrototypePromise(CollectionReference, 'add', 'CollectionReference')
 
-export let adminAuth: any
-export let adminDb: any
+export let adminAuth: Auth
+export let adminDb: Firestore
 
 if (!building) {
   try {
@@ -119,6 +120,6 @@ if (!building) {
   adminAuth = getAuth()
   adminDb = getFirestore()
 } else {
-  adminAuth = {}
-  adminDb = {}
+  adminAuth = {} as Auth
+  adminDb = {} as Firestore
 }

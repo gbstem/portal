@@ -1,33 +1,34 @@
 import {
   PUBLIC_FIREBASE_API_KEY,
+  PUBLIC_FIREBASE_APP_ID,
   PUBLIC_FIREBASE_AUTH_DOMAIN,
+  PUBLIC_FIREBASE_MEASUREMENT_ID,
+  PUBLIC_FIREBASE_MESSAGE_SENDER_ID,
   PUBLIC_FIREBASE_PROJECT_ID,
   PUBLIC_FIREBASE_STORAGE_BUCKET,
-  PUBLIC_FIREBASE_MESSAGE_SENDER_ID,
-  PUBLIC_FIREBASE_APP_ID,
-  PUBLIC_FIREBASE_MEASUREMENT_ID,
 } from '$env/static/public'
-import { initializeApp, getApps, type FirebaseApp } from 'firebase/app'
+
+import { browser, dev } from '$app/environment'
+import { getApps, initializeApp } from 'firebase/app'
 import {
+  connectAuthEmulator,
   getAuth,
   onAuthStateChanged,
-  connectAuthEmulator,
   type Auth,
 } from 'firebase/auth'
 import {
+  connectFirestoreEmulator,
   doc,
   getDoc,
-  getFirestore,
-  connectFirestoreEmulator,
+  initializeFirestore,
   type Firestore,
 } from 'firebase/firestore'
 import {
-  getStorage,
   connectStorageEmulator,
+  getStorage,
   type FirebaseStorage,
 } from 'firebase/storage'
 import { readable } from 'svelte/store'
-import { dev, browser } from '$app/environment'
 
 const config = {
   apiKey: PUBLIC_FIREBASE_API_KEY,
@@ -49,7 +50,10 @@ const app = isBrowser
   : undefined
 
 export const auth = app ? getAuth(app) : (undefined as unknown as Auth)
-export const db = app ? getFirestore(app) : (undefined as unknown as Firestore)
+// Connect to Firestore in a way that is compatible with the Cypress e2e test proxy.
+export const db = app
+  ? initializeFirestore(app, { experimentalForceLongPolling: true })
+  : (undefined as unknown as Firestore)
 export const storage = app
   ? getStorage(app)
   : (undefined as unknown as FirebaseStorage)
