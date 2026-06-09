@@ -127,6 +127,8 @@
 <svelte:head>
   <title>Dashboard</title>
 </svelte:head>
+<h1 class="mb-4 text-5xl font-bold md:text-6xl">Dashboard</h1>
+
 <div class="max-w-6xl mx-auto grid md:grid-cols-2 gap-8 py-8 px-2 md:px-8">
   {#if loading}
     <Loading class="col-span-2 h-96 flex items-center justify-center" />

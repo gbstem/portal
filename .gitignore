@@ -12,3 +12,7 @@ vite.config.ts.timestamp-*
 /.firebase
 *.log
 .vercel
+
+# Cypress
+cypress/screenshots
+cypress/logs

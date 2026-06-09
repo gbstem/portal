@@ -8,4 +8,9 @@ dotenv.config()
 /** @type {import('vite').UserConfig} */
 export default defineConfig({
   plugins: [sveltekit(), tailwindcss()],
+  server: {
+    watch: {
+      ignored: ['**/__tests__/**', '**/cypress/**'],
+    },
+  },
 })

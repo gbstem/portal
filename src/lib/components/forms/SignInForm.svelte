@@ -1,14 +1,14 @@
 <script lang="ts">
-  import Input from '$lib/components/Input.svelte'
+  import { goto } from '$app/navigation'
   import { auth } from '$lib/client/firebase'
-  import { alert } from '$lib/stores'
   import Brand from '$lib/components/Brand.svelte'
   import Form from '$lib/components/Form.svelte'
+  import Input from '$lib/components/Input.svelte'
+  import { alert } from '$lib/stores'
+  import clsx from 'clsx'
   import { signInWithEmailAndPassword } from 'firebase/auth'
-  import { goto } from '$app/navigation'
-  import Link from '../Link.svelte'
   import Button from '../Button.svelte'
-  import { cn } from '$lib/utils'
+  import Link from '../Link.svelte'
 
   let disabled = false
   let showValidation = false
@@ -23,23 +23,33 @@
       disabled = true
       signInWithEmailAndPassword(auth, values.email, values.password)
         .then((credential) => {
-          credential.user.getIdToken().then((idToken) => {
-            fetch('/api/auth', {
+          return credential.user.getIdToken().then((idToken) => {
+            return fetch('/api/auth', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({ idToken }),
             })
-              .then(() => {
-                goto('/dashboard')
-              })
-              .catch((err) => console.log('Sign In Error:', err))
           })
+        })
+        .then(async (res) => {
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}))
+            throw new Error(data.message || 'Unauthorized')
+          }
+          await goto('/dashboard')
         })
         .catch((err) => {
           disabled = false
-          alert.trigger('error', err.code, true)
+          console.error('Sign in error:', err)
+          const isFirebaseError =
+            err.code && typeof err.code === 'string' && err.code.includes('/')
+          if (isFirebaseError) {
+            alert.trigger('error', err.code, true)
+          } else {
+            alert.trigger('error', err.message || 'Unauthorized')
+          }
         })
     } else {
       showValidation = true
@@ -49,24 +59,17 @@
 </script>
 
 <Form
-  class={cn('max-w-lg', showValidation && 'show-validation')}
+  class={clsx('max-w-lg', showValidation && 'show-validation')}
   on:submit={handleSubmit}
 >
   <fieldset class="space-y-4" {disabled}>
     <Brand />
     <h1 class="text-2xl font-bold">Sign in</h1>
-    <Input
-      type="email"
-      bind:value={values.email}
-      label="Email"
-      floating
-      required
-    />
+    <Input type="email" bind:value={values.email} label="Email" required />
     <Input
       type="password"
       bind:value={values.password}
       label="Password"
-      floating
       required
       autocomplete="current-password"
     />
