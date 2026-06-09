@@ -106,46 +106,6 @@ export function formatTime24to12(time24: string): string {
   })
 }
 
-export const timestampToDate = (timestamp: Timestamp | Date) => {
-  if (timestamp instanceof Date) {
-    return timestamp
-  }
-  if (timestamp && typeof timestamp === 'object' && 'seconds' in timestamp) {
-    return new Date(timestamp.seconds * 1000)
-  }
-  return new Date(timestamp)
-}
-
-export const classTodayHeld = (datesHeld: Date[]) => {
-  return (
-    datesHeld.filter(
-      (date) =>
-        new Date().toDateString() === timestampToDate(date).toDateString() &&
-        new Date() > date,
-    ).length > 0
-  )
-}
-
-export function normalizeCapitals(name: string) {
-  if (name === undefined) return ''
-  return name
-    .split(' ')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ')
-}
-
-export function formatDateString(date: string): string {
-  const dateObj = new Date(date)
-  const options: Intl.DateTimeFormatOptions = {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }
-  return dateObj.toLocaleString(undefined, options)
-}
-
 export const formatDate = (date: Date) => {
   return date.toLocaleString('en-US', {
     weekday: 'short', // long, short, narrow
@@ -154,6 +114,17 @@ export const formatDate = (date: Date) => {
     hour: 'numeric', // numeric, 2-digit
     minute: 'numeric', // numeric, 2-digit
     hour12: true, // use 12-hour time format with AM/PM
+  })
+}
+
+export function formatDateString(dateString: string) {
+  const date = new Date(dateString)
+  return date.toLocaleString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   })
 }
 
@@ -180,6 +151,34 @@ export function formatDateStringLocal(time: string) {
     hour12: true, // use 12-hour time format with AM/PM
     timeZoneName: 'long',
   })
+}
+
+export const timestampToDate = (timestamp: Timestamp | Date) => {
+  if (timestamp instanceof Date) {
+    return timestamp
+  }
+  if (timestamp && typeof timestamp === 'object' && 'seconds' in timestamp) {
+    return new Date(timestamp.seconds * 1000)
+  }
+  return new Date(timestamp)
+}
+
+export const classTodayHeld = (datesHeld: Date[]) => {
+  return (
+    datesHeld.filter(
+      (date) =>
+        new Date().toDateString() === timestampToDate(date).toDateString() &&
+        new Date() > date,
+    ).length > 0
+  )
+}
+
+export function normalizeCapitals(name: string) {
+  if (name === undefined) return ''
+  return name
+    .split(' ')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ')
 }
 
 export function htmlToPlainText(html: string): string {
@@ -240,6 +239,7 @@ export function copyEmails(emails: Array<string | null | undefined>) {
 
 export function toLocalISOString(date: Date) {
   const pad = (number: number) => (number < 10 ? '0' + number : number)
+
   const year = date.getFullYear()
   const month = pad(date.getMonth() + 1) // JavaScript months are 0-indexed.
   const day = pad(date.getDate())
