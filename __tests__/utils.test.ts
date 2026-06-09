@@ -358,16 +358,16 @@ describe('utils', () => {
       jest.clearAllMocks()
     })
 
-    it('filters false-y/blank values, joins them, and triggers success alert', async () => {
+    it('filters false-y/blank values, sorts them, joins them, and triggers success alert', async () => {
       ;(navigator.clipboard.writeText as jest.Mock).mockResolvedValue(undefined)
 
       copyEmails([
-        'test1@example.com',
+        'test2@example.com',
         '',
         null,
         undefined,
         '  ',
-        'test2@example.com',
+        'test1@example.com',
       ])
 
       // Wait for promise microtasks

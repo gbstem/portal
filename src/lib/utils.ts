@@ -222,10 +222,13 @@ export function copyToClipboard(emailHtmlContent: string) {
 }
 
 export function copyEmails(emails: Array<string | null | undefined>) {
-  const cleanEmails = emails.filter(
-    (email): email is string =>
-      typeof email === 'string' && email.trim() !== '',
-  )
+  const cleanEmails = emails
+    .filter(
+      (email): email is string =>
+        typeof email === 'string' && email.trim() !== '',
+    )
+    .map((email) => email.trim())
+    .sort()
   writeToClipboard(cleanEmails.join(', '))
     .then(() => {
       alert.trigger('success', 'Emails copied to clipboard!')
