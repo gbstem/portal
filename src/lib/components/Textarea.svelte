@@ -39,7 +39,7 @@
 </script>
 
 <div class="relative mt-2">
-  <label for={id}>
+  <label for={id} class="text-sm font-bold">
     <span>
       {label}<span class={cn('text-red-500', !required && 'hidden')}>*</span>
     </span>

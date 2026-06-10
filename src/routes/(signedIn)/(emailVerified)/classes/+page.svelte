@@ -20,7 +20,7 @@
   import { alert } from '$lib/stores'
   import StudentSelect from '$lib/components/StudentSelect.svelte'
   import Select from '$lib/components/Select.svelte'
-  import coursesJson from '$lib/data/courses.json'
+  import { coursesJson } from '$lib/data'
   import Alert from '$lib/components/Alert.svelte'
   import { formatDate, formatTime24to12 } from '$lib/utils'
   import {
@@ -83,17 +83,22 @@
   let preloadedStudents: { uid: string; name: string }[] = []
 
   const courseToMinGrade: Record<string, number> = {
-    'Environmental Science': 5,
-    'Python I': 3,
+    'Environmental Science A': 5,
+    'Environmental Science B': 5,
+    'Python 1': 3,
     'Web Development': 5,
-    'Python II': 5,
+    'Python 2': 5,
+    'Mathematics 2a': 1,
     'Mathematics 2b': 1,
+    'Mathematics 3a': 3,
     'Mathematics 3b': 3,
+    'Mathematics 4a': 5,
     'Mathematics 4b': 5,
+    'Mathematics 5a': 6,
     'Mathematics 5b': 6,
-    'Engineering I': 2,
-    'Engineering II': 4,
-    'Engineering III': 5,
+    'Engineering 1': 2,
+    'Engineering 2': 4,
+    'Engineering 3': 5,
     'Lego Robotics Competition': 5,
   }
 

@@ -126,6 +126,7 @@ export const registrationSchema = z.object({
     school: z.string().min(1, 'School is required'),
     grade: z.string().min(1, 'Grade is required'),
   }),
+  // During student registration in the portal website, these aren't specified yet.
   program: z.object({
     csCourse: z.string().optional().default(''),
     mathCourse: z.string().optional().default(''),
