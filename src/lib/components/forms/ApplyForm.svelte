@@ -38,7 +38,7 @@
     registrationsOpen: '',
   }
 
-  let disabled = true
+  let saving = false
   let showValidation = false
   let dbValues: Data.Application
 
@@ -145,7 +145,6 @@
         if ($user) {
           const frozenUser = $user
           showValidation = false
-          disabled = true
           const updatedValues = {
             ...values,
             personal: {
@@ -217,7 +216,6 @@
               })
             })
             .catch((err: FirebaseError) => {
-              disabled = false
               console.error('Apply form submit error:', err)
               alert.trigger('error', err.code, true)
             })
@@ -232,7 +230,7 @@
     },
   )
 
-  const { form, enhance } = formResult
+  const { form, enhance, submitting } = formResult
 
   let saveInterval: number | undefined = undefined
   onMount(() => {
@@ -265,7 +263,6 @@
               handleSave()
             }
             if (!values.meta.submitted) {
-              disabled = false
               if (saveInterval === undefined) {
                 saveInterval = window.setInterval(() => {
                   handleSave()
@@ -283,72 +280,65 @@
     saveInterval = undefined
   })
 
-  function handleSave(disable: boolean = false) {
-    if (!disabled) {
-      showValidation = false
-      if (disable) {
-        disabled = true
-      }
-      return new Promise<void>((resolve, reject) => {
-        if ($user) {
-          const frozenUser = $user
-          const updatedValues = {
-            ...values,
-            personal: {
-              ...values.personal,
-              ...$form.personal,
-            },
-            academic: {
-              ...values.academic,
-              ...$form.academic,
-            },
-            program: {
-              ...values.program,
-              ...$form.program,
-            },
-            essay: {
-              ...values.essay,
-              ...$form.essay,
-            },
-            agreements: {
-              ...values.agreements,
-              ...$form.agreements,
-            },
-            timestamps: {
-              ...values.timestamps,
-              updated: serverTimestamp(),
-            },
-          }
-          setDoc(
-            doc(db, applicationsCollection, frozenUser.object.uid),
-            updatedValues,
-          )
-            .then(() => {
-              getDoc(
-                doc(db, applicationsCollection, frozenUser.object.uid),
-              ).then((applicationDoc) => {
+  function handleSave() {
+    if (values.meta.submitted || saving) return
+    showValidation = false
+    saving = true
+    return new Promise<void>((resolve, reject) => {
+      if ($user) {
+        const frozenUser = $user
+        const updatedValues = {
+          ...values,
+          personal: {
+            ...values.personal,
+            ...$form.personal,
+          },
+          academic: {
+            ...values.academic,
+            ...$form.academic,
+          },
+          program: {
+            ...values.program,
+            ...$form.program,
+          },
+          essay: {
+            ...values.essay,
+            ...$form.essay,
+          },
+          agreements: {
+            ...values.agreements,
+            ...$form.agreements,
+          },
+          timestamps: {
+            ...values.timestamps,
+            updated: serverTimestamp(),
+          },
+        }
+        setDoc(
+          doc(db, applicationsCollection, frozenUser.object.uid),
+          updatedValues,
+        )
+          .then(() => {
+            getDoc(doc(db, applicationsCollection, frozenUser.object.uid)).then(
+              (applicationDoc) => {
                 const applicationData =
                   applicationDoc.data() as Data.Application
                 values = cloneDeep(applicationData)
                 dbValues = cloneDeep(applicationData)
-                if (disable) {
-                  disabled = false
-                }
+                saving = false
                 alert.trigger('success', 'Your application was saved.')
                 resolve()
-              })
-            })
-            .catch((err) => {
-              if (disable) {
-                disabled = false
-              }
-              console.error('Apply form save error:', err)
-              alert.trigger('error', err.code, true)
-              reject()
-            })
-        }
-      })
-    }
+              },
+            )
+          })
+          .catch((err) => {
+            saving = false
+            console.error('Apply form save error:', err)
+            alert.trigger('error', err.code, true)
+            reject()
+          })
+      }
+    })
   }
 
   // React to loaded/saved values changing
@@ -469,7 +459,10 @@
     </Card>
   {/if}
 
-  <fieldset class="space-y-14" {disabled}>
+  <fieldset
+    class="space-y-14"
+    disabled={values.meta.submitted || $submitting || saving}
+  >
     <div class="grid gap-1">
       <span class="font-bold">Personal</span>
       <Card class="my-2 grid gap-3">
@@ -733,7 +726,7 @@
       {:else}
         <button
           type="button"
-          on:click={() => handleSave(true)}
+          on:click={() => handleSave()}
           class="rounded-md bg-gray-100 px-4 py-2 text-gray-900 shadow-xs transition-colors duration-300 hover:bg-gray-200 disabled:bg-gray-200 disabled:text-gray-500"
         >
           Save draft

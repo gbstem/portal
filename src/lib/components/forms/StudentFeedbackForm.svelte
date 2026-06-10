@@ -1,21 +1,19 @@
 <script lang="ts">
   import { db, user } from '$lib/client/firebase'
-  import { alert, selectedStudentId } from '$lib/stores'
-  import Button from '../Button.svelte'
-  import FormInput from '../FormInput.svelte'
-  import { cn } from '$lib/utils'
-  import { doc, getDoc, setDoc } from 'firebase/firestore'
-  import Card from '../Card.svelte'
   import {
     classesCollection,
     registrationsCollection,
     studentFeedbackCollection,
   } from '$lib/data/constants'
-  import { superForm, defaults } from 'sveltekit-superforms'
+  import { alert, selectedStudentId } from '$lib/stores'
+  import { cn } from '$lib/utils'
+  import { doc, getDoc, setDoc } from 'firebase/firestore'
+  import { defaults, superForm } from 'sveltekit-superforms'
   import { zod } from 'sveltekit-superforms/adapters'
   import { z } from 'zod'
+  import Button from '../Button.svelte'
+  import FormInput from '../FormInput.svelte'
 
-  let disabled = false
   let showValidation = false
   let selectedStudentUid = ''
 
@@ -53,7 +51,6 @@
       validators: zod(schema as any) as any,
       async onUpdate({ form: formVal }: { form: any }) {
         if (!formVal.valid) return
-        disabled = true
 
         let instructor = ''
         let course = ''
@@ -85,7 +82,6 @@
             submissionValues,
           )
             .then(() => {
-              disabled = false
               alert.trigger('success', 'Class Feedback saved!')
               reset()
             })
@@ -94,17 +90,14 @@
                 '[StudentFeedbackForm] Error saving student feedback:',
                 err,
               )
-              disabled = false
               alert.trigger('error', err.code || err.message, true)
             })
-        } else {
-          disabled = false
         }
       },
     },
   )
 
-  const { form, enhance, delayed, reset, errors } = formResult
+  const { form, enhance, delayed, reset, errors, submitting } = formResult
 
   async function fetchCourseList(classIds: string[]) {
     try {
@@ -156,80 +149,72 @@
 </script>
 
 <form class={cn(showValidation && 'show-validation')} use:enhance>
-  {#if disabled}
-    <Button
-      color="blue"
-      class="mb-5"
-      type="button"
-      on:click={() => (disabled = false)}>Edit class feedback</Button
-    >
-  {:else}
-    <fieldset class="space-y-4" disabled={disabled || $delayed}>
-      <h2 class="text-lg font-bold">
-        Weekly Class Feedback Form{#if studentName}
-          For {studentName}{/if}
-      </h2>
-      {#if selectedStudentCourses.length == 0}
-        <div class="text-sm text-gray-500">
-          This student is not currently enrolled in a course.
-        </div>
-      {:else}
-        <div class="mb-5">
-          <h3 class="mb-2 text-sm font-bold">Select Course:</h3>
-          {#each selectedStudentCourses as { instructor, course, classId }}
-            <label class="mt-1 flex cursor-pointer items-center gap-2 text-sm">
-              <input
-                type="radio"
-                bind:group={$form.classId}
-                value={classId}
-                class="h-4 w-4"
-              />
-              {course} (taught by {instructor})
-            </label>
-          {/each}
-          {#if $errors.classId}
-            <p class="mt-1 text-xs font-semibold text-red-500">
-              {$errors.classId}
-            </p>
-          {/if}
-        </div>
+  <fieldset class="space-y-4" disabled={$submitting}>
+    <h2 class="text-lg font-bold">
+      Weekly Class Feedback Form{#if studentName}
+        For {studentName}{/if}
+    </h2>
+    {#if selectedStudentCourses.length == 0}
+      <div class="text-sm text-gray-500">
+        This student is not currently enrolled in a course.
+      </div>
+    {:else}
+      <div class="mb-5">
+        <h3 class="mb-2 text-sm font-bold">Select Course:</h3>
+        {#each selectedStudentCourses as { instructor, course, classId }}
+          <label class="mt-1 flex cursor-pointer items-center gap-2 text-sm">
+            <input
+              type="radio"
+              bind:group={$form.classId}
+              value={classId}
+              class="h-4 w-4"
+            />
+            {course} (taught by {instructor})
+          </label>
+        {/each}
+        {#if $errors.classId}
+          <p class="mt-1 text-xs font-semibold text-red-500">
+            {$errors.classId}
+          </p>
+        {/if}
+      </div>
 
-        <div class="grid gap-1">
-          <div class="grid gap-1 sm:grid-cols-3 sm:gap-3">
-            <div class="flex flex-col gap-1.5 sm:col-span-1">
-              <FormInput
-                form={formResult}
-                name="date"
-                label="Date of Class"
-                type="date"
-                bind:value={$form.date}
-              />
-            </div>
-            <div class="flex flex-col gap-1.5 sm:col-span-3">
-              <FormInput
-                form={formResult}
-                name="rating"
-                label="Rate the class from 1-5"
-                type="number"
-                min="1"
-                max="5"
-                bind:value={$form.rating}
-              />
-            </div>
-          </div>
-          <div class="mt-2 flex flex-col gap-1.5">
+      <div class="grid gap-1">
+        <div class="grid gap-1 sm:grid-cols-3 sm:gap-3">
+          <div class="flex flex-col gap-1.5 sm:col-span-1">
             <FormInput
               form={formResult}
-              name="feedback"
-              label="Please provide any written feedback here. This won't be visible to the instructor."
-              bind:value={$form.feedback}
+              name="date"
+              label="Date of Class"
+              type="date"
+              bind:value={$form.date}
+            />
+          </div>
+          <div class="flex flex-col gap-1.5 sm:col-span-3">
+            <FormInput
+              form={formResult}
+              name="rating"
+              label="Rate the class from 1-5"
+              type="number"
+              min="1"
+              max="5"
+              bind:value={$form.rating}
             />
           </div>
         </div>
-        <div class="justify mt-4 flex">
-          <Button color="blue" type="submit" disabled={$delayed}>Submit</Button>
+        <div class="mt-2 flex flex-col gap-1.5">
+          <FormInput
+            form={formResult}
+            name="feedback"
+            label="Please provide any written feedback here. This won't be visible to the instructor."
+            bind:value={$form.feedback}
+          />
         </div>
-      {/if}
-    </fieldset>
-  {/if}
+      </div>
+      <div class="justify mt-4 flex">
+        <Button color="blue" type="submit" disabled={$submitting}>Submit</Button
+        >
+      </div>
+    {/if}
+  </fieldset>
 </form>

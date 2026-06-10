@@ -21,8 +21,6 @@
   import { zod } from 'sveltekit-superforms/adapters'
   import { z } from 'zod'
 
-  let disabled = false
-
   const schema = z
     .object({
       role: z.string().min(1, 'Role is required'),
@@ -60,7 +58,6 @@
       validators: zod(schema as any) as any,
       async onUpdate({ form: formVal }: { form: any }) {
         if (!formVal.valid) return
-        disabled = true
         const firstName = formVal.data.firstName.trim()
         const lastName = formVal.data.lastName.trim()
 
@@ -109,7 +106,6 @@
                 delErr,
               )
             }
-            disabled = false
             return
           }
 
@@ -161,7 +157,6 @@
             )
           }
 
-          disabled = false
           await goto('/profile')
         } catch (err: any) {
           console.error('[SignUpForm] Registration error:', err)
@@ -174,17 +169,16 @@
               : err.message || 'Failed to complete registration.',
             isFirebaseError,
           )
-          disabled = false
         }
       },
     },
   )
 
-  const { form, enhance, delayed } = formResult
+  const { form, enhance, delayed, submitting } = formResult
 </script>
 
 <form use:enhance class="w-full max-w-lg">
-  <fieldset class="space-y-4" disabled={disabled || $delayed}>
+  <fieldset class="space-y-4" disabled={$submitting}>
     <Brand />
     <h1 class="text-2xl font-bold">Sign up</h1>
     <div class="relative space-y-4">
@@ -267,7 +261,7 @@
         />
       </div>
 
-      {#if disabled || $delayed}
+      {#if $submitting}
         <Loading class="absolute -inset-2 -top-4 z-50" />
       {/if}
     </div>
@@ -275,9 +269,7 @@
       <div>
         <Link href="/signin">Need to sign in?</Link>
       </div>
-      <Button color="blue" type="submit" disabled={disabled || $delayed}
-        >Sign up</Button
-      >
+      <Button color="blue" type="submit" disabled={$submitting}>Sign up</Button>
     </div>
   </fieldset>
 </form>

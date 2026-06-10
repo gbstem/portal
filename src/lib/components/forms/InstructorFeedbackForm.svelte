@@ -24,7 +24,6 @@
   export let sessionNumber: number
   export let classId: string | undefined = undefined
 
-  let disabled = false
   let showValidation = false
   let currentUser: Data.User.Store
   let loading = true
@@ -71,7 +70,6 @@
               ? classId || frozenUser.object.uid
               : classBeingSubbed.id.split('---')[0]
 
-          disabled = true
           const submissionValues = {
             date: formVal.data.classDate,
             feedback: formVal.data.feedback,
@@ -91,7 +89,6 @@
             formVal.data.classNumber - 1 >= feedbackCompletedArray.length
           ) {
             alert.trigger('error', 'Invalid class number.')
-            disabled = false
             return
           }
 
@@ -117,7 +114,6 @@
             alert.trigger('success', 'Class Feedback saved!')
             setTimeout(() => location.reload(), 1000)
           } catch (error: any) {
-            disabled = false
             console.error(
               '[InstructorFeedbackForm] Instructor feedback save error:',
               error,
@@ -133,7 +129,7 @@
     },
   )
 
-  const { form, enhance, delayed } = formResult
+  const { form, enhance, delayed, submitting } = formResult
 
   user.subscribe(async (user) => {
     if (user) {
@@ -192,7 +188,7 @@
 <Card class="sticky top-2 z-50 flex max-w-2xl flex-col gap-3 p-3 md:p-3">
   <hr class="mt-5 mb-3" />
   <form class={cn(showValidation && 'show-validation')} use:enhance>
-    <fieldset disabled={disabled || $delayed || loading}>
+    <fieldset disabled={$submitting || loading}>
       <h2 class="mt-6 mb-4 text-lg font-bold">Class Information</h2>
       <div class="grid gap-1 sm:grid-cols-2 sm:gap-2">
         <div class="flex flex-col gap-1.5 sm:col-span-1">
@@ -243,8 +239,7 @@
       </div>
 
       <div class="justify m-3 mt-5 flex">
-        <Button color="blue" type="submit" disabled={disabled || $delayed}
-          >Submit</Button
+        <Button color="blue" type="submit" disabled={$submitting}>Submit</Button
         >
       </div>
     </fieldset>

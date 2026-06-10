@@ -17,8 +17,6 @@
     password: z.string().min(1, 'Password is required'),
   })
 
-  let disabled = false
-
   const formResult = superForm(
     defaults({ email: '', password: '' }, zod(schema as any) as any) as any,
     {
@@ -26,7 +24,6 @@
       validators: zod(schema as any) as any,
       async onUpdate({ form: formVal }: { form: any }) {
         if (!formVal.valid) return
-        disabled = true
         signInWithEmailAndPassword(
           auth,
           formVal.data.email,
@@ -51,7 +48,6 @@
             await goto('/dashboard')
           })
           .catch((err) => {
-            disabled = false
             console.error('Sign in error:', err)
             const isFirebaseError =
               err.code && typeof err.code === 'string' && err.code.includes('/')
@@ -65,11 +61,11 @@
     },
   )
 
-  const { form, enhance, delayed } = formResult
+  const { form, enhance, delayed, submitting } = formResult
 </script>
 
 <form use:enhance class="w-full max-w-lg">
-  <fieldset class="space-y-4" disabled={disabled || $delayed}>
+  <fieldset class="space-y-4" disabled={$submitting}>
     <Brand />
     <h1 class="text-2xl font-bold">Sign in</h1>
     <FormInput
@@ -92,9 +88,7 @@
         <Link href="/reset-password">Forgot password?</Link>
         <Link href="/signup">Need to sign up?</Link>
       </div>
-      <Button color="blue" type="submit" disabled={disabled || $delayed}
-        >Sign in</Button
-      >
+      <Button color="blue" type="submit" disabled={$submitting}>Sign in</Button>
     </div>
   </fieldset>
 </form>

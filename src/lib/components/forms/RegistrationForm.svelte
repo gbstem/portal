@@ -46,7 +46,8 @@
     registrationsOpen: '',
   }
 
-  let disabled = true
+  let loading = true
+  let saving = false
   let showValidation = false
   let dbValues: Data.Registration
 
@@ -114,7 +115,6 @@
         if ($user) {
           const frozenUser = $user
           showValidation = false
-          disabled = true
           const updatedValues = {
             ...values,
             personal: {
@@ -186,7 +186,6 @@
               )
             })
             .catch((err: FirebaseError) => {
-              disabled = false
               console.error('Registration submit error:', err)
               alert.trigger('error', err.code, true)
             })
@@ -201,12 +200,12 @@
     },
   )
 
-  const { form, enhance } = formResult
+  const { form, enhance, submitting } = formResult
 
   let saveInterval: number | undefined = undefined
 
   const initializeForm = () => {
-    disabled = true
+    loading = true
     return user.subscribe((user) => {
       if (user) {
         getDoc(doc(db, registrationsCollection, childUid)).then(
@@ -235,8 +234,8 @@
               values.personal.parentLastName = user.profile.lastName
               handleSave()
             }
+            loading = false
             if (new Date() > new Date(semesterDates.registrationsOpen)) {
-              disabled = false
               if (saveInterval === undefined) {
                 saveInterval = window.setInterval(() => {
                   handleSave()
@@ -274,68 +273,61 @@
     }
   }
 
-  function handleSave(disable: boolean = false) {
-    if (!disabled) {
-      showValidation = false
-      if (disable) {
-        disabled = true
-      }
-      return new Promise<void>((resolve, reject) => {
-        if ($user) {
-          const updatedValues = {
-            ...values,
-            personal: {
-              ...values.personal,
-              ...$form.personal,
-            },
-            academic: {
-              ...values.academic,
-              ...$form.academic,
-            },
-            program: {
-              ...values.program,
-              ...$form.program,
-            },
-            inPerson: {
-              ...values.inPerson,
-              ...$form.inPerson,
-            },
-            agreements: {
-              ...values.agreements,
-              ...$form.agreements,
-            },
-            timestamps: {
-              ...values.timestamps,
-              updated: serverTimestamp(),
-            },
-          }
-          setDoc(doc(db, registrationsCollection, childUid), updatedValues)
-            .then(() => {
-              getDoc(doc(db, registrationsCollection, childUid)).then(
-                (applicationDoc) => {
-                  const applicationData =
-                    applicationDoc.data() as Data.Registration
-                  values = cloneDeep(applicationData)
-                  dbValues = cloneDeep(applicationData)
-                  if (disable) {
-                    disabled = false
-                  }
-                  alert.trigger('success', 'Your progress was saved.')
-                  resolve()
-                },
-              )
-            })
-            .catch((err) => {
-              if (disable) {
-                disabled = false
-              }
-              console.error('Registration save error:', err)
-              alert.trigger('error', err.code, true)
-              reject()
-            })
+  function handleSave() {
+    if (loading || saving || $submitting) return
+    showValidation = false
+    saving = true
+    return new Promise<void>((resolve, reject) => {
+      if ($user) {
+        const updatedValues = {
+          ...values,
+          personal: {
+            ...values.personal,
+            ...$form.personal,
+          },
+          academic: {
+            ...values.academic,
+            ...$form.academic,
+          },
+          program: {
+            ...values.program,
+            ...$form.program,
+          },
+          inPerson: {
+            ...values.inPerson,
+            ...$form.inPerson,
+          },
+          agreements: {
+            ...values.agreements,
+            ...$form.agreements,
+          },
+          timestamps: {
+            ...values.timestamps,
+            updated: serverTimestamp(),
+          },
         }
-      })
-    }
+        setDoc(doc(db, registrationsCollection, childUid), updatedValues)
+          .then(() => {
+            getDoc(doc(db, registrationsCollection, childUid)).then(
+              (applicationDoc) => {
+                const applicationData =
+                  applicationDoc.data() as Data.Registration
+                values = cloneDeep(applicationData)
+                dbValues = cloneDeep(applicationData)
+                saving = false
+                alert.trigger('success', 'Your progress was saved.')
+                resolve()
+              },
+            )
+          })
+          .catch((err) => {
+            saving = false
+            console.error('Registration save error:', err)
+            alert.trigger('error', err.code, true)
+            reject()
+          })
+      }
+    })
   }
 
   // React to loaded/saved values changing
@@ -503,7 +495,7 @@
     </div>
   {:else}
     <form use:enhance class="max-w-2xl">
-      <fieldset class="space-y-14" {disabled}>
+      <fieldset class="space-y-14" disabled={loading || $submitting || saving}>
         {#if values.personal.studentFirstName !== ''}
           <div
             class="w-full rounded-md border border-red-200 bg-red-100 px-4 py-2 text-center text-green-900 shadow-xs"
@@ -725,7 +717,7 @@
         <div class="mt-8 grid grid-cols-2 gap-3">
           <button
             type="button"
-            on:click={() => handleSave(true)}
+            on:click={() => handleSave()}
             class="rounded-md bg-gray-100 px-4 py-2 text-gray-900 shadow-xs transition-colors duration-300 hover:bg-gray-200 disabled:bg-gray-200 disabled:text-gray-500"
           >
             Save draft
