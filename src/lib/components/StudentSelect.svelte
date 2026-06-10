@@ -112,7 +112,6 @@
       bind:value={selectedStudent}
       options={studentsOptions}
       label="Select a child"
-      floating
       class="w-full"
     />
   {/if}

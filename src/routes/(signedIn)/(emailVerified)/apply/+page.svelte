@@ -123,7 +123,6 @@
               class="mr-2 w-full"
               label="Select a child"
               {options}
-              floating
             />
           {/each}
         </div>

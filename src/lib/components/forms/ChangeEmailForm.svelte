@@ -1,47 +1,53 @@
 <script lang="ts">
   import type { ActionRequestBody } from '../../../routes/api/action/+server'
-  import Input from '$lib/components/Input.svelte'
   import { alert } from '$lib/stores'
   import Dialog from '$lib/components/Dialog.svelte'
   import ReauthenticateForm from '$lib/components/forms/ReauthenticateForm.svelte'
-  import Form from '$lib/components/Form.svelte'
   import { user } from '$lib/client/firebase'
   import DialogActions from '../DialogActions.svelte'
   import Button from '../Button.svelte'
+  import FormInput from '../FormInput.svelte'
   import { cn } from '$lib/utils'
+  import { superForm, defaults } from 'sveltekit-superforms'
+  import { zod } from 'sveltekit-superforms/adapters'
+  import { z } from 'zod'
 
   let className = ''
   export { className as class }
 
+  const schema = z.object({
+    newEmail: z.string().email('Invalid email address'),
+  })
+
   let dialogEl: Dialog
-  let disabled = false
-  let showValidation = false
-  let values = {
-    newEmail: '',
-  }
-  function handleSubmit(e: CustomEvent<SubmitData>) {
-    if (e.detail.error === null) {
-      showValidation = false
-      disabled = true
-      dialogEl.open()
-    } else {
-      showValidation = true
-      alert.trigger('error', e.detail.error)
-    }
-  }
+  let emailToUpdate = ''
+
+  const formResult = superForm(
+    defaults({ newEmail: '' }, zod(schema as any) as any) as any,
+    {
+      SPA: true,
+      validators: zod(schema as any) as any,
+      onUpdate({ form: formVal }: { form: any }) {
+        if (!formVal.valid) return
+        emailToUpdate = formVal.data.newEmail
+        dialogEl.open()
+      },
+    },
+  )
+
+  const { form, enhance, delayed, reset } = formResult
+
   function handleCancel() {
-    disabled = false
-    values = {
-      newEmail: '',
-    }
+    reset()
     alert.trigger('info', 'Email change canceled.')
   }
+
   function handleReauthenticate() {
     if ($user) {
       dialogEl.close()
       const payload: ActionRequestBody = {
         type: 'changeEmail',
-        newEmail: values.newEmail,
+        newEmail: emailToUpdate,
         firstName: $user.profile.firstName,
       }
       fetch('/api/action', {
@@ -57,43 +63,45 @@
           const { message } = await res.json()
           alert.trigger('error', message)
         }
-        values = {
-          newEmail: '',
-        }
-        disabled = false
+        reset()
       })
     }
   }
 </script>
 
-<Form
-  class={cn(showValidation && 'show-validation', className)}
-  on:submit={handleSubmit}
->
-  <fieldset {disabled}>
+<form use:enhance class={cn('w-full', className)}>
+  <fieldset class="space-y-4" disabled={$delayed}>
     <span class="font-bold">Change email</span>
-    <Input
-      type="email"
-      value={$user && $user.object.email ? $user.object.email : ''}
-      label="Current email"
-      floating
-      readonly
-    />
-    <div class="relative">
-      <Input
-        class="pr-21"
+
+    <div class="flex flex-col gap-1.5">
+      <label class="font-bold text-sm" for="current-email">Current email</label>
+      <input
+        id="current-email"
         type="email"
-        bind:value={values.newEmail}
-        label="New email"
-        floating
-        required
+        value={$user && $user.object.email ? $user.object.email : ''}
+        readonly
+        disabled
+        class="block h-12 w-full appearance-none rounded-md border border-gray-300 bg-gray-50 px-3 text-gray-500 outline-hidden"
       />
-      <div class="absolute right-2 top-0 flex h-12 items-center">
-        <Button color="blue" class="px-2 py-1" type="submit">Update</Button>
+    </div>
+
+    <div class="flex flex-col gap-1.5 relative">
+      <FormInput
+        form={formResult}
+        name="newEmail"
+        label="New email"
+        type="email"
+        bind:value={$form.newEmail}
+        class="pr-21"
+      />
+      <div class="absolute right-2 top-6 flex h-12 items-center">
+        <Button color="blue" class="px-2 py-1" type="submit" disabled={$delayed}
+          >Update</Button
+        >
       </div>
     </div>
   </fieldset>
-</Form>
+</form>
 
 <Dialog bind:this={dialogEl} on:cancel={handleCancel}>
   <svelte:fragment slot="title">Reauthenticate</svelte:fragment>

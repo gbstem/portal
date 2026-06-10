@@ -1,12 +1,10 @@
 <script lang="ts">
   import type { ActionRequestBody } from '../../../routes/api/action/+server'
-  import Input from '$lib/components/Input.svelte'
   import { goto } from '$app/navigation'
   import Brand from '$lib/components/Brand.svelte'
   import { alert } from '$lib/stores'
   import { doc, getDoc, setDoc } from 'firebase/firestore'
   import { customAlphabet } from 'nanoid'
-  import Form from '$lib/components/Form.svelte'
   import {
     createUserWithEmailAndPassword,
     deleteUser,
@@ -16,166 +14,198 @@
   import Link from '../Link.svelte'
   import Button from '../Button.svelte'
   import Loading from '../Loading.svelte'
+  import FormInput from '../FormInput.svelte'
+  import FormSelect from '../FormSelect.svelte'
   import { cn } from '$lib/utils'
-  import Select from '../Select.svelte'
+  import { superForm, defaults } from 'sveltekit-superforms'
+  import { zod } from 'sveltekit-superforms/adapters'
+  import { z } from 'zod'
 
   let disabled = false
-  let showValidation = false
-  let values = {
-    role: '',
-    firstName: '',
-    lastName: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-  }
+
+  const schema = z
+    .object({
+      role: z.string().min(1, 'Role is required'),
+      firstName: z.string().trim().min(1, 'First name is required'),
+      lastName: z.string().trim().min(1, 'Last name is required'),
+      email: z.string().email('Invalid email address'),
+      password: z.string().min(6, 'Password must be at least 6 characters'),
+      confirmPassword: z.string().min(1, 'Confirm password is required'),
+    })
+    .refine((data) => data.password === data.confirmPassword, {
+      message: 'Passwords do not match.',
+      path: ['confirmPassword'],
+    })
+
   function generateId() {
     const alphabet = '0123456789'
     const nanoid = customAlphabet(alphabet, 7)
     return nanoid()
   }
-  function handleSubmit(e: CustomEvent<SubmitData>) {
-    if (e.detail.error === null) {
-      showValidation = false
-      disabled = true
-      const firstName = values.firstName.trim()
-      const lastName = values.lastName.trim()
 
-      createUserWithEmailAndPassword(auth, values.email, values.password)
-        .then(({ user }) => {
-          updateProfile(user, {
+  const formResult = superForm(
+    defaults(
+      {
+        role: '',
+        firstName: '',
+        lastName: '',
+        email: '',
+        password: '',
+        confirmPassword: '',
+      },
+      zod(schema as any) as any,
+    ) as any,
+    {
+      SPA: true,
+      validators: zod(schema as any) as any,
+      async onUpdate({ form: formVal }: { form: any }) {
+        if (!formVal.valid) return
+        disabled = true
+        const firstName = formVal.data.firstName.trim()
+        const lastName = formVal.data.lastName.trim()
+
+        let createdUser: any = null
+        try {
+          const credential = await createUserWithEmailAndPassword(
+            auth,
+            formVal.data.email,
+            formVal.data.password,
+          )
+          createdUser = credential.user
+
+          await updateProfile(createdUser, {
             displayName: `${firstName} ${lastName}`,
           })
-            .then(async () => {
-              // attempt to generate id
-              let id = generateId()
-              for (let i = 0; i < 5; ++i) {
-                try {
-                  const res = await getDoc(doc(db, 'ids', id))
-                  if (res.exists()) {
-                    id = generateId()
-                    if (i == 4) {
-                      id = ''
-                    }
-                  } else {
-                    break
-                  }
-                } catch (err) {
+
+          // attempt to generate id
+          let id = generateId()
+          for (let i = 0; i < 5; ++i) {
+            try {
+              const res = await getDoc(doc(db, 'ids', id))
+              if (res.exists()) {
+                id = generateId()
+                if (i == 4) {
                   id = ''
                 }
-              }
-              if (id === '') {
-                alert.trigger(
-                  'error',
-                  'id could not be generated. Contact admin and create a new account.',
-                )
-                deleteUser(user)
               } else {
-                setDoc(doc(db, 'ids', id), {})
-                  .then(() => {
-                    setDoc(doc(db, 'users', user.uid), {
-                      id,
-                      role:
-                        values.role ===
-                        'High school/college student applying to be an instructor'
-                          ? 'instructor'
-                          : 'student',
-                      firstName,
-                      lastName,
-                    }).then(() => {
-                      user.getIdToken().then((idToken) => {
-                        fetch('/api/auth', {
-                          method: 'POST',
-                          headers: {
-                            'Content-Type': 'application/json',
-                          },
-                          body: JSON.stringify({ idToken }),
-                        })
-                          .then(() => {
-                            const payload: ActionRequestBody = {
-                              type: 'verifyEmail',
-                              email: values.email,
-                            }
-                            fetch('/api/action', {
-                              method: 'POST',
-                              headers: {
-                                'Content-Type': 'application/json',
-                              },
-                              body: JSON.stringify(payload),
-                            }).then(async (res) => {
-                              if (!res.ok) {
-                                const { message } = await res.json()
-                                console.error(
-                                  'Email verification send error:',
-                                  message,
-                                )
-                              }
-                              disabled = false
-                              goto('/profile')
-                            })
-                          })
-                          .catch((err) => {
-                            console.error('Sign in error:', err)
-                            disabled = false
-                          })
-                      })
-                    })
-                  })
-                  .catch((err) => {
-                    console.error('ID collection write error:', err)
-                    disabled = false
-                  })
+                break
               }
-            })
-            .catch((err) => {
-              console.error('User profile update error:', err)
-              disabled = false
-            })
-        })
-        .catch((err) => {
-          alert.trigger('error', err.code, true)
+            } catch (err) {
+              console.error('[SignUpForm] Error checking ID uniqueness:', err)
+              id = ''
+            }
+          }
+
+          if (id === '') {
+            alert.trigger(
+              'error',
+              'ID could not be generated. Please contact support.',
+            )
+            try {
+              await deleteUser(createdUser)
+            } catch (delErr) {
+              console.error(
+                '[SignUpForm] Error deleting rollbacked user:',
+                delErr,
+              )
+            }
+            disabled = false
+            return
+          }
+
+          await setDoc(doc(db, 'ids', id), {})
+          await setDoc(doc(db, 'users', createdUser.uid), {
+            id,
+            role:
+              formVal.data.role ===
+              'High school/college student applying to be an instructor'
+                ? 'instructor'
+                : 'student',
+            firstName,
+            lastName,
+          })
+
+          const idToken = await createdUser.getIdToken()
+          const authRes = await fetch('/api/auth', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ idToken }),
+          })
+
+          if (!authRes.ok) {
+            const authData = await authRes.json().catch(() => ({}))
+            throw new Error(
+              authData.message || 'Session synchronization failed',
+            )
+          }
+
+          const payload: ActionRequestBody = {
+            type: 'verifyEmail',
+            email: formVal.data.email,
+          }
+          const actionRes = await fetch('/api/action', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+          })
+
+          if (!actionRes.ok) {
+            const actionData = await actionRes.json().catch(() => ({}))
+            console.error(
+              '[SignUpForm] Email verification send error:',
+              actionData.message || 'Unknown error',
+            )
+          }
+
           disabled = false
-        })
-    } else {
-      showValidation = true
-      alert.trigger('error', e.detail.error)
-    }
-  }
+          await goto('/profile')
+        } catch (err: any) {
+          console.error('[SignUpForm] Registration error:', err)
+          const isFirebaseError =
+            err.code && typeof err.code === 'string' && err.code.includes('/')
+          alert.trigger(
+            'error',
+            isFirebaseError
+              ? err.code
+              : err.message || 'Failed to complete registration.',
+            isFirebaseError,
+          )
+          disabled = false
+        }
+      },
+    },
+  )
+
+  const { form, enhance, delayed } = formResult
 </script>
 
-<Form
-  class={cn('max-w-lg', showValidation && 'show-validation')}
-  on:submit={handleSubmit}
->
-  <fieldset class="space-y-4" {disabled}>
+<form use:enhance class="max-w-lg w-full">
+  <fieldset class="space-y-4" disabled={disabled || $delayed}>
     <Brand />
     <h1 class="text-2xl font-bold">Sign up</h1>
     <div class="relative space-y-4">
-      <Select
-        bind:value={values.role}
-        label="I am a..."
-        required
-        floating
-        options={[
-          { name: 'High school/college student applying to be an instructor' },
-          { name: 'Parent registering my child for classes' },
-        ]}
-      />
+      <div class="flex flex-col gap-1.5">
+        <FormSelect
+          form={formResult}
+          name="role"
+          label="I am a..."
+          options={[
+            {
+              name: 'High school/college student applying to be an instructor',
+            },
+            { name: 'Parent registering my child for classes' },
+          ]}
+          bind:value={$form.role}
+        />
+      </div>
 
-      {#if values.role === 'Parent registering my child for classes'}
-        <!-- <div
-          class="relative mb-4 rounded-sm border border-red-400 bg-red-100 px-4 py-3 text-red-700"
-          role="alert"
-        >
-          <strong class="font-bold"
-            >STOP: STUDENT REGISTRATIONS ARE NOT OPEN YET. IF YOU CREATE AN
-            ACCOUNT NOW, YOUR ACCOUNT WILL BE DELETED AND ALL ACCOUNT INFO WILL
-            BE LOST.
-          </strong>
-        </div> -->
-
+      {#if $form.role === 'Parent registering my child for classes'}
         <div
-          class="relative mb-4 rounded-sm border border-green-400 bg-green-100 px-4 py-3 text-green-700"
+          class="relative mb-4 rounded-sm border border-green-400 bg-green-100 px-4 py-3 text-green-700 text-sm"
           role="alert"
         >
           <strong class="font-bold"
@@ -187,51 +217,57 @@
       {/if}
 
       <div class="grid gap-2 sm:grid-cols-2 sm:gap-4">
-        <Input
-          type="text"
-          bind:value={values.firstName}
-          label="First name"
-          floating
-          required
-        />
-        <Input
-          type="text"
-          bind:value={values.lastName}
-          label="Last name"
-          floating
-          required
+        <div class="flex flex-col gap-1.5">
+          <FormInput
+            form={formResult}
+            name="firstName"
+            label="First name"
+            bind:value={$form.firstName}
+          />
+        </div>
+        <div class="flex flex-col gap-1.5">
+          <FormInput
+            form={formResult}
+            name="lastName"
+            label="Last name"
+            bind:value={$form.lastName}
+          />
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-1.5">
+        <FormInput
+          form={formResult}
+          name="email"
+          label="Email"
+          type="email"
+          bind:value={$form.email}
         />
       </div>
-      <Input
-        type="email"
-        bind:value={values.email}
-        label="Email"
-        floating
-        required
-      />
-      <Input
-        type="password"
-        bind:value={values.password}
-        label="Password"
-        floating
-        required
-        autocomplete="new-password"
-      />
-      <Input
-        type="password"
-        bind:value={values.confirmPassword}
-        label="Confirm password"
-        floating
-        required
-        autocomplete="new-password"
-        validations={[
-          [
-            values.password !== values.confirmPassword,
-            'Passwords do not match.',
-          ],
-        ]}
-      />
-      {#if disabled}
+
+      <div class="flex flex-col gap-1.5">
+        <FormInput
+          form={formResult}
+          name="password"
+          label="Password"
+          type="password"
+          bind:value={$form.password}
+          autocomplete="new-password"
+        />
+      </div>
+
+      <div class="flex flex-col gap-1.5">
+        <FormInput
+          form={formResult}
+          name="confirmPassword"
+          label="Confirm password"
+          type="password"
+          bind:value={$form.confirmPassword}
+          autocomplete="new-password"
+        />
+      </div>
+
+      {#if disabled || $delayed}
         <Loading class="absolute -inset-2 -top-4 z-50" />
       {/if}
     </div>
@@ -239,7 +275,9 @@
       <div>
         <Link href="/signin">Need to sign in?</Link>
       </div>
-      <Button color="blue" type="submit">Sign up</Button>
+      <Button color="blue" type="submit" disabled={disabled || $delayed}
+        >Sign up</Button
+      >
     </div>
   </fieldset>
-</Form>
+</form>

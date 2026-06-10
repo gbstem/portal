@@ -920,14 +920,12 @@
         type="number"
         class="rounded-sm border p-1"
         bind:value={subRequestClassNumber}
-        floating
         label="Please confirm the class number ."
       />
       <Input
         type="datetime-local"
         class="rounded-sm border p-1"
         bind:value={subRequestDate}
-        floating
         label="Please confirm the date and time of the class you would like to request a sub for."
       />
       <Input

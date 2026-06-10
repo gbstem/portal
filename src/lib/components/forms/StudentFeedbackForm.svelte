@@ -1,181 +1,235 @@
 <script lang="ts">
   import { db, user } from '$lib/client/firebase'
   import { alert, selectedStudentId } from '$lib/stores'
-  import Form from '$lib/components/Form.svelte'
   import Button from '../Button.svelte'
-  import Input from '$lib/components/Input.svelte'
+  import FormInput from '../FormInput.svelte'
   import { cn } from '$lib/utils'
   import { doc, getDoc, setDoc } from 'firebase/firestore'
   import Card from '../Card.svelte'
-  import StudentSelect from '../StudentSelect.svelte'
   import {
     classesCollection,
     registrationsCollection,
     studentFeedbackCollection,
   } from '$lib/data/constants'
+  import { superForm, defaults } from 'sveltekit-superforms'
+  import { zod } from 'sveltekit-superforms/adapters'
+  import { z } from 'zod'
 
   let disabled = false
   let showValidation = false
   let selectedStudentUid = ''
 
-  const subscribe = selectedStudentId.subscribe((value) => {
+  selectedStudentId.subscribe((value) => {
     selectedStudentUid = value
   })
 
   let selectedStudentCourses: any[] = []
   let pastSelected = ''
+  let studentName = ''
 
-  let values: {
-    studentId: string
-    date: string
-    classId: string
-    rating: number
-    feedback: string
-    instructor: string
-    studentName: string
-    course: string
-  } = {
-    studentId: '',
-    date: new Date().toISOString().slice(0, 10),
-    classId: '',
-    rating: 0,
-    feedback: '',
-    instructor: '',
-    studentName: '',
-    course: '',
-  }
+  const schema = z.object({
+    classId: z.string().min(1, 'Please select a course'),
+    date: z.string().min(1, 'Date of class is required'),
+    rating: z.coerce
+      .number()
+      .int()
+      .min(1, 'Rating must be at least 1')
+      .max(5, 'Rating must be at most 5'),
+    feedback: z.string().min(1, 'Feedback is required'),
+  })
+
+  const formResult = superForm(
+    defaults(
+      {
+        classId: '',
+        date: new Date().toISOString().slice(0, 10),
+        rating: 0,
+        feedback: '',
+      },
+      zod(schema as any) as any,
+    ) as any,
+    {
+      SPA: true,
+      validators: zod(schema as any) as any,
+      async onUpdate({ form: formVal }: { form: any }) {
+        if (!formVal.valid) return
+        disabled = true
+
+        let instructor = ''
+        let course = ''
+        selectedStudentCourses.forEach((selectedCourse) => {
+          if (selectedCourse.classId === formVal.data.classId) {
+            instructor = selectedCourse.instructor
+            course = selectedCourse.course
+          }
+        })
+
+        const submissionValues = {
+          studentId: selectedStudentUid,
+          date: formVal.data.date,
+          classId: formVal.data.classId,
+          rating: formVal.data.rating,
+          feedback: formVal.data.feedback,
+          instructor,
+          studentName,
+          course,
+        }
+
+        if ($user) {
+          setDoc(
+            doc(
+              db,
+              studentFeedbackCollection,
+              `${formVal.data.classId}-${Date.now()}`,
+            ),
+            submissionValues,
+          )
+            .then(() => {
+              disabled = false
+              alert.trigger('success', 'Class Feedback saved!')
+              reset()
+            })
+            .catch((err) => {
+              console.error(
+                '[StudentFeedbackForm] Error saving student feedback:',
+                err,
+              )
+              disabled = false
+              alert.trigger('error', err.code || err.message, true)
+            })
+        } else {
+          disabled = false
+        }
+      },
+    },
+  )
+
+  const { form, enhance, delayed, reset, errors } = formResult
 
   async function fetchCourseList(classIds: string[]) {
-    const coursePromises = classIds.map((classId) =>
-      getDoc(doc(db, classesCollection, classId)),
-    )
-    const courseDocs = await Promise.all(coursePromises)
-    selectedStudentCourses = courseDocs
-      .map((doc) => {
-        if (doc.exists() && doc.data()) {
-          return {
-            classId: doc.id,
-            course: doc.data().course,
-            instructor:
-              doc.data().instructorFirstName +
-              ' ' +
-              doc.data().instructorLastName,
+    try {
+      const coursePromises = classIds.map((classId) =>
+        getDoc(doc(db, classesCollection, classId)),
+      )
+      const courseDocs = await Promise.all(coursePromises)
+      selectedStudentCourses = courseDocs
+        .map((doc) => {
+          if (doc.exists() && doc.data()) {
+            return {
+              classId: doc.id,
+              course: doc.data().course,
+              instructor:
+                doc.data().instructorFirstName +
+                ' ' +
+                doc.data().instructorLastName,
+            }
           }
-        }
-      })
-      .filter(Boolean)
-  }
-
-  function handleSubmit(e: CustomEvent<SubmitData>) {
-    selectedStudentCourses.map((selectedCourse) => {
-      if (selectedCourse.classId === values.classId) {
-        values.instructor = selectedCourse.instructor
-        values.course = selectedCourse.course
-      }
-    })
-    values.studentId = selectedStudentUid
-    if (e.detail.error === null) {
-      showValidation = false
-      disabled = false
-      if ($user) {
-        setDoc(
-          doc(db, studentFeedbackCollection, `${values.classId}-${Date.now()}`),
-          values,
-        )
-          .then(() => {
-            alert.trigger('success', 'Class Feedback saved!')
-          })
-          .catch((err) => {
-            disabled = false
-            alert.trigger('error', err.code, true)
-          })
-        values.classId = ''
-        values.rating = 0
-        values.feedback = ''
-        values.date = new Date().toISOString().slice(0, 10)
-      }
-    } else {
-      showValidation = true
-      alert.trigger('error', e.detail.error)
+        })
+        .filter(Boolean)
+    } catch (err) {
+      console.error('[StudentFeedbackForm] Error fetching course list:', err)
     }
   }
 
   $: if (selectedStudentUid) {
     if (selectedStudentUid !== pastSelected || pastSelected === '') {
-      getDoc(doc(db, registrationsCollection, selectedStudentUid)).then(
-        (docSnapshot) => {
+      getDoc(doc(db, registrationsCollection, selectedStudentUid))
+        .then((docSnapshot) => {
           if (docSnapshot.exists()) {
-            values.studentName =
+            studentName =
               docSnapshot.data().personal.studentFirstName +
               ' ' +
               docSnapshot.data().personal.studentLastName
             const classIds = docSnapshot.data().classes || []
             fetchCourseList(classIds)
           }
-        },
-      )
+        })
+        .catch((err) => {
+          console.error(
+            '[StudentFeedbackForm] Error fetching student registration:',
+            err,
+          )
+        })
       pastSelected = selectedStudentUid
     }
   }
 </script>
 
-<Form class={cn(showValidation && 'show-validation')} on:submit={handleSubmit}>
+<form class={cn(showValidation && 'show-validation')} use:enhance>
   {#if disabled}
-    <Button color="blue" class="mb-5" on:click={() => (disabled = false)}
-      >Edit class feedback</Button
+    <Button
+      color="blue"
+      class="mb-5"
+      type="button"
+      on:click={() => (disabled = false)}>Edit class feedback</Button
     >
   {:else}
-    <fieldset class="space-y-4" {disabled}>
-      <h2 class="font-bold">
-        Weekly Class Feedback Form{' '}{#if values.studentName}
-          For {values.studentName}{/if}
+    <fieldset class="space-y-4" disabled={disabled || $delayed}>
+      <h2 class="font-bold text-lg">
+        Weekly Class Feedback Form{#if studentName}
+          For {studentName}{/if}
       </h2>
       {#if selectedStudentCourses.length == 0}
-        <div>This student is not currently enrolled in a course.</div>
+        <div class="text-sm text-gray-500">
+          This student is not currently enrolled in a course.
+        </div>
       {:else}
         <div class="mb-5">
-          <h2 class="text-lg font-bold">Select Course:</h2>
+          <h3 class="text-sm font-bold mb-2">Select Course:</h3>
           {#each selectedStudentCourses as { instructor, course, classId }}
-            <label>
-              <input type="radio" bind:group={values.classId} value={classId} />
+            <label class="flex items-center gap-2 text-sm mt-1 cursor-pointer">
+              <input
+                type="radio"
+                bind:group={$form.classId}
+                value={classId}
+                class="h-4 w-4"
+              />
               {course} (taught by {instructor})
             </label>
-            <br />
           {/each}
+          {#if $errors.classId}
+            <p class="text-xs text-red-500 font-semibold mt-1">
+              {$errors.classId}
+            </p>
+          {/if}
         </div>
 
         <div class="grid gap-1">
           <div class="grid gap-1 sm:grid-cols-3 sm:gap-3">
-            <div class="sm:col-span-1">
-              <Input
-                type="date"
-                bind:value={values.date}
+            <div class="sm:col-span-1 flex flex-col gap-1.5">
+              <FormInput
+                form={formResult}
+                name="date"
                 label="Date of Class"
-                required
+                type="date"
+                bind:value={$form.date}
               />
             </div>
-            <div class="sm:col-span-3">
-              <Input
+            <div class="sm:col-span-3 flex flex-col gap-1.5">
+              <FormInput
+                form={formResult}
+                name="rating"
+                label="Rate the class from 1-5"
                 type="number"
-                bind:value={values.rating}
                 min="1"
                 max="5"
-                label="Rate the class from 1-5"
-                required
+                bind:value={$form.rating}
               />
             </div>
           </div>
-          <Input
-            type="text"
-            bind:value={values.feedback}
-            label="Please provide any written feedback here. This won't be visible to the instructor and will be given to the course curriculum developer and track directors to help improve the class and train our instructors."
-            required
-          />
+          <div class="flex flex-col gap-1.5 mt-2">
+            <FormInput
+              form={formResult}
+              name="feedback"
+              label="Please provide any written feedback here. This won't be visible to the instructor."
+              bind:value={$form.feedback}
+            />
+          </div>
         </div>
-        <div class="justify flex">
-          <Button color="blue" type="submit">Submit</Button>
+        <div class="justify flex mt-4">
+          <Button color="blue" type="submit" disabled={$delayed}>Submit</Button>
         </div>
       {/if}
     </fieldset>
   {/if}
-</Form>
+</form>

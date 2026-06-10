@@ -1,90 +1,98 @@
 <script lang="ts">
-  import Input from '$lib/components/Input.svelte'
-  import { alert } from '$lib/stores'
   import { doc, updateDoc } from 'firebase/firestore'
   import { updateProfile } from 'firebase/auth'
-  import Form from '$lib/components/Form.svelte'
   import { db, user } from '$lib/client/firebase'
+  import { alert } from '$lib/stores'
   import { onMount } from 'svelte'
+  import { superForm, defaults } from 'sveltekit-superforms'
+  import { zod } from 'sveltekit-superforms/adapters'
+  import { z } from 'zod'
   import Button from '../Button.svelte'
+  import FormInput from '../FormInput.svelte'
   import { cn } from '$lib/utils'
 
   let className = ''
   export { className as class }
 
+  const schema = z.object({
+    firstName: z.string().trim().min(1, 'First name is required'),
+    lastName: z.string().trim().min(1, 'Last name is required'),
+  })
+
   let disabled = true
-  let showValidation = false
-  let values = {
-    firstName: '',
-    lastName: '',
-  }
+
+  const formResult = superForm(
+    defaults({ firstName: '', lastName: '' }, zod(schema as any) as any) as any,
+    {
+      SPA: true,
+      validators: zod(schema as any) as any,
+      async onUpdate({ form: formVal }: { form: any }) {
+        if (!formVal.valid) return
+        if ($user) {
+          const frozenUser = $user
+          disabled = true
+          const firstName = formVal.data.firstName.trim()
+          const lastName = formVal.data.lastName.trim()
+          updateDoc(doc(db, 'users', frozenUser.object.uid), {
+            firstName,
+            lastName,
+          })
+            .then(() =>
+              updateProfile(frozenUser.object, {
+                displayName: `${firstName} ${lastName}`,
+              }).then(() => {
+                disabled = false
+                alert.trigger('success', 'Name successfully updated.')
+              }),
+            )
+            .catch((err) => {
+              disabled = false
+              alert.trigger('error', err.code, true)
+            })
+        }
+      },
+    },
+  )
+
+  const { form, enhance, delayed } = formResult
+
   onMount(() => {
-    return user.subscribe((user) => {
-      if (user) {
-        values.firstName = user.profile.firstName
-        values.lastName = user.profile.lastName
+    return user.subscribe((u) => {
+      if (u) {
+        $form.firstName = u.profile.firstName || ''
+        $form.lastName = u.profile.lastName || ''
         disabled = false
       }
     })
   })
-  function handleSubmit(e: CustomEvent<SubmitData>) {
-    if ($user) {
-      const frozenUser = $user
-      if (e.detail.error === null) {
-        showValidation = false
-        disabled = true
-        const firstName = values.firstName.trim()
-        const lastName = values.lastName.trim()
-        updateDoc(doc(db, 'users', frozenUser.object.uid), {
-          firstName,
-          lastName,
-        })
-          .then(() =>
-            updateProfile(frozenUser.object, {
-              displayName: `${firstName} ${lastName}`,
-            }).then(() => {
-              disabled = false
-              alert.trigger('success', 'Name successfully updated.')
-            }),
-          )
-          .catch((err) => {
-            disabled = false
-            alert.trigger('error', err.code, true)
-          })
-      } else {
-        showValidation = true
-        alert.trigger('error', e.detail.error)
-      }
-    }
-  }
 </script>
 
-<Form
-  class={cn(showValidation && 'show-validation', className)}
-  on:submit={handleSubmit}
->
-  <fieldset {disabled}>
+<form use:enhance class={cn('w-full', className)}>
+  <fieldset class="space-y-4" {disabled}>
     <span class="font-bold">Name</span>
     <div class="grid gap-2 sm:grid-cols-2">
-      <Input
-        type="text"
-        bind:value={values.firstName}
-        label="First name"
-        floating
-        required
-      />
-      <div class="flex gap-2">
-        <Input
-          type="text"
-          bind:value={values.lastName}
-          label="Last name"
-          floating
-          required
+      <div class="flex flex-col gap-1.5">
+        <FormInput
+          form={formResult}
+          name="firstName"
+          label="First name"
+          bind:value={$form.firstName}
         />
+      </div>
+      <div class="flex gap-2 items-end">
+        <div class="flex flex-col gap-1.5 w-full">
+          <FormInput
+            form={formResult}
+            name="lastName"
+            label="Last name"
+            bind:value={$form.lastName}
+          />
+        </div>
         <Button
-          class="mt-2 flex h-12 w-12 shrink-0 items-center justify-center p-0"
+          class="flex h-12 w-12 shrink-0 items-center justify-center p-0 mb-0.5"
           color="blue"
           type="submit"
+          disabled={$delayed}
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -107,4 +115,4 @@
       </div>
     </div>
   </fieldset>
-</Form>
+</form>

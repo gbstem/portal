@@ -1,13 +1,4 @@
 <script lang="ts">
-  import { db, storage, user } from '$lib/client/firebase'
-  import Card from '$lib/components/Card.svelte'
-  import Form from '$lib/components/Form.svelte'
-  import Input from '$lib/components/Input.svelte'
-  import Select from '$lib/components/Select.svelte'
-  import Textarea from '$lib/components/Textarea.svelte'
-  import { coursesJson, gendersJson, raceJson, reasonsJson } from '$lib/data'
-  import { alert } from '$lib/stores'
-  import clsx from 'clsx'
   import {
     doc,
     getDoc,
@@ -15,12 +6,22 @@
     setDoc,
     Timestamp,
   } from 'firebase/firestore'
-  import { getDownloadURL, ref, uploadBytes } from 'firebase/storage'
+  import { db, user } from '$lib/client/firebase'
+  import { alert } from '$lib/stores'
+  import type { FirebaseError } from 'firebase/app'
+  import Card from '$lib/components/Card.svelte'
+  import { coursesJson, gendersJson, raceJson, reasonsJson } from '$lib/data'
+  import { applicationsCollection } from '$lib/data/constants'
+  import { superForm, defaults } from 'sveltekit-superforms'
+  import { zod } from 'sveltekit-superforms/adapters'
+  import { applicationSchema } from './schemas'
   import { cloneDeep, isEqual } from 'lodash-es'
   import { onDestroy, onMount } from 'svelte'
   import type { ApplicationRequestBody } from '../../../routes/api/application/+server'
-  // import value from '$lib/components/value.svelte'
-  import { applicationsCollection } from '$lib/data/constants'
+  import FormInput from '../FormInput.svelte'
+  import FormSelect from '../FormSelect.svelte'
+  import FormCheckbox from '../FormCheckbox.svelte'
+  import FormTextarea from '../FormTextarea.svelte'
 
   export let semesterDates: Data.SemesterDates = {
     classesEnd: '',
@@ -85,6 +86,154 @@
       updated: serverTimestamp() as Timestamp,
     },
   }
+
+  const defaultValues: Data.Application = {
+    personal: {
+      email: '',
+      firstName: '',
+      lastName: '',
+      gender: '',
+      race: [],
+      phoneNumber: '',
+      dateOfBirth: '',
+    },
+    academic: {
+      school: '',
+      graduationYear: '',
+    },
+    program: {
+      courses: [],
+      preferences: '',
+      timeSlots: '',
+      notAvailable: '',
+      inPerson: false,
+      reason: '',
+    },
+    essay: {
+      taughtBefore: false,
+      academicBackground: '',
+      teachingScenario: '',
+      why: '',
+    },
+    agreements: {
+      entireProgram: false,
+      timeCommitment: false,
+      submitting: false,
+    },
+    meta: {
+      id: '',
+      uid: '',
+      submitted: false,
+      interview: false,
+    },
+    timestamps: {
+      created: null as any,
+      updated: null as any,
+    },
+  }
+
+  const schema = applicationSchema
+
+  const formResult = superForm(
+    defaults(cloneDeep(defaultValues) as any, zod(schema as any) as any) as any,
+    {
+      SPA: true,
+      validators: zod(schema as any) as any,
+      dataType: 'json',
+      async onUpdate({ form: formVal }) {
+        if (!formVal.valid) return
+        if ($user) {
+          const frozenUser = $user
+          showValidation = false
+          disabled = true
+          const updatedValues = {
+            ...values,
+            personal: {
+              ...values.personal,
+              ...formVal.data.personal,
+            },
+            academic: {
+              ...values.academic,
+              ...formVal.data.academic,
+            },
+            program: {
+              ...values.program,
+              ...formVal.data.program,
+            },
+            essay: {
+              ...values.essay,
+              ...formVal.data.essay,
+            },
+            agreements: {
+              ...values.agreements,
+              ...formVal.data.agreements,
+            },
+            meta: {
+              ...values.meta,
+              submitted: true,
+            },
+            timestamps: {
+              ...values.timestamps,
+              updated: serverTimestamp(),
+            },
+          }
+          setDoc(
+            doc(db, applicationsCollection, frozenUser.object.uid),
+            updatedValues,
+          )
+            .then(() => {
+              getDoc(
+                doc(db, applicationsCollection, frozenUser.object.uid),
+              ).then((applicationDoc) => {
+                const payload: ApplicationRequestBody = {
+                  firstName: frozenUser.profile.firstName,
+                }
+                fetch('/api/application', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify(payload),
+                }).then(async (res) => {
+                  if (!res.ok) {
+                    const { message } = await res.json()
+                    console.error('Application request server error:', message)
+                  }
+                  const applicationData =
+                    applicationDoc.data() as Data.Application
+                  clearInterval(saveInterval)
+                  saveInterval = undefined
+                  values = cloneDeep(applicationData)
+                  dbValues = cloneDeep(applicationData)
+                  window.scrollTo({
+                    top: 0,
+                    behavior: 'smooth',
+                  })
+                  alert.trigger(
+                    'success',
+                    'Your application has been submitted!',
+                  )
+                })
+              })
+            })
+            .catch((err: FirebaseError) => {
+              disabled = false
+              console.error('Apply form submit error:', err)
+              alert.trigger('error', err.code, true)
+            })
+        }
+      },
+      onError({ result }) {
+        showValidation = true
+        if (result.type === 'error') {
+          alert.trigger('error', result.error.message)
+        }
+      },
+    },
+  )
+
+  const { form, enhance } = formResult
+
   let saveInterval: number | undefined = undefined
   onMount(() => {
     return user.subscribe((user) => {
@@ -133,15 +282,7 @@
     clearInterval(saveInterval)
     saveInterval = undefined
   })
-  function modifiedValues() {
-    return {
-      ...values,
-      timestamps: {
-        ...values.timestamps,
-        updated: serverTimestamp(),
-      },
-    }
-  }
+
   function handleSave(disable: boolean = false) {
     if (!disabled) {
       showValidation = false
@@ -151,9 +292,36 @@
       return new Promise<void>((resolve, reject) => {
         if ($user) {
           const frozenUser = $user
+          const updatedValues = {
+            ...values,
+            personal: {
+              ...values.personal,
+              ...$form.personal,
+            },
+            academic: {
+              ...values.academic,
+              ...$form.academic,
+            },
+            program: {
+              ...values.program,
+              ...$form.program,
+            },
+            essay: {
+              ...values.essay,
+              ...$form.essay,
+            },
+            agreements: {
+              ...values.agreements,
+              ...$form.agreements,
+            },
+            timestamps: {
+              ...values.timestamps,
+              updated: serverTimestamp(),
+            },
+          }
           setDoc(
             doc(db, applicationsCollection, frozenUser.object.uid),
-            modifiedValues(),
+            updatedValues,
           )
             .then(() => {
               getDoc(
@@ -182,101 +350,82 @@
       })
     }
   }
-  function uploadFile(file: File, filePath: string) {
-    const fileRef = ref(storage, filePath)
-    return new Promise((resolve, reject) =>
-      uploadBytes(fileRef, file)
-        .then(() => {
-          getDownloadURL(fileRef).then((url) => {
-            resolve(url)
-          })
-        })
-        .catch(reject),
-    )
-  }
-  function handleSubmit(e: CustomEvent<SubmitData>) {
-    if ($user) {
-      const frozenUser = $user
-      if (e.detail.error === null) {
-        // if (
-        //   values.program.inPerson &&
-        //   !values.program.timeSlots.includes(
-        //     'saturday-2-30-4-30-pm-you-need-to-select-this-option-if-you-want-the-in-person-class',
-        //   )
-        // ) {
-        //   alert.trigger(
-        //     'error',
-        //     'To be available to teach in-person classes, you must select the Saturday 2:30-4:30pm timeslot option.',
-        //     false,
-        //   )
-        //   return
-        // }
-        // if (
-        //   values.program.courses.includes('lego-robotics-competition') &&
-        //   values.program.inPerson === false
-        // ) {
-        //   alert.trigger(
-        //     'error',
-        //     'Please confirm that you are available to teach in-person if you want to teach Lego Robotics.',
-        //     false,
-        //   )
-        //   return true
-        // }
-        showValidation = false
-        disabled = true
-        values.meta.submitted = true
-        setDoc(
-          doc(db, applicationsCollection, frozenUser.object.uid),
-          modifiedValues(),
-        )
-          .then(() => {
-            alert.trigger('success', 'Your application has been submitted!')
-            getDoc(doc(db, applicationsCollection, frozenUser.object.uid)).then(
-              (applicationDoc) => {
-                const payload: ApplicationRequestBody = {
-                  firstName: frozenUser.profile.firstName,
-                }
-                fetch('/api/application', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify(payload),
-                }).then(async (res) => {
-                  if (!res.ok) {
-                    const { message } = await res.json()
-                    console.error('Application request server error:', message)
-                  }
-                  const applicationData =
-                    applicationDoc.data() as Data.Application
-                  clearInterval(saveInterval)
-                  saveInterval = undefined
-                  values = cloneDeep(applicationData)
-                  dbValues = cloneDeep(applicationData)
-                  window.scrollTo({
-                    top: 0,
-                    behavior: 'smooth',
-                  })
-                  alert.trigger(
-                    'success',
-                    'Your application has been submitted!',
-                  )
-                })
-              },
-            )
-          })
-          .catch((err) => {
-            disabled = false
-            alert.trigger('error', err.code, true)
-          })
-      } else {
-        showValidation = true
-        alert.trigger('error', e.detail.error)
-      }
+
+  // React to loaded/saved values changing
+  $: if (values) {
+    $form.personal = {
+      phoneNumber: values.personal?.phoneNumber || '',
+      dateOfBirth: values.personal?.dateOfBirth || '',
+      gender: values.personal?.gender || '',
+      race: values.personal?.race || [],
+    }
+    $form.academic = {
+      school: values.academic?.school || '',
+      graduationYear:
+        values.academic?.graduationYear || new Date().getFullYear(),
+    }
+    $form.program = {
+      courses: values.program?.courses || [],
+      preferences: values.program?.preferences || '',
+      timeSlots: values.program?.timeSlots || '',
+      notAvailable: values.program?.notAvailable || '',
+      inPerson:
+        values.program?.inPerson !== undefined
+          ? values.program.inPerson
+          : false,
+      reason: values.program?.reason || '',
+    }
+    $form.essay = {
+      taughtBefore:
+        values.essay?.taughtBefore !== undefined
+          ? values.essay.taughtBefore
+          : false,
+      academicBackground: values.essay?.academicBackground || '',
+      teachingScenario: values.essay?.teachingScenario || '',
+      why: values.essay?.why || '',
+    }
+    $form.agreements = {
+      entireProgram:
+        values.agreements?.entireProgram !== undefined
+          ? values.agreements.entireProgram
+          : false,
+      timeCommitment:
+        values.agreements?.timeCommitment !== undefined
+          ? values.agreements.timeCommitment
+          : false,
+      submitting:
+        values.agreements?.submitting !== undefined
+          ? values.agreements.submitting
+          : false,
     }
   }
+
   function handleUnload(e: BeforeUnloadEvent) {
-    if (!isEqual(dbValues, values)) {
+    // Construct values comparison object
+    const currentValues = {
+      ...values,
+      personal: {
+        ...values.personal,
+        ...$form.personal,
+      },
+      academic: {
+        ...values.academic,
+        ...$form.academic,
+      },
+      program: {
+        ...values.program,
+        ...$form.program,
+      },
+      essay: {
+        ...values.essay,
+        ...$form.essay,
+      },
+      agreements: {
+        ...values.agreements,
+        ...$form.agreements,
+      },
+    }
+    if (!isEqual(dbValues, currentValues)) {
       e.preventDefault()
       e.returnValue = 'Save changes before leaving?'
       return 'Save changes before leaving?'
@@ -285,10 +434,8 @@
 </script>
 
 <svelte:window on:beforeunload={handleUnload} />
-<Form
-  class={clsx('max-w-2xl', showValidation && 'show-validation')}
-  on:submit={handleSubmit}
->
+
+<form use:enhance class="max-w-2xl">
   {#if new Date() >= new Date(semesterDates.newInstructorAppsDue)}
     <Card class="mb-6 bg-red-50 border-red-200">
       <div class="flex items-start gap-3">
@@ -321,6 +468,7 @@
       </div>
     </Card>
   {/if}
+
   <fieldset class="space-y-14" {disabled}>
     <div class="grid gap-1">
       <span class="font-bold">Personal</span>
@@ -337,210 +485,266 @@
           > to update your information.
         </div>
       </Card>
-      <Input
-        type="tel"
-        bind:value={values.personal.phoneNumber}
-        label="Phone number"
-        floating
-        required
-        pattern="[\d\s\-\+]+"
-      />
-      <Input
-        type="date"
-        bind:value={values.personal.dateOfBirth}
-        label="Date of birth"
-        floating
-        required
-      />
 
-      <Select
-        bind:value={values.personal.gender}
-        label="Gender"
-        options={gendersJson}
-        floating
-        required
-      />
-      <div class="grid gap-1">
-        <span>Race / ethnicity (check all that apply)</span>
-        <div class="grid grid-cols-2">
+      <div class="flex flex-col gap-1.5 mt-2">
+        <FormInput
+          form={formResult}
+          name="personal.phoneNumber"
+          label="Phone number"
+          type="tel"
+          bind:value={$form.personal.phoneNumber}
+        />
+      </div>
+
+      <div class="flex flex-col gap-1.5 mt-2">
+        <FormInput
+          form={formResult}
+          name="personal.dateOfBirth"
+          label="Date of birth"
+          type="date"
+          bind:value={$form.personal.dateOfBirth}
+        />
+      </div>
+
+      <div class="flex flex-col gap-1.5 mt-2">
+        <FormSelect
+          form={formResult}
+          name="personal.gender"
+          label="Gender"
+          options={gendersJson}
+          bind:value={$form.personal.gender}
+        />
+      </div>
+
+      <div class="grid gap-1 mt-4">
+        <span class="font-semibold text-sm"
+          >Race / ethnicity (check all that apply)</span
+        >
+        <div class="grid grid-cols-2 gap-2">
           {#each raceJson as race}
-            <Input
-              type="checkbox"
-              bind:value={values.personal.race}
-              label={race.name}
-            />
+            <div class="flex items-center">
+              <input
+                type="checkbox"
+                value={race.name}
+                bind:group={$form.personal.race}
+                id={`app-race-${race.name}`}
+                class="peer h-5 w-5 shrink-0 cursor-pointer appearance-none rounded-md border border-gray-400 checked:border-gray-600 checked:bg-gray-600 focus:border-gray-600 focus:outline-hidden focus:ring-1 focus:ring-gray-600"
+              />
+              <label
+                for={`app-race-${race.name}`}
+                class="ml-2 text-sm cursor-pointer peer-disabled:text-gray-400"
+              >
+                {race.name}
+              </label>
+            </div>
           {/each}
         </div>
       </div>
     </div>
+
     <div class="grid gap-1">
       <span class="font-bold">Academic</span>
       <div class="grid gap-1 sm:grid-cols-3 sm:gap-3">
-        <div class="sm:col-span-2">
-          <Input
-            type="text"
-            bind:value={values.academic.school}
+        <div class="sm:col-span-2 flex flex-col gap-1.5 mt-2">
+          <FormInput
+            form={formResult}
+            name="academic.school"
             label="Current school"
-            floating
-            required
+            bind:value={$form.academic.school}
           />
         </div>
-        <Input
-          type="number"
-          bind:value={values.academic.graduationYear}
-          label="Graduation year"
-          min={new Date().getFullYear() - 30}
-          max={new Date().getFullYear() + 20}
-          floating
-          required
-        />
+
+        <div class="flex flex-col gap-1.5">
+          <FormInput
+            form={formResult}
+            name="academic.graduationYear"
+            label="Graduation year"
+            type="number"
+            bind:value={$form.academic.graduationYear}
+          />
+        </div>
       </div>
     </div>
+
     <div class="grid gap-1">
       <div class="mt-3 grid gap-1">
-        <span class="font-bold"
+        <span class="font-bold text-sm text-gray-700"
           >Which of the following courses are you comfortable teaching? Check
           all that apply. Course descriptions are on our website.</span
         >
-        <div class="grid grid-cols-2 gap-2">
+        <div class="grid grid-cols-2 gap-2 mt-2">
           {#each coursesJson as course}
-            <Input
-              type="checkbox"
-              bind:value={values.program.courses}
-              label={course.name}
-              required
-            />
+            <div class="flex items-center">
+              <input
+                type="checkbox"
+                value={course.name}
+                bind:group={$form.program.courses}
+                id={`app-course-${course.name}`}
+                class="peer h-5 w-5 shrink-0 cursor-pointer appearance-none rounded-md border border-gray-400 checked:border-gray-600 checked:bg-gray-600 focus:border-gray-600 focus:outline-hidden focus:ring-1 focus:ring-gray-600"
+              />
+              <label
+                for={`app-course-${course.name}`}
+                class="ml-2 text-sm cursor-pointer peer-disabled:text-gray-400"
+              >
+                {course.name}
+              </label>
+            </div>
           {/each}
         </div>
       </div>
-      <div class="mt-4">
-        <span class="font-bold"
-          >If you have any preferences for the courses you teach, please list
-          them here.</span
-        >
-        <Input
-          type="text"
-          bind:value={values.program.preferences}
-          label="Preferences"
-          floating
+
+      <div class="flex flex-col gap-1.5 mt-4">
+        <FormInput
+          form={formResult}
+          name="program.preferences"
+          label="If you have any preferences for the courses you teach, please list them here."
+          placeholder="Preferences"
+          bind:value={$form.program.preferences}
         />
       </div>
 
-      <div class="mt-3 grid gap-1">
-        <span class="font-bold">Timeslots</span>
-        <Input
-          type="text"
-          bind:value={values.program.timeSlots}
+      <div class="flex flex-col gap-1.5 mt-4">
+        <FormInput
+          form={formResult}
+          name="program.timeSlots"
           label="Please describe your weekly availability. For example, 'weekdays after 4pm' or 'weekends anytime'."
-          required
+          bind:value={$form.program.timeSlots}
         />
       </div>
-      <Input
-        type="checkbox"
-        bind:value={values.program.inPerson}
-        label="gbSTEM will offer FIRST Lego League Robotics in-person at the Cambridge Public Library. Check this box if you would be able to mentor and instruct Lego Robotics on Saturdays 1:00-3:00 pm. Please note that if you are interested in instructing Lego Robotics, you must be able to teach in-person and therefore must check this box."
-      />
 
-      <div class="mt-2">
-        <Textarea
-          bind:value={values.program.notAvailable}
+      <div class="flex flex-col gap-1.5 mt-4">
+        <FormTextarea
+          form={formResult}
+          name="program.notAvailable"
           label="When will you not be available to teach classes during the semester? Include potential conflicts such as medical absences, vacations, and athletic events."
-          required
+          bind:value={$form.program.notAvailable}
         />
       </div>
-      <div class="mt-2">
-        <Select
-          bind:value={values.program.reason}
+
+      <div class="flex flex-col gap-1.5 mt-4">
+        <FormCheckbox
+          form={formResult}
+          name="program.inPerson"
+          label="gbSTEM will offer FIRST Lego League Robotics in-person at the Cambridge Public Library. Check this box if you would be able to mentor and instruct Lego Robotics on Saturdays 1:00-3:00 pm. Please note that if you are interested in instructing Lego Robotics, you must be able to teach in-person and therefore must check this box."
+          bind:checked={$form.program.inPerson}
+        />
+      </div>
+
+      <div class="flex flex-col gap-1.5 mt-4">
+        <FormSelect
+          form={formResult}
+          name="program.reason"
           label="How did you learn about gbSTEM?"
           options={reasonsJson}
-          floating
-          required
+          bind:value={$form.program.reason}
         />
       </div>
-      <div class="mt-5">
-        <span class="font-bold">Essays</span>
-        <div class="mt-2">
-          <Input
-            type="checkbox"
-            bind:value={values.essay.taughtBefore}
+
+      <div class="mt-8">
+        <span class="font-bold text-sm text-gray-700">Essays</span>
+        <div class="flex flex-col gap-1.5 mt-2">
+          <FormCheckbox
+            form={formResult}
+            name="essay.taughtBefore"
             label="Have you taught for gbSTEM before?"
+            bind:checked={$form.essay.taughtBefore}
           />
         </div>
-        <div class="mt-2">
-          <Textarea
-            bind:value={values.essay.academicBackground}
+
+        <div class="flex flex-col gap-1.5 mt-4">
+          <FormTextarea
+            form={formResult}
+            name="essay.academicBackground"
             label="Describe your academic background in any of the classes you said you were comfortable teaching. List any relevant coursework, projects, or extracurriculars. (500 char limit)"
-            required
-            maxlength={500}
+            bind:value={$form.essay.academicBackground}
           />
         </div>
-        {#if !values.essay.taughtBefore}
-          <div class="mt-2">
-            <Textarea
-              bind:value={values.essay.teachingScenario}
+
+        {#if !$form.essay.taughtBefore}
+          <div class="flex flex-col gap-1.5 mt-4">
+            <FormTextarea
+              form={formResult}
+              name="essay.teachingScenario"
               label="Suppose your students are not engaging in the class. What would you do? (500 char limit)"
-              required
-              maxlength={500}
+              required={!$form.essay.taughtBefore}
+              bind:value={$form.essay.teachingScenario}
             />
           </div>
-          <div class="mt-2">
-            <Textarea
-              bind:value={values.essay.why}
+
+          <div class="flex flex-col gap-1.5 mt-4">
+            <FormTextarea
+              form={formResult}
+              name="essay.why"
               label="Why do you want to teach for gbSTEM? (500 char limit)"
-              required
-              maxlength={500}
+              required={!$form.essay.taughtBefore}
+              bind:value={$form.essay.why}
             />
           </div>
         {/if}
       </div>
-      <div class="grid gap-1">
-        <span class="font-bold mt-8">Agreements</span>
-        <div class="grid">
-          <Input
-            type="checkbox"
-            bind:value={values.agreements.entireProgram}
-            label={`gbSTEM will run from ${new Date(
-              semesterDates.classesStart,
-            ).toDateString()} to ${new Date(
-              semesterDates.classesEnd,
-            ).toDateString()}. Do you confirm that you will be able to teach for the entirety of the program?`}
-            required
-          />
-          <Input
-            type="checkbox"
-            bind:value={values.agreements.timeCommitment}
-            label="Do you hereby confirm that if you are selected as an instructor, that you will be able to make the weekly time commitment of 2 hours a week for each class you teach? "
-            required
-          />
-          <Input
-            type="checkbox"
-            bind:value={values.agreements.submitting}
-            label="I understand submitting means I can no longer make changes to my application. Don't check this box until you are sure that you are ready to submit."
-            required
-          />
-        </div>
-      </div>
-      <div class={clsx('grid gap-3', !values.meta.submitted && 'grid-cols-2')}>
-        {#if values.meta.submitted}
-          <div
-            class="rounded-md bg-green-100 px-4 py-2 text-center text-green-900 shadow-xs"
-          >
-            Application submitted and in review!
+
+      <div class="grid gap-1 mt-8">
+        <span class="font-bold text-sm text-gray-700">Agreements</span>
+        <div class="grid gap-4 mt-2">
+          <div class="flex flex-col gap-1.5">
+            <FormCheckbox
+              form={formResult}
+              name="agreements.entireProgram"
+              label={`gbSTEM will run from ${new Date(
+                semesterDates.classesStart,
+              ).toDateString()} to ${new Date(
+                semesterDates.classesEnd,
+              ).toDateString()}. Do you confirm that you will be able to teach for the entirety of the program?`}
+              required
+              bind:checked={$form.agreements.entireProgram}
+            />
           </div>
-        {:else}
-          <button
-            type="button"
-            on:click={() => handleSave(true)}
-            class="rounded-md bg-gray-100 px-4 py-2 text-gray-900 shadow-xs transition-colors duration-300 hover:bg-gray-200 disabled:bg-gray-200 disabled:text-gray-500"
-            >Save draft</button
-          >
-          <button
-            type="submit"
-            class="rounded-md bg-blue-100 px-4 py-2 text-blue-900 shadow-xs transition-colors duration-300 hover:bg-blue-200 disabled:bg-blue-200 disabled:text-blue-500"
-            >Submit</button
-          >
-        {/if}
+
+          <div class="flex flex-col gap-1.5">
+            <FormCheckbox
+              form={formResult}
+              name="agreements.timeCommitment"
+              label="Do you hereby confirm that if you are selected as an instructor, that you will be able to make the weekly time commitment of 2 hours a week for each class you teach?"
+              required
+              bind:checked={$form.agreements.timeCommitment}
+            />
+          </div>
+
+          <div class="flex flex-col gap-1.5">
+            <FormCheckbox
+              form={formResult}
+              name="agreements.submitting"
+              label="I understand submitting means I can no longer make changes to my application. Don't check this box until you are sure that you are ready to submit."
+              required
+              bind:checked={$form.agreements.submitting}
+            />
+          </div>
+        </div>
       </div>
     </div>
+
+    <div class="grid grid-cols-2 gap-3 mt-8">
+      {#if values.meta.submitted}
+        <div
+          class="col-span-2 rounded-md bg-green-100 px-4 py-2 text-center text-green-900 shadow-xs border border-green-200"
+        >
+          Application submitted and in review!
+        </div>
+      {:else}
+        <button
+          type="button"
+          on:click={() => handleSave(true)}
+          class="rounded-md bg-gray-100 px-4 py-2 text-gray-900 shadow-xs transition-colors duration-300 hover:bg-gray-200 disabled:bg-gray-200 disabled:text-gray-500"
+        >
+          Save draft
+        </button>
+        <button
+          type="submit"
+          class="rounded-md bg-blue-100 px-4 py-2 text-blue-900 shadow-xs transition-colors duration-300 hover:bg-blue-200 disabled:bg-blue-200 disabled:text-blue-500"
+        >
+          Submit
+        </button>
+      {/if}
+    </div>
   </fieldset>
-</Form>
+</form>

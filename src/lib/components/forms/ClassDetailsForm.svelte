@@ -1,8 +1,5 @@
 <script lang="ts">
   import { db, user } from '$lib/client/firebase'
-  import Form from '$lib/components/Form.svelte'
-  import Input from '$lib/components/Input.svelte'
-  import Select from '$lib/components/Select.svelte'
   import { coursesJson, daysOfWeekJson } from '$lib/data'
   import { classesCollection } from '$lib/data/constants'
   import { alert } from '$lib/stores'
@@ -15,19 +12,22 @@
   import { onMount } from 'svelte'
   import Button from '../Button.svelte'
   import { ClassStatus } from '../helpers/ClassStatus'
-
-  export let semesterDates: Data.SemesterDates
-
   import Card from '../Card.svelte'
   import Dialog from '../Dialog.svelte'
+  import FormInput from '../FormInput.svelte'
+  import FormSelect from '../FormSelect.svelte'
+  import FormCheckbox from '../FormCheckbox.svelte'
+  import { superForm, defaults } from 'sveltekit-superforms'
+  import { zod } from 'sveltekit-superforms/adapters'
+  import { z } from 'zod'
 
+  export let semesterDates: Data.SemesterDates
   export let classDetailsDialogEl: Dialog | undefined = undefined
   export let dialog = false
 
   let disabled = false
   let showValidation = false
   let submitted = false
-  let meetingLink
   let isCreatingNewClass = false
   let isCreatingLink = false
 
@@ -54,6 +54,150 @@
   }
 
   let createClassSchedule = true
+
+  const schema = z.object({
+    course: z.string().min(1, 'Course is required'),
+    gradeRecommendation: z.string().optional().default(''),
+    classCap: z.coerce.number().min(0, 'Capacity must be at least 0'),
+    meetingLink: z.string().optional().default(''),
+    classDay1: z.enum(
+      [
+        'Monday',
+        'Tuesday',
+        'Wednesday',
+        'Thursday',
+        'Friday',
+        'Saturday',
+        'Sunday',
+      ],
+      {
+        errorMap: () => ({ message: 'Day 1 is required' }),
+      },
+    ),
+    classTime1: z.string().min(1, 'Time 1 is required'),
+    classDay2: z
+      .enum([
+        '',
+        'Monday',
+        'Tuesday',
+        'Wednesday',
+        'Thursday',
+        'Friday',
+        'Saturday',
+        'Sunday',
+      ])
+      .optional()
+      .default(''),
+    classTime2: z.string().optional().default(''),
+    online: z.boolean().default(true),
+    otherInstructorEmails: z.string().optional().default(''),
+    submitting: z.boolean().default(false),
+  })
+
+  const formResult = superForm(
+    defaults(
+      {
+        course: '',
+        gradeRecommendation: '',
+        classCap: 7,
+        meetingLink: '',
+        classDay1: '' as any,
+        classTime1: '',
+        classDay2: '' as any,
+        classTime2: '',
+        online: true,
+        otherInstructorEmails: '',
+        submitting: false,
+      },
+      zod(schema as any) as any,
+    ) as any,
+    {
+      SPA: true,
+      validators: zod(schema as any) as any,
+      async onUpdate({ form: formVal }: { form: any }) {
+        if (!formVal.valid) return
+        showValidation = false
+        disabled = true
+        if ($user) {
+          try {
+            const frozenUser = $user
+            const newValues = {
+              ...values,
+              ...formVal.data,
+            }
+
+            if (createClassSchedule) {
+              const meetingTimes = getMeetingDates(
+                newValues.classDay1,
+                newValues.classDay2,
+                newValues.classTime1,
+                newValues.classTime2,
+                new Date(semesterDates.classesStart),
+                new Date(semesterDates.classesEnd),
+              )
+              newValues.meetingTimes = meetingTimes
+              newValues.feedbackCompleted = new Array(meetingTimes.length).fill(
+                false,
+              )
+              newValues.classStatuses = new Array(meetingTimes.length).fill(
+                ClassStatus.ClassInFuture,
+              )
+            }
+
+            newValues.instructorFirstName = frozenUser.profile.firstName
+            newValues.instructorLastName = frozenUser.profile.lastName
+            newValues.instructorEmail = frozenUser.object.email as string
+
+            if (newValues.online && newValues.meetingLink === '') {
+              newValues.meetingLink = await createLink(newValues)
+            }
+
+            // Determine class ID for new classes
+            let classId = selectedClassId
+            if (!classId) {
+              const existingNumbers = availableClassIds
+                .filter((id) => id.startsWith(frozenUser.object.uid + '-'))
+                .map((id) => parseInt(id.split('-')[1]))
+                .filter((n) => !isNaN(n))
+              const classNumber =
+                existingNumbers.length > 0
+                  ? (Math.max(...existingNumbers) + 1).toString()
+                  : '1'
+              classId = `${frozenUser.object.uid}-${classNumber}`
+            }
+
+            await setDoc(doc(db, classesCollection, classId), newValues)
+
+            await updateInstructorClassMappings(
+              classId,
+              frozenUser.object.email || '',
+              newValues.otherInstructorEmails,
+            )
+
+            disabled = true
+            submitted = true
+            alert.trigger(
+              'success',
+              `Class details saved! You can join class by clicking the Join Class button above!`,
+            )
+            setTimeout(() => location.reload(), 2000)
+          } catch (err: any) {
+            console.error('[ClassDetailsForm] Error saving class details:', err)
+            disabled = false
+            alert.trigger('error', err.code || err.message, true)
+          }
+        }
+      },
+      onError({ result }) {
+        showValidation = true
+        if (result.type === 'error') {
+          alert.trigger('error', result.error.message)
+        }
+      },
+    },
+  )
+
+  const { form, enhance, delayed } = formResult
 
   function selectClass(classId: string) {
     selectedClassId = classId
@@ -137,7 +281,6 @@
   onMount(() => {
     return user.subscribe(async (user) => {
       if (user) {
-        // Get all classes for this instructor using helper function
         const userClasses = await getInstructorClasses(
           user.object.uid,
           user.object.email || '',
@@ -146,7 +289,6 @@
         instructorClasses = userClasses
         availableClassIds = Object.keys(instructorClasses).sort()
 
-        // If instructor has classes, select the first one
         if (availableClassIds.length > 0) {
           selectedClassId = availableClassIds[0]
           values = instructorClasses[selectedClassId]
@@ -177,8 +319,8 @@
     return [year, month, day].join('-')
   }
 
-  async function createLink(): Promise<string> {
-    if (values.classDay1 === '') {
+  async function createLink(newValues: Data.Class): Promise<string> {
+    if (newValues.classDay1 === '') {
       alert.trigger(
         'error',
         'Please select at least one class day before creating a meeting link.',
@@ -188,37 +330,23 @@
 
     isCreatingLink = true
 
-    const time1 = values.meetingTimes?.[0]
-      ? new Date(values.meetingTimes[0]).getHours()
-      : 9
-    const time2 = values.meetingTimes?.[1]
-      ? new Date(values.meetingTimes[1]).getHours()
-      : 9
-
-    let url: string = ''
-
-    const earliestClassPossible = new Date()
-    earliestClassPossible.setHours(9)
-    const earliestClassLatestPossibleEndTime = new Date()
-    earliestClassLatestPossibleEndTime.setHours(23)
-
-    const daysOfWeek = [values.classDay1]
-    if (values.classDay2) {
-      daysOfWeek.push(values.classDay2)
+    const daysOfWeek = [newValues.classDay1]
+    if (newValues.classDay2) {
+      daysOfWeek.push(newValues.classDay2)
     }
 
     const event = {
-      subject: `${values.course} Class Meeting`,
+      subject: `${newValues.course} Class Meeting`,
       body: {
         contentType: 'HTML',
-        content: `${values.course} Class Meeting`,
+        content: `${newValues.course} Class Meeting`,
       },
       start: {
-        dateTime: earliestClassPossible.toISOString(),
+        dateTime: new Date().toISOString(),
         timeZone: 'UTC',
       },
       end: {
-        dateTime: earliestClassLatestPossibleEndTime.toISOString(),
+        dateTime: new Date().toISOString(),
         timeZone: 'UTC',
       },
       recurrence: {
@@ -241,126 +369,52 @@
       onlineMeetingProvider: 'teamsForBusiness',
     }
 
-    const token = await fetch('/api/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-      .then((response) => response.json())
-      .then((res) => {
-        return res.access_token
-      })
-      .catch((err) => {
-        console.error('Token request error:', err)
-        alert.trigger(
-          'error',
-          'Failed to get authentication token. Please try again.',
-        )
-        isCreatingLink = false
-        throw err
-      })
-
-    await fetch(
-      'https://graph.microsoft.com/v1.0/users/kendree@gbstem.onmicrosoft.com/calendar/events',
-      {
+    try {
+      const tokenRes = await fetch('/api/token', {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(event),
-      },
-    )
-      .then((response) => response.json())
-      .then((res) => {
-        url = res.onlineMeeting.joinUrl
-        return res.onlineMeeting.joinUrl
       })
-      .catch((err) => {
-        console.error('Meeting link creation error:', err)
-        alert.trigger(
-          'error',
-          'Failed to create meeting link. Please try again.',
-        )
-        isCreatingLink = false
-      })
-    alert.trigger('success', 'Meeting link created!')
-    isCreatingLink = false
-    return url
+      const tokenData = await tokenRes.json()
+      const token = tokenData.access_token
+
+      const eventRes = await fetch(
+        'https://graph.microsoft.com/v1.0/users/kendree@gbstem.onmicrosoft.com/calendar/events',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(event),
+        },
+      )
+      const eventData = await eventRes.json()
+      alert.trigger('success', 'Meeting link created!')
+      isCreatingLink = false
+      return eventData.onlineMeeting.joinUrl
+    } catch (err) {
+      console.error('[ClassDetailsForm] Meeting link creation error:', err)
+      alert.trigger('error', 'Failed to create meeting link. Please try again.')
+      isCreatingLink = false
+      return ''
+    }
   }
 
-  async function handleSubmit(e: CustomEvent<SubmitData>) {
-    if (e.detail.error === null) {
-      showValidation = false
-      disabled = true
-      if ($user) {
-        try {
-          const frozenUser = $user
-          if (createClassSchedule) {
-            const meetingTimes = getMeetingDates(
-              values.classDay1,
-              values.classDay2,
-              values.classTime1,
-              values.classTime2,
-              new Date(semesterDates.classesStart),
-              new Date(semesterDates.classesEnd),
-            )
-            values.meetingTimes = meetingTimes
-            values.feedbackCompleted = new Array(meetingTimes.length).fill(
-              false,
-            )
-            values.classStatuses = new Array(meetingTimes.length).fill(
-              ClassStatus.ClassInFuture,
-            )
-          }
-          values.instructorFirstName = frozenUser.profile.firstName
-          values.instructorLastName = frozenUser.profile.lastName
-          values.instructorEmail = frozenUser.object.email as string
-          if (values.meetingLink === '') {
-            values.meetingLink = await createLink()
-          }
-
-          // Determine class ID for new classes
-          let classId = selectedClassId
-          if (!classId) {
-            // For new classes, find the next available number
-            const existingNumbers = availableClassIds
-              .filter((id) => id.startsWith(frozenUser.object.uid + '-'))
-              .map((id) => parseInt(id.split('-')[1]))
-              .filter((n) => !isNaN(n))
-            const classNumber =
-              existingNumbers.length > 0
-                ? (Math.max(...existingNumbers) + 1).toString()
-                : '1'
-            classId = `${frozenUser.object.uid}-${classNumber}`
-          }
-
-          await setDoc(doc(db, classesCollection, classId), values)
-
-          // Update instructor class mappings for co-instructors
-          await updateInstructorClassMappings(
-            classId,
-            frozenUser.object.email || '',
-            values.otherInstructorEmails,
-          )
-
-          disabled = true
-          submitted = true
-          alert.trigger(
-            'success',
-            `Class details saved! You can join class by clicking the Join Class button above!`,
-          )
-          setTimeout(() => location.reload(), 2000)
-        } catch (err: any) {
-          disabled = false
-          alert.trigger('error', err.code || err.message, true)
-        }
-      }
-    } else {
-      showValidation = true
-      alert.trigger('error', e.detail.error)
-    }
+  // React to parent values changing (e.g. loaded data or cancel changes)
+  $: if (values) {
+    $form.course = values.course || ''
+    $form.gradeRecommendation = values.gradeRecommendation || ''
+    $form.classCap = values.classCap || 7
+    $form.meetingLink = values.meetingLink || ''
+    $form.classDay1 = (values.classDay1 as any) || ''
+    $form.classTime1 = values.classTime1 || ''
+    $form.classDay2 = (values.classDay2 as any) || ''
+    $form.classTime2 = values.classTime2 || ''
+    $form.online = values.online !== undefined ? values.online : true
+    $form.otherInstructorEmails = values.otherInstructorEmails || ''
+    $form.submitting = values.submitting || false
   }
 </script>
 
@@ -377,24 +431,25 @@
     </svelte:fragment>
     <div slot="description">
       <Card class="sticky top-2 z-50 flex justify-between gap-3 p-3 md:p-3">
-        <Form
-          class={cn(showValidation && 'show-validation')}
-          on:submit={handleSubmit}
+        <form
+          use:enhance
+          class={cn(showValidation && 'show-validation', 'w-full')}
         >
           {#if disabled}
             <Button
               color="blue"
               class="mb-5"
+              type="button"
               on:click={() => (disabled = false)}>Edit class details</Button
             >
-            <p>
+            <p class="text-sm text-gray-500">
               Note that editing your class details will reset your class
               schedule.
             </p>
           {/if}
 
-          <fieldset class="mt-4 space-y-4" {disabled}>
-            <p>
+          <fieldset class="mt-4 space-y-4" disabled={disabled || $delayed}>
+            <p class="text-sm text-gray-600">
               Please do not fill this form out until you have been told by
               gbSTEM leadership what class you will be teaching. Submitting this
               form will generate a meeting link for your class; you can join
@@ -409,6 +464,7 @@
                 {#each availableClassIds as classId}
                   <Button
                     color={selectedClassId === classId ? 'blue' : 'gray'}
+                    type="button"
                     on:click={() => selectClass(classId)}
                   >
                     Class {classId.split('-')[1]}
@@ -418,7 +474,7 @@
                   </Button>
                 {/each}
 
-                <Button color="green" on:click={createNewClass}>
+                <Button color="green" type="button" on:click={createNewClass}>
                   + Create New Class
                 </Button>
               </div>
@@ -429,7 +485,7 @@
                 <p class="text-sm text-gray-600">
                   Editing Class {selectedClassId.split('-')[1]}
                 </p>
-              {:else if availableClassIds.length === 0}
+              {:else}
                 <p class="text-sm text-gray-600">
                   No classes created yet. Click "Create New Class" to start.
                 </p>
@@ -444,22 +500,27 @@
                   : 'Class Details'}
             </h2>
 
-            <Select
-              bind:value={values.course}
-              label="Course"
-              options={coursesJson}
-              floating
-              required
-            />
+            <div class="flex flex-col gap-1.5 mt-2">
+              <FormSelect
+                form={formResult}
+                name="course"
+                label="Course"
+                options={coursesJson}
+                bind:value={$form.course}
+              />
+            </div>
 
-            <Input
-              type="text"
-              bind:value={values.gradeRecommendation}
-              label="Grade recommendation. For example, 3-5 or 6-8."
-            />
+            <div class="flex flex-col gap-1.5 mt-2">
+              <FormInput
+                form={formResult}
+                name="gradeRecommendation"
+                label="Grade recommendation. For example, 3-5 or 6-8."
+                bind:value={$form.gradeRecommendation}
+              />
+            </div>
 
             <div class="grid gap-1">
-              <span class="font-bold"
+              <span class="font-bold text-sm text-gray-700 mt-2"
                 >Online classes meet once weekly at consistent days and times
                 throughout the semester and run for 60 minutes each; with the
                 exception of math, which meets twice weekly for 60 minutes each.
@@ -468,111 +529,135 @@
               </span>
 
               <div class="grid gap-1 sm:grid-cols-3 sm:gap-3">
-                <div class="sm:col-span-2">
-                  <Select
-                    bind:value={values.classDay1}
+                <div class="sm:col-span-2 flex flex-col gap-1.5">
+                  <FormSelect
+                    form={formResult}
+                    name="classDay1"
                     label="Meeting day 1"
                     options={daysOfWeekJson}
-                    floating
-                    required
+                    bind:value={$form.classDay1}
                   />
                 </div>
-                <Input
-                  type="time"
-                  bind:value={values.classTime1}
-                  label="Meeting time 1"
-                  floating
-                  required
-                />
+                <div class="flex flex-col gap-1.5">
+                  <FormInput
+                    form={formResult}
+                    name="classTime1"
+                    label="Meeting time 1"
+                    type="time"
+                    bind:value={$form.classTime1}
+                  />
+                </div>
               </div>
 
-              {#if values.course && values.course
+              {#if $form.course && $form.course
                   .toLowerCase()
-                  .includes('math') && values.online}
+                  .includes('math') && $form.online}
                 <div class="grid gap-1 sm:grid-cols-3 sm:gap-3">
-                  <div class="sm:col-span-2">
-                    <Select
-                      bind:value={values.classDay2}
+                  <div class="sm:col-span-2 flex flex-col gap-1.5">
+                    <FormSelect
+                      form={formResult}
+                      name="classDay2"
                       label="Meeting day 2"
                       options={daysOfWeekJson}
-                      floating
-                      required
+                      bind:value={$form.classDay2}
                     />
                   </div>
-                  <Input
-                    type="time"
-                    bind:value={values.classTime2}
-                    label="Meeting time 2"
-                    floating
-                  />
+                  <div class="flex flex-col gap-1.5">
+                    <FormInput
+                      form={formResult}
+                      name="classTime2"
+                      label="Meeting time 2"
+                      type="time"
+                      bind:value={$form.classTime2}
+                    />
+                  </div>
                 </div>
               {/if}
             </div>
-            <Input
-              type="number"
-              bind:value={values.classCap}
-              label="Class capacity"
-              floating
-              required
-            />
 
-            <Input
-              type="text"
-              bind:value={values.otherInstructorEmails}
-              label="Enter the emails of any co-instructors here, comma separated. Keep in mind that only one instructor per class should fill out this form."
-            />
-
-            {#if values.online}
-              <Input
-                type="text"
-                bind:value={values.meetingLink}
-                label="Your meeting link. If you have Zoom Pro/Google Meet Pro and prefer to use it, you may enter the link here. Otherwise, you should use the Teams link."
+            <div class="flex flex-col gap-1.5 mt-2">
+              <FormInput
+                form={formResult}
+                name="classCap"
+                label="Class capacity"
+                type="number"
+                bind:value={$form.classCap}
               />
+            </div>
+
+            <div class="flex flex-col gap-1.5 mt-2">
+              <FormInput
+                form={formResult}
+                name="otherInstructorEmails"
+                label="Enter the emails of any co-instructors here, comma separated. Keep in mind that only one instructor per class should fill out this form."
+                bind:value={$form.otherInstructorEmails}
+              />
+            </div>
+
+            {#if $form.online}
+              <div class="flex flex-col gap-1.5 mt-2">
+                <FormInput
+                  form={formResult}
+                  name="meetingLink"
+                  label="Your meeting link. If you have Zoom Pro/Google Meet Pro and prefer to use it, you may enter the link here. Otherwise, you should use the Teams link."
+                  bind:value={$form.meetingLink}
+                />
+              </div>
             {/if}
 
-            <Input
-              type="checkbox"
-              bind:value={values.online}
-              label="Class taught online?"
-            />
+            <div class="flex flex-col gap-1.5 mt-4">
+              <FormCheckbox
+                form={formResult}
+                name="online"
+                label="Class taught online?"
+                bind:checked={$form.online}
+              />
+            </div>
 
-            <Input
-              type="checkbox"
-              bind:value={values.submitting}
-              label="I understand submitting will make my class available for registration, so I should not submit until I am sure the class and class times work for me."
-              required
-            />
+            <div class="flex flex-col gap-1.5 mt-2">
+              <FormCheckbox
+                form={formResult}
+                name="submitting"
+                label="I understand submitting will make my class available for registration, so I should not submit until I am sure the class and class times work for me."
+                bind:checked={$form.submitting}
+              />
+            </div>
 
-            <Input
-              type="checkbox"
-              bind:value={createClassSchedule}
-              label="Would you like a class schedule to be automatically created for you? Typically, you want to check this box the first time you submit your class details, but you should avoid checking this box when submitting the form again to edit your class details because it will overwrite changes you have made to your existing class schedule."
-            />
+            <div class="flex flex-col gap-1.5 mt-2">
+              <FormCheckbox
+                form={formResult}
+                name="createClassSchedule"
+                label="Would you like a class schedule to be automatically created for you? Typically, you want to check this box the first time you submit your class details, but you should avoid checking this box when submitting the form again to edit your class details because it will overwrite changes you have made to your existing class schedule."
+                bind:checked={createClassSchedule}
+              />
+            </div>
 
             <div class="flex justify-end">
-              <Button color="blue" type="submit">Submit</Button>
+              <Button color="blue" type="submit" disabled={$delayed}
+                >Submit</Button
+              >
             </div>
           </fieldset>
-        </Form>
+        </form>
       </Card>
     </div>
   </Dialog>
 {:else}
-  <Form
-    class={cn(showValidation && 'show-validation')}
-    on:submit={handleSubmit}
-  >
+  <form use:enhance class={cn(showValidation && 'show-validation', 'w-full')}>
     {#if disabled}
-      <Button color="blue" class="mb-5" on:click={() => (disabled = false)}
-        >Edit class details</Button
+      <Button
+        color="blue"
+        class="mb-5"
+        type="button"
+        on:click={() => (disabled = false)}>Edit class details</Button
       >
-      <p>
+      <p class="text-sm text-gray-500">
         Note that editing your class details will reset your class schedule.
       </p>
     {/if}
 
-    <fieldset class="mt-4 space-y-4" {disabled}>
-      <p>
+    <fieldset class="mt-4 space-y-4" disabled={disabled || $delayed}>
+      <p class="text-sm text-gray-600">
         Please do not fill this form out until you have been told by gbSTEM
         leadership what class you will be teaching.
       </p>
@@ -585,6 +670,7 @@
           {#each availableClassIds as classId}
             <Button
               color={selectedClassId === classId ? 'blue' : 'gray'}
+              type="button"
               on:click={() => selectClass(classId)}
             >
               Class {classId.split('-')[1]}
@@ -594,7 +680,7 @@
             </Button>
           {/each}
 
-          <Button color="green" on:click={createNewClass}>
+          <Button color="green" type="button" on:click={createNewClass}>
             + Create New Class
           </Button>
         </div>
@@ -605,7 +691,7 @@
           <p class="text-sm text-gray-600">
             Editing Class {selectedClassId.split('-')[1]}
           </p>
-        {:else if availableClassIds.length === 0}
+        {:else}
           <p class="text-sm text-gray-600">
             No classes created yet. Click "Create New Class" to start.
           </p>
@@ -620,22 +706,27 @@
             : 'Class Details'}
       </h2>
 
-      <Select
-        bind:value={values.course}
-        label="Course"
-        options={coursesJson}
-        floating
-        required
-      />
+      <div class="flex flex-col gap-1.5 mt-2">
+        <FormSelect
+          form={formResult}
+          name="course"
+          label="Course"
+          options={coursesJson}
+          bind:value={$form.course}
+        />
+      </div>
 
-      <Input
-        type="text"
-        bind:value={values.gradeRecommendation}
-        label="Grade recommendation. For example, 3-5 or 6-8."
-      />
+      <div class="flex flex-col gap-1.5 mt-2">
+        <FormInput
+          form={formResult}
+          name="gradeRecommendation"
+          label="Grade recommendation. For example, 3-5 or 6-8."
+          bind:value={$form.gradeRecommendation}
+        />
+      </div>
 
       <div class="grid gap-1">
-        <span class="font-bold"
+        <span class="font-bold text-sm text-gray-700 mt-2"
           >Online classes meet once weekly at consistent days and times
           throughout the semester and run for 60 minutes each; with the
           exception of math, which meets twice weekly for 60 minutes each.
@@ -644,71 +735,87 @@
         </span>
 
         <div class="grid gap-1 sm:grid-cols-3 sm:gap-3">
-          <div class="sm:col-span-2">
-            <Select
-              bind:value={values.classDay1}
+          <div class="sm:col-span-2 flex flex-col gap-1.5">
+            <FormSelect
+              form={formResult}
+              name="classDay1"
               label="Meeting day 1"
               options={daysOfWeekJson}
-              floating
-              required
+              bind:value={$form.classDay1}
             />
           </div>
-          <Input
-            type="time"
-            bind:value={values.classTime1}
-            label="Meeting time 1"
-            floating
-            required
-          />
+          <div class="flex flex-col gap-1.5">
+            <FormInput
+              form={formResult}
+              name="classTime1"
+              label="Meeting time 1"
+              type="time"
+              bind:value={$form.classTime1}
+            />
+          </div>
         </div>
 
-        {#if values.course && values.course
+        {#if $form.course && $form.course
             .toLowerCase()
-            .includes('math') && values.online}
+            .includes('math') && $form.online}
           <div class="grid gap-1 sm:grid-cols-3 sm:gap-3">
-            <div class="sm:col-span-2">
-              <Select
-                bind:value={values.classDay2}
+            <div class="sm:col-span-2 flex flex-col gap-1.5">
+              <FormSelect
+                form={formResult}
+                name="classDay2"
                 label="Meeting day 2"
                 options={daysOfWeekJson}
-                floating
-                required
+                bind:value={$form.classDay2}
               />
             </div>
-            <Input
-              type="time"
-              bind:value={values.classTime2}
-              label="Meeting time 2"
-              floating
-            />
+            <div class="flex flex-col gap-1.5">
+              <FormInput
+                form={formResult}
+                name="classTime2"
+                label="Meeting time 2"
+                type="time"
+                bind:value={$form.classTime2}
+              />
+            </div>
           </div>
         {/if}
       </div>
-      <Input
-        type="number"
-        bind:value={values.classCap}
-        label="Class capacity"
-        floating
-        required
-      />
 
-      <Input
-        type="text"
-        bind:value={values.otherInstructorEmails}
-        label="Enter the emails of any co-instructors here, comma separated. Keep in mind that only one instructor per class should fill out this form."
-      />
+      <div class="flex flex-col gap-1.5 mt-2">
+        <FormInput
+          form={formResult}
+          name="classCap"
+          label="Class capacity"
+          type="number"
+          bind:value={$form.classCap}
+        />
+      </div>
 
-      <Input
-        type="checkbox"
-        bind:value={values.online}
-        label="Class taught online?"
-      />
+      <div class="flex flex-col gap-1.5 mt-2">
+        <FormInput
+          form={formResult}
+          name="otherInstructorEmails"
+          label="Enter the emails of any co-instructors here, comma separated. Keep in mind that only one instructor per class should fill out this form."
+          bind:value={$form.otherInstructorEmails}
+        />
+      </div>
 
-      {#if values.meetingLink === '' && values.online}
+      <div class="flex flex-col gap-1.5 mt-4">
+        <FormCheckbox
+          form={formResult}
+          name="online"
+          label="Class taught online?"
+          bind:checked={$form.online}
+        />
+      </div>
+
+      {#if $form.meetingLink === '' && $form.online}
         <Button
           color="blue"
-          disabled={isCreatingLink}
-          on:click={async () => (values.meetingLink = await createLink())}
+          type="button"
+          disabled={isCreatingLink || $delayed}
+          on:click={async () =>
+            ($form.meetingLink = await createLink({ ...values, ...$form }))}
         >
           {#if isCreatingLink}
             Creating link...
@@ -718,30 +825,38 @@
         </Button>
       {/if}
 
-      {#if values.online}
-        <Input
-          type="text"
-          bind:value={values.meetingLink}
-          label="Your meeting link. If you have Zoom Pro/Google Meet Pro and prefer to use it, you may enter the link here. Otherwise, you should use the Teams link."
-        />
+      {#if $form.online}
+        <div class="flex flex-col gap-1.5 mt-2">
+          <FormInput
+            form={formResult}
+            name="meetingLink"
+            label="Your meeting link. If you have Zoom Pro/Google Meet Pro and prefer to use it, you may enter the link here. Otherwise, you should use the Teams link."
+            bind:value={$form.meetingLink}
+          />
+        </div>
       {/if}
 
-      <Input
-        type="checkbox"
-        bind:value={values.submitting}
-        label="I understand submitting will make my class available for registration, so I should not submit until I am sure the class and class times work for me."
-        required
-      />
+      <div class="flex flex-col gap-1.5 mt-2">
+        <FormCheckbox
+          form={formResult}
+          name="submitting"
+          label="I understand submitting will make my class available for registration, so I should not submit until I am sure the class and class times work for me."
+          bind:checked={$form.submitting}
+        />
+      </div>
 
-      <Input
-        type="checkbox"
-        bind:value={createClassSchedule}
-        label="Would you like a class schedule to be automatically created for you? Typically, you want to check this box the first time you submit your class details, but you should avoid checking this box when submitting the form again to edit your class details because it will overwrite changes you have made to your existing class schedule."
-      />
+      <div class="flex flex-col gap-1.5 mt-2">
+        <FormCheckbox
+          form={formResult}
+          name="createClassSchedule"
+          label="Would you like a class schedule to be automatically created for you? Typically, you want to check this box the first time you submit your class details, but you should avoid checking this box when submitting the form again to edit your class details because it will overwrite changes you have made to your existing class schedule."
+          bind:checked={createClassSchedule}
+        />
+      </div>
 
-      <div class="flex justify-end">
-        <Button color="blue" type="submit">Submit</Button>
+      <div class="flex justify-end mt-4">
+        <Button color="blue" type="submit" disabled={$delayed}>Submit</Button>
       </div>
     </fieldset>
-  </Form>
+  </form>
 {/if}
