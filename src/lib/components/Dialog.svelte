@@ -69,8 +69,8 @@
     >
       <div
         class={cn(
-          'grid w-full gap-3 rounded-lg bg-white p-4 sm:gap-6 sm:p-8',
-          size === 'full' && 'h-full',
+          'p-4 sm:p-8 bg-white grid gap-3 sm:gap-6 w-full rounded-lg relative',
+          size === 'full' && 'min-h-full h-fit',
           size === 'min' && 'max-w-2xl',
         )}
         role="dialog"
@@ -82,8 +82,29 @@
           }
         }}
       >
+        <button
+          type="button"
+          class="absolute top-2 right-2 z-50 cursor-pointer rounded-full border border-gray-200 bg-white p-1.5 text-gray-500 shadow-sm transition-colors hover:bg-gray-100 hover:text-gray-700 focus:outline-none disabled:opacity-50 sm:top-4 sm:right-4"
+          on:click={cancel}
+          {disabled}
+          aria-label="Close dialog"
+        >
+          <svg
+            class="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        </button>
         <h1
-          class="rounded-md bg-gray-200 px-4 py-3 text-xl font-bold uppercase"
+          class="rounded-md bg-gray-200 px-4 py-3 pr-12 text-xl font-bold uppercase"
         >
           <slot name="title" />
         </h1>

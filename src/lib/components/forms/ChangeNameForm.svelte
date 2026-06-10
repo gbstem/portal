@@ -1,54 +1,47 @@
 <script lang="ts">
-  import { doc, updateDoc } from 'firebase/firestore'
-  import { updateProfile } from 'firebase/auth'
   import { db, user } from '$lib/client/firebase'
   import { alert } from '$lib/stores'
+  import { updateProfile } from 'firebase/auth'
+  import { doc, updateDoc } from 'firebase/firestore'
   import { onMount } from 'svelte'
-  import { superForm, defaults } from 'sveltekit-superforms'
+  import { defaults, superForm } from 'sveltekit-superforms'
   import { zod } from 'sveltekit-superforms/adapters'
   import { z } from 'zod'
   import Button from '../Button.svelte'
   import FormInput from '../FormInput.svelte'
-  import { cn } from '$lib/utils'
-
-  let className = ''
-  export { className as class }
 
   const schema = z.object({
     firstName: z.string().trim().min(1, 'First name is required'),
     lastName: z.string().trim().min(1, 'Last name is required'),
   })
 
-  let disabled = true
-
   const formResult = superForm(
     defaults({ firstName: '', lastName: '' }, zod(schema as any) as any) as any,
     {
       SPA: true,
       validators: zod(schema as any) as any,
-      async onUpdate({ form: formVal }: { form: any }) {
+      invalidateAll: false,
+      applyAction: false,
+      resetForm: false,
+      async onUpdate({ form: formVal }) {
         if (!formVal.valid) return
         if ($user) {
           const frozenUser = $user
-          disabled = true
           const firstName = formVal.data.firstName.trim()
           const lastName = formVal.data.lastName.trim()
-          updateDoc(doc(db, 'users', frozenUser.object.uid), {
-            firstName,
-            lastName,
-          })
-            .then(() =>
-              updateProfile(frozenUser.object, {
-                displayName: `${firstName} ${lastName}`,
-              }).then(() => {
-                disabled = false
-                alert.trigger('success', 'Name successfully updated.')
-              }),
-            )
-            .catch((err) => {
-              disabled = false
-              alert.trigger('error', err.code, true)
+          try {
+            await updateDoc(doc(db, 'users', frozenUser.object.uid), {
+              firstName,
+              lastName,
             })
+            await updateProfile(frozenUser.object, {
+              displayName: `${firstName} ${lastName}`,
+            })
+            alert.trigger('success', 'Name successfully updated.')
+          } catch (err: any) {
+            console.error('Error updating name: ', err)
+            alert.trigger('error', 'Failed to update name.')
+          }
         }
       },
     },
@@ -61,14 +54,13 @@
       if (u) {
         $form.firstName = u.profile.firstName || ''
         $form.lastName = u.profile.lastName || ''
-        disabled = false
       }
     })
   })
 </script>
 
-<form use:enhance class={cn('w-full', className)}>
-  <fieldset class="space-y-4" {disabled}>
+<form use:enhance class="w-full">
+  <fieldset class="space-y-4" disabled={$delayed}>
     <span class="font-bold">Name</span>
     <div class="grid gap-2 sm:grid-cols-2">
       <div class="flex flex-col gap-1.5">

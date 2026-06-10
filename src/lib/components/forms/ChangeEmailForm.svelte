@@ -1,19 +1,15 @@
 <script lang="ts">
-  import type { ActionRequestBody } from '../../../routes/api/action/+server'
-  import { alert } from '$lib/stores'
+  import { user } from '$lib/client/firebase'
   import Dialog from '$lib/components/Dialog.svelte'
   import ReauthenticateForm from '$lib/components/forms/ReauthenticateForm.svelte'
-  import { user } from '$lib/client/firebase'
-  import DialogActions from '../DialogActions.svelte'
-  import Button from '../Button.svelte'
-  import FormInput from '../FormInput.svelte'
-  import { cn } from '$lib/utils'
-  import { superForm, defaults } from 'sveltekit-superforms'
+  import { alert } from '$lib/stores'
+  import { defaults, superForm } from 'sveltekit-superforms'
   import { zod } from 'sveltekit-superforms/adapters'
   import { z } from 'zod'
-
-  let className = ''
-  export { className as class }
+  import type { ActionRequestBody } from '../../../routes/api/action/+server'
+  import Button from '../Button.svelte'
+  import DialogActions from '../DialogActions.svelte'
+  import FormInput from '../FormInput.svelte'
 
   const schema = z.object({
     newEmail: z.string().email('Invalid email address'),
@@ -27,7 +23,9 @@
     {
       SPA: true,
       validators: zod(schema as any) as any,
-      onUpdate({ form: formVal }: { form: any }) {
+      invalidateAll: false,
+      applyAction: false,
+      onUpdate({ form: formVal }) {
         if (!formVal.valid) return
         emailToUpdate = formVal.data.newEmail
         dialogEl.open()
@@ -69,7 +67,7 @@
   }
 </script>
 
-<form use:enhance class={cn('w-full', className)}>
+<form use:enhance class="w-full">
   <fieldset class="space-y-4" disabled={$delayed}>
     <span class="font-bold">Change email</span>
 

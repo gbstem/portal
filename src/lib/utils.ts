@@ -106,6 +106,15 @@ export function formatTime24to12(time24: string): string {
   })
 }
 
+export function formatClassTimes(
+  classDays: string[],
+  classTimes: string[],
+): string[] {
+  return classDays.map(
+    (day, index) => `${day} at ${formatTime24to12(classTimes[index])}`,
+  )
+}
+
 export const formatDate = (date: Date) => {
   return date.toLocaleString('en-US', {
     weekday: 'short', // long, short, narrow

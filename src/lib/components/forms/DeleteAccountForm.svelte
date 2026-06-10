@@ -3,7 +3,6 @@
   import Dialog from '$lib/components/Dialog.svelte'
   import { decisionsCollection } from '$lib/data/constants'
   import { alert } from '$lib/stores'
-  import { cn } from '$lib/utils'
   import {
     EmailAuthProvider,
     deleteUser,
@@ -11,33 +10,28 @@
   } from 'firebase/auth'
   import { deleteDoc, doc } from 'firebase/firestore'
   import { deleteObject, ref } from 'firebase/storage'
+  import { defaults, superForm } from 'sveltekit-superforms'
+  import { zod } from 'sveltekit-superforms/adapters'
+  import { z } from 'zod'
   import Button from '../Button.svelte'
   import DialogActions from '../DialogActions.svelte'
   import FormInput from '../FormInput.svelte'
-  import { superForm, defaults } from 'sveltekit-superforms'
-  import { zod } from 'sveltekit-superforms/adapters'
-  import { z } from 'zod'
-
-  let className = ''
-  export { className as class }
-
-  let dialogEl: Dialog
-  let disabled = false
 
   const schema = z.object({
     password: z.string().min(1, 'Password is required'),
   })
+
+  let dialogEl: Dialog
 
   const formResult = superForm(
     defaults({ password: '' }, zod(schema as any) as any) as any,
     {
       SPA: true,
       validators: zod(schema as any) as any,
-      async onUpdate({ form: formVal }: { form: any }) {
+      async onUpdate({ form: formVal }) {
         if (!formVal.valid) return
         if ($user) {
           const frozenUser = $user
-          disabled = true
           try {
             await reauthenticateWithCredential(
               frozenUser.object,
@@ -68,7 +62,6 @@
               location.reload()
             }, 2000)
           } catch (err: any) {
-            disabled = false
             alert.trigger('error', err.code, true)
           }
         }
@@ -84,7 +77,7 @@
   }
 </script>
 
-<div class={cn('w-full', className)}>
+<div class="w-full">
   <span class="font-bold">Delete account</span>
   <div class="mt-2">
     <Button color="red" type="button" on:click={() => dialogEl.open()}
@@ -93,16 +86,11 @@
   </div>
 </div>
 
-<Dialog
-  bind:this={dialogEl}
-  on:cancel={handleCancel}
-  disabled={$delayed || disabled}
-  alert
->
+<Dialog bind:this={dialogEl} on:cancel={handleCancel} disabled={$delayed} alert>
   <svelte:fragment slot="title">Delete account</svelte:fragment>
   <div slot="description" class="flex w-full justify-center">
     <form use:enhance class="w-full max-w-lg">
-      <fieldset class="space-y-4" disabled={$delayed || disabled}>
+      <fieldset class="space-y-4" disabled={$delayed}>
         <div class="flex justify-center">
           <div class="w-full space-y-4">
             <FormInput
@@ -120,9 +108,7 @@
         </div>
         <DialogActions>
           <Button type="button" on:click={dialogEl.cancel}>Cancel</Button>
-          <Button color="red" type="submit" disabled={$delayed || disabled}
-            >Delete</Button
-          >
+          <Button color="red" type="submit" disabled={$delayed}>Delete</Button>
         </DialogActions>
       </fieldset>
     </form>

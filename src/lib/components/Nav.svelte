@@ -1,17 +1,14 @@
 <script lang="ts">
-  import ProfileMenu from './ProfileMenu.svelte'
-  import { page } from '$app/stores'
-  import { onMount } from 'svelte'
-  import Brand from './Brand.svelte'
-  import { navigating } from '$app/stores'
-  import { fade } from 'svelte/transition'
-  // import AnnouncementsBell from './AnnouncementsBell.svelte'
-  import { cubicInOut } from 'svelte/easing'
+  import { navigating, page } from '$app/stores'
+  import { db, user } from '$lib/client/firebase'
+  import { decisionsCollection } from '$lib/data/constants'
   import { cn } from '$lib/utils'
   import { doc, getDoc } from 'firebase/firestore'
-  import { decisionsCollection } from '$lib/data/constants'
-  import { db } from '$lib/client/firebase'
-  import { user } from '$lib/client/firebase'
+  import { onMount } from 'svelte'
+  import { cubicInOut } from 'svelte/easing'
+  import { fade } from 'svelte/transition'
+  import Brand from './Brand.svelte'
+  import ProfileMenu from './ProfileMenu.svelte'
 
   $: userRole = $user?.profile?.role
   let shadow = false
@@ -52,17 +49,11 @@
 
   onMount(() => {
     updateShadow()
-
-    const unsubscribe = navigating.subscribe((navigating) => {
+    return navigating.subscribe((navigating) => {
       if (navigating) {
         open = false
       }
     })
-
-    // Return the cleanup function
-    return () => {
-      unsubscribe()
-    }
   })
   $: pathname = $page.url.pathname
 

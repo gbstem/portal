@@ -6,14 +6,10 @@
     reauthenticateWithCredential,
   } from 'firebase/auth'
   import { createEventDispatcher } from 'svelte'
-  import { cn } from '$lib/utils'
-  import { superForm, defaults } from 'sveltekit-superforms'
+  import { defaults, superForm } from 'sveltekit-superforms'
   import { zod } from 'sveltekit-superforms/adapters'
   import { z } from 'zod'
   import FormInput from '../FormInput.svelte'
-
-  let className = ''
-  export { className as class }
 
   const dispatch = createEventDispatcher<{
     reauthenticate: boolean
@@ -28,7 +24,7 @@
     {
       SPA: true,
       validators: zod(schema as any) as any,
-      async onUpdate({ form: formVal }: { form: any }) {
+      async onUpdate({ form: formVal }) {
         if (!formVal.valid) return
         if ($user) {
           try {
@@ -51,7 +47,7 @@
   const { form, enhance, delayed } = formResult
 </script>
 
-<form use:enhance class={cn('w-full', className)}>
+<form use:enhance class="w-full">
   <fieldset class="space-y-4" disabled={$delayed}>
     <div class="flex flex-col gap-1.5">
       <FormInput

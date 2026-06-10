@@ -22,7 +22,7 @@
   import Select from '$lib/components/Select.svelte'
   import { coursesJson } from '$lib/data'
   import Alert from '$lib/components/Alert.svelte'
-  import { formatDate, formatTime24to12 } from '$lib/utils'
+  import { formatDate, formatClassTimes } from '$lib/utils'
   import {
     classesCollection,
     registrationsCollection,
@@ -188,15 +188,6 @@
     })
     getData()
   })
-
-  function formatClassTimes(
-    classDays: string[],
-    classTimes: string[],
-  ): string[] {
-    return classDays.map(
-      (day, index) => `${day} at ${formatTime24to12(classTimes[index])}`,
-    )
-  }
 
   const isEnrolled = (classId: string, studentUid: string): boolean => {
     if (studentUid === '') {

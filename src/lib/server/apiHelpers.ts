@@ -1,4 +1,5 @@
 import { error, isHttpError } from '@sveltejs/kit'
+import { ZodError } from 'zod'
 
 /**
  * Ensures the user is signed in (authenticated).
@@ -18,6 +19,13 @@ export function verifyAuthenticated(locals: App.Locals) {
 export function handleApiError(err: unknown): never {
   if (isHttpError(err)) {
     throw err
+  }
+
+  if (err instanceof ZodError) {
+    const formattedErrors = err.issues
+      .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+      .join(', ')
+    throw error(400, `Validation failed: ${formattedErrors}`)
   }
 
   if (typeof err === 'string') {
