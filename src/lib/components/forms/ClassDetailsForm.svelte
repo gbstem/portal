@@ -421,7 +421,7 @@
 {#if dialog === true}
   <Dialog bind:this={classDetailsDialogEl} size="full" alert>
     <svelte:fragment slot="title"
-      ><div class="flex justify-between items-center">
+      ><div class="flex items-center justify-between">
         Your class details <Button
           color="red"
           class="font-light"
@@ -457,10 +457,10 @@
             </p>
 
             <!-- Class Management Section -->
-            <div class="bg-gray-50 p-4 rounded-lg">
-              <h3 class="text-lg font-semibold mb-3">Manage Your Classes</h3>
+            <div class="rounded-lg bg-gray-50 p-4">
+              <h3 class="mb-3 text-lg font-semibold">Manage Your Classes</h3>
 
-              <div class="flex flex-wrap gap-2 mb-3">
+              <div class="mb-3 flex flex-wrap gap-2">
                 {#each availableClassIds as classId}
                   <Button
                     color={selectedClassId === classId ? 'blue' : 'gray'}
@@ -500,7 +500,7 @@
                   : 'Class Details'}
             </h2>
 
-            <div class="flex flex-col gap-1.5 mt-2">
+            <div class="mt-2 flex flex-col gap-1.5">
               <FormSelect
                 form={formResult}
                 name="course"
@@ -510,7 +510,7 @@
               />
             </div>
 
-            <div class="flex flex-col gap-1.5 mt-2">
+            <div class="mt-2 flex flex-col gap-1.5">
               <FormInput
                 form={formResult}
                 name="gradeRecommendation"
@@ -520,7 +520,7 @@
             </div>
 
             <div class="grid gap-1">
-              <span class="font-bold text-sm text-gray-700 mt-2"
+              <span class="mt-2 text-sm font-bold text-gray-700"
                 >Online classes meet once weekly at consistent days and times
                 throughout the semester and run for 60 minutes each; with the
                 exception of math, which meets twice weekly for 60 minutes each.
@@ -529,7 +529,7 @@
               </span>
 
               <div class="grid gap-1 sm:grid-cols-3 sm:gap-3">
-                <div class="sm:col-span-2 flex flex-col gap-1.5">
+                <div class="flex flex-col gap-1.5 sm:col-span-2">
                   <FormSelect
                     form={formResult}
                     name="classDay1"
@@ -553,7 +553,7 @@
                   .toLowerCase()
                   .includes('math') && $form.online}
                 <div class="grid gap-1 sm:grid-cols-3 sm:gap-3">
-                  <div class="sm:col-span-2 flex flex-col gap-1.5">
+                  <div class="flex flex-col gap-1.5 sm:col-span-2">
                     <FormSelect
                       form={formResult}
                       name="classDay2"
@@ -575,7 +575,7 @@
               {/if}
             </div>
 
-            <div class="flex flex-col gap-1.5 mt-2">
+            <div class="mt-2 flex flex-col gap-1.5">
               <FormInput
                 form={formResult}
                 name="classCap"
@@ -585,7 +585,7 @@
               />
             </div>
 
-            <div class="flex flex-col gap-1.5 mt-2">
+            <div class="mt-2 flex flex-col gap-1.5">
               <FormInput
                 form={formResult}
                 name="otherInstructorEmails"
@@ -595,7 +595,7 @@
             </div>
 
             {#if $form.online}
-              <div class="flex flex-col gap-1.5 mt-2">
+              <div class="mt-2 flex flex-col gap-1.5">
                 <FormInput
                   form={formResult}
                   name="meetingLink"
@@ -605,7 +605,7 @@
               </div>
             {/if}
 
-            <div class="flex flex-col gap-1.5 mt-4">
+            <div class="mt-4 flex flex-col gap-1.5">
               <FormCheckbox
                 form={formResult}
                 name="online"
@@ -614,7 +614,7 @@
               />
             </div>
 
-            <div class="flex flex-col gap-1.5 mt-2">
+            <div class="mt-2 flex flex-col gap-1.5">
               <FormCheckbox
                 form={formResult}
                 name="submitting"
@@ -623,7 +623,7 @@
               />
             </div>
 
-            <div class="flex flex-col gap-1.5 mt-2">
+            <div class="mt-2 flex flex-col gap-1.5">
               <FormCheckbox
                 form={formResult}
                 name="createClassSchedule"
@@ -663,10 +663,10 @@
       </p>
 
       <!-- Class Management Section -->
-      <div class="bg-gray-50 p-4 rounded-lg">
-        <h3 class="text-lg font-semibold mb-3">Manage Your Classes</h3>
+      <div class="rounded-lg bg-gray-50 p-4">
+        <h3 class="mb-3 text-lg font-semibold">Manage Your Classes</h3>
 
-        <div class="flex flex-wrap gap-2 mb-3">
+        <div class="mb-3 flex flex-wrap gap-2">
           {#each availableClassIds as classId}
             <Button
               color={selectedClassId === classId ? 'blue' : 'gray'}
@@ -706,7 +706,7 @@
             : 'Class Details'}
       </h2>
 
-      <div class="flex flex-col gap-1.5 mt-2">
+      <div class="mt-2 flex flex-col gap-1.5">
         <FormSelect
           form={formResult}
           name="course"
@@ -716,7 +716,7 @@
         />
       </div>
 
-      <div class="flex flex-col gap-1.5 mt-2">
+      <div class="mt-2 flex flex-col gap-1.5">
         <FormInput
           form={formResult}
           name="gradeRecommendation"
@@ -726,7 +726,7 @@
       </div>
 
       <div class="grid gap-1">
-        <span class="font-bold text-sm text-gray-700 mt-2"
+        <span class="mt-2 text-sm font-bold text-gray-700"
           >Online classes meet once weekly at consistent days and times
           throughout the semester and run for 60 minutes each; with the
           exception of math, which meets twice weekly for 60 minutes each.
@@ -735,7 +735,7 @@
         </span>
 
         <div class="grid gap-1 sm:grid-cols-3 sm:gap-3">
-          <div class="sm:col-span-2 flex flex-col gap-1.5">
+          <div class="flex flex-col gap-1.5 sm:col-span-2">
             <FormSelect
               form={formResult}
               name="classDay1"
@@ -759,7 +759,7 @@
             .toLowerCase()
             .includes('math') && $form.online}
           <div class="grid gap-1 sm:grid-cols-3 sm:gap-3">
-            <div class="sm:col-span-2 flex flex-col gap-1.5">
+            <div class="flex flex-col gap-1.5 sm:col-span-2">
               <FormSelect
                 form={formResult}
                 name="classDay2"
@@ -781,7 +781,7 @@
         {/if}
       </div>
 
-      <div class="flex flex-col gap-1.5 mt-2">
+      <div class="mt-2 flex flex-col gap-1.5">
         <FormInput
           form={formResult}
           name="classCap"
@@ -791,7 +791,7 @@
         />
       </div>
 
-      <div class="flex flex-col gap-1.5 mt-2">
+      <div class="mt-2 flex flex-col gap-1.5">
         <FormInput
           form={formResult}
           name="otherInstructorEmails"
@@ -800,7 +800,7 @@
         />
       </div>
 
-      <div class="flex flex-col gap-1.5 mt-4">
+      <div class="mt-4 flex flex-col gap-1.5">
         <FormCheckbox
           form={formResult}
           name="online"
@@ -826,7 +826,7 @@
       {/if}
 
       {#if $form.online}
-        <div class="flex flex-col gap-1.5 mt-2">
+        <div class="mt-2 flex flex-col gap-1.5">
           <FormInput
             form={formResult}
             name="meetingLink"
@@ -836,7 +836,7 @@
         </div>
       {/if}
 
-      <div class="flex flex-col gap-1.5 mt-2">
+      <div class="mt-2 flex flex-col gap-1.5">
         <FormCheckbox
           form={formResult}
           name="submitting"
@@ -845,7 +845,7 @@
         />
       </div>
 
-      <div class="flex flex-col gap-1.5 mt-2">
+      <div class="mt-2 flex flex-col gap-1.5">
         <FormCheckbox
           form={formResult}
           name="createClassSchedule"
@@ -854,7 +854,7 @@
         />
       </div>
 
-      <div class="flex justify-end mt-4">
+      <div class="mt-4 flex justify-end">
         <Button color="blue" type="submit" disabled={$delayed}>Submit</Button>
       </div>
     </fieldset>

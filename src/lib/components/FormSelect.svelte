@@ -52,5 +52,5 @@
       />
     {/snippet}
   </Control>
-  <FieldErrors class="text-xs text-red-500 font-semibold" />
+  <FieldErrors class="text-xs font-semibold text-red-500" />
 </Field>

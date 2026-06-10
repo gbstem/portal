@@ -189,13 +189,13 @@
   }
 </script>
 
-<Card class="sticky top-2 z-50 flex flex-col gap-3 p-3 md:p-3 max-w-2xl">
-  <hr class="mb-3 mt-5" />
+<Card class="sticky top-2 z-50 flex max-w-2xl flex-col gap-3 p-3 md:p-3">
+  <hr class="mt-5 mb-3" />
   <form class={cn(showValidation && 'show-validation')} use:enhance>
     <fieldset disabled={disabled || $delayed || loading}>
-      <h2 class="mb-4 mt-6 font-bold text-lg">Class Information</h2>
+      <h2 class="mt-6 mb-4 text-lg font-bold">Class Information</h2>
       <div class="grid gap-1 sm:grid-cols-2 sm:gap-2">
-        <div class="sm:col-span-1 flex flex-col gap-1.5">
+        <div class="flex flex-col gap-1.5 sm:col-span-1">
           <FormInput
             form={formResult}
             name="classDate"
@@ -204,7 +204,7 @@
             bind:value={$form.classDate}
           />
         </div>
-        <div class="sm:col-span-1 flex flex-col gap-1.5">
+        <div class="flex flex-col gap-1.5 sm:col-span-1">
           <FormInput
             form={formResult}
             name="classNumber"
@@ -215,7 +215,7 @@
         </div>
       </div>
 
-      <div class="flex flex-col gap-1.5 mt-4">
+      <div class="mt-4 flex flex-col gap-1.5">
         <FormInput
           form={formResult}
           name="feedback"
@@ -224,10 +224,10 @@
         />
       </div>
 
-      <hr class="mb-3 mt-5" />
+      <hr class="mt-5 mb-3" />
 
-      <h2 class="font-bold text-lg mb-2">Class Attendance</h2>
-      <div class="space-y-2 mt-2">
+      <h2 class="mb-2 text-lg font-bold">Class Attendance</h2>
+      <div class="mt-2 space-y-2">
         {#each classList as student}
           {#if $form.attendanceList[student]}
             <div class="flex flex-col gap-1.5">

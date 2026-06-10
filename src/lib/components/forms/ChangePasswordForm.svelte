@@ -84,7 +84,7 @@
       />
     </div>
 
-    <div class="flex flex-col gap-1.5 relative">
+    <div class="relative flex flex-col gap-1.5">
       <FormInput
         form={formResult}
         name="confirmPassword"
@@ -93,7 +93,7 @@
         bind:value={$form.confirmPassword}
         class="pr-21"
       />
-      <div class="absolute right-2 top-6 flex h-12 items-center">
+      <div class="absolute top-6 right-2 flex h-12 items-center">
         <Button color="blue" class="px-2 py-1" type="submit" disabled={$delayed}
           >Update</Button
         >

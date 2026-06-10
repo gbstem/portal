@@ -276,7 +276,7 @@
   {:else}
     {#await data then value}
       {#if scheduled === false}
-        <h2 class="font-bold text-lg mb-2">Available Interview Slots</h2>
+        <h2 class="mb-2 text-lg font-bold">Available Interview Slots</h2>
 
         <form
           class={cn(
@@ -288,7 +288,7 @@
         >
           {#if value.length === 0}
             <div
-              class="rounded-md bg-red-100 px-4 py-2 text-red-900 shadow-xs border border-red-200"
+              class="rounded-md border border-red-200 bg-red-100 px-4 py-2 text-red-900 shadow-xs"
             >
               There are no interview slots available currently. Please request a
               new time to be added that works for you. You may request multiple
@@ -307,7 +307,7 @@
               <div class="grid grid-cols-2 gap-2">
                 {#each value as val}
                   <label
-                    class="flex items-center gap-2 text-sm mt-1 cursor-pointer"
+                    class="mt-1 flex cursor-pointer items-center gap-2 text-sm"
                   >
                     <input
                       type="radio"
@@ -320,7 +320,7 @@
                 {/each}
               </div>
               {#if $bookingErrors.slotId}
-                <p class="text-xs text-red-500 font-semibold mt-1">
+                <p class="mt-1 text-xs font-semibold text-red-500">
                   {$bookingErrors.slotId}
                 </p>
               {/if}
@@ -333,7 +333,7 @@
 
         {#if showRequestNewTime}
           <form class={cn('max-w-2xl mt-4 space-y-4')} use:requestEnhance>
-            <div class="flex flex-col gap-1.5 mt-2">
+            <div class="mt-2 flex flex-col gap-1.5">
               <FormInput
                 form={requestFormResult}
                 name="dateToAdd"
@@ -359,7 +359,7 @@
         {/if}
       {:else if scheduledInterview.interviewSlotStatus === 'pending'}
         <div
-          class="rounded-md bg-green-100 px-4 py-2 text-center text-green-900 shadow-xs border border-green-200"
+          class="rounded-md border border-green-200 bg-green-100 px-4 py-2 text-center text-green-900 shadow-xs"
         >
           <p class="font-bold">
             Your interview will be on {scheduledInterview.date} with
@@ -379,7 +379,7 @@
         </div>
       {:else}
         <div
-          class="rounded-md bg-green-100 px-4 py-2 text-center text-green-900 shadow-xs border border-green-200 font-bold"
+          class="rounded-md border border-green-200 bg-green-100 px-4 py-2 text-center font-bold text-green-900 shadow-xs"
         >
           Your interview was on {scheduledInterview.date}.
         </div>

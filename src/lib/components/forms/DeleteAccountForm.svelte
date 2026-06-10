@@ -100,7 +100,7 @@
   alert
 >
   <svelte:fragment slot="title">Delete account</svelte:fragment>
-  <div slot="description" class="flex justify-center w-full">
+  <div slot="description" class="flex w-full justify-center">
     <form use:enhance class="w-full max-w-lg">
       <fieldset class="space-y-4" disabled={$delayed || disabled}>
         <div class="flex justify-center">
@@ -113,7 +113,7 @@
               bind:value={$form.password}
               autocomplete="current-password"
             />
-            <div class="font-bold text-red-600 text-center">
+            <div class="text-center font-bold text-red-600">
               Warning! This is irreversible.
             </div>
           </div>

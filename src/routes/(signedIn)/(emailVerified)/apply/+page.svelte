@@ -138,7 +138,7 @@
     {/if}
     {#if nameToUid[value]}
       <!-- <div class="rounded-lg bg-red-100 p-4 mt-8 w-full text-center"> This form is not available yet. Student account creation for this semester will open on {semesterDates.newInstructorAppsOpen}!</div> -->
-      <Card class="mx-auto w-fit mt-4">
+      <Card class="mx-auto mt-4 w-fit">
         <RegistrationForm childUid={nameToUid[value]} {semesterDates} />
       </Card>
     {/if}

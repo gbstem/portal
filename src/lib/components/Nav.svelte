@@ -83,7 +83,7 @@
     <Brand />
     {#if $user?.object?.emailVerified}
       <div
-        class="hidden sm:flex flex-1 items-center justify-start lg:justify-center min-w-0 gap-0.5 md:gap-1 lg:gap-1.5 xl:gap-2 overflow-x-auto no-scrollbar py-1 px-2"
+        class="no-scrollbar hidden min-w-0 flex-1 items-center justify-start gap-0.5 overflow-x-auto px-2 py-1 sm:flex md:gap-1 lg:justify-center lg:gap-1.5 xl:gap-2"
       >
         {#each pages as page}
           <a
@@ -100,7 +100,7 @@
             {page.name}
             {#if pathname === page.href}
               <span
-                class="absolute left-2 right-2 -bottom-1 h-1 rounded-full bg-blue-400/70"
+                class="absolute right-2 -bottom-1 left-2 h-1 rounded-full bg-blue-400/70"
                 style="z-index:1;"
               ></span>
             {/if}
@@ -155,7 +155,7 @@
 </nav>
 {#if open}
   <div
-    class="fixed left-0 top-20 z-50 flex h-[calc(100vh-5rem)] w-screen flex-col gap-2 bg-white/90 backdrop-blur-md p-d sm:hidden animate-slideDown shadow-lg border-t border-gray-200"
+    class="animate-slideDown fixed top-20 left-0 z-50 flex h-[calc(100vh-5rem)] w-screen flex-col gap-2 border-t border-gray-200 bg-white/90 p-d shadow-lg backdrop-blur-md sm:hidden"
     transition:fade={{
       easing: cubicInOut,
       duration: 200,

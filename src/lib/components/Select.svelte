@@ -167,7 +167,7 @@
         {...$$restProps}
       />
       <label
-        class="absolute left-1 top-[0.65rem] z-10 origin-[0%_0%] -translate-y-4 transform cursor-text bg-white px-2 text-[0.8rem] leading-none text-gray-500 duration-150 peer-placeholder-shown:top-1/2 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:scale-100 peer-placeholder-shown:text-base peer-focus:left-1 peer-focus:top-[0.65rem] peer-focus:-translate-y-4 peer-focus:text-[0.8rem] peer-focus:leading-none peer-disabled:text-gray-400"
+        class="absolute top-[0.65rem] left-1 z-10 origin-[0%_0%] -translate-y-4 transform cursor-text bg-white px-2 text-[0.8rem] leading-none text-gray-500 duration-150 peer-placeholder-shown:top-1/2 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:scale-100 peer-placeholder-shown:text-base peer-focus:top-[0.65rem] peer-focus:left-1 peer-focus:-translate-y-4 peer-focus:text-[0.8rem] peer-focus:leading-none peer-disabled:text-gray-400"
         for={id}
       >
         <span>
@@ -175,7 +175,7 @@
         </span>
       </label>
     </div>
-    <div class="absolute right-0 top-0 flex h-12 items-center pr-2">
+    <div class="absolute top-0 right-0 flex h-12 items-center pr-2">
       <button
         type="button"
         aria-label="Toggle dropdown"
@@ -204,7 +204,7 @@
     </div>
     {#if open}
       <div
-        class="absolute left-0 top-14 z-20 max-h-60 w-full overflow-hidden overflow-y-auto rounded-md border border-gray-200 bg-white py-1 shadow-xs"
+        class="absolute top-14 left-0 z-20 max-h-60 w-full overflow-hidden overflow-y-auto rounded-md border border-gray-200 bg-white py-1 shadow-xs"
         transition:fade={{ duration: 100 }}
       >
         {#if filteredOptions.length === 0}
@@ -249,7 +249,7 @@
       </span>
     </label>
     <div class="relative">
-      <div class="absolute right-0 top-0 flex h-12 items-center pr-2">
+      <div class="absolute top-0 right-0 flex h-12 items-center pr-2">
         <button
           type="button"
           aria-label="Toggle dropdown"
@@ -296,7 +296,7 @@
       />
       {#if open}
         <div
-          class="absolute left-0 top-14 z-20 max-h-60 w-full overflow-hidden overflow-y-auto rounded-md border border-gray-200 bg-white py-1 shadow-xs"
+          class="absolute top-14 left-0 z-20 max-h-60 w-full overflow-hidden overflow-y-auto rounded-md border border-gray-200 bg-white py-1 shadow-xs"
           transition:fade={{ duration: 100 }}
         >
           {#if filteredOptions.length === 0}

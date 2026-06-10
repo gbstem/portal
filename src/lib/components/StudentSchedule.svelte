@@ -89,13 +89,13 @@
   }
 </script>
 
-<div class="bg-white rounded-lg shadow-xs p-6">
+<div class="rounded-lg bg-white p-6 shadow-xs">
   {#if selectedStudentUid}
     {#if classes.length === 0}
       <div class="flex flex-col items-center justify-center py-8">
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          class="h-12 w-12 text-gray-300 mb-4"
+          class="mb-4 h-12 w-12 text-gray-300"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -119,7 +119,7 @@
       <div class="mb-4 font-bold">
         Next Upcoming Class For {selectedStudentName}:
       </div>
-      <div class="text-blue-700 font-semibold">
+      <div class="font-semibold text-blue-700">
         {nextClass === null || nextClass === undefined
           ? 'No Upcoming Classes'
           : nextClass.course + ' ' + formatDate(nextClass.meetingTime)}
@@ -131,11 +131,11 @@
           </a>
         </div>
       {/if}
-      <div class="font-bold mb-2">{selectedStudentName}'s Class Schedule</div>
+      <div class="mb-2 font-bold">{selectedStudentName}'s Class Schedule</div>
       <ul class="space-y-3">
         {#each classes as classSession}
           <li
-            class="flex items-center bg-blue-50 rounded-lg px-4 py-3 shadow-xs"
+            class="flex items-center rounded-lg bg-blue-50 px-4 py-3 shadow-xs"
           >
             <div class="flex-1">
               <div class="font-semibold text-blue-900">

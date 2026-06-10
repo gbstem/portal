@@ -432,7 +432,7 @@
 <svelte:window on:beforeunload={handleUnload} />
 
 {#if new Date() < new Date(semesterDates.registrationsOpen)}
-  <Card class="mb-6 bg-red-50 border-red-200 max-w-2xl">
+  <Card class="mb-6 max-w-2xl border-red-200 bg-red-50">
     <div class="flex items-start gap-3">
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -440,7 +440,7 @@
         viewBox="0 0 24 24"
         stroke-width="1.5"
         stroke="currentColor"
-        class="h-6 w-6 text-red-600 shrink-0 mt-0.5"
+        class="mt-0.5 h-6 w-6 shrink-0 text-red-600"
       >
         <path
           stroke-linecap="round"
@@ -454,7 +454,7 @@
   </Card>
 {:else}
   {#if new Date() >= new Date(semesterDates.registrationsDue + 604800000) && !values.meta.submitted}
-    <Card class="mb-6 bg-red-50 border-red-200 max-w-2xl">
+    <Card class="mb-6 max-w-2xl border-red-200 bg-red-50">
       <div class="flex items-start gap-3">
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -462,7 +462,7 @@
           viewBox="0 0 24 24"
           stroke-width="1.5"
           stroke="currentColor"
-          class="h-6 w-6 text-red-600 shrink-0 mt-0.5"
+          class="mt-0.5 h-6 w-6 shrink-0 text-red-600"
         >
           <path
             stroke-linecap="round"
@@ -474,7 +474,7 @@
           <h3 class="font-semibold text-red-800">
             Registration Deadline Passed
           </h3>
-          <p class="text-red-700 text-sm mt-1">
+          <p class="mt-1 text-sm text-red-700">
             The student registration deadline has passed. Registrations were due <span
               class="font-semibold"
             >
@@ -489,7 +489,7 @@
 
   {#if values.meta.submitted}
     <div
-      class="rounded-md bg-green-100 px-4 py-2 text-green-900 shadow-xs max-w-2xl border border-green-200"
+      class="max-w-2xl rounded-md border border-green-200 bg-green-100 px-4 py-2 text-green-900 shadow-xs"
     >
       An account has been created for {values.personal.studentFirstName}! You
       will be able to enroll this child in classes once enrollment opens. Please
@@ -506,7 +506,7 @@
       <fieldset class="space-y-14" {disabled}>
         {#if values.personal.studentFirstName !== ''}
           <div
-            class="rounded-md bg-red-100 px-4 py-2 text-center text-green-900 shadow-xs w-full border border-red-200"
+            class="w-full rounded-md border border-red-200 bg-red-100 px-4 py-2 text-center text-green-900 shadow-xs"
           >
             You have a student account creation in progress for {values.personal
               .studentFirstName}. Remember to complete this form and submit it
@@ -517,7 +517,7 @@
           </div>
         {/if}
         <div class="grid gap-1">
-          <span class="mt-3 font-bold text-lg"
+          <span class="mt-3 text-lg font-bold"
             >Student Account Creation Form</span
           >
           <p class="mb-2 text-sm text-gray-600">
@@ -531,10 +531,10 @@
           </p>
           <span class="font-bold">Personal</span>
           <Card class="my-2 grid gap-3">
-            <div class="rounded-md bg-gray-100 px-3 py-2 shadow-xs text-sm">
+            <div class="rounded-md bg-gray-100 px-3 py-2 text-sm shadow-xs">
               {`Parent Name: ${values.personal.parentFirstName} ${values.personal.parentLastName}`}
             </div>
-            <div class="rounded-md bg-gray-100 px-3 py-2 shadow-xs text-sm">
+            <div class="rounded-md bg-gray-100 px-3 py-2 text-sm shadow-xs">
               {`Email: ${values.personal.email}`}
             </div>
             <div class="text-xs text-gray-500">
@@ -544,7 +544,7 @@
             </div>
           </Card>
 
-          <div class="flex flex-col gap-1.5 mt-2">
+          <div class="mt-2 flex flex-col gap-1.5">
             <FormInput
               form={formResult}
               name="personal.studentFirstName"
@@ -553,7 +553,7 @@
             />
           </div>
 
-          <div class="flex flex-col gap-1.5 mt-2">
+          <div class="mt-2 flex flex-col gap-1.5">
             <FormInput
               form={formResult}
               name="personal.studentLastName"
@@ -562,7 +562,7 @@
             />
           </div>
 
-          <div class="flex flex-col gap-1.5 mt-2">
+          <div class="mt-2 flex flex-col gap-1.5">
             <FormInput
               form={formResult}
               name="personal.secondaryEmail"
@@ -572,7 +572,7 @@
             />
           </div>
 
-          <div class="flex flex-col gap-1.5 mt-2">
+          <div class="mt-2 flex flex-col gap-1.5">
             <FormInput
               form={formResult}
               name="personal.phoneNumber"
@@ -582,7 +582,7 @@
             />
           </div>
 
-          <div class="flex flex-col gap-1.5 mt-2">
+          <div class="mt-2 flex flex-col gap-1.5">
             <FormInput
               form={formResult}
               name="personal.dateOfBirth"
@@ -592,7 +592,7 @@
             />
           </div>
 
-          <div class="flex flex-col gap-1.5 mt-2">
+          <div class="mt-2 flex flex-col gap-1.5">
             <FormSelect
               form={formResult}
               name="personal.gender"
@@ -602,8 +602,8 @@
             />
           </div>
 
-          <div class="grid gap-1 mt-5">
-            <span class="font-semibold text-sm"
+          <div class="mt-5 grid gap-1">
+            <span class="text-sm font-semibold"
               >Race / ethnicity (check all that apply)</span
             >
             <div class="grid grid-cols-2 gap-2">
@@ -614,11 +614,11 @@
                     value={race.name}
                     bind:group={$form.personal.race}
                     id={`race-${race.name}`}
-                    class="peer h-5 w-5 shrink-0 cursor-pointer appearance-none rounded-md border border-gray-400 checked:border-gray-600 checked:bg-gray-600 focus:border-gray-600 focus:outline-hidden focus:ring-1 focus:ring-gray-600"
+                    class="peer h-5 w-5 shrink-0 cursor-pointer appearance-none rounded-md border border-gray-400 checked:border-gray-600 checked:bg-gray-600 focus:border-gray-600 focus:ring-1 focus:ring-gray-600 focus:outline-hidden"
                   />
                   <label
                     for={`race-${race.name}`}
-                    class="ml-2 text-sm cursor-pointer peer-disabled:text-gray-400"
+                    class="ml-2 cursor-pointer text-sm peer-disabled:text-gray-400"
                   >
                     {race.name}
                   </label>
@@ -627,7 +627,7 @@
             </div>
           </div>
 
-          <div class="flex flex-col gap-1.5 mt-4">
+          <div class="mt-4 flex flex-col gap-1.5">
             <FormSelect
               form={formResult}
               name="personal.frlp"
@@ -637,7 +637,7 @@
             />
           </div>
 
-          <div class="flex flex-col gap-1.5 mt-2">
+          <div class="mt-2 flex flex-col gap-1.5">
             <FormSelect
               form={formResult}
               name="personal.parentEducation"
@@ -651,7 +651,7 @@
         <div class="grid gap-1">
           <span class="font-bold">Academic</span>
           <div class="grid gap-1 sm:grid-cols-3 sm:gap-3">
-            <div class="sm:col-span-2 flex flex-col gap-1.5 mt-2">
+            <div class="mt-2 flex flex-col gap-1.5 sm:col-span-2">
               <FormInput
                 form={formResult}
                 name="academic.school"
@@ -674,7 +674,7 @@
 
         <div class="grid gap-1">
           <span class="font-bold">Agreements</span>
-          <div class="grid gap-4 mt-2">
+          <div class="mt-2 grid gap-4">
             <div class="flex flex-col gap-1.5">
               <FormCheckbox
                 form={formResult}
@@ -722,7 +722,7 @@
           </span>
         </div>
 
-        <div class="grid grid-cols-2 gap-3 mt-8">
+        <div class="mt-8 grid grid-cols-2 gap-3">
           <button
             type="button"
             on:click={() => handleSave(true)}

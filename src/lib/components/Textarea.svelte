@@ -61,7 +61,7 @@
   ></textarea>
   {#if $$restProps?.maxlength && visible}
     <div
-      class="absolute bottom-3 right-3 rounded-sm border border-gray-100 bg-gray-100 px-1 text-gray-500 shadow-xs"
+      class="absolute right-3 bottom-3 rounded-sm border border-gray-100 bg-gray-100 px-1 text-gray-500 shadow-xs"
       transition:fade
     >
       {value?.length || 0}/{$$restProps.maxlength}

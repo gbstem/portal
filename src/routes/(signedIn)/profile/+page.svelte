@@ -124,12 +124,12 @@
       <div class="relative">
         <Field class="pr-9">
           <div class="relative h-6 overflow-x-auto">
-            <div class="absolute left-0 top-0 whitespace-nowrap">
+            <div class="absolute top-0 left-0 whitespace-nowrap">
               {`id: ${$user ? $user.profile?.id : ''}`}
             </div>
           </div>
         </Field>
-        <div class="absolute right-2 top-2.5">
+        <div class="absolute top-2.5 right-2">
           <button
             class="text-black transition-colors duration-300 hover:text-gray-700"
             type="button"
@@ -155,7 +155,7 @@
         </div>
       </div>
 
-      <div class="w-50 flex justify-center">
+      <div class="flex w-50 justify-center">
         <Link href="/dashboard">
           Click here to go to your application dashboard.</Link
         >

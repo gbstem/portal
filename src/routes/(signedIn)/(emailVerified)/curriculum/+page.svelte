@@ -51,7 +51,7 @@
     {#each tracks as track}
       <Card>
         <h2 class="font-bold">{track}</h2>
-        <div class="inline-block mb-4">
+        <div class="mb-4 inline-block">
           {#each curriculums.filter((curriculum) => curriculum.track === track) as curriculum}
             <div class="mt-2">
               <Button

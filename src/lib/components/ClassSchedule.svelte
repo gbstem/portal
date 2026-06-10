@@ -454,7 +454,7 @@
 </Dialog>
 <Dialog bind:this={feedbackDialogEl} size="min" alert>
   <svelte:fragment slot="title"
-    ><div class="flex justify-between items-center">
+    ><div class="flex items-center justify-between">
       Weekly {values.course} Class Feedback Form <Button
         color="red"
         class="font-light"
@@ -475,7 +475,7 @@
 <div class="p-0">
   <Dialog bind:this={studentDetailsDialogEl} size="full">
     <svelte:fragment slot="title"
-      ><div class="flex justify-between items-center">
+      ><div class="flex items-center justify-between">
         Class List <Button
           color="red"
           class="font-light"
@@ -493,7 +493,7 @@
                 student.secondaryEmail,
               ]),
             )}
-          class="flex items-center gap-1 justify-end"
+          class="flex items-center justify-end gap-1"
         >
           <svg
             fill="#000000"
@@ -596,7 +596,7 @@
   <!-- Class Selector -->
   {#if availableClassIds.length > 1}
     <Card class="mb-4">
-      <h3 class="text-lg font-semibold mb-3">Select Class</h3>
+      <h3 class="mb-3 text-lg font-semibold">Select Class</h3>
       <div class="flex flex-wrap gap-2">
         {#each availableClassIds as classId}
           <Button
@@ -729,16 +729,16 @@
   <ul class="list-none space-y-4">
     {#each editedMeetingTimes as classTime, classNumber}
       <li
-        class="rounded-xl shadow-sm border flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 bg-white relative transition hover:shadow-lg"
+        class="relative flex flex-col justify-between gap-4 rounded-xl border bg-white p-4 shadow-sm transition hover:shadow-lg md:flex-row md:items-center"
       >
-        <div class="flex items-center gap-4 flex-1 min-w-0">
+        <div class="flex min-w-0 flex-1 items-center gap-4">
           <!-- Status badge -->
           {#if values.classStatuses[classNumber] === ClassStatus.ClassNotHeld}
             <span
-              class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-100 text-red-700 text-xs font-semibold"
+              class="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-1 text-xs font-semibold text-red-700"
             >
               <svg
-                class="w-4 h-4"
+                class="h-4 w-4"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -753,10 +753,10 @@
             </span>
           {:else if values.classStatuses[classNumber] === ClassStatus.FeedbackIncomplete}
             <span
-              class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-yellow-100 text-yellow-800 text-xs font-semibold"
+              class="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-1 text-xs font-semibold text-yellow-800"
             >
               <svg
-                class="w-4 h-4"
+                class="h-4 w-4"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -771,10 +771,10 @@
             </span>
           {:else if values.classStatuses[classNumber] === ClassStatus.ClassUpcomingSoon}
             <span
-              class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-100 text-blue-800 text-xs font-semibold"
+              class="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-1 text-xs font-semibold text-blue-800"
             >
               <svg
-                class="w-4 h-4"
+                class="h-4 w-4"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -796,10 +796,10 @@
             </span>
           {:else if values.classStatuses[classNumber] === ClassStatus.EverythingComplete}
             <span
-              class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-green-100 text-green-800 text-xs font-semibold"
+              class="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-800"
             >
               <svg
-                class="w-4 h-4"
+                class="h-4 w-4"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -814,10 +814,10 @@
             </span>
           {:else}
             <span
-              class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-gray-200 text-gray-700 text-xs font-semibold"
+              class="inline-flex items-center gap-1 rounded-full bg-gray-200 px-2 py-1 text-xs font-semibold text-gray-700"
             >
               <svg
-                class="w-4 h-4"
+                class="h-4 w-4"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -833,17 +833,17 @@
               Scheduled
             </span>
           {/if}
-          <div class="flex flex-col min-w-0">
-            <span class="font-semibold text-lg truncate"
+          <div class="flex min-w-0 flex-col">
+            <span class="truncate text-lg font-semibold"
               >Class {classNumber + 1}: {values.course}</span
             >
-            <span class="text-gray-600 text-sm truncate"
+            <span class="truncate text-sm text-gray-600"
               >{formatDateString(classTime)}</span
             >
           </div>
         </div>
         <div
-          class="flex flex-col md:flex-row gap-2 md:gap-4 items-end md:items-center mt-2 md:mt-0"
+          class="mt-2 flex flex-col items-end gap-2 md:mt-0 md:flex-row md:items-center md:gap-4"
         >
           {#if editMode}
             <Input
@@ -859,7 +859,7 @@
               }}
             >
               <svg
-                class="w-4 h-4 mr-1"
+                class="mr-1 h-4 w-4"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -884,7 +884,7 @@
                 }}
               >
                 <svg
-                  class="w-4 h-4 mr-1"
+                  class="mr-1 h-4 w-4"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"

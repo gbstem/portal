@@ -183,7 +183,7 @@
   const { form, enhance, delayed } = formResult
 </script>
 
-<form use:enhance class="max-w-lg w-full">
+<form use:enhance class="w-full max-w-lg">
   <fieldset class="space-y-4" disabled={disabled || $delayed}>
     <Brand />
     <h1 class="text-2xl font-bold">Sign up</h1>
@@ -205,7 +205,7 @@
 
       {#if $form.role === 'Parent registering my child for classes'}
         <div
-          class="relative mb-4 rounded-sm border border-green-400 bg-green-100 px-4 py-3 text-green-700 text-sm"
+          class="relative mb-4 rounded-sm border border-green-400 bg-green-100 px-4 py-3 text-sm text-green-700"
           role="alert"
         >
           <strong class="font-bold"

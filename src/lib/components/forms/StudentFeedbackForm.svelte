@@ -165,7 +165,7 @@
     >
   {:else}
     <fieldset class="space-y-4" disabled={disabled || $delayed}>
-      <h2 class="font-bold text-lg">
+      <h2 class="text-lg font-bold">
         Weekly Class Feedback Form{#if studentName}
           For {studentName}{/if}
       </h2>
@@ -175,9 +175,9 @@
         </div>
       {:else}
         <div class="mb-5">
-          <h3 class="text-sm font-bold mb-2">Select Course:</h3>
+          <h3 class="mb-2 text-sm font-bold">Select Course:</h3>
           {#each selectedStudentCourses as { instructor, course, classId }}
-            <label class="flex items-center gap-2 text-sm mt-1 cursor-pointer">
+            <label class="mt-1 flex cursor-pointer items-center gap-2 text-sm">
               <input
                 type="radio"
                 bind:group={$form.classId}
@@ -188,7 +188,7 @@
             </label>
           {/each}
           {#if $errors.classId}
-            <p class="text-xs text-red-500 font-semibold mt-1">
+            <p class="mt-1 text-xs font-semibold text-red-500">
               {$errors.classId}
             </p>
           {/if}
@@ -196,7 +196,7 @@
 
         <div class="grid gap-1">
           <div class="grid gap-1 sm:grid-cols-3 sm:gap-3">
-            <div class="sm:col-span-1 flex flex-col gap-1.5">
+            <div class="flex flex-col gap-1.5 sm:col-span-1">
               <FormInput
                 form={formResult}
                 name="date"
@@ -205,7 +205,7 @@
                 bind:value={$form.date}
               />
             </div>
-            <div class="sm:col-span-3 flex flex-col gap-1.5">
+            <div class="flex flex-col gap-1.5 sm:col-span-3">
               <FormInput
                 form={formResult}
                 name="rating"
@@ -217,7 +217,7 @@
               />
             </div>
           </div>
-          <div class="flex flex-col gap-1.5 mt-2">
+          <div class="mt-2 flex flex-col gap-1.5">
             <FormInput
               form={formResult}
               name="feedback"
@@ -226,7 +226,7 @@
             />
           </div>
         </div>
-        <div class="justify flex mt-4">
+        <div class="justify mt-4 flex">
           <Button color="blue" type="submit" disabled={$delayed}>Submit</Button>
         </div>
       {/if}

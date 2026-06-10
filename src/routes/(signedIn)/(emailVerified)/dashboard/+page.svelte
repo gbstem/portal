@@ -129,16 +129,16 @@
 </svelte:head>
 <h1 class="mb-4 text-5xl font-bold md:text-6xl">Dashboard</h1>
 
-<div class="max-w-6xl mx-auto grid md:grid-cols-2 gap-8 py-8 px-2 md:px-8">
+<div class="mx-auto grid max-w-6xl gap-8 px-2 py-8 md:grid-cols-2 md:px-8">
   {#if loading}
-    <Loading class="col-span-2 h-96 flex items-center justify-center" />
+    <Loading class="col-span-2 flex h-96 items-center justify-center" />
   {:else}
     <div class="flex flex-col gap-8">
       {#if $user?.profile?.role === 'instructor' && new Date() >= new Date(semesterDates.classesStart) && data.application.status === 'submitted'}
-        <Card class="p-6 bg-white shadow-lg rounded-xl">
-          <div class="flex items-center mb-4">
+        <Card class="rounded-xl bg-white p-6 shadow-lg">
+          <div class="mb-4 flex items-center">
             <svg
-              class="h-6 w-6 text-yellow-500 mr-2"
+              class="mr-2 h-6 w-6 text-yellow-500"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -154,7 +154,7 @@
               Application Received
             </h2>
           </div>
-          <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-2">
+          <div class="mb-2 border-l-4 border-yellow-400 bg-yellow-50 p-4">
             Your instructor application was submitted after the deadline.
             Applications are now closed for this semester. We will keep your
             application on file and notify you about future opportunities.
@@ -162,10 +162,10 @@
         </Card>
       {/if}
       {#if isStudent}
-        <Card class="p-6 bg-white shadow-lg rounded-xl">
-          <div class="flex items-center mb-4">
+        <Card class="rounded-xl bg-white p-6 shadow-lg">
+          <div class="mb-4 flex items-center">
             <svg
-              class="h-6 w-6 text-blue-500 mr-2"
+              class="mr-2 h-6 w-6 text-blue-500"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -185,7 +185,7 @@
           <div class="flex flex-col gap-2">
             <a href="/apply">
               <Button
-                class="w-full flex items-center justify-center gap-2"
+                class="flex w-full items-center justify-center gap-2"
                 color="blue"
               >
                 <svg
@@ -206,10 +206,10 @@
             </a>
           </div>
         </Card>
-        <Card class="p-6 bg-white shadow-lg rounded-xl">
-          <div class="flex items-center mb-4">
+        <Card class="rounded-xl bg-white p-6 shadow-lg">
+          <div class="mb-4 flex items-center">
             <svg
-              class="h-6 w-6 text-yellow-500 mr-2"
+              class="mr-2 h-6 w-6 text-yellow-500"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -228,10 +228,10 @@
       {/if}
       <!-- Application & Registration Section (conditionally rendered) -->
       {#if new Date() < new Date(semesterDates.classesStart) || (new Date() >= new Date(semesterDates.classesStart) && ((!isStudent && data.application.status !== 'accepted') || (isStudent && numSubmitted === 0)))}
-        <Card class="p-6 bg-white shadow-lg rounded-xl">
-          <div class="flex items-center mb-4">
+        <Card class="rounded-xl bg-white p-6 shadow-lg">
+          <div class="mb-4 flex items-center">
             <svg
-              class="h-6 w-6 text-green-500 mr-2"
+              class="mr-2 h-6 w-6 text-green-500"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -253,10 +253,10 @@
                 <h3 class="text-lg font-semibold">Instructor Application</h3>
                 {#if data.application.status === null}
                   <div
-                    class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-2 flex items-center"
+                    class="mb-2 flex items-center border-l-4 border-yellow-400 bg-yellow-50 p-4"
                   >
                     <svg
-                      class="h-5 w-5 text-yellow-400 mr-2"
+                      class="mr-2 h-5 w-5 text-yellow-400"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -281,27 +281,27 @@
                 <div class="mb-2">
                   <p>
                     {#if data.application.status === 'accepted'}
-                      <span class="text-green-700 font-semibold"
+                      <span class="font-semibold text-green-700"
                         >You have been accepted to gbSTEM as an instructor! We
                         look forward to seeing you.</span
                       >
                     {:else if data.application.status === 'waitlisted'}
-                      <span class="text-yellow-700 font-semibold"
+                      <span class="font-semibold text-yellow-700"
                         >You have been waitlisted. We will follow up with more
                         information!</span
                       >
                     {:else if data.application.status === 'rejected'}
-                      <span class="text-red-700 font-semibold"
+                      <span class="font-semibold text-red-700"
                         >Unfortunately, instructor applications were extremely
                         competitive, and we were not able to accept you as an
                         instructor for gbSTEM.</span
                       >
                     {:else if data.application.status === 'submitted' || data.application.status === 'interview'}
-                      <span class="text-blue-700 font-semibold"
+                      <span class="font-semibold text-blue-700"
                         >Your application is submitted and in review!</span
                       >
                     {:else if data.application.status === 'substitute'}
-                      <span class="text-blue-700 font-semibold"
+                      <span class="font-semibold text-blue-700"
                         >You have been accepted as a substitute instructor. Keep
                         an eye on this page for listings!</span
                       >
@@ -315,7 +315,7 @@
                 </div>
                 <a href="/apply">
                   <Button
-                    class="mt-5 w-full flex items-center justify-center gap-2"
+                    class="mt-5 flex w-full items-center justify-center gap-2"
                     color="blue"
                   >
                     <svg
@@ -339,19 +339,19 @@
               <div class="mb-4">
                 <h3 class="text-lg font-semibold">Student Registration</h3>
                 {#if numSubmitted > 0}
-                  <div class="mt-2 text-blue-700 font-semibold">
+                  <div class="mt-2 font-semibold text-blue-700">
                     You currently have {numSubmitted} student{numSubmitted > 1
                       ? 's'
                       : ''} with accounts for this semester.
                   </div>
                 {:else}
-                  <div class="mt-2 text-red-700 font-semibold">
+                  <div class="mt-2 font-semibold text-red-700">
                     You have no student accounts set up for this semester.
                   </div>
                 {/if}
                 <a href="/apply">
                   <Button
-                    class="mt-5 w-full flex items-center justify-center gap-2"
+                    class="mt-5 flex w-full items-center justify-center gap-2"
                     color="blue"
                   >
                     <svg
@@ -375,10 +375,10 @@
           {:else if new Date() >= new Date(semesterDates.classesStart) && ((!isStudent && data.application.status === null) || (isStudent && numSubmitted === 0))}
             <div class="mb-4">
               <div
-                class="bg-red-50 border-l-4 border-red-400 p-4 mb-2 flex items-center"
+                class="mb-2 flex items-center border-l-4 border-red-400 bg-red-50 p-4"
               >
                 <svg
-                  class="h-5 w-5 text-red-400 mr-2"
+                  class="mr-2 h-5 w-5 text-red-400"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -415,10 +415,10 @@
         </Card>
       {/if}
       {#if data.application.status === 'accepted'}
-        <Card class="p-6 bg-white shadow-lg rounded-xl">
-          <div class="flex items-center mb-4">
+        <Card class="rounded-xl bg-white p-6 shadow-lg">
+          <div class="mb-4 flex items-center">
             <svg
-              class="h-6 w-6 text-indigo-500 mr-2"
+              class="mr-2 h-6 w-6 text-indigo-500"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -439,10 +439,10 @@
           <SubClasses subInstructor={false} />
         </Card>
       {:else if data.application.status === 'substitute'}
-        <Card class="p-6 bg-white shadow-lg rounded-xl">
-          <div class="flex items-center mb-4">
+        <Card class="rounded-xl bg-white p-6 shadow-lg">
+          <div class="mb-4 flex items-center">
             <svg
-              class="h-6 w-6 text-indigo-500 mr-2"
+              class="mr-2 h-6 w-6 text-indigo-500"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -460,10 +460,10 @@
         </Card>
       {/if}
       {#if data.application.status === 'interview'}
-        <Card class="p-6 bg-white shadow-lg rounded-xl">
-          <div class="flex items-center mb-4">
+        <Card class="rounded-xl bg-white p-6 shadow-lg">
+          <div class="mb-4 flex items-center">
             <svg
-              class="h-6 w-6 text-pink-500 mr-2"
+              class="mr-2 h-6 w-6 text-pink-500"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -484,10 +484,10 @@
     <div class="flex flex-col gap-8">
       <!-- Class Details Form for accepted instructors (moved to right column) -->
       {#if data.application.status === 'accepted'}
-        <Card class="p-6 bg-white shadow-lg rounded-xl">
-          <div class="flex items-center mb-4">
+        <Card class="rounded-xl bg-white p-6 shadow-lg">
+          <div class="mb-4 flex items-center">
             <svg
-              class="h-6 w-6 text-green-500 mr-2"
+              class="mr-2 h-6 w-6 text-green-500"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -506,10 +506,10 @@
       {/if}
       <!-- Student Schedule Section -->
       {#if isStudent && new Date() > new Date(semesterDates.studentOrientation)}
-        <Card class="p-6 bg-white shadow-lg rounded-xl">
-          <div class="flex items-center mb-4">
+        <Card class="rounded-xl bg-white p-6 shadow-lg">
+          <div class="mb-4 flex items-center">
             <svg
-              class="h-6 w-6 text-purple-500 mr-2"
+              class="mr-2 h-6 w-6 text-purple-500"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"

@@ -54,7 +54,7 @@
         />
         {#if label}
           <Label
-            class="ml-2 cursor-pointer peer-disabled:cursor-default peer-disabled:text-gray-400 font-bold text-sm"
+            class="ml-2 cursor-pointer text-sm font-bold peer-disabled:cursor-default peer-disabled:text-gray-400"
           >
             {label}
             {#if isRequired}<span class="text-red-500">*</span>{/if}
@@ -63,5 +63,5 @@
       </div>
     {/snippet}
   </Control>
-  <FieldErrors class="text-xs text-red-500 font-semibold" />
+  <FieldErrors class="text-xs font-semibold text-red-500" />
 </Field>

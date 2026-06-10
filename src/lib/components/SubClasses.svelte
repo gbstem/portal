@@ -291,12 +291,12 @@
 <div>
   {#await classesMissingSubs then classesMissingSubs}
     <Card>
-      <h2 class="font-bold mt-4 text-xl mb-2">Your Classes To Substitute</h2>
+      <h2 class="mt-4 mb-2 text-xl font-bold">Your Classes To Substitute</h2>
       {#if userSubClassesList.length > 0}
         {#each userSubClassesList as classBeingSubbed, i}
           <Dialog bind:this={feedbackDialogEl[i]} size="min" alert>
             <svelte:fragment slot="title"
-              ><div class="flex justify-between items-center">
+              ><div class="flex items-center justify-between">
                 {classBeingSubbed.course} Substitute Class Feedback Form <Button
                   color="red"
                   class="font-light"
@@ -382,14 +382,14 @@
       {/if}
     </Card>
     {#if subInstructor !== true}
-      <Card class="mb-2 mt-2">
+      <Card class="mt-2 mb-2">
         <h2 class="my-2 text-xl font-bold">Your Sub Requests</h2>
         <div>
           {#if subRequestsFromUser.length > 0}
             {#each subRequestsFromUser as subRequest, i}
               <Dialog bind:this={subRequestDialogEl[i]} size="min" alert>
                 <svelte:fragment slot="title"
-                  ><div class="flex justify-between items-center">
+                  ><div class="flex items-center justify-between">
                     {subRequest.course} Substitute Class Feedback Form <Button
                       color="red"
                       class="font-light"
@@ -427,7 +427,7 @@
               </Dialog>
               {#if subRequest.subRequestStatus === SubRequestStatus.SubstituteFound}
                 <div
-                  class="flex items-center justify-between rounded-lg bg-blue-100 p-4 mt-2"
+                  class="mt-2 flex items-center justify-between rounded-lg bg-blue-100 p-4"
                 >
                   <p>
                     {subRequest.course} class #{subRequest.classNumber} at {formatDate(
@@ -450,7 +450,7 @@
                 </div>
               {:else if subRequest.subRequestStatus === SubRequestStatus.SubstituteNeeded}
                 <div
-                  class="flex items-center justify-between rounded-lg bg-red-100 p-4 mt-2"
+                  class="mt-2 flex items-center justify-between rounded-lg bg-red-100 p-4"
                 >
                   <p>
                     {subRequest.course} class #{subRequest.classNumber} at {formatDate(
@@ -473,7 +473,7 @@
                 </div>
               {:else if subRequest.subRequestStatus === SubRequestStatus.SubstituteFeedbackNeeded}
                 <div
-                  class="flex items-center justify-between rounded-lg bg-yellow-100 p-4 mt-2"
+                  class="mt-2 flex items-center justify-between rounded-lg bg-yellow-100 p-4"
                 >
                   <p>
                     {subRequest.course} class #{subRequest.classNumber} at {formatDate(
@@ -500,7 +500,7 @@
                 </div>
               {:else}
                 <div
-                  class="flex items-center justify-between rounded-lg bg-green-100 p-4 mt-2"
+                  class="mt-2 flex items-center justify-between rounded-lg bg-green-100 p-4"
                 >
                   <p>
                     {subRequest.course} class #{subRequest.classNumber} at {formatDate(
@@ -524,9 +524,9 @@
       </Card>
     {/if}
     <Card>
-      <h2 class="ml-2 mt-2 text-xl font-bold">Substituting Classes</h2>
-      <hr class="mb-3 mt-5" />
-      <h2 class="font-bold mb-2">Sign Up To Substitute A Class</h2>
+      <h2 class="mt-2 ml-2 text-xl font-bold">Substituting Classes</h2>
+      <hr class="mt-5 mb-3" />
+      <h2 class="mb-2 font-bold">Sign Up To Substitute A Class</h2>
       {#if classesMissingSubs.length > 0}
         <form
           method="POST"

@@ -437,7 +437,7 @@
 
 <form use:enhance class="max-w-2xl">
   {#if new Date() >= new Date(semesterDates.newInstructorAppsDue)}
-    <Card class="mb-6 bg-red-50 border-red-200">
+    <Card class="mb-6 border-red-200 bg-red-50">
       <div class="flex items-start gap-3">
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -445,7 +445,7 @@
           viewBox="0 0 24 24"
           stroke-width="1.5"
           stroke="currentColor"
-          class="h-6 w-6 text-red-600 shrink-0 mt-0.5"
+          class="mt-0.5 h-6 w-6 shrink-0 text-red-600"
         >
           <path
             stroke-linecap="round"
@@ -457,7 +457,7 @@
           <h3 class="font-semibold text-red-800">
             Application Deadline Passed
           </h3>
-          <p class="text-red-700 text-sm mt-1">
+          <p class="mt-1 text-sm text-red-700">
             The instructor application deadline has passed. Applications were
             due <span class="font-semibold">
               {new Date(semesterDates.newInstructorAppsDue).toDateString()}
@@ -486,7 +486,7 @@
         </div>
       </Card>
 
-      <div class="flex flex-col gap-1.5 mt-2">
+      <div class="mt-2 flex flex-col gap-1.5">
         <FormInput
           form={formResult}
           name="personal.phoneNumber"
@@ -496,7 +496,7 @@
         />
       </div>
 
-      <div class="flex flex-col gap-1.5 mt-2">
+      <div class="mt-2 flex flex-col gap-1.5">
         <FormInput
           form={formResult}
           name="personal.dateOfBirth"
@@ -506,7 +506,7 @@
         />
       </div>
 
-      <div class="flex flex-col gap-1.5 mt-2">
+      <div class="mt-2 flex flex-col gap-1.5">
         <FormSelect
           form={formResult}
           name="personal.gender"
@@ -516,8 +516,8 @@
         />
       </div>
 
-      <div class="grid gap-1 mt-4">
-        <span class="font-semibold text-sm"
+      <div class="mt-4 grid gap-1">
+        <span class="text-sm font-semibold"
           >Race / ethnicity (check all that apply)</span
         >
         <div class="grid grid-cols-2 gap-2">
@@ -528,11 +528,11 @@
                 value={race.name}
                 bind:group={$form.personal.race}
                 id={`app-race-${race.name}`}
-                class="peer h-5 w-5 shrink-0 cursor-pointer appearance-none rounded-md border border-gray-400 checked:border-gray-600 checked:bg-gray-600 focus:border-gray-600 focus:outline-hidden focus:ring-1 focus:ring-gray-600"
+                class="peer h-5 w-5 shrink-0 cursor-pointer appearance-none rounded-md border border-gray-400 checked:border-gray-600 checked:bg-gray-600 focus:border-gray-600 focus:ring-1 focus:ring-gray-600 focus:outline-hidden"
               />
               <label
                 for={`app-race-${race.name}`}
-                class="ml-2 text-sm cursor-pointer peer-disabled:text-gray-400"
+                class="ml-2 cursor-pointer text-sm peer-disabled:text-gray-400"
               >
                 {race.name}
               </label>
@@ -545,7 +545,7 @@
     <div class="grid gap-1">
       <span class="font-bold">Academic</span>
       <div class="grid gap-1 sm:grid-cols-3 sm:gap-3">
-        <div class="sm:col-span-2 flex flex-col gap-1.5 mt-2">
+        <div class="mt-2 flex flex-col gap-1.5 sm:col-span-2">
           <FormInput
             form={formResult}
             name="academic.school"
@@ -568,11 +568,11 @@
 
     <div class="grid gap-1">
       <div class="mt-3 grid gap-1">
-        <span class="font-bold text-sm text-gray-700"
+        <span class="text-sm font-bold text-gray-700"
           >Which of the following courses are you comfortable teaching? Check
           all that apply. Course descriptions are on our website.</span
         >
-        <div class="grid grid-cols-2 gap-2 mt-2">
+        <div class="mt-2 grid grid-cols-2 gap-2">
           {#each coursesJson as course}
             <div class="flex items-center">
               <input
@@ -580,11 +580,11 @@
                 value={course.name}
                 bind:group={$form.program.courses}
                 id={`app-course-${course.name}`}
-                class="peer h-5 w-5 shrink-0 cursor-pointer appearance-none rounded-md border border-gray-400 checked:border-gray-600 checked:bg-gray-600 focus:border-gray-600 focus:outline-hidden focus:ring-1 focus:ring-gray-600"
+                class="peer h-5 w-5 shrink-0 cursor-pointer appearance-none rounded-md border border-gray-400 checked:border-gray-600 checked:bg-gray-600 focus:border-gray-600 focus:ring-1 focus:ring-gray-600 focus:outline-hidden"
               />
               <label
                 for={`app-course-${course.name}`}
-                class="ml-2 text-sm cursor-pointer peer-disabled:text-gray-400"
+                class="ml-2 cursor-pointer text-sm peer-disabled:text-gray-400"
               >
                 {course.name}
               </label>
@@ -593,7 +593,7 @@
         </div>
       </div>
 
-      <div class="flex flex-col gap-1.5 mt-4">
+      <div class="mt-4 flex flex-col gap-1.5">
         <FormInput
           form={formResult}
           name="program.preferences"
@@ -603,7 +603,7 @@
         />
       </div>
 
-      <div class="flex flex-col gap-1.5 mt-4">
+      <div class="mt-4 flex flex-col gap-1.5">
         <FormInput
           form={formResult}
           name="program.timeSlots"
@@ -612,7 +612,7 @@
         />
       </div>
 
-      <div class="flex flex-col gap-1.5 mt-4">
+      <div class="mt-4 flex flex-col gap-1.5">
         <FormTextarea
           form={formResult}
           name="program.notAvailable"
@@ -621,7 +621,7 @@
         />
       </div>
 
-      <div class="flex flex-col gap-1.5 mt-4">
+      <div class="mt-4 flex flex-col gap-1.5">
         <FormCheckbox
           form={formResult}
           name="program.inPerson"
@@ -630,7 +630,7 @@
         />
       </div>
 
-      <div class="flex flex-col gap-1.5 mt-4">
+      <div class="mt-4 flex flex-col gap-1.5">
         <FormSelect
           form={formResult}
           name="program.reason"
@@ -641,8 +641,8 @@
       </div>
 
       <div class="mt-8">
-        <span class="font-bold text-sm text-gray-700">Essays</span>
-        <div class="flex flex-col gap-1.5 mt-2">
+        <span class="text-sm font-bold text-gray-700">Essays</span>
+        <div class="mt-2 flex flex-col gap-1.5">
           <FormCheckbox
             form={formResult}
             name="essay.taughtBefore"
@@ -651,7 +651,7 @@
           />
         </div>
 
-        <div class="flex flex-col gap-1.5 mt-4">
+        <div class="mt-4 flex flex-col gap-1.5">
           <FormTextarea
             form={formResult}
             name="essay.academicBackground"
@@ -661,7 +661,7 @@
         </div>
 
         {#if !$form.essay.taughtBefore}
-          <div class="flex flex-col gap-1.5 mt-4">
+          <div class="mt-4 flex flex-col gap-1.5">
             <FormTextarea
               form={formResult}
               name="essay.teachingScenario"
@@ -671,7 +671,7 @@
             />
           </div>
 
-          <div class="flex flex-col gap-1.5 mt-4">
+          <div class="mt-4 flex flex-col gap-1.5">
             <FormTextarea
               form={formResult}
               name="essay.why"
@@ -683,9 +683,9 @@
         {/if}
       </div>
 
-      <div class="grid gap-1 mt-8">
-        <span class="font-bold text-sm text-gray-700">Agreements</span>
-        <div class="grid gap-4 mt-2">
+      <div class="mt-8 grid gap-1">
+        <span class="text-sm font-bold text-gray-700">Agreements</span>
+        <div class="mt-2 grid gap-4">
           <div class="flex flex-col gap-1.5">
             <FormCheckbox
               form={formResult}
@@ -723,10 +723,10 @@
       </div>
     </div>
 
-    <div class="grid grid-cols-2 gap-3 mt-8">
+    <div class="mt-8 grid grid-cols-2 gap-3">
       {#if values.meta.submitted}
         <div
-          class="col-span-2 rounded-md bg-green-100 px-4 py-2 text-center text-green-900 shadow-xs border border-green-200"
+          class="col-span-2 rounded-md border border-green-200 bg-green-100 px-4 py-2 text-center text-green-900 shadow-xs"
         >
           Application submitted and in review!
         </div>

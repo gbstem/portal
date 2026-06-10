@@ -58,7 +58,7 @@
   </button>
   {#if open}
     <div
-      class="absolute right-0 top-14 w-40 rounded-md border border-gray-200 bg-white shadow-sm"
+      class="absolute top-14 right-0 w-40 rounded-md border border-gray-200 bg-white shadow-sm"
       transition:fade={{ duration: 300, easing: circInOut }}
     >
       <a

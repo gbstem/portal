@@ -41,7 +41,7 @@
   <Control>
     {#snippet children({ props })}
       {#if label}
-        <Label class="font-bold text-sm">
+        <Label class="text-sm font-bold">
           {label}
           {#if isRequired}<span class="text-red-500">*</span>{/if}
         </Label>
@@ -62,5 +62,5 @@
       ></textarea>
     {/snippet}
   </Control>
-  <FieldErrors class="text-xs text-red-500 font-semibold" />
+  <FieldErrors class="text-xs font-semibold text-red-500" />
 </Field>

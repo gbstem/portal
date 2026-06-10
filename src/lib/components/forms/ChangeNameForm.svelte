@@ -79,8 +79,8 @@
           bind:value={$form.firstName}
         />
       </div>
-      <div class="flex gap-2 items-end">
-        <div class="flex flex-col gap-1.5 w-full">
+      <div class="flex items-end gap-2">
+        <div class="flex w-full flex-col gap-1.5">
           <FormInput
             form={formResult}
             name="lastName"
@@ -89,7 +89,7 @@
           />
         </div>
         <Button
-          class="flex h-12 w-12 shrink-0 items-center justify-center p-0 mb-0.5"
+          class="mb-0.5 flex h-12 w-12 shrink-0 items-center justify-center p-0"
           color="blue"
           type="submit"
           disabled={$delayed}

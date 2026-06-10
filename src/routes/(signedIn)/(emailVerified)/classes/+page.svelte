@@ -401,7 +401,7 @@
         <h2 class="text-2xl font-bold text-gray-900">
           {dialogClassDetails.course}
           {#if dialogClassDetails.gradeRecommendation}
-            <span class="text-lg font-medium text-gray-500 ml-2">
+            <span class="ml-2 text-lg font-medium text-gray-500">
               (Grades {dialogClassDetails.gradeRecommendation})
             </span>
           {/if}
@@ -412,7 +412,7 @@
       <div class="grid gap-4">
         <!-- Class Type & Instructor -->
         <div class="space-y-3">
-          <div class="flex items-center p-3 bg-gray-50 rounded-lg">
+          <div class="flex items-center rounded-lg bg-gray-50 p-3">
             <svg
               class="mr-3 h-5 w-5 text-gray-600"
               fill="none"
@@ -447,7 +447,7 @@
             </div>
           </div>
 
-          <div class="flex items-center p-3 bg-gray-50 rounded-lg">
+          <div class="flex items-center rounded-lg bg-gray-50 p-3">
             <svg
               class="mr-3 h-5 w-5 text-gray-600"
               fill="none"
@@ -471,9 +471,9 @@
         </div>
 
         <!-- Class Times -->
-        <div class="p-4 bg-blue-50 rounded-lg border border-blue-200">
+        <div class="rounded-lg border border-blue-200 bg-blue-50 p-4">
           <h4
-            class="text-lg font-semibold text-blue-900 mb-3 flex items-center"
+            class="mb-3 flex items-center text-lg font-semibold text-blue-900"
           >
             <svg
               class="mr-2 h-5 w-5"
@@ -514,9 +514,9 @@
 
         <!-- Enrollment Section -->
         {#if isStudent}
-          <div class="p-4 bg-gray-50 rounded-lg border border-gray-200">
+          <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
             <h4
-              class="text-lg font-semibold text-gray-900 mb-3 flex items-center"
+              class="mb-3 flex items-center text-lg font-semibold text-gray-900"
             >
               <svg
                 class="mr-2 h-5 w-5"
@@ -538,7 +538,7 @@
                 <StudentSelect bind:selectedStudentUid {preloadedStudents} />
               </div>
               <Button
-                class="w-full flex items-center justify-center gap-2"
+                class="flex w-full items-center justify-center gap-2"
                 color={isEnrolled(dialogClassDetails.id, selectedStudentUid)
                   ? 'red'
                   : 'blue'}
@@ -590,7 +590,7 @@
   {#if loading}
     <Loading />
   {:else if new Date() < new Date(semesterDates.registrationsDue)}
-    <div class="p-4 bg-red-50 rounded-lg text-2xl text-red-700">
+    <div class="rounded-lg bg-red-50 p-4 text-2xl text-red-700">
       <p>
         {`Class enrollment is not open yet. Class times will be posted and class enrollment will open on ${semesterDates.registrationsDue}.`}
       </p>
@@ -604,7 +604,7 @@
     </div>
   {:else}
     <div class="mb-5 flex items-center justify-between">
-      <div class="flex gap-2 items-center">
+      <div class="flex items-center gap-2">
         <Select
           bind:value={classFilter}
           placeholder="Filter by course"
@@ -631,7 +631,7 @@
         {#if classFilter == '' || classFilter == classInfo.course}
           {#if !onlyShowEnrolled || Object.entries(studentUidToClassIds).some( ([studentUid, classIds]) => classIds.includes(classInfo.id), )}
             <Card
-              class="group relative overflow-hidden rounded-xl border border-gray-200 bg-white p-6 shadow-xs transition-all duration-200 hover:shadow-lg hover:border-gray-300"
+              class="group relative overflow-hidden rounded-xl border border-gray-200 bg-white p-6 shadow-xs transition-all duration-200 hover:border-gray-300 hover:shadow-lg"
             >
               <!-- Status Badge -->
               <div class="absolute top-4 right-4">
@@ -674,11 +674,11 @@
               <!-- Course Header -->
               <div class="mb-4">
                 <h2
-                  class="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors"
+                  class="text-xl font-bold text-gray-900 transition-colors group-hover:text-blue-600"
                 >
                   {classInfo.course}
                   {#if classInfo.gradeRecommendation}
-                    <span class="text-sm font-medium text-gray-500 ml-2">
+                    <span class="ml-2 text-sm font-medium text-gray-500">
                       (Grades {classInfo.gradeRecommendation})
                     </span>
                   {/if}
@@ -735,7 +735,7 @@
               <!-- Class Times -->
               <div class="mb-4">
                 <h4
-                  class="text-sm font-semibold text-gray-700 mb-2 flex items-center"
+                  class="mb-2 flex items-center text-sm font-semibold text-gray-700"
                 >
                   <svg
                     class="mr-2 h-4 w-4"
@@ -777,10 +777,10 @@
               <!-- Enrolled Students Section -->
               {#if Object.entries(studentUidToClassIds).some( ([studentUid, classIds]) => classIds.includes(classInfo.id), )}
                 <div
-                  class="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200"
+                  class="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3"
                 >
                   <h4
-                    class="text-sm font-semibold text-blue-800 mb-2 flex items-center"
+                    class="mb-2 flex items-center text-sm font-semibold text-blue-800"
                   >
                     <svg
                       class="mr-2 h-4 w-4"
@@ -817,7 +817,7 @@
                   </div>
 
                   <!-- Meeting Link -->
-                  <div class="mt-3 pt-3 border-t border-blue-200">
+                  <div class="mt-3 border-t border-blue-200 pt-3">
                     <div class="flex items-center text-sm text-blue-700">
                       <svg
                         class="mr-2 h-4 w-4"
@@ -843,7 +843,7 @@
                     </div>
 
                     <!-- Instructor Email -->
-                    <div class="flex items-center text-sm text-blue-700 mt-1">
+                    <div class="mt-1 flex items-center text-sm text-blue-700">
                       <svg
                         class="mr-2 h-4 w-4"
                         fill="none"
@@ -872,7 +872,7 @@
               {#if isStudent}
                 <div class="mt-4">
                   <Button
-                    class="w-full flex items-center justify-center gap-2"
+                    class="flex w-full items-center justify-center gap-2"
                     color="blue"
                     on:click={() => {
                       dialogClassDetails = classInfo
