@@ -1,7 +1,8 @@
 import { applicationSubmittedEmailTemplate } from '$lib/data/emailTemplates/applicationSubmittedEmailTemplate'
+import { verifyAuthenticated, handleApiError } from '$lib/server/apiHelpers'
 import { sendEmail } from '$lib/server/email'
 import { addDataToHtmlTemplate } from '$lib/utils'
-import { error, json } from '@sveltejs/kit'
+import { json } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 
 export interface ApplicationRequestBody {
@@ -9,11 +10,11 @@ export interface ApplicationRequestBody {
 }
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-  const body = (await request.json()) as ApplicationRequestBody
-  const firstName = body.firstName
-  if (locals.user === null) {
-    throw error(400, 'User not signed in.')
-  } else {
+  try {
+    const user = verifyAuthenticated(locals)
+    const body = (await request.json()) as ApplicationRequestBody
+    const firstName = body.firstName
+
     const template = {
       name: 'applicationSubmitted',
       data: {
@@ -33,7 +34,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
     try {
       await sendEmail({
-        to: locals.user.email,
+        to: user.email,
         subject: String(template.data.subject),
         html: htmlBody,
       })
@@ -43,6 +44,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         { status: 500 },
       )
     }
+
     return json({ message: 'Email sent successfully.' })
+  } catch (err) {
+    throw handleApiError(err)
   }
 }

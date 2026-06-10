@@ -1,7 +1,8 @@
 import { communityServiceEmailTemplate } from '$lib/data/emailTemplates/communityServiceEmailTemplate'
+import { verifyAuthenticated, handleApiError } from '$lib/server/apiHelpers'
 import { sendEmail } from '$lib/server/email'
 import { addDataToHtmlTemplate } from '$lib/utils'
-import { error, json } from '@sveltejs/kit'
+import { json } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 
 export interface CommunityServiceRequestBody {
@@ -15,12 +16,12 @@ export interface CommunityServiceRequestBody {
 }
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-  const body = (await request.json()) as CommunityServiceRequestBody
-  const firstName = body.firstName
-  const email = body.email
-  if (locals.user === null) {
-    throw error(400, 'User not signed in.')
-  } else {
+  try {
+    verifyAuthenticated(locals)
+    const body = (await request.json()) as CommunityServiceRequestBody
+    const firstName = body.firstName
+    const email = body.email
+
     const template = {
       name: 'communityServiceEmail',
       data: {
@@ -55,6 +56,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         { status: 500 },
       )
     }
+
     return json({ message: 'Email sent successfully.' })
+  } catch (err) {
+    throw handleApiError(err)
   }
 }

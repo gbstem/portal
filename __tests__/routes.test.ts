@@ -49,6 +49,8 @@ jest.mock(
       __isSvelteKitRedirect: true,
     }),
     json: (body: any, init?: any) => ({ body, init, __isSvelteKitJson: true }),
+    isHttpError: (err: any) =>
+      err && (err.__isSvelteKitError || (err.status && err.body)),
   }),
   { virtual: true },
 )

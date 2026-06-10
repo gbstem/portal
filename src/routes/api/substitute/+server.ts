@@ -1,7 +1,8 @@
 import { substituteClassEmailTemplate } from '$lib/data/emailTemplates/substituteClassEmailTemplate'
+import { verifyAuthenticated, handleApiError } from '$lib/server/apiHelpers'
 import { sendEmail } from '$lib/server/email'
 import { addDataToHtmlTemplate } from '$lib/utils'
-import { error, json } from '@sveltejs/kit'
+import { json } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 
 export interface SubstituteRequestBody {
@@ -14,12 +15,13 @@ export interface SubstituteRequestBody {
 }
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-  const body = (await request.json()) as SubstituteRequestBody
-  if (locals.user === null) {
-    throw error(400, 'User not signed in.')
-  } else {
+  try {
+    verifyAuthenticated(locals)
+    const body = (await request.json()) as SubstituteRequestBody
+
     const subInstructorEmail = body.subInstructorEmail
     const originalInstructorEmail = body.originalInstructorEmail
+
     const template = {
       name: 'interviewSlotRequest',
       data: {
@@ -53,6 +55,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         { status: 500 },
       )
     }
+
     return json({ message: 'Email sent successfully.' })
+  } catch (err) {
+    throw handleApiError(err)
   }
 }

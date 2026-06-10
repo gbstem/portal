@@ -1,7 +1,8 @@
 import { registrationSubmittedEmailTemplate } from '$lib/data/emailTemplates/registrationSubmittedEmailTemplate'
+import { verifyAuthenticated, handleApiError } from '$lib/server/apiHelpers'
 import { sendEmail } from '$lib/server/email'
 import { addDataToHtmlTemplate } from '$lib/utils'
-import { error, json } from '@sveltejs/kit'
+import { json } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 
 export interface RegistrationRequestBody {
@@ -12,13 +13,13 @@ export interface RegistrationRequestBody {
 }
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-  const body = (await request.json()) as RegistrationRequestBody
-  const firstName = body.firstName
-  const studentName = body.studentName
-  const secondaryEmail = body.secondaryEmail
-  if (locals.user === null) {
-    throw error(400, 'User not signed in.')
-  } else {
+  try {
+    const user = verifyAuthenticated(locals)
+    const body = (await request.json()) as RegistrationRequestBody
+    const firstName = body.firstName
+    const studentName = body.studentName
+    const secondaryEmail = body.secondaryEmail
+
     const template = {
       name: 'registrationSubmitted',
       data: {
@@ -38,9 +39,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       template,
     )
 
-    const to = secondaryEmail
-      ? [locals.user.email, secondaryEmail]
-      : locals.user.email
+    const to = secondaryEmail ? [user.email, secondaryEmail] : user.email
 
     try {
       await sendEmail({
@@ -54,6 +53,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         { status: 500 },
       )
     }
+
     return json({ message: 'Email sent successfully.' })
+  } catch (err) {
+    throw handleApiError(err)
   }
 }
