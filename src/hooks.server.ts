@@ -1,4 +1,4 @@
-import { adminAuth } from '$lib/server/firebase'
+import { adminAuth, adminDb } from '$lib/server/firebase'
 import { redirect, type Handle, type HandleServerError } from '@sveltejs/kit'
 
 export const handle = (async ({ event, resolve }) => {
@@ -24,7 +24,24 @@ export const handle = (async ({ event, resolve }) => {
         topRedirect = redirect(301, 'https://admin.gbstem.org')
       }
     } else {
-      await adminAuth.setCustomUserClaims(userRecord.uid, { role: 'student' })
+      // Fallback for newly created users where custom claims haven't propagated yet.
+      // Lookup the role from Firestore, set the claim, and populate event.locals.user
+      // immediately so that the initial request (such as email verification) doesn't fail with a 401.
+      const userDoc = await adminDb.collection('users').doc(userRecord.uid).get()
+      let role: Data.Role = 'student'
+      if (userDoc.exists) {
+        const docData = userDoc.data()
+        if (docData && (docData.role === 'student' || docData.role === 'instructor')) {
+          role = docData.role
+        }
+      }
+      await adminAuth.setCustomUserClaims(userRecord.uid, { role })
+      event.locals.user = {
+        uid: userRecord.uid,
+        email: userRecord.email as string,
+        emailVerified: userRecord.emailVerified,
+        role,
+      }
     }
   } catch (err) {
     event.locals.user = null
