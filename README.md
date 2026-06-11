@@ -51,18 +51,9 @@ Before running the development server, you must configure your local environment
 
 For local development and testing, you can use the **Firebase Emulator Suite** to run local instances of Firebase products (Firestore, Authentication, and Storage). This allows you to test application features offline without affecting production or development cloud resources.
 
-1. Follow the official [Firebase Emulator Suite: Connect and Prototype](https://firebase.google.com/docs/emulator-suite/connect_and_prototype?database=Firestore) guide to set up and run the emulators on your local machine.
-2. Update your `.env.local` file to point to the local emulators by uncommenting the relevant lines at the bottom of the file (see snippet below). The Firebase Admin SDK automatically routes operations to the emulators when the following environment variables are set:
+Since the Firebase services are shared across both the `admin` and `portal` projects, you only need to start the emulator once. Follow the official [Firebase Emulator Suite: Connect and Prototype](https://firebase.google.com/docs/emulator-suite/connect_and_prototype?database=Firestore) guide to set up and run the emulators on your local machine.
 
-   ```env
-   FIRESTORE_EMULATOR_HOST="127.0.0.1:8080"
-   FIREBASE_AUTH_EMULATOR_HOST="127.0.0.1:9099"
-   STORAGE_EMULATOR_HOST="127.0.0.1:9199"
-   ```
-
-   Make sure the host and port values match your emulator configurations in `firebase.json`.
-
-3. For new emulator instances, run `npm run seed` in the [admin project](https://github.com/gbstem/admin) to seed the database with a demo admin user and a demo signup token as described in the `admin` project's [README.md](https://github.com/gbstem/admin/blob/main/README.md).
+Then, in the [admin project](https://github.com/gbstem/admin), run `npm run seed` to seed the database with a demo admin user and a demo signup token as described in the `admin` project's [README.md](https://github.com/gbstem/admin/blob/main/README.md).
 
 > [!WARNING]
 > By default, the Firestore emulator runs in-memory. This means all seeded data and modifications are lost whenever you restart the emulator. If you want to persist the database state across restarts, start the emulator with the `--import` and `--export-on-exit` flags:
