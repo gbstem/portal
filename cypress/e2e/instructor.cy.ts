@@ -78,33 +78,35 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
     // Assert successful submission toast
     cy.waitForNotification('Your application has been submitted!')
 
-    // Verify written data directly in the database emulator
-    /* TODO(dmeyer246) Broken getFirestoreUserId()
-    cy.getFirebaseAuthToken().then((authToken: string) => {
-      cy.getFirestoreUserId(authToken, email).then((uid: string) => {
-        cy.getFirestoreDoc(authToken, 'applicationsSpring26', uid).then((data) => {
-          expect(data).to('not.be.null')
-          expect(data.personal.phoneNumber).to.equal('5559876543')
-          expect(data.personal.dateOfBirth).to.equal('2005-10-10')
-          expect(data.academic.school).to.equal('Harvard University')
-          expect(data.academic.graduationYear).to.equal('2028')
-          expect(data.program.preferences).to.equal('Prefer CS courses')
-          expect(data.program.timeSlots).to.equal('Weekends')
-          expect(data.essay.teachingScenario).to.equal('Try interactive games')
-          expect(data.agreements.entireProgram).to.equal(true)
-          expect(data.agreements.timeCommitment).to.equal(true)
-          expect(data.agreements.submitting).to.equal(true)
-        })
-      })
-    })
-    */
-
     // Reload the page
     cy.visit('/apply')
-    cy.wait(1000)
+    cy.wait(1500)
 
     // Verify submitted status is displayed
     cy.get('body').should('contain', 'Application submitted and in review!')
+
+    // Verify read-only form has the submitted values
+    cy.get('input[name="personal.phoneNumber"]')
+      .should('be.disabled')
+      .should('have.value', '5559876543')
+    cy.get('input[name="personal.dateOfBirth"]')
+      .should('be.disabled')
+      .should('have.value', '2005-10-10')
+    cy.get('input[name="academic.school"]')
+      .should('be.disabled')
+      .should('have.value', 'Harvard University')
+    cy.get('input[name="academic.graduationYear"]')
+      .should('be.disabled')
+      .should('have.value', '2028')
+    cy.get('input[name="program.preferences"]')
+      .should('be.disabled')
+      .should('have.value', 'Prefer CS courses')
+    cy.get('input[name="program.timeSlots"]')
+      .should('be.disabled')
+      .should('have.value', 'Weekends')
+    cy.get('textarea[name="essay.academicBackground"]')
+      .should('be.disabled')
+      .should('have.value', 'Some programming experience')
   })
 
   it('Test Case 11: Instructor Community Service Hours', () => {

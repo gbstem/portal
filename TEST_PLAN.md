@@ -196,13 +196,10 @@ graph TD
      - Course Preferences: Select first and second choices for CS, Math, Science, and Engineering.
      - Agreements: Check safety agreements and age limit bypass check if appropriate.
   4. Click the **"Submit"** button.
-  5. Query the database emulator directly to confirm all submitted values matches the database record.
-  6. Reload the page and select the registered child (e.g. `Child 1`) from the selector.
+  5. Reload the page and select the registered child (e.g. `Child 1`) from the selector.
 - **Expected Results (Assertions)**:
-  - Submission updates the Firestore database under `registrations{Term}/{userId}-1`.
   - A success toast is displayed.
-  - UI/UX Design Note: Once registered, the interactive form is hidden and replaced by a success card. The E2E test validates the database records directly.
-  - Upon reloading the page and selecting the child, the browser displays the submitted account card layout (`"An account has been created for [Student]!"`).
+  - Upon reloading the page and selecting the child, the form is replaced by a success card showing: `"An account has been created for [Student]!"`.
 
 ---
 
@@ -210,8 +207,8 @@ graph TD
 
 #### Test Case 8: Instructor Application Submission
 
-- **Description**: Verify that an instructor can fill out and submit their teaching application, and the data persists correctly in the database.
-- **Steps**:
+- Description: Verify that an instructor can fill out and submit their teaching application, and the read-only form displays the submitted values.
+- Steps:
   1. Log in as an instructor.
   2. Navigate to `/apply` (renders as "Apply").
   3. Fill out the **Application Form**:
@@ -220,55 +217,120 @@ graph TD
      - Timeslots availability.
      - In-person / online preference.
   4. Click the **"Submit"** button.
-  5. Query the database emulator directly to confirm all submitted values matches the database record.
-  6. Reload the page.
-- **Expected Results (Assertions)**:
-  - Form state updates in Firestore under `applications{Term}/{userId}`.
+  5. Reload the page.
+- Expected Results (Assertions):
   - A success message toast is displayed.
-  - UI/UX Design Note: Once applied, the interactive form is replaced with a read-only review screen. The E2E test validates the database records directly.
   - Upon reloading the page, the application review page persists with the message `"Application submitted and in review!"`.
+  - The form is read-only (disabled fields).
+  - The disabled input fields retain the submitted values (e.g., phone number, school, availability).
+
+#### Test Case 8b: Instructor Application Status Transition (Approved/Denied)
+
+- Description: Verify that changing the instructor's application decision in the database updates the Dashboard and navigation links correctly.
+- Steps:
+  1. Complete Test Case 8 so that the instructor has a submitted application.
+  2. Set the application decision to `"accepted"` in the database (`decisions{Term}/{userId}`).
+  3. Navigate to `/dashboard`.
+  4. Navigate to `/apply` (renders as "Apply").
+  5. Set the application decision to `"rejected"` in the database.
+  6. Navigate to `/dashboard`.
+  7. Navigate to `/apply`.
+- Expected Results (Assertions):
+  - When accepted:
+    - On `/dashboard`, the accepted instructor banner displays `"You have been accepted to gbSTEM as an instructor!"` and the **"Your Classes"** card is shown.
+    - In the navigation bar, the **"Community Service Hours Tracker"** link is visible.
+    - On `/apply`, the page still displays `"Application submitted and in review!"` with the read-only form.
+  - When rejected:
+    - On `/dashboard`, the rejection banner displays `"Unfortunately, instructor applications were extremely competitive, and we were not able to accept you as an instructor..."`.
+    - In the navigation bar, the **"Community Service Hours Tracker"** link is NOT visible.
+    - On `/apply`, the page still displays `"Application submitted and in review!"` with the read-only form.
+
+#### Test Case 8c: Instructor Interview Slot Booking & Time Request
+
+- Description: Verify that an instructor in the interview stage can view available slots, book a slot, or request a new slot.
+- Steps:
+  1. Complete Test Case 8 so that the instructor has a submitted application.
+  2. Set the application decision to `"interview"` in the database (`decisions{Term}/{userId}`).
+  3. Navigate to `/dashboard`.
+  4. Verify that the **"Interview"** card is visible.
+  5. Select an available slot from the radio list and click the **"Submit"** button.
+  6. Verify that the interview status updates to show the scheduled date, interviewer name, and meeting link.
+  7. (Alternative flow) If no slot works, click **"Request A Time"**, fill out a date/time, and click the **"Submit"** button.
+- Expected Results (Assertions):
+  - Selecting and booking a slot successfully saves the slot reservation to Firestore (updates `interviewCollection`) and displays the scheduled interview details.
+  - Requesting a timeslot successfully saves a request to Firestore (creates a document under `interviewTimeRequests`) and displays a success toast.
 
 ---
 
 ### Section D: Class Roster and Details View
 
-#### Test Case 9: Student View Enrolled Classes
+#### Test Case 9: Student View Enrolled Classes & Filter
 
-- **Description**: Verify that students can view the classes they have been enrolled in.
+- **Description**: Verify that students can view the classes they have been enrolled in, filter them by course, and toggle showing only their enrolled classes.
 - **Steps**:
   1. Log in as a student who is enrolled in a class.
   2. Navigate to `/classes`.
+  3. Verify that the enrolled class details are displayed.
+  4. Use the course filter select dropdown to filter classes by a specific course (e.g. `"Python 1"`).
+  5. Verify that only class cards matching that course are shown.
+  6. Click **"Remove Filter"** to clear.
+  7. Click the **"Show all enrolled classes"** toggle button.
+  8. Click the **"Show all classes"** toggle button.
 - **Expected Results (Assertions)**:
   - The enrolled class details (Course, Instructor, Zoom Link, Class Time) are displayed.
+  - Selecting a filter restricts the displayed class cards to the selected course.
+  - Removing the filter displays all classes again.
+  - Clicking "Show all enrolled classes" hides all classes that the student's children are not enrolled in.
+  - Clicking "Show all classes" displays all available classes again.
 
 #### Test Case 10: Instructor View Taught Classes
 
-- **Description**: Verify that instructors can see their roster, meeting details, and submit student attendance feedback.
-- **Steps**:
+- Description: Verify that instructors can see their roster, meeting details, and use the course filter.
+- Steps:
   1. Log in as an instructor teaching a class.
   2. Navigate to `/classes`.
-- **Expected Results (Assertions)**:
+  3. Locate the **"Filter by course"** dropdown.
+  4. Select a specific course that is taught (e.g., `"Python 1"`).
+  5. Click the **"Remove Filter"** button.
+- Expected Results (Assertions):
   - The classes the instructor is teaching are displayed.
   - The roster of enrolled students is visible.
   - Meeting links and class times are rendered correctly.
+  - Selecting a filter hides all classes not matching that course, showing only the filtered class.
+  - Clicking "Remove Filter" displays all taught classes again.
+
+#### Test Case 10b: Instructor Submit Attendance Feedback
+
+- Description: Verify that instructors can fill out and submit their weekly attendance and reflection feedback form for a class session.
+- Steps:
+  1. Log in as an instructor teaching a class.
+  2. Navigate to `/classes` or `/dashboard`.
+  3. Click the **"Submit Feedback"** button for a class session.
+  4. In the feedback form:
+     - Enter the **Date of Class**.
+     - Enter the **Class Session Number**.
+     - Enter reflection details in the **feedback** text field.
+     - Check the attendance check box next to the names of present students.
+  5. Click the **"Submit"** button.
+- Expected Results (Assertions):
+  - A success toast `"Class Feedback saved!"` is displayed.
+  - The dialog/form closes, and the class session status updates to `"Complete"`.
 
 ---
 
 ### Section E: Community Service Tracking (Instructor Role)
 
-#### Test Case 11: Instructor Community Service Hours Submission
+#### Test Case 11: Instructor Community Service Hours
 
-- **Description**: Verify accepted instructors can log, track, and reload their community service hours.
-- **Steps**:
+- Description: Verify accepted instructors can view their dynamically calculated community service hours and request a confirmation email.
+- Steps:
   1. Log in as an accepted instructor.
   2. Navigate to `/community-service`.
-  3. Add a log entry: select class date, enter hours taught, and notes.
-  4. Submit the entry.
-  5. Reload the page.
-- **Expected Results (Assertions)**:
-  - The entry is successfully saved to Firestore and shown in the list.
-  - Total community service hours count updates dynamically.
-  - Upon reloading the page, the logged entry persists in the list with the correct date, hours, and notes.
+  3. Verify that the total calculated hours are displayed.
+  4. Click the **"Get Hours Confirmation Email"** button.
+- Expected Results (Assertions):
+  - The calculated hours are loaded and rendered.
+  - Clicking "Get Hours Confirmation Email" displays a success toast `"Email sent successfully!"`.
 
 ---
 
@@ -287,3 +349,98 @@ graph TD
   - All operations complete successfully with respective success toasts.
   - Name and email changes are confirmed to be persistent in the database and display correctly after reloading the page.
   - Deleting the account sign out the user and cleans up their auth record.
+
+---
+
+## Section G: Instructor Dashboard Actions (Accepted Instructor Role)
+
+### Test Case 13: Instructor Dashboard - Manage Class Details
+
+- Description: Verify that an accepted instructor can fill out and submit their class details, which automatically seeds their schedule and generates a meeting link.
+- Steps:
+  1. Log in as an accepted instructor.
+  2. Navigate to `/dashboard`.
+  3. Locate the **"Class Details"** form.
+  4. Fill out the form fields:
+     - Select a course (e.g., `"Python 1"`).
+     - Enter grade recommendation (e.g., `"3-5"`).
+     - Enter class capacity (e.g., `7`).
+     - Select meeting day 1 and time 1.
+     - Check the **"submitting"** agreement checkbox.
+     - Check **"Would you like a class schedule to be automatically created for you?"**.
+  5. Click the **"Submit"** button.
+  6. Verify the page reloads.
+  7. Locate the **"Class Details"** button on the page and click it.
+  8. Click **"Edit class details"** to enable the form, edit class capacity, and submit the changes.
+- Expected Results (Assertions):
+  - A success toast `"Class details saved!"` is displayed.
+  - The page reloads, and the **"Your Classes"** section is now populated with a list of scheduled classes.
+  - A Zoom/Teams meeting link is automatically generated or shown on the class info.
+  - Editing class details displays the updated values.
+
+#### Test Case 14: Instructor Dashboard - Edit Schedule and Add Class
+
+- Description: Verify that an instructor can modify their class dates/times and add new classes to their schedule.
+- Steps:
+  1. Log in as an instructor with an existing class schedule on `/dashboard`.
+  2. Click the **"Edit Schedule"** button.
+  3. Change the date/time of a class session or click **"Delete"** to remove a class session.
+  4. Click the **"Save Changes"** button.
+  5. Verify that the email notification copy modal is shown.
+  6. Click the **"Add Class to Schedule"** button.
+  7. Enter a date and time, and click the **"Add Class"** button.
+- Expected Results (Assertions):
+  - Clicking "Save Changes" prompts a modal with instructions/template to notify parents.
+  - Closing the modal reloads the page with the updated schedule dates and/or deleted classes removed.
+  - Adding a class successfully appends the class session to the class schedule list.
+
+#### Test Case 15: Instructor Dashboard - Request Sub
+
+- Description: Verify that an instructor can submit a substitute request for a scheduled class session.
+- Steps:
+  1. Log in as an instructor with an existing class schedule on `/dashboard`.
+  2. Locate a scheduled class session in the list.
+  3. Click the **"Request Sub"** button.
+  4. In the dialog, verify the class number and date, enter help notes/topics.
+  5. Click the **"Confirm Request"** button.
+- Expected Results (Assertions):
+  - A success toast `"Sub request sent!"` is displayed.
+  - The page reloads, and the sub request is saved in the database under `subRequests/{classId}---{classNumber}`.
+
+---
+
+## Section H: Student / Parent Dashboard Actions (Student/Parent Role)
+
+### Test Case 16: Student Dashboard Navigation - Create or View Student Account
+
+- Description: Verify that clicking the dashboard action button redirects the parent to the student registration page.
+- Steps:
+  1. Log in as a student/parent.
+  2. On `/dashboard`, locate the **"Your Students"** card.
+  3. Click the **"Create or View A Student Account"** button.
+- Expected Results (Assertions):
+  - The user is navigated to `/apply` (renders as "Student Account Creation" page).
+
+#### Test Case 17: Student Dashboard - Student Schedule & Zoom Meeting
+
+- Description: Verify that enrolled students can see their class schedule and click the Zoom link to join classes.
+- Steps:
+  1. Log in as an enrolled student/parent.
+  2. Navigate to `/dashboard`.
+  3. Locate the **"Student Schedule"** card.
+- Expected Results (Assertions):
+  - The schedule cards display the child's name, class name, date, time, and a **"Join Class"** button.
+  - Clicking the **"Join Class"** button opens the class meeting link in a new tab.
+
+#### Test Case 18: Student Dashboard - Submit Class Feedback
+
+- Description: Verify that parents/students can submit weekly feedback for their classes.
+- Steps:
+  1. Log in as a student/parent.
+  2. On `/dashboard`, locate the **"Class Feedback"** card.
+  3. Select a student and a class from the dropdown selectors/radio buttons.
+  4. Rate the class and enter feedback comments in the text area.
+  5. Click the **"Submit"** button.
+- Expected Results (Assertions):
+  - A success toast `"Class Feedback saved!"` is displayed.
+  - The feedback inputs are cleared/reset.
