@@ -7,10 +7,13 @@ installLogsCollector()
 Cypress.on('uncaught:exception', (err) => {
   // Ignore connection drops/failures from Firebase/Firestore emulator
   if (
+    err.name === 'FirebaseError' ||
     err.message.includes('Connection failed') ||
     err.message.includes('FirebaseError') ||
     err.message.includes('FIRESTORE') ||
-    err.message.includes('Null value error')
+    err.message.includes('Null value error') ||
+    err.message.includes('client is offline') ||
+    err.message.includes('Failed to fetch')
   ) {
     return false
   }

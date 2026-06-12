@@ -2,11 +2,17 @@ import { defineConfig } from 'cypress'
 import installLogsPrinter from 'cypress-terminal-report/src/installLogsPrinter'
 import fs from 'fs'
 import path from 'path'
+import { initializeApp, getApps } from 'firebase-admin/app'
+import { getAuth } from 'firebase-admin/auth'
+import { fileURLToPath } from 'url'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 function loadEnv() {
   const env: Record<string, string> = {}
   for (const filename of ['.env', '.env.local']) {
-    const filePath = path.resolve(process.cwd(), filename)
+    const filePath = path.resolve(__dirname, filename)
     if (fs.existsSync(filePath)) {
       const content = fs.readFileSync(filePath, 'utf-8')
       for (const line of content.split('\n')) {
@@ -31,6 +37,19 @@ function loadEnv() {
 }
 
 const combinedEnv = loadEnv()
+
+// Ensure emulator and project env variables are set for firebase-admin and other tools
+if (combinedEnv.FIREBASE_AUTH_EMULATOR_HOST) {
+  process.env.FIREBASE_AUTH_EMULATOR_HOST =
+    combinedEnv.FIREBASE_AUTH_EMULATOR_HOST
+}
+if (combinedEnv.FIRESTORE_EMULATOR_HOST) {
+  process.env.FIRESTORE_EMULATOR_HOST = combinedEnv.FIRESTORE_EMULATOR_HOST
+}
+if (combinedEnv.FIREBASE_PROJECT_ID) {
+  process.env.FIREBASE_PROJECT_ID = combinedEnv.FIREBASE_PROJECT_ID
+  process.env.GCLOUD_PROJECT = combinedEnv.FIREBASE_PROJECT_ID
+}
 
 export default defineConfig({
   // Public, non-sensitive configuration values
@@ -57,6 +76,20 @@ export default defineConfig({
         log(message) {
           console.log(message) // Print to the terminal
           return null
+        },
+        async getFirestoreUserId(email: string) {
+          if (getApps().length === 0) {
+            initializeApp({
+              projectId: process.env.FIREBASE_PROJECT_ID || 'demo-gbstem',
+            })
+          }
+          try {
+            const userRecord = await getAuth().getUserByEmail(email)
+            return userRecord.uid
+          } catch (error) {
+            console.error('Error in getFirestoreUserId task:', error)
+            return null
+          }
         },
       })
       return config

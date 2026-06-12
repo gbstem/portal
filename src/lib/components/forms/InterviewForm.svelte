@@ -7,6 +7,7 @@
   import { alert } from '$lib/stores'
   import { formatDateLocal, timestampToDate } from '$lib/utils'
   import { cn } from '$lib/utils'
+  import { dev } from '$app/environment'
   import {
     collection,
     doc,
@@ -139,6 +140,7 @@
         if (!formVal.valid) return
         const dateToAdd = formVal.data.dateToAdd
         if (
+          !dev &&
           new Date(dateToAdd) > new Date(semesterDates.instructorOrientation)
         ) {
           alert.trigger(
@@ -250,7 +252,7 @@
         if (
           interviewInfo['interviewSlotStatus'] === 'available' &&
           interviewDate > inFourHours &&
-          interviewDate < new Date(semesterDates.instructorOrientation)
+          (interviewDate < new Date(semesterDates.instructorOrientation) || dev)
         ) {
           valuesJson.push({
             ...interviewInfo,

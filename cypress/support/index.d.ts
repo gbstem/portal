@@ -20,5 +20,11 @@ declare namespace Cypress {
       collection: string,
       docId: string,
     ): Chainable<any>
+    setFirestoreDoc(
+      authToken: string,
+      collection: string,
+      docId: string,
+      data: any,
+    ): Chainable<any>
   }
 }

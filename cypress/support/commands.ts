@@ -2,6 +2,7 @@
 
 Cypress.Commands.add('fillInput', (selector: string, text: string) => {
   cy.get(selector)
+    .scrollIntoView()
     .should('be.visible')
     .focus()
     .clear()
@@ -17,25 +18,34 @@ Cypress.Commands.add('fillInput', (selector: string, text: string) => {
 })
 
 Cypress.Commands.add('signedInSession', (role: string) => {
-  cy.session(`signedIn-${role}`, () => {
-    cy.visit('/signin')
-    cy.get('input[type="email"]').should('be.visible')
-    cy.wait(2500) // Wait for Svelte page and HMR to settle
-    const email =
-      role === 'admin'
-        ? 'demo@gbstem.org'
-        : role === 'instructor'
-          ? 'instructor@gbstem.org'
-          : 'student@gbstem.org'
-    const password = 'penguin'
+  cy.session(
+    `signedIn-${role}`,
+    () => {
+      cy.visit('/signin')
+      cy.get('input[type="email"]').should('be.visible')
+      cy.wait(2500) // Wait for Svelte page and HMR to settle
+      const email =
+        role === 'admin'
+          ? 'demo@gbstem.org'
+          : role === 'instructor'
+            ? 'instructor@gbstem.org'
+            : 'student@gbstem.org'
+      const password = 'penguin'
 
-    cy.fillInput('input[type="email"]', email)
-    cy.fillInput('input[type="password"]', password)
-    cy.get('button[type="submit"]').click()
+      cy.fillInput('input[type="email"]', email)
+      cy.fillInput('input[type="password"]', password)
+      cy.get('button[type="submit"]').click()
 
-    cy.url().should('include', '/dashboard')
-    cy.get('h1').should('contain', 'Dashboard')
-  })
+      cy.url().should('include', '/dashboard')
+      cy.get('h1').should('contain', 'Dashboard')
+    },
+    {
+      validate() {
+        cy.visit('/dashboard')
+        cy.get('h1').should('contain', 'Dashboard')
+      },
+    },
+  )
 })
 
 Cypress.Commands.add('signOutViaUi', () => {
@@ -124,24 +134,12 @@ Cypress.Commands.add('getFirebaseAuthToken', () => {
 Cypress.Commands.add(
   'getFirestoreUserId',
   (authToken: string, email: string) => {
-    return cy
-      .request({
-        method: 'POST',
-        url: `${getFirebaseAuthBaseUrl()}/identitytoolkit.googleapis.com/v1/projects/demo-gbstem/accounts:lookup?key=does-not-matter`,
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: {
-          email: [email],
-        },
-      })
-      .then((response) => {
-        const user = response.body.users[0]
-        const userId = user.localId
-        cy.log(`Successfully got ${email} with UID: ${userId}`)
-        return userId
-      })
+    return cy.task('getFirestoreUserId', email).then((uid) => {
+      if (!uid) {
+        throw new Error(`Could not find user ID for email: ${email}`)
+      }
+      return uid as string
+    })
   },
 )
 
@@ -192,5 +190,31 @@ Cypress.Commands.add(
         }
         return data
       })
+  },
+)
+
+Cypress.Commands.add(
+  'setFirestoreDoc',
+  (authToken: string, collection: string, docId: string, data: any) => {
+    const fields: any = {}
+    for (const key of Object.keys(data)) {
+      const val = data[key]
+      if (typeof val === 'string') {
+        fields[key] = { stringValue: val }
+      } else if (typeof val === 'boolean') {
+        fields[key] = { booleanValue: val }
+      } else if (typeof val === 'number') {
+        fields[key] = { doubleValue: val }
+      }
+    }
+    return cy.request({
+      method: 'PATCH',
+      url: `${getFirestoreBaseUrl()}/v1/projects/demo-gbstem/databases/(default)/documents/${collection}/${docId}`,
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: { fields },
+    })
   },
 )

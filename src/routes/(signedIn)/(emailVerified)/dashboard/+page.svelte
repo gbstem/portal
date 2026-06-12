@@ -63,18 +63,18 @@
     if (user) {
       isStudent = user.profile.role === 'student'
       let timer: number
-      getDoc(doc(db, 'semesterDates', semesterDatesDocument)).then(
-        (datesDoc) => {
-          const datesDocExists = datesDoc.exists()
-          if (datesDocExists) {
-            semesterDates = datesDoc.data() as Data.SemesterDates
-          }
-        },
-      )
       Promise.all([
         new Promise<void>((resolve) => {
           timer = window.setTimeout(resolve, 400)
         }),
+        getDoc(doc(db, 'semesterDates', semesterDatesDocument)).then(
+          (datesDoc) => {
+            const datesDocExists = datesDoc.exists()
+            if (datesDocExists) {
+              semesterDates = datesDoc.data() as Data.SemesterDates
+            }
+          },
+        ),
         new Promise<void>((resolve) => {
           if (user.profile.role === 'instructor') {
             getDoc(doc(db, applicationsCollection, user.object.uid))
@@ -85,11 +85,13 @@
                     applicationDoc.data() as Data.Application
                   if (applicationData.meta.submitted) {
                     data.application.status = 'submitted'
+                    data = data
                     getDoc(doc(db, decisionsCollection, user.object.uid))
                       .then((snapshot) => {
                         if (snapshot.exists()) {
                           data.application.status = snapshot.data()
                             .type as Data.Decision
+                          data = data
                         }
                         resolve()
                       })
@@ -99,6 +101,7 @@
                       })
                   } else {
                     data.application.status = null
+                    data = data
                     resolve()
                   }
                 } else {

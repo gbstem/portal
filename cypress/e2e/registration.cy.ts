@@ -99,15 +99,21 @@ describe('Section B: Student Registration & Account Management', () => {
     cy.waitForNotification('Your student account has been created!')
 
     // Verify written data directly in the database emulator
-    /* TODO(dmeyer246) Broken getFirestoreUserId()
-    cy.get('@parentEmail').then((emailAddress: string) => {
+    cy.get('@parentEmail').then((emailAddress: any) => {
+      const emailStr = emailAddress as string
       cy.getFirebaseAuthToken().then((authToken: string) => {
-        cy.getFirestoreUserId(authToken, emailAddress).then((uid: string) => {
-          cy.getFirestoreDoc(authToken, 'registrationsSpring26', `${uid}-1`).then((data) => {
-            expect(data).to('not.be.null')
+        cy.getFirestoreUserId(authToken, emailStr).then((uid: string) => {
+          cy.getFirestoreDoc(
+            authToken,
+            'registrationsSpring26',
+            `${uid}-1`,
+          ).then((data) => {
+            expect(data).to.not.equal(null)
             expect(data.personal.studentFirstName).to.equal(studentFirst)
             expect(data.personal.studentLastName).to.equal(studentLast)
-            expect(data.personal.secondaryEmail).to.equal('secondary@gbstem.org')
+            expect(data.personal.secondaryEmail).to.equal(
+              'secondary@gbstem.org',
+            )
             expect(data.personal.phoneNumber).to.equal(phone)
             expect(data.personal.dateOfBirth).to.equal(dob)
             expect(data.academic.school).to.equal(school)
@@ -119,7 +125,6 @@ describe('Section B: Student Registration & Account Management', () => {
         })
       })
     })
-    */
 
     // Reload the page and select Child 1
     cy.visit('/apply')
@@ -135,5 +140,6 @@ describe('Section B: Student Registration & Account Management', () => {
       'contain',
       `An account has been created for ${studentFirst}!`,
     )
+    cy.get('input[name="personal.studentFirstName"]').should('not.exist')
   })
 })

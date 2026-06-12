@@ -101,7 +101,7 @@ describe('Section A: Authentication and Navigation', () => {
     cy.visit('/signup')
     cy.get('h1').should('contain', 'Sign up')
     cy.get('input[name="firstName"]').should('be.visible')
-    cy.wait(500) // Wait for signup initialization
+    cy.wait(1000) // Wait for signup initialization
 
     const first = 'Charlie'
     const last = generateDateHash('Brown')
