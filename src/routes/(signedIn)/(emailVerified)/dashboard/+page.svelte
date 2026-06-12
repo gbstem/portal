@@ -77,43 +77,60 @@
         }),
         new Promise<void>((resolve) => {
           if (user.profile.role === 'instructor') {
-            getDoc(doc(db, applicationsCollection, user.object.uid)).then(
-              (applicationDoc) => {
+            getDoc(doc(db, applicationsCollection, user.object.uid))
+              .then((applicationDoc) => {
                 const applicationExists = applicationDoc.exists()
                 if (applicationExists) {
                   const applicationData =
                     applicationDoc.data() as Data.Application
                   if (applicationData.meta.submitted) {
                     data.application.status = 'submitted'
-                    getDoc(doc(db, decisionsCollection, user.object.uid)).then(
-                      (snapshot) => {
+                    getDoc(doc(db, decisionsCollection, user.object.uid))
+                      .then((snapshot) => {
                         if (snapshot.exists()) {
                           data.application.status = snapshot.data()
                             .type as Data.Decision
                         }
                         resolve()
-                      },
-                    )
+                      })
+                      .catch((err) => {
+                        console.error('Error fetching decision:', err)
+                        resolve()
+                      })
                   } else {
                     data.application.status = null
+                    resolve()
                   }
-                }
-                resolve()
-              },
-            )
-          } else {
-            const q = query(collection(db, registrationsCollection))
-            getDocs(q).then((querySnapshot) => {
-              querySnapshot.forEach((doc) => {
-                const id = doc.id
-                if (id.includes(user.object.uid)) {
-                  if (doc.data().meta.submitted) {
-                    numSubmitted += 1
-                  }
+                } else {
+                  resolve()
                 }
               })
-              resolve()
-            })
+              .catch((err) => {
+                console.error('Error fetching application:', err)
+                resolve()
+              })
+          } else {
+            const promises = []
+            for (let i = 1; i <= 5; ++i) {
+              promises.push(
+                getDoc(
+                  doc(db, registrationsCollection, `${user.object.uid}-${i}`),
+                ),
+              )
+            }
+            Promise.all(promises)
+              .then((snapshots) => {
+                snapshots.forEach((snapshot) => {
+                  if (snapshot.exists() && snapshot.data()?.meta?.submitted) {
+                    numSubmitted += 1
+                  }
+                })
+                resolve()
+              })
+              .catch((err) => {
+                console.error('Error fetching registrations:', err)
+                resolve()
+              })
           }
         }),
       ]).then(() => {
