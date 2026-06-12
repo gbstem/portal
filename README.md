@@ -94,12 +94,24 @@ npm run lint
 # run unit tests
 npm test
 
-# build for production
-npm run build
-
-# build and deploy to Firebase
-npm run deploy
+# run E2E integration tests (Cypress)
+npx cypress run
 ```
+
+### 4. Running End-to-End Tests (Cypress)
+
+To run the E2E Cypress integration tests:
+
+1. Ensure the Firebase emulators are running from the parallel `admin` repository via `npm run emulators`.
+2. Start the local portal development server (`npm run dev`).
+3. Run the Cypress suite using:
+
+   ```bash
+   npx cypress run
+   ```
+
+> [!NOTE]
+> **Parallel Checkout Requirement**: The Cypress test runner automatically runs the database seed script prior to test execution. This requires the `admin` repository to be checked out in a parallel directory (`../admin`) relative to the `portal` directory so the test runner can invoke `npm run --prefix ../admin seed`.
 
 Open [http://localhost:5173](http://localhost:5173) with your browser to see the result for `npm run dev` or `npm start`. You can start editing any page or component, and when running in development mode, your changes will be reflected in the browser automatically.
 

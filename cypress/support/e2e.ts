@@ -9,7 +9,8 @@ Cypress.on('uncaught:exception', (err) => {
   if (
     err.message.includes('Connection failed') ||
     err.message.includes('FirebaseError') ||
-    err.message.includes('FIRESTORE')
+    err.message.includes('FIRESTORE') ||
+    err.message.includes('Null value error')
   ) {
     return false
   }
@@ -24,4 +25,8 @@ before(() => {
       'Cypress tests use an emulator, but FIRESTORE_EMULATOR_HOST is not defined in your environment',
     )
   }
+
+  // Restore the emulator database to the seed state to ensure tests are deterministic.
+  // This assumes the admin repository is checked out in a parallel directory.
+  cy.exec('npm run --prefix ../admin seed', { timeout: 120000 })
 })

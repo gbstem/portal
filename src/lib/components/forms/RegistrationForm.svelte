@@ -171,8 +171,7 @@
                       applicationDoc.data() as Data.Registration
                     clearInterval(saveInterval)
                     saveInterval = undefined
-                    values = cloneDeep(applicationData)
-                    dbValues = cloneDeep(applicationData)
+                    safeSetValues(applicationData)
                     window.scrollTo({
                       top: 0,
                       behavior: 'smooth',
@@ -203,18 +202,59 @@
   const { form, enhance, submitting } = formResult
 
   let saveInterval: number | undefined = undefined
+  let unsubscribeUser: (() => void) | undefined = undefined
+
+  function safeSetValues(data: any) {
+    if (!data) {
+      values = cloneDeep(emptyValues)
+      dbValues = cloneDeep(emptyValues)
+      return
+    }
+    values = {
+      ...cloneDeep(emptyValues),
+      ...cloneDeep(data),
+      personal: {
+        ...cloneDeep(emptyValues.personal),
+        ...(data.personal ? cloneDeep(data.personal) : {}),
+      },
+      academic: {
+        ...cloneDeep(emptyValues.academic),
+        ...(data.academic ? cloneDeep(data.academic) : {}),
+      },
+      program: {
+        ...cloneDeep(emptyValues.program),
+        ...(data.program ? cloneDeep(data.program) : {}),
+      },
+      inPerson: {
+        ...cloneDeep(emptyValues.inPerson),
+        ...(data.inPerson ? cloneDeep(data.inPerson) : {}),
+      },
+      agreements: {
+        ...cloneDeep(emptyValues.agreements),
+        ...(data.agreements ? cloneDeep(data.agreements) : {}),
+      },
+      meta: {
+        ...cloneDeep(emptyValues.meta),
+        ...(data.meta ? cloneDeep(data.meta) : {}),
+      },
+    }
+    dbValues = cloneDeep(values)
+  }
 
   const initializeForm = () => {
+    if (unsubscribeUser) {
+      unsubscribeUser()
+      unsubscribeUser = undefined
+    }
     loading = true
-    return user.subscribe((user) => {
+    unsubscribeUser = user.subscribe((user) => {
       if (user) {
         getDoc(doc(db, registrationsCollection, childUid)).then(
           (applicationDoc) => {
             const applicationExists = applicationDoc.exists()
             if (applicationExists) {
               const applicationData = applicationDoc.data() as Data.Registration
-              values = cloneDeep(applicationData)
-              dbValues = cloneDeep(applicationData)
+              safeSetValues(applicationData)
               if (
                 !values.meta.submitted &&
                 (values.personal.parentFirstName !== user.profile.firstName ||
@@ -248,7 +288,10 @@
     })
   }
 
-  onMount(() => initializeForm())
+  onMount(() => {
+    // Rely on the reactive statement below to run on initial mount
+  })
+
   $: if (childUid) {
     initializeForm()
   }
@@ -256,6 +299,10 @@
   onDestroy(() => {
     clearInterval(saveInterval)
     saveInterval = undefined
+    if (unsubscribeUser) {
+      unsubscribeUser()
+      unsubscribeUser = undefined
+    }
   })
 
   function handleDelete() {
@@ -312,8 +359,7 @@
               (applicationDoc) => {
                 const applicationData =
                   applicationDoc.data() as Data.Registration
-                values = cloneDeep(applicationData)
-                dbValues = cloneDeep(applicationData)
+                safeSetValues(applicationData)
                 saving = false
                 alert.trigger('success', 'Your progress was saved.')
                 resolve()

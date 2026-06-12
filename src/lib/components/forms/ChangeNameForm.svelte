@@ -51,7 +51,7 @@
 
   onMount(() => {
     return user.subscribe((u) => {
-      if (u) {
+      if (u && u.profile) {
         $form.firstName = u.profile.firstName || ''
         $form.lastName = u.profile.lastName || ''
       }

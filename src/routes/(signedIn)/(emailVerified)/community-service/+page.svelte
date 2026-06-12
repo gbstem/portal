@@ -124,8 +124,11 @@
             ? ''
             : 's'} as a substitute instructor. Thank you for contributing to gbSTEM.
         </div>
-        <Button color="blue" class="mt-2" on:click={sendEmail}
-          >Get Hours Confirmation Email</Button
+        <Button
+          color="blue"
+          class="mt-2"
+          on:click={sendEmail}
+          disabled={!currentUser}>Get Hours Confirmation Email</Button
         >
       </div>
     </Card>

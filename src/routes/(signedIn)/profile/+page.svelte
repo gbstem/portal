@@ -28,7 +28,7 @@
     return user.subscribe((userValue) => {
       new QRious({
         element: document.getElementById('qr'),
-        value: `https://admin.gbstem.org/user/${userValue ? userValue.profile.id : ''}`,
+        value: `https://admin.gbstem.org/user/${userValue?.profile?.id || ''}`,
         size: 200,
       })
     })
@@ -170,6 +170,6 @@
     <ChangeNameForm />
     <ChangeEmailForm />
     <ChangePasswordForm />
-    <!-- <DeleteAccountForm /> -->
+    <DeleteAccountForm />
   </div>
 </PageLayout>
