@@ -28,27 +28,28 @@
     )
     let fetchedClasses: ClassDate[] = []
     const schedulesDocs = await Promise.all(schedulesPromises)
-    schedulesDocs
-      .map(async (docSnapshot) => {
-        if (docSnapshot.exists()) {
-          const data = (await docSnapshot.data()) as Data.Class
-          courses.add(data.course)
-          data.meetingTimes.map((date) => {
-            fetchedClasses.push({
-              course: data.course,
-              meetingTime: timestampToDate(date),
-              link: data.meetingLink,
-            })
+    for (const docSnapshot of schedulesDocs) {
+      if (docSnapshot.exists()) {
+        const data = docSnapshot.data() as Data.Class
+        courses.add(data.course)
+        data.meetingTimes.forEach((date) => {
+          fetchedClasses.push({
+            course: data.course,
+            meetingTime: timestampToDate(date),
+            link: data.meetingLink,
           })
-        }
-      })
-      .flat()
+        })
+      }
+    }
     return fetchedClasses
   }
 
   $: if (selectedStudentUid) {
-    getDoc(doc(db, registrationsCollection, selectedStudentUid)).then(
-      async (docSnapshot) => {
+    ;(async () => {
+      try {
+        const docSnapshot = await getDoc(
+          doc(db, registrationsCollection, selectedStudentUid),
+        )
         if (docSnapshot.exists()) {
           const data = docSnapshot.data()
           const classIds = data.classes || []
@@ -84,8 +85,10 @@
                 )[0] || null
           }
         }
-      },
-    )
+      } catch (err) {
+        console.error('Failed to fetch class schedules:', err)
+      }
+    })()
   }
 </script>
 

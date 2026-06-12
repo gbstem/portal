@@ -20,16 +20,18 @@
     parentOrientation: '',
   }
 
-  user.subscribe((user) => {
-    if (user) {
-      getDoc(doc(db, 'semesterDates', semesterDatesDocument)).then(
-        (datesDoc) => {
-          const datesDocExists = datesDoc.exists()
-          if (datesDocExists) {
-            semesterDates = datesDoc.data() as Data.SemesterDates
-          }
-        },
-      )
+  user.subscribe(async (u) => {
+    if (u) {
+      try {
+        const datesDoc = await getDoc(
+          doc(db, 'semesterDates', semesterDatesDocument),
+        )
+        if (datesDoc.exists()) {
+          semesterDates = datesDoc.data() as Data.SemesterDates
+        }
+      } catch (err) {
+        console.error('Failed to get semester dates:', err)
+      }
     }
   })
 </script>

@@ -51,19 +51,17 @@
     alert.trigger('info', 'Password change canceled.')
   }
 
-  function handleReauthenticate() {
+  async function handleReauthenticate() {
     if ($user) {
-      updatePassword($user.object, passwordToUpdate)
-        .then(() => {
-          reset()
-          dialogEl.close()
-          alert.trigger('success', 'Password was successfully changed.')
-        })
-        .catch((err) => {
-          reset()
-          dialogEl.close()
-          alert.trigger('error', err.code, true)
-        })
+      try {
+        await updatePassword($user.object, passwordToUpdate)
+        alert.trigger('success', 'Password was successfully changed.')
+      } catch (err: any) {
+        alert.trigger('error', err.code, true)
+      } finally {
+        reset()
+        dialogEl.close()
+      }
     }
   }
 </script>

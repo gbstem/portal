@@ -3,14 +3,16 @@
   import { onMount } from 'svelte'
 
   onMount(() =>
-    user.subscribe((user) => {
-      if (user) {
+    user.subscribe(async (u) => {
+      if (u) {
         if (localStorage.getItem('emailVerified') === 'false') {
-          user.object.reload().then(() => {
-            user.object.getIdToken(true).then(() => {
-              localStorage.removeItem('emailVerified')
-            })
-          })
+          try {
+            await u.object.reload()
+            await u.object.getIdToken(true)
+            localStorage.removeItem('emailVerified')
+          } catch (err) {
+            console.error('Failed to reload user or get id token:', err)
+          }
         }
       }
     }),

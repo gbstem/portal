@@ -24,39 +24,35 @@
       validators: zod(schema as any) as any,
       async onUpdate({ form: formVal }: { form: any }) {
         if (!formVal.valid) return
-        signInWithEmailAndPassword(
-          auth,
-          formVal.data.email,
-          formVal.data.password,
-        )
-          .then((credential) => {
-            return credential.user.getIdToken().then((idToken) => {
-              return fetch('/api/auth', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ idToken }),
-              })
-            })
+        try {
+          const credential = await signInWithEmailAndPassword(
+            auth,
+            formVal.data.email,
+            formVal.data.password,
+          )
+          const idToken = await credential.user.getIdToken()
+          const res = await fetch('/api/auth', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ idToken }),
           })
-          .then(async (res) => {
-            if (!res.ok) {
-              const data = await res.json().catch(() => ({}))
-              throw new Error(data.message || 'Unauthorized')
-            }
-            await goto('/dashboard')
-          })
-          .catch((err) => {
-            console.error('Sign in error:', err)
-            const isFirebaseError =
-              err.code && typeof err.code === 'string' && err.code.includes('/')
-            if (isFirebaseError) {
-              alert.trigger('error', err.code, true)
-            } else {
-              alert.trigger('error', err.message || 'Unauthorized')
-            }
-          })
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}))
+            throw new Error(data.message || 'Unauthorized')
+          }
+          await goto('/dashboard')
+        } catch (err: any) {
+          console.error('Sign in error:', err)
+          const isFirebaseError =
+            err.code && typeof err.code === 'string' && err.code.includes('/')
+          if (isFirebaseError) {
+            alert.trigger('error', err.code, true)
+          } else {
+            alert.trigger('error', err.message || 'Unauthorized')
+          }
+        }
       },
     },
   )

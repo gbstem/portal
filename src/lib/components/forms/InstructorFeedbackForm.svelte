@@ -159,17 +159,16 @@
       const uids = students
       feedbackCompletedArray = feedbackCompleted
       classStatusesArray = classStatuses
-      const classListPromises = uids.map((uid: string) =>
-        getDoc(doc(db, registrationsCollection, uid))
-          .then((userDoc) => {
-            const userData = userDoc.data()?.personal
-            return `${userData['studentFirstName']} ${userData['studentLastName']}`
-          })
-          .catch((error) => {
-            console.error('Error fetching student data:', error)
-            return 'Error'
-          }),
-      )
+      const classListPromises = uids.map(async (uid: string) => {
+        try {
+          const userDoc = await getDoc(doc(db, registrationsCollection, uid))
+          const userData = userDoc.data()?.personal
+          return `${userData['studentFirstName']} ${userData['studentLastName']}`
+        } catch (error) {
+          console.error('Error fetching student data:', error)
+          return 'Error'
+        }
+      })
       try {
         const list = await Promise.all(classListPromises)
         classList = list

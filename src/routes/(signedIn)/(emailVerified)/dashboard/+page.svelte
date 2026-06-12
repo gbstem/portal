@@ -59,84 +59,75 @@
 
   let isStudent = false
 
-  user.subscribe((user) => {
-    if (user) {
-      isStudent = user.profile.role === 'student'
+  user.subscribe((userObj) => {
+    if (userObj) {
+      isStudent = userObj.profile.role === 'student'
       let timer: number
-      Promise.all([
-        new Promise<void>((resolve) => {
-          timer = window.setTimeout(resolve, 400)
-        }),
-        getDoc(doc(db, 'semesterDates', semesterDatesDocument)).then(
-          (datesDoc) => {
-            const datesDocExists = datesDoc.exists()
-            if (datesDocExists) {
-              semesterDates = datesDoc.data() as Data.SemesterDates
-            }
-          },
-        ),
-        new Promise<void>((resolve) => {
-          if (user.profile.role === 'instructor') {
-            getDoc(doc(db, applicationsCollection, user.object.uid))
-              .then((applicationDoc) => {
-                const applicationExists = applicationDoc.exists()
-                if (applicationExists) {
-                  const applicationData =
-                    applicationDoc.data() as Data.Application
-                  if (applicationData.meta.submitted) {
-                    data.application.status = 'submitted'
+      const timerPromise = new Promise<void>((resolve) => {
+        timer = window.setTimeout(resolve, 400)
+      })
+
+      const loadDataPromise = (async () => {
+        try {
+          const datesDoc = await getDoc(
+            doc(db, 'semesterDates', semesterDatesDocument),
+          )
+          if (datesDoc.exists()) {
+            semesterDates = datesDoc.data() as Data.SemesterDates
+          }
+
+          if (userObj.profile.role === 'instructor') {
+            const applicationDoc = await getDoc(
+              doc(db, applicationsCollection, userObj.object.uid),
+            )
+            if (applicationDoc.exists()) {
+              const applicationData = applicationDoc.data() as Data.Application
+              if (applicationData.meta.submitted) {
+                data.application.status = 'submitted'
+                data = data
+                try {
+                  const snapshot = await getDoc(
+                    doc(db, decisionsCollection, userObj.object.uid),
+                  )
+                  if (snapshot.exists()) {
+                    data.application.status = snapshot.data()
+                      .type as Data.Decision
                     data = data
-                    getDoc(doc(db, decisionsCollection, user.object.uid))
-                      .then((snapshot) => {
-                        if (snapshot.exists()) {
-                          data.application.status = snapshot.data()
-                            .type as Data.Decision
-                          data = data
-                        }
-                        resolve()
-                      })
-                      .catch((err) => {
-                        console.error('Error fetching decision:', err)
-                        resolve()
-                      })
-                  } else {
-                    data.application.status = null
-                    data = data
-                    resolve()
                   }
-                } else {
-                  resolve()
+                } catch (err) {
+                  console.error('Error fetching decision:', err)
                 }
-              })
-              .catch((err) => {
-                console.error('Error fetching application:', err)
-                resolve()
-              })
+              } else {
+                data.application.status = null
+                data = data
+              }
+            }
           } else {
             const promises = []
             for (let i = 1; i <= 5; ++i) {
               promises.push(
                 getDoc(
-                  doc(db, registrationsCollection, `${user.object.uid}-${i}`),
+                  doc(
+                    db,
+                    registrationsCollection,
+                    `${userObj.object.uid}-${i}`,
+                  ),
                 ),
               )
             }
-            Promise.all(promises)
-              .then((snapshots) => {
-                snapshots.forEach((snapshot) => {
-                  if (snapshot.exists() && snapshot.data()?.meta?.submitted) {
-                    numSubmitted += 1
-                  }
-                })
-                resolve()
-              })
-              .catch((err) => {
-                console.error('Error fetching registrations:', err)
-                resolve()
-              })
+            const snapshots = await Promise.all(promises)
+            snapshots.forEach((snapshot) => {
+              if (snapshot.exists() && snapshot.data()?.meta?.submitted) {
+                numSubmitted += 1
+              }
+            })
           }
-        }),
-      ]).then(() => {
+        } catch (err) {
+          console.error('Error fetching dashboard data:', err)
+        }
+      })()
+
+      Promise.all([timerPromise, loadDataPromise]).then(() => {
         loading = false
       })
       return () => window.clearTimeout(timer)
