@@ -1,5 +1,5 @@
 import { db } from '$lib/client/firebase'
-import { classesCollection } from '$lib/data/constants'
+import { classesCollection } from '$lib/data/collections'
 import { alert } from '$lib/stores'
 import type { ClassValue } from 'clsx'
 import clsx from 'clsx'

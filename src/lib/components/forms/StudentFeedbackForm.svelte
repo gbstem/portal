@@ -4,7 +4,7 @@
     classesCollection,
     registrationsCollection,
     studentFeedbackCollection,
-  } from '$lib/data/constants'
+  } from '$lib/data/collections'
   import { alert, selectedStudentId } from '$lib/stores'
   import { cn } from '$lib/utils'
   import { doc, getDoc, setDoc } from 'firebase/firestore'

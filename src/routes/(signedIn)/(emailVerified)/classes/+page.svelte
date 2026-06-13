@@ -27,7 +27,7 @@
     classesCollection,
     registrationsCollection,
     semesterDatesDocument,
-  } from '$lib/data/constants'
+  } from '$lib/data/collections'
   import Link from '$lib/components/Link.svelte'
 
   type ClassInfo = {

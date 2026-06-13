@@ -1,3 +1,4 @@
+import { registrationsCollection } from '../../src/lib/data/collections'
 import { generateDateHash } from '../support/utils'
 
 describe('Section B: Student Registration & Account Management', () => {
@@ -99,7 +100,7 @@ describe('Section B: Student Registration & Account Management', () => {
         cy.getFirestoreUserId(authToken, emailStr).then((uid: string) => {
           cy.getFirestoreDoc(
             authToken,
-            'registrationsSpring26',
+            registrationsCollection,
             `${uid}-1`,
           ).then((data) => {
             expect(data).to.not.equal(null)

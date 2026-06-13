@@ -1,7 +1,7 @@
 <script lang="ts">
   import { db, user } from '$lib/client/firebase'
   import { coursesJson, daysOfWeekJson } from '$lib/data'
-  import { classesCollection } from '$lib/data/constants'
+  import { classesCollection } from '$lib/data/collections'
   import { alert } from '$lib/stores'
   import {
     cn,

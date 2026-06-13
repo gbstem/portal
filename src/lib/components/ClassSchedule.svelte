@@ -6,7 +6,7 @@
   import {
     classesCollection,
     registrationsCollection,
-  } from '$lib/data/constants'
+  } from '$lib/data/collections'
   import { alert } from '$lib/stores'
   import {
     classTodayHeld,

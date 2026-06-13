@@ -9,7 +9,7 @@
   import {
     classesCollection,
     substituteRequestsCollection,
-  } from '$lib/data/constants'
+  } from '$lib/data/collections'
   import { timestampToDate, getInstructorClasses } from '$lib/utils'
   import { collection, doc, getDoc, getDocs, query } from 'firebase/firestore'
   import { alert } from '$lib/stores'

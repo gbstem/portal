@@ -6,7 +6,7 @@
   import {
     classesCollection,
     registrationsCollection,
-  } from '$lib/data/constants'
+  } from '$lib/data/collections'
   import { getContext, onMount } from 'svelte'
   import { selectedStudentId } from '$lib/stores'
 

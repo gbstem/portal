@@ -1,7 +1,7 @@
 <script lang="ts">
   import { navigating, page } from '$app/stores'
   import { db, user } from '$lib/client/firebase'
-  import { decisionsCollection } from '$lib/data/constants'
+  import { decisionsCollection } from '$lib/data/collections'
   import { cn } from '$lib/utils'
   import { doc, getDoc } from 'firebase/firestore'
   import { onMount } from 'svelte'

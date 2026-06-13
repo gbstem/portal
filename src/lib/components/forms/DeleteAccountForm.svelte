@@ -1,7 +1,7 @@
 <script lang="ts">
   import { db, storage, user } from '$lib/client/firebase'
   import Dialog from '$lib/components/Dialog.svelte'
-  import { decisionsCollection } from '$lib/data/constants'
+  import { decisionsCollection } from '$lib/data/collections'
   import { alert } from '$lib/stores'
   import {
     EmailAuthProvider,

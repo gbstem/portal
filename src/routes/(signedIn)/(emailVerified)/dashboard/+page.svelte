@@ -15,7 +15,7 @@
     decisionsCollection,
     registrationsCollection,
     semesterDatesDocument,
-  } from '$lib/data/constants'
+  } from '$lib/data/collections'
   import { collection, doc, getDoc, getDocs, query } from 'firebase/firestore'
 
   type ApplicationStatus =

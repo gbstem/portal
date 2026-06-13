@@ -181,7 +181,7 @@ import { substituteClassEmailTemplate } from '../src/lib/data/emailTemplates/sub
 
 import '../src/lib/components/types/Curriculum'
 import '../src/lib/components/types/Student'
-import '../src/lib/data/constants'
+import '../src/lib/data/collections'
 import '../src/lib/data/index'
 import '../src/lib/server/firebase'
 

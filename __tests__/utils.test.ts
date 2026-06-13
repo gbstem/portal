@@ -36,7 +36,7 @@ jest.mock('$lib/client/firebase', () => ({
   db: {},
 }))
 
-jest.mock('$lib/data/constants', () => ({
+jest.mock('$lib/data/collections', () => ({
   classesCollection: 'classes',
 }))
 

@@ -16,7 +16,7 @@
     classesCollection,
     registrationsCollection,
     substituteRequestsCollection,
-  } from '$lib/data/constants'
+  } from '$lib/data/collections'
   import { SubRequestStatus } from './helpers/SubRequestStatus'
   import { classTodayHeld, formatDate, timestampToDate } from '$lib/utils'
   import Button from './Button.svelte'

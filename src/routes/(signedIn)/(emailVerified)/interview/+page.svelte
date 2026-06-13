@@ -2,7 +2,7 @@
   import { db, user } from '$lib/client/firebase'
   import InterviewForm from '$lib/components/forms/InterviewForm.svelte'
   import PageLayout from '$lib/components/PageLayout.svelte'
-  import { semesterDatesDocument } from '$lib/data/constants'
+  import { semesterDatesDocument } from '$lib/data/collections'
   import { getDoc, doc } from 'firebase/firestore'
 
   let semesterDates: Data.SemesterDates = {

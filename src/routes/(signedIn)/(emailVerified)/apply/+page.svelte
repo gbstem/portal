@@ -11,7 +11,7 @@
   import {
     registrationsCollection,
     semesterDatesDocument,
-  } from '$lib/data/constants'
+  } from '$lib/data/collections'
 
   // if this is a registration, iterate through the user's uid and check if uid-1, uid-2, etc. exists
   // if it does, add it to the options array

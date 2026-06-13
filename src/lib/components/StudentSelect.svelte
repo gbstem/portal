@@ -4,7 +4,7 @@
   import Loading from '$lib/components/Loading.svelte'
   import Select from '$lib/components/Select.svelte'
   import { db, user } from '$lib/client/firebase'
-  import { registrationsCollection } from '$lib/data/constants'
+  import { registrationsCollection } from '$lib/data/collections'
   import { selectedStudentId } from '$lib/stores'
 
   let loading = true

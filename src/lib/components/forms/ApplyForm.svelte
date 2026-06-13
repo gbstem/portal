@@ -11,7 +11,7 @@
   import type { FirebaseError } from 'firebase/app'
   import Card from '$lib/components/Card.svelte'
   import { coursesJson, gendersJson, raceJson, reasonsJson } from '$lib/data'
-  import { applicationsCollection } from '$lib/data/constants'
+  import { applicationsCollection } from '$lib/data/collections'
   import { superForm, defaults } from 'sveltekit-superforms'
   import { zod } from 'sveltekit-superforms/adapters'
   import { applicationSchema } from './schemas'

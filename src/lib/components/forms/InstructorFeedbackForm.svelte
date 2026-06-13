@@ -5,7 +5,7 @@
     instructorFeedbackCollection,
     registrationsCollection,
     substituteRequestsCollection,
-  } from '$lib/data/constants'
+  } from '$lib/data/collections'
   import { alert } from '$lib/stores'
   import { cn } from '$lib/utils'
   import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'

@@ -3,7 +3,7 @@
   import {
     applicationsCollection,
     interviewCollection,
-  } from '$lib/data/constants'
+  } from '$lib/data/collections'
   import { alert } from '$lib/stores'
   import { formatDateLocal, timestampToDate } from '$lib/utils'
   import { cn } from '$lib/utils'

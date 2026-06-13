@@ -20,7 +20,7 @@
   import Card from '$lib/components/Card.svelte'
   import { db, user } from '$lib/client/firebase'
   import { cloneDeep, isEqual } from 'lodash-es'
-  import { registrationsCollection } from '$lib/data/constants'
+  import { registrationsCollection } from '$lib/data/collections'
   import { superForm, defaults } from 'sveltekit-superforms'
   import { zod } from 'sveltekit-superforms/adapters'
   import { registrationSchema } from './schemas'
