@@ -1,12 +1,6 @@
 import { generateDateHash } from '../support/utils'
 
 describe('Section F: Profile Customization & Account Management', () => {
-  beforeEach(() => {
-    cy.clearAllCookies()
-    cy.clearAllLocalStorage()
-    cy.clearAllSessionStorage()
-  })
-
   it('Test Case 12: Profile Modifications & Reauthentication', () => {
     const emailPrefix = generateDateHash('profile')
     const initialEmail = `${emailPrefix}@gbstem.org`
@@ -15,8 +9,7 @@ describe('Section F: Profile Customization & Account Management', () => {
     const newPassword = 'newpassword123'
 
     // 1. Sign up a new user to prevent breaking demo seed accounts
-    cy.visit('/signup')
-    cy.wait(2500) // Wait for signup initialization
+    cy.loadSignupPage()
     cy.selectOption(
       'input[name="role"]',
       'Parent registering my child for classes',
@@ -26,7 +19,7 @@ describe('Section F: Profile Customization & Account Management', () => {
     cy.fillInput('input[name="email"]', initialEmail)
     cy.fillInput('input[name="password"]', initialPassword)
     cy.fillInput('input[name="confirmPassword"]', initialPassword)
-    cy.get('button[type="submit"]').click()
+    cy.contains('button', 'Sign up').click()
 
     // Handle verification dialog
     cy.get('[role="dialog"]').contains('button', 'Go to dashboard').click()
@@ -41,7 +34,10 @@ describe('Section F: Profile Customization & Account Management', () => {
     // 2. Update Full Name
     cy.fillInput('input[name="firstName"]', 'UpdatedFirst')
     cy.fillInput('input[name="lastName"]', 'UpdatedLast')
-    cy.get('form').first().find('button[type="submit"]').click()
+    cy.get('input[name="lastName"]')
+      .closest('.items-end')
+      .contains('button', 'Update')
+      .click()
     cy.waitForNotification('Name successfully updated.')
 
     // Verify persistence after reload
@@ -52,7 +48,10 @@ describe('Section F: Profile Customization & Account Management', () => {
 
     // 3. Change Email
     cy.fillInput('input[name="newEmail"]', updatedEmail)
-    cy.contains('button', 'Update').first().click()
+    cy.get('input[name="newEmail"]')
+      .closest('.items-end')
+      .contains('button', 'Update')
+      .click()
 
     // Reauthenticate Dialog
     cy.get('[role="dialog"]')
@@ -79,8 +78,8 @@ describe('Section F: Profile Customization & Account Management', () => {
     cy.fillInput('input[name="newPassword"]', newPassword)
     cy.fillInput('input[name="confirmPassword"]', newPassword)
     cy.get('input[name="confirmPassword"]')
-      .parent()
-      .find('button[type="submit"]')
+      .closest('.items-end')
+      .contains('button', 'Update')
       .click()
 
     // Reauthenticate Dialog

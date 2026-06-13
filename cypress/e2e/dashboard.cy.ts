@@ -1,14 +1,6 @@
 describe('Section C: Student/Parent Dashboard Actions', () => {
-  beforeEach(() => {
-    cy.clearAllCookies()
-    cy.clearAllLocalStorage()
-    cy.clearAllSessionStorage()
-  })
-
   it('Test Case 11: Create or View A Student Account Navigation', () => {
     cy.signedInSession('student')
-    cy.visit('/dashboard')
-    cy.wait(1500)
 
     // Click "Create or View A Student Account"
     cy.contains('Create or View A Student Account').click()
@@ -18,8 +10,6 @@ describe('Section C: Student/Parent Dashboard Actions', () => {
 
   it('Test Case 12: Student Schedule & Join Class Zoom Link', () => {
     cy.signedInSession('student')
-    cy.visit('/dashboard')
-    cy.wait(1500)
 
     // Verify Student Schedule and Next Upcoming Class card exists
     cy.get('body').should('contain', 'Student Schedule')
@@ -34,8 +24,6 @@ describe('Section C: Student/Parent Dashboard Actions', () => {
 
   it('Test Case 13: Submit Weekly Class Feedback', () => {
     cy.signedInSession('student')
-    cy.visit('/dashboard')
-    cy.wait(1500)
 
     // Verify Weekly Class Feedback Form exists
     cy.get('body').should('contain', 'Weekly Class Feedback Form')

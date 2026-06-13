@@ -2,18 +2,9 @@ import { generateDateHash } from '../support/utils'
 
 describe('Section B: Student Registration & Account Management', () => {
   beforeEach(() => {
-    // Clear session
-    cy.clearAllCookies()
-    cy.clearAllLocalStorage()
-    cy.clearAllSessionStorage()
-
     // Sign up a brand new parent account to guarantee zero existing children
     const email = `${generateDateHash('parent')}@gbstem.org`
-    cy.visit('/signup')
-    cy.get('h1').should('contain', 'Sign up')
-    cy.get('input[name="firstName"]').should('be.visible')
-    cy.wait(2500) // Wait for signup initialization and HMR/Firebase to settle
-
+    cy.loadSignupPage()
     cy.selectOption(
       'input[name="role"]',
       'Parent registering my child for classes',

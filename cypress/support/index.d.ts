@@ -1,6 +1,13 @@
 declare namespace Cypress {
   interface Chainable<_Subject = any> {
-    signedInSession(role: string): Chainable<any>
+    loadSignupPage(): Chainable<any>
+    signedInSession(
+      role: 'admin' | 'instructor' | 'reviewer' | 'student',
+      options?: {
+        email?: string
+        initialPage?: string
+      },
+    ): Chainable<any>
     signOutViaUi(): Chainable<any>
     fillInput(selector: string, text: string): Chainable<any>
     selectOption(selector: string, text: string): Chainable<any>

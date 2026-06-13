@@ -1,17 +1,7 @@
 describe('Section D: Class Roster and Details View', () => {
-  beforeEach(() => {
-    cy.clearAllCookies()
-    cy.clearAllLocalStorage()
-    cy.clearAllSessionStorage()
-  })
-
   it('Test Case 9: Student View Enrolled Classes, Filtering, and Toggle', () => {
     // Log in as student
-    cy.signedInSession('student')
-    cy.visit('/classes')
-    cy.wait(2000) // Allow Svelte/Firebase to fetch classes
-
-    cy.title().should('eq', 'Classes Overview')
+    cy.signedInSession('student', { initialPage: '/classes' })
 
     // Verify enrolled class is visible (Python 1 is seeded for the demo student)
     cy.get('body').should('contain', 'Python 1')
@@ -50,11 +40,7 @@ describe('Section D: Class Roster and Details View', () => {
 
   it('Test Case 10: Instructor View Taught Classes', () => {
     // Log in as instructor
-    cy.signedInSession('instructor')
-    cy.visit('/classes')
-    cy.wait(2000) // Allow Svelte/Firebase to fetch classes
-
-    cy.title().should('eq', 'Classes Overview')
+    cy.signedInSession('instructor', { initialPage: '/classes' })
 
     // Verify taught class is visible
     cy.get('body').should('contain', 'Python 1')

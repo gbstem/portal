@@ -17,36 +17,53 @@ Cypress.Commands.add('fillInput', (selector: string, text: string) => {
   })
 })
 
-Cypress.Commands.add('signedInSession', (role: string) => {
-  cy.session(
-    `signedIn-${role}`,
-    () => {
+Cypress.Commands.add('loadSignupPage', () => {
+  cy.visit('/signup')
+  cy.get('h1').should('contain', 'Sign up')
+  cy.get('input[name="firstName"]').should('be.visible')
+  cy.wait(2500) // Wait for signup initialization and HMR/Firebase to settle
+})
+
+Cypress.Commands.add(
+  'signedInSession',
+  (
+    role: 'admin' | 'instructor' | 'reviewer' | 'student',
+    options: {
+      email?: string
+      initialPage?: string
+    } = {},
+  ) => {
+    const emailToUse =
+      options.email ||
+      (role === 'admin' ? 'demo@gbstem.org' : `${role}@gbstem.org`)
+
+    cy.session(`signedIn-${emailToUse}`, () => {
       cy.visit('/signin')
       cy.get('input[type="email"]').should('be.visible')
       cy.wait(2500) // Wait for Svelte page and HMR to settle
-      const email =
-        role === 'admin'
-          ? 'demo@gbstem.org'
-          : role === 'instructor'
-            ? 'instructor@gbstem.org'
-            : 'student@gbstem.org'
       const password = 'penguin'
 
-      cy.fillInput('input[type="email"]', email)
+      cy.fillInput('input[type="email"]', emailToUse)
       cy.fillInput('input[type="password"]', password)
       cy.get('button[type="submit"]').click()
+      cy.wait(1000) // Wait for Svelte page and HMR to settle
+    })
 
-      cy.url().should('include', '/dashboard')
-      cy.get('h1').should('contain', 'Dashboard')
-    },
-    {
-      validate() {
-        cy.visit('/dashboard')
-        cy.get('h1').should('contain', 'Dashboard')
-      },
-    },
-  )
-})
+    const initialPage = options.initialPage || '/dashboard'
+    cy.visit(initialPage)
+    if (initialPage === '/apply') {
+      cy.get('h1').should('contain', 'Apply', { timeout: 10000 })
+    } else if (initialPage === '/dashboard') {
+      cy.get('h1').should('contain', 'Dashboard', { timeout: 10000 })
+    } else if (initialPage === '/classes') {
+      cy.title().should('eq', 'Classes Overview', { timeout: 10000 })
+    } else if (initialPage === '/community-service') {
+      cy.get('h1').should('contain', 'Community Service Hours Tracker', {
+        timeout: 10000,
+      })
+    }
+  },
+)
 
 Cypress.Commands.add('signOutViaUi', () => {
   cy.get('body').then(($body) => {

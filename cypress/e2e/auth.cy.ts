@@ -1,13 +1,6 @@
 import { generateDateHash } from '../support/utils'
 
 describe('Section A: Authentication and Navigation', () => {
-  beforeEach(() => {
-    // Clear cookies/localStorage to ensure we start unauthenticated
-    cy.clearAllCookies()
-    cy.clearAllLocalStorage()
-    cy.clearAllSessionStorage()
-  })
-
   it('Test Case 1: Unauthenticated Redirect to Sign In', () => {
     // Attempting to visit protected routes should redirect to signin
     cy.visit('/')
@@ -98,15 +91,11 @@ describe('Section A: Authentication and Navigation', () => {
   })
 
   it('Test Case 5a: Direct Sign Up as Student/Parent', () => {
-    cy.visit('/signup')
-    cy.get('h1').should('contain', 'Sign up')
-    cy.get('input[name="firstName"]').should('be.visible')
-    cy.wait(1000) // Wait for signup initialization
-
     const first = 'Charlie'
     const last = generateDateHash('Brown')
     const email = `${generateDateHash('charlie.brown')}@gmail.com`
 
+    cy.loadSignupPage()
     cy.selectOption(
       'input[name="role"]',
       'Parent registering my child for classes',
@@ -147,15 +136,11 @@ describe('Section A: Authentication and Navigation', () => {
   })
 
   it('Test Case 5b: Direct Sign Up as Instructor', () => {
-    cy.visit('/signup')
-    cy.get('h1').should('contain', 'Sign up')
-    cy.get('input[name="firstName"]').should('be.visible')
-    cy.wait(500) // Wait for signup initialization
-
     const first = 'Jane'
     const last = generateDateHash('Doe')
     const email = `${generateDateHash('jane.doe')}@gmail.com`
 
+    cy.loadSignupPage()
     cy.selectOption(
       'input[name="role"]',
       'High school/college student applying to be an instructor',

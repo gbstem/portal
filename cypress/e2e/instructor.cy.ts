@@ -1,19 +1,9 @@
 import { generateDateHash } from '../support/utils'
 
 describe('Section C & E: Instructor Applications & Community Service', () => {
-  beforeEach(() => {
-    cy.clearAllCookies()
-    cy.clearAllLocalStorage()
-    cy.clearAllSessionStorage()
-  })
-
   it.only('Test Case 8: Instructor Application Submission', () => {
     const email = `${generateDateHash('inst')}@gbstem.org`
-    cy.visit('/signup')
-    cy.get('h1').should('contain', 'Sign up')
-    cy.get('input[name="firstName"]').should('be.visible')
-    cy.wait(2500) // Wait for signup initialization and HMR/Firebase to settle
-
+    cy.loadSignupPage()
     cy.selectOption(
       'input[name="role"]',
       'High school/college student applying to be an instructor',
@@ -111,9 +101,7 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
 
   it('Test Case 11: Instructor Community Service Hours', () => {
     // Sign in as existing accepted instructor
-    cy.signedInSession('instructor')
-    cy.visit('/community-service')
-    cy.get('h1').should('contain', 'Community Service Hours Tracker')
+    cy.signedInSession('instructor', { initialPage: '/community-service' })
 
     // Click confirm hours button and verify email notification toast
     cy.contains('button', 'Get Hours Confirmation Email')
