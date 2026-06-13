@@ -14,24 +14,12 @@
   import Dialog from '$lib/components/Dialog.svelte'
   import Button from '$lib/components/Button.svelte'
   import DialogActions from '$lib/components/DialogActions.svelte'
-  import QRious from 'qrious'
-  import { onMount } from 'svelte'
   import Link from '$lib/components/Link.svelte'
 
   export let data: PageData
 
   let dialogEl: Dialog
   let disabled = false
-
-  onMount(() => {
-    return user.subscribe((userValue) => {
-      new QRious({
-        element: document.getElementById('qr'),
-        value: `https://admin.gbstem.org/user/${userValue?.profile?.id || ''}`,
-        size: 200,
-      })
-    })
-  })
 
   async function handleVerificationEmail() {
     if ($user) {
