@@ -112,6 +112,7 @@
       zod(schema as any) as any,
     ) as any,
     {
+      id: dialog ? 'class-details-dialog' : 'class-details-inline',
       SPA: true,
       validators: zod(schema as any) as any,
       async onUpdate({ form: formVal }: { form: any }) {

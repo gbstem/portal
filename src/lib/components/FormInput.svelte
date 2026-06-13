@@ -69,5 +69,5 @@
       />
     {/snippet}
   </Control>
-  <FieldErrors class="text-xs font-semibold text-red-500" />
+  <FieldErrors class="text-xs font-semibold text-red-500 empty:hidden" />
 </Field>

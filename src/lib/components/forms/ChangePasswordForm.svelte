@@ -70,30 +70,41 @@
   <fieldset class="space-y-4" disabled={$delayed}>
     <span class="font-bold">Change password</span>
 
-    <div class="flex flex-col gap-1.5">
-      <FormInput
-        form={formResult}
-        name="newPassword"
-        label="New password"
-        type="password"
-        bind:value={$form.newPassword}
-      />
+    <div class="flex items-end gap-2">
+      <div class="flex w-full flex-col gap-1.5">
+        <FormInput
+          form={formResult}
+          name="newPassword"
+          label="New password"
+          type="password"
+          bind:value={$form.newPassword}
+        />
+      </div>
+      <Button
+        class="invisible h-12 shrink-0 select-none"
+        type="button"
+        tabindex="-1">Update</Button
+      >
     </div>
 
-    <div class="relative flex flex-col gap-1.5">
-      <FormInput
-        form={formResult}
-        name="confirmPassword"
-        label="Confirm password"
-        type="password"
-        bind:value={$form.confirmPassword}
-        class="pr-21"
-      />
-      <div class="absolute top-6 right-2 flex h-12 items-center">
-        <Button color="blue" class="px-2 py-1" type="submit" disabled={$delayed}
-          >Update</Button
-        >
+    <div class="flex items-end gap-2">
+      <div class="flex w-full flex-col gap-1.5">
+        <FormInput
+          form={formResult}
+          name="confirmPassword"
+          label="Confirm password"
+          type="password"
+          bind:value={$form.confirmPassword}
+        />
       </div>
+      <Button
+        color="blue"
+        class="h-12 shrink-0"
+        type="submit"
+        disabled={$delayed}
+      >
+        Update
+      </Button>
     </div>
   </fieldset>
 </form>

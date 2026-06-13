@@ -6,7 +6,6 @@
   import InterviewForm from '$lib/components/forms/InterviewForm.svelte'
   import { ClassStatus } from '$lib/components/helpers/ClassStatus'
   import { SubRequestStatus } from '$lib/components/helpers/SubRequestStatus'
-  import PageLayout from '$lib/components/PageLayout.svelte'
   import {
     classesCollection,
     substituteRequestsCollection,
@@ -106,9 +105,11 @@
   <title>Community Service Hours Tracker</title>
 </svelte:head>
 
-<PageLayout cols={2}>
-  <svelte:fragment slot="title">Community Service Hours Tracker</svelte:fragment
-  >
+<h1 class="mb-4 text-5xl font-bold md:text-6xl">
+  Community Service Hours Tracker
+</h1>
+
+<div class="mx-auto max-w-6xl px-2 py-8 md:px-8">
   <div class="relative w-full">
     <Card>
       <div class="p-2">
@@ -133,4 +134,4 @@
       </div>
     </Card>
   </div>
-</PageLayout>
+</div>
