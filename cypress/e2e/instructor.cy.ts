@@ -113,9 +113,7 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
     cy.get('input[name="personal.phoneNumber"]').should('be.disabled')
   })
 
-  // TODO(dmeyer246) Figure out why enabling this causes the rest of the tests to fail,
-  // due to polluted sessions.
-  it.skip('Test Case 8c: Instructor Application Status - Rejected', () => {
+  it('Test Case 8c: Instructor Application Status - Rejected', () => {
     cy.signedInSession('instructor', {
       email: 'instructor-rejected@gbstem.org',
     })
@@ -131,9 +129,7 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
     cy.signOutViaUi()
   })
 
-  // TODO(dmeyer246) Figure out why enabling this causes the rest of the tests to fail,
-  // due to polluted sessions.
-  it.skip('Test Case 8d: Instructor Interview Slot Booking & Time Request', () => {
+  it('Test Case 8d: Instructor Interview Slot Booking & Time Request', () => {
     cy.signedInSession('instructor', {
       email: 'instructor-interview@gbstem.org',
     })

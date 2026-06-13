@@ -11,9 +11,11 @@ import {
 import { browser, dev } from '$app/environment'
 import { getApps, initializeApp } from 'firebase/app'
 import {
+  browserLocalPersistence,
   connectAuthEmulator,
   getAuth,
   onAuthStateChanged,
+  setPersistence,
   type Auth,
 } from 'firebase/auth'
 import {
@@ -69,6 +71,9 @@ if (isBrowser && dev && auth && db && storage) {
       connectAuthEmulator(auth, 'http://127.0.0.1:9099')
       connectFirestoreEmulator(db, '127.0.0.1', 8080)
       connectStorageEmulator(storage, '127.0.0.1', 9199)
+
+      // Force localStorage persistence for proper Cypress session isolation
+      setPersistence(auth, browserLocalPersistence)
     } catch (err) {
       console.warn('Failed to connect to Firebase emulators:', err)
     }
