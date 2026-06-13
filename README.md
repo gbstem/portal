@@ -174,11 +174,11 @@ Below is an alphabetical list of the top-level directories and significant confi
 
 ### Files
 
-- **`.eslintignore`**: Specifies which files and directories ESLint should ignore.
+- **`.env.example`**: Template file defining required local environment variables.
 - **`.gitignore`**: Specifies which files and directories Git should ignore (like `node_modules/` and `.svelte-kit/`).
 - **`.prettierignore`**: Specifies which files and directories Prettier should ignore when formatting.
-- **`cypress.config.ts`**: The configuration file for the Cypress e2e testing interface and environmental triggers.
 - **`certificates.pdf`**: Sample/template PDF certificate used within the application.
+- **`cypress.config.ts`**: The configuration file for the Cypress e2e testing interface and environmental triggers.
 - **`eslint.config.js`**: ESLint configuration mapping coding rules and checks (replacing the legacy `.eslintrc.cjs`).
 - **`jest.config.ts`**: The configuration file for our Jest testing environment, specifically tailored to work alongside TypeScript and Svelte.
 - **`jest.setup.ts`**: Initial setup code that runs before our Jest tests, importing tools like `@testing-library/jest-dom` for custom DOM matchers.
@@ -188,6 +188,6 @@ Below is an alphabetical list of the top-level directories and significant confi
 - **`prettier.config.js`**: Configuration rules for Prettier, ensuring consistent code formatting across the project.
 - **`src/data.csv`**: A static CSV data file containing program information or dataset resources.
 - **`svelte.config.js`**: SvelteKit-specific configuration (like adapter configurations and compiler options).
-- **`tailwind.config.js`**: Tailwind CSS configuration, determining design tokens like themes and spacing.
+- **`TEST_PLAN.md`**: A comprehensive test plan outlining testing strategies, test scenarios, coverage, and instructions for running Jest and Cypress tests.
 - **`tsconfig.json`**: Configuration settings for the TypeScript compiler.
 - **`vite.config.js`**: Vite configuration file for compiling, bundling, and configuring build plugins.
