@@ -26,7 +26,7 @@ describe('Section A: Authentication and Navigation', () => {
 
     // Assert that we stay on signin and an alert error is visible
     cy.url().should('include', '/signin')
-    cy.get('.bg-red-200').should('be.visible')
+    cy.waitForNotification('Wrong password.', 'bg-red-200')
   })
 
   it('Test Case 3a: Successful Sign In as Instructor', () => {

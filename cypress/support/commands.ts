@@ -114,12 +114,13 @@ Cypress.Commands.add(
 
 Cypress.Commands.add(
   'waitForNotification',
-  (text: string, timeoutMs: number = 15000) => {
+  (
+    text: string,
+    colorClass: string = 'bg-green-200',
+    timeoutMs: number = 15000,
+  ) => {
     return cy
-      .get(
-        'div.fixed.bottom-3 .bg-green-200, div.fixed.bottom-3 .bg-red-200, div.fixed.bottom-3 .bg-gray-200',
-        { timeout: timeoutMs },
-      )
+      .get(`.${colorClass}`, { timeout: timeoutMs })
       .should('contain', text)
   },
 )

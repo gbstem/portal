@@ -19,7 +19,11 @@ declare namespace Cypress {
         | 'PASSWORD_RESET'
         | 'VERIFY_AND_CHANGE_EMAIL',
     ): Chainable<string>
-    waitForNotification(text: string, timeoutMs?: number): Chainable<any>
+    waitForNotification(
+      text: string,
+      colorClass?: string,
+      timeoutMs?: number,
+    ): Chainable<any>
     getFirebaseAuthToken(): Chainable<string>
     getFirestoreUserId(authToken: string, email: string): Chainable<string>
     getFirestoreDoc(
