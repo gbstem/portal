@@ -21,7 +21,6 @@ This project relies on several key modern web technologies:
 - **[Firebase](https://firebase.google.com/)**: Client-side SDK used for interacting with the database (Cloud Firestore) and Firebase Authentication.
 - **[Firebase Admin SDK](https://firebase.google.com/docs/admin)**: Node.js SDK used for server-side management tasks, backend hooks, and admin-level database operations.
 - **[dotenv](https://github.com/motdotla/dotenv)**: Module that loads environment variables from a `.env` file into `process.env`.
-- **[file-saver](https://github.com/eligrey/FileSaver.js/)**: An implementation of the HTML5 `saveAs()` FileSaver interface, used to save certificates and files on client machines.
 - **[qrious](https://github.com/neocotic/qrious)**: A pure JavaScript library to generate QR codes using HTML5 Canvas.
 - **[SendGrid](https://sendgrid.com/)**: Transactional email service used to send system notifications, confirmations, and reminders.
 - **[Jest](https://jestjs.io/) & [Svelte Testing Tools](https://testing-library.com/)**: Our primary testing suite. We use Jest to write unit tests for utility functions, helper files, and mock Firestore queries.
@@ -177,7 +176,6 @@ Below is an alphabetical list of the top-level directories and significant confi
 - **`.env.example`**: Template file defining required local environment variables.
 - **`.gitignore`**: Specifies which files and directories Git should ignore (like `node_modules/` and `.svelte-kit/`).
 - **`.prettierignore`**: Specifies which files and directories Prettier should ignore when formatting.
-- **`certificates.pdf`**: Sample/template PDF certificate used within the application.
 - **`cypress.config.ts`**: The configuration file for the Cypress e2e testing interface and environmental triggers.
 - **`eslint.config.js`**: ESLint configuration mapping coding rules and checks (replacing the legacy `.eslintrc.cjs`).
 - **`jest.config.ts`**: The configuration file for our Jest testing environment, specifically tailored to work alongside TypeScript and Svelte.
