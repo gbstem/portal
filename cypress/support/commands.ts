@@ -51,16 +51,42 @@ Cypress.Commands.add(
 
     const initialPage = options.initialPage || '/dashboard'
     cy.visit(initialPage)
-    if (initialPage === '/apply') {
-      cy.get('h1').should('contain', 'Apply', { timeout: 10000 })
-    } else if (initialPage === '/dashboard') {
-      cy.get('h1').should('contain', 'Dashboard', { timeout: 10000 })
+    if (initialPage === '/announcements') {
+      cy.title().should('contain', 'Announcements')
+      cy.get('h1').should('contain', 'Announcements', { timeout: 10000 })
+    } else if (initialPage === '/apply') {
+      cy.title().should('contain', 'Apply')
+      if (role === 'instructor') {
+        cy.get('h1').should('contain', 'Apply', { timeout: 10000 })
+      } else {
+        cy.get('h1').should('contain', 'Student Account Creation', {
+          timeout: 10000,
+        })
+      }
     } else if (initialPage === '/classes') {
-      cy.title().should('eq', 'Classes Overview', { timeout: 10000 })
+      cy.title().should('contain', 'Classes Overview')
     } else if (initialPage === '/community-service') {
+      cy.title().should('contain', 'Community Service Hours Tracker')
       cy.get('h1').should('contain', 'Community Service Hours Tracker', {
         timeout: 10000,
       })
+    } else if (initialPage === '/curriculum') {
+      cy.title().should('contain', 'Curriculum')
+      cy.get('h1').should('contain', 'Curriculum', { timeout: 10000 })
+    } else if (initialPage === '/dashboard') {
+      cy.title().should('contain', 'Dashboard')
+      cy.get('h1').should('contain', 'Dashboard', { timeout: 10000 })
+    } else if (initialPage === '/faq') {
+      cy.title().should('contain', 'FAQ')
+      cy.get('h1').should('contain', 'FAQ', { timeout: 10000 })
+    } else if (initialPage === '/interview') {
+      cy.title().should('contain', 'Schedule Your Interview')
+      cy.get('h1').should('contain', 'Schedule Your Interview', {
+        timeout: 10000,
+      })
+    } else if (initialPage === '/profile') {
+      cy.title().should('contain', 'Profile')
+      cy.get('h1').should('contain', 'Profile', { timeout: 10000 })
     }
   },
 )
@@ -120,7 +146,7 @@ Cypress.Commands.add(
     timeoutMs: number = 15000,
   ) => {
     return cy
-      .get(`.${colorClass}`, { timeout: timeoutMs })
+      .get(`div.fixed.bottom-3 .${colorClass}`, { timeout: timeoutMs })
       .should('contain', text)
   },
 )

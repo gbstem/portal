@@ -60,7 +60,7 @@ describe('Section F: Profile Customization & Account Management', () => {
         cy.get('input[name="password"]').type(initialPassword)
         cy.contains('button', 'Reauthenticate').click()
       })
-    cy.waitForNotification('A verification email was sent.')
+    cy.waitForNotification('A verification email was sent.', 'bg-gray-200')
 
     // Retrieve link and verify/confirm email change
     cy.getLatestOobLink(updatedEmail, 'VERIFY_AND_CHANGE_EMAIL').then(

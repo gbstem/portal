@@ -41,7 +41,10 @@ describe('Section B: Student Registration & Account Management', () => {
 
     // Try to click a 6th time and assert blocked
     cy.contains('button', 'Add Child Account').click()
-    cy.waitForNotification('You can only register up to 5 children')
+    cy.waitForNotification(
+      'You can only register up to 5 children',
+      'bg-red-200',
+    )
   })
 
   it('Test Case 7: Complete and Submit a Registration Form', () => {
