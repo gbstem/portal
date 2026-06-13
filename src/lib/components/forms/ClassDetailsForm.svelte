@@ -10,16 +10,17 @@
   } from '$lib/utils'
   import { doc, setDoc } from 'firebase/firestore'
   import { onMount } from 'svelte'
-  import Button from '../Button.svelte'
-  import { ClassStatus } from '../helpers/ClassStatus'
-  import Card from '../Card.svelte'
-  import Dialog from '../Dialog.svelte'
-  import FormInput from '../FormInput.svelte'
-  import FormSelect from '../FormSelect.svelte'
-  import FormCheckbox from '../FormCheckbox.svelte'
-  import { superForm, defaults } from 'sveltekit-superforms'
+  import { defaults, superForm } from 'sveltekit-superforms'
   import { zod } from 'sveltekit-superforms/adapters'
   import { z } from 'zod'
+  import { otherInstructorEmailsSchema } from '$lib/components/forms/schemas'
+  import Button from '../Button.svelte'
+  import Card from '../Card.svelte'
+  import Dialog from '../Dialog.svelte'
+  import FormCheckbox from '../FormCheckbox.svelte'
+  import FormInput from '../FormInput.svelte'
+  import FormSelect from '../FormSelect.svelte'
+  import { ClassStatus } from '../helpers/ClassStatus'
 
   export let semesterDates: Data.SemesterDates
   export let classDetailsDialogEl: Dialog | undefined = undefined
@@ -90,7 +91,7 @@
       .default(''),
     classTime2: z.string().optional().default(''),
     online: z.boolean().default(true),
-    otherInstructorEmails: z.string().optional().default(''),
+    otherInstructorEmails: otherInstructorEmailsSchema,
     submitting: z.boolean().default(false),
   })
 
@@ -125,6 +126,16 @@
             const newValues = {
               ...values,
               ...formVal.data,
+            }
+
+            if (newValues.otherInstructorEmails) {
+              newValues.otherInstructorEmails = newValues.otherInstructorEmails
+                .split(/[\s,]+/)
+                .map((email: string) => email.trim().toLowerCase())
+                .filter((email: string) => email.length > 0)
+                .join(', ')
+            } else {
+              newValues.otherInstructorEmails = ''
             }
 
             if (createClassSchedule) {

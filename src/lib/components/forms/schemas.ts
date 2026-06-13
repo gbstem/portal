@@ -147,3 +147,18 @@ export const registrationSchema = z.object({
     submitting: z.boolean().default(false),
   }),
 })
+
+export const otherInstructorEmailsSchema = z
+  .string()
+  .optional()
+  .default('')
+  .refine(
+    (val) => {
+      if (!val) return true
+      const parts = val.split(/[ ,]+/).filter((p) => p.length > 0)
+      return parts.every((p) => z.string().email().safeParse(p).success)
+    },
+    {
+      message: 'Please enter valid, comma-separated email addresses',
+    },
+  )
