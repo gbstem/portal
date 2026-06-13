@@ -144,6 +144,8 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
       .contains('button', 'Submit')
       .click()
     cy.waitForNotification('Thank you for requesting a new timeslot!')
+    cy.get('input[name="dateToAdd"]').should('not.exist')
+    cy.contains('button', 'Request A Time').should('be.visible')
 
     // Scenario 2: Book slot
     cy.visit('/dashboard')
@@ -191,6 +193,7 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
       cy.contains('button', 'Submit').click({ force: true })
     })
     cy.waitForNotification('Class Feedback saved!')
+    cy.get('[role="dialog"]').should('not.exist')
   })
 
   it('Test Case 11: Instructor Community Service Hours', () => {
@@ -269,5 +272,6 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
       .type('Sub to cover lists and loops')
     cy.contains('button', 'Confirm Request').click({ force: true })
     cy.waitForNotification('Sub request sent!')
+    cy.get('[role="dialog"]').should('not.exist')
   })
 })

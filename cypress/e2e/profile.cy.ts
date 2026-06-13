@@ -32,6 +32,8 @@ describe('Section F: Profile Customization & Account Management', () => {
     cy.wait(2000)
 
     // 2. Update Full Name
+    cy.get('input[name="firstName"]').should('have.value', 'Profile')
+    cy.get('input[name="lastName"]').should('have.value', 'Test')
     cy.fillInput('input[name="firstName"]', 'UpdatedFirst')
     cy.fillInput('input[name="lastName"]', 'UpdatedLast')
     cy.get('input[name="lastName"]')
@@ -39,6 +41,8 @@ describe('Section F: Profile Customization & Account Management', () => {
       .contains('button', 'Update')
       .click()
     cy.waitForNotification('Name successfully updated.')
+    cy.get('input[name="firstName"]').should('have.value', 'UpdatedFirst')
+    cy.get('input[name="lastName"]').should('have.value', 'UpdatedLast')
 
     // Verify persistence after reload
     cy.visit('/profile')
@@ -90,6 +94,8 @@ describe('Section F: Profile Customization & Account Management', () => {
         cy.contains('button', 'Reauthenticate').click()
       })
     cy.waitForNotification('Password was successfully changed.')
+    cy.get('input[name="newPassword"]').should('have.value', '')
+    cy.get('input[name="confirmPassword"]').should('have.value', '')
 
     // 5. Delete Account
     cy.contains('button', 'Delete account').click()
