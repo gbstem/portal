@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte'
   import { browser } from '$app/environment'
-  import { uniqueId } from 'lodash-es'
   import { dialog } from '$lib/stores'
-  import { fade } from 'svelte/transition'
   import { clickOutside, cn, trapFocus } from '$lib/utils'
+  import { uniqueId } from 'lodash-es'
+  import { createEventDispatcher, onDestroy } from 'svelte'
+  import { fade } from 'svelte/transition'
 
   type Size = 'min' | 'full'
 
@@ -15,17 +15,29 @@
   export { openState as initial }
   const id = uniqueId('dialog-')
   export let alert = false
+  let bodyLocked = false
   $: if (browser) {
     if (openState) {
       dialog.set(id)
       document.body.style.overflowY = 'hidden'
-    } else {
+      bodyLocked = true
+    } else if ($dialog === id) {
+      dialog.set(null)
+      document.body.style.overflowY = 'auto'
+      bodyLocked = false
+    }
+  }
+
+  onDestroy(() => {
+    if (browser) {
       if ($dialog === id) {
         dialog.set(null)
+      }
+      if (bodyLocked) {
         document.body.style.overflowY = 'auto'
       }
     }
-  }
+  })
   export function open() {
     if (!disabled) {
       openState = true

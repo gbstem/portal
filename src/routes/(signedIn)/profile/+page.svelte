@@ -143,7 +143,7 @@
         </div>
       </div>
 
-      <div class="flex w-50 justify-center">
+      <div class="flex justify-center">
         <Link href="/dashboard">
           Click here to go to your application dashboard.</Link
         >
@@ -151,7 +151,9 @@
 
       <div class="text-sm">
         Any problems with changing your profile? Contact us at <Link
-          href="mailto:contact@gbstem.org">contact@gbstem.org</Link
+          href="mailto:contact@gbstem.org"
+          target="_blank"
+          rel="noopener">contact@gbstem.org</Link
         >.
       </div>
     </Card>

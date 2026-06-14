@@ -42,31 +42,33 @@
 <Field {form} {name}>
   <Control>
     {#snippet children({ props })}
-      {#if label}
-        <Label class="text-sm font-bold">
-          {label}
-          {#if isRequired}<span class="text-red-500">*</span>{/if}
-        </Label>
-      {/if}
-      <input
-        {...props}
-        name={inputName || props.name}
-        {type}
-        {placeholder}
-        required={isRequired}
-        min={$$restProps.min ?? fieldConstraints?.min}
-        max={$$restProps.max ?? fieldConstraints?.max}
-        minlength={$$restProps.minlength ?? fieldConstraints?.minlength}
-        maxlength={$$restProps.maxlength ?? fieldConstraints?.maxlength}
-        pattern={$$restProps.pattern ?? fieldConstraints?.pattern}
-        step={$$restProps.step ?? fieldConstraints?.step}
-        bind:value
-        class={cn(
-          'block h-12 w-full appearance-none rounded-md border border-gray-400 px-3 transition-colors placeholder:text-gray-500 focus:border-gray-600 focus:outline-hidden disabled:bg-white disabled:text-gray-400',
-          className,
-        )}
-        {...$$restProps}
-      />
+      <div class="relative mt-2">
+        {#if label}
+          <Label class="text-sm font-bold">
+            {label}
+            {#if isRequired}<span class="text-red-500">*</span>{/if}
+          </Label>
+        {/if}
+        <input
+          {...props}
+          name={inputName || props.name}
+          {type}
+          {placeholder}
+          required={isRequired}
+          min={$$restProps.min ?? fieldConstraints?.min}
+          max={$$restProps.max ?? fieldConstraints?.max}
+          minlength={$$restProps.minlength ?? fieldConstraints?.minlength}
+          maxlength={$$restProps.maxlength ?? fieldConstraints?.maxlength}
+          pattern={$$restProps.pattern ?? fieldConstraints?.pattern}
+          step={$$restProps.step ?? fieldConstraints?.step}
+          bind:value
+          class={cn(
+            'mt-1 block h-12 w-full appearance-none rounded-md border border-gray-400 px-3 transition-colors placeholder:text-gray-500 focus:border-gray-600 focus:outline-hidden disabled:bg-white disabled:text-gray-400',
+            className,
+          )}
+          {...$$restProps}
+        />
+      </div>
     {/snippet}
   </Control>
   <FieldErrors class="text-xs font-semibold text-red-500 empty:hidden" />

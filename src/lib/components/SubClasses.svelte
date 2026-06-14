@@ -524,7 +524,7 @@
       </Card>
     {/if}
     <Card>
-      <h2 class="mt-2 ml-2 text-xl font-bold">Substituting Classes</h2>
+      <h2 class="mt-2 text-xl font-bold">Substituting Classes</h2>
       <hr class="mt-5 mb-3" />
       <h2 class="mb-2 font-bold">Sign Up To Substitute A Class</h2>
       {#if classesMissingSubs.length > 0}

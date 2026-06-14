@@ -623,53 +623,49 @@
             ', ' +
             formatDateString(editedMeetingTimes[nextClassIndex])}
       </div>
-      <Button
-        color="blue"
-        class="mt-2"
-        on:click={() =>
-          window.open(`${generateCurriculumLink(values.course)}`, '_blank')}
-        >Curriculum</Button
-      >
-      <Button
-        color="blue"
-        class="mt-4"
-        on:click={() => {
-          recordClass(classId)
-        }}>Join Class</Button
-      >
-      <Button
-        color="blue"
-        on:click={() =>
-          sendClassReminder({
-            studentList,
-            instructorName: values.instructorFirstName,
-            instructorEmail: values.instructorEmail,
-            otherInstructorEmails: values.otherInstructorEmails,
-            className: values.course,
-            nextMeetingTime:
-              nextClassIndex === -1
-                ? 'No Upcoming Classes'
-                : values.course +
-                  ', ' +
-                  formatDateString(editedMeetingTimes[nextClassIndex]),
-          })}>Send Reminder</Button
-      >
-      <Button color="blue" class="mt-2" on:click={() => feedbackDialogEl.open()}
-        >Submit Feedback</Button
-      >
-      <Button
-        color="blue"
-        class="mt-2"
-        on:click={() => classDetailsDialogEl.open()}>Class Details</Button
-      >
-      <Button
-        color="blue"
-        class="mt-2"
-        on:click={() => studentDetailsDialogEl.open()}>View Student List</Button
-      >
+      <div class="mt-4 flex flex-wrap gap-2">
+        <Button
+          color="blue"
+          on:click={() =>
+            window.open(`${generateCurriculumLink(values.course)}`, '_blank')}
+          >Curriculum</Button
+        >
+        <Button
+          color="blue"
+          on:click={() => {
+            recordClass(classId)
+          }}>Join Class</Button
+        >
+        <Button
+          color="blue"
+          on:click={() =>
+            sendClassReminder({
+              studentList,
+              instructorName: values.instructorFirstName,
+              instructorEmail: values.instructorEmail,
+              otherInstructorEmails: values.otherInstructorEmails,
+              className: values.course,
+              nextMeetingTime:
+                nextClassIndex === -1
+                  ? 'No Upcoming Classes'
+                  : values.course +
+                    ', ' +
+                    formatDateString(editedMeetingTimes[nextClassIndex]),
+            })}>Send Reminder</Button
+        >
+        <Button color="blue" on:click={() => feedbackDialogEl.open()}
+          >Submit Feedback</Button
+        >
+        <Button color="blue" on:click={() => classDetailsDialogEl.open()}
+          >Class Details</Button
+        >
+        <Button color="blue" on:click={() => studentDetailsDialogEl.open()}
+          >View Student List</Button
+        >
+      </div>
     </Card>
 
-    <div class="mb-4 flex justify-between">
+    <div class="mb-4 flex flex-wrap justify-between gap-2">
       <Button
         color="blue"
         class={`${editMode ? 'hidden' : ''}`}
@@ -729,9 +725,9 @@
   <ul class="list-none space-y-4">
     {#each editedMeetingTimes as classTime, classNumber}
       <li
-        class="relative flex flex-col justify-between gap-4 rounded-xl border bg-white p-4 shadow-sm transition hover:shadow-lg md:flex-row md:items-center"
+        class="relative flex flex-wrap items-center justify-between gap-4 rounded-xl border bg-white p-4 shadow-sm transition hover:shadow-lg"
       >
-        <div class="flex min-w-0 flex-1 items-center gap-4">
+        <div class="flex min-w-[200px] flex-1 items-center gap-4">
           <!-- Status badge -->
           {#if values.classStatuses[classNumber] === ClassStatus.ClassNotHeld}
             <span
@@ -834,21 +830,19 @@
             </span>
           {/if}
           <div class="flex min-w-0 flex-col">
-            <span class="truncate text-lg font-semibold"
+            <span class="text-lg font-semibold"
               >Class {classNumber + 1}: {values.course}</span
             >
-            <span class="truncate text-sm text-gray-600"
+            <span class="text-sm text-gray-600"
               >{formatDateString(classTime)}</span
             >
           </div>
         </div>
-        <div
-          class="mt-2 flex flex-col items-end gap-2 md:mt-0 md:flex-row md:items-center md:gap-4"
-        >
+        <div class="flex flex-wrap items-center gap-2">
           {#if editMode}
             <Input
               type="datetime-local"
-              class="rounded-sm border p-1"
+              class={{ container: 'mt-0', input: 'rounded-sm border p-1 h-10' }}
               bind:value={editedMeetingTimes[classNumber]}
             />
             <Button

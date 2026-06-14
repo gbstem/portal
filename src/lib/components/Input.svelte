@@ -155,11 +155,13 @@
   {/if}
 {:else if type === 'file'}
   <div class={cn('mt-2', className instanceof Object && className.container)}>
-    <label for={id} class="text-sm font-bold">
-      <span>
-        {label}<span class="text-red-500">*</span>
-      </span>
-    </label>
+    {#if label}
+      <label for={id} class="text-sm font-bold">
+        <span>
+          {label}<span class="text-red-500">*</span>
+        </span>
+      </label>
+    {/if}
     <input
       class={cn(
         'mt-2 block h-12 w-full cursor-pointer appearance-none rounded-md border border-gray-400 transition-colors file:mr-4 file:h-full file:cursor-pointer file:border-none file:bg-gray-700 file:px-4 file:text-white placeholder:text-gray-500 focus:border-gray-600 focus:outline-hidden disabled:bg-white disabled:text-gray-400 disabled:placeholder:text-gray-400',
@@ -179,11 +181,14 @@
   </div>
 {:else}
   <div class={cn('mt-2', className instanceof Object && className.container)}>
-    <label for={id} class="text-sm font-bold">
-      <span>
-        {label}<span class={cn('text-red-500', !required && 'hidden')}>*</span>
-      </span>
-    </label>
+    {#if label}
+      <label for={id} class="text-sm font-bold">
+        <span>
+          {label}<span class={cn('text-red-500', !required && 'hidden')}>*</span
+          >
+        </span>
+      </label>
+    {/if}
     <div class="relative">
       <input
         class={cn(

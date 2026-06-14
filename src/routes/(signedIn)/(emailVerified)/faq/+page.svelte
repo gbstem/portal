@@ -26,8 +26,10 @@
         >My school is not listed on the application.</svelte:fragment
       >
       <svelte:fragment slot="content"
-        >Please email us at <Link href="mailto:contact@gbstem.org"
-          >contact@gbstem.org</Link
+        >Please email us at <Link
+          href="mailto:contact@gbstem.org"
+          target="_blank"
+          rel="noopener">contact@gbstem.org</Link
         > with information about your school and possibly a link to your school's
         website.</svelte:fragment
       >
@@ -37,8 +39,10 @@
         I keep encountering an error and can't submit!
       </svelte:fragment>
       <svelte:fragment slot="content">
-        Please contact us immediately at <Link href="mailto:contact@gbstem.org"
-          >contact@gbstem.org</Link
+        Please contact us immediately at <Link
+          href="mailto:contact@gbstem.org"
+          target="_blank"
+          rel="noopener">contact@gbstem.org</Link
         >
         with the following content.
         <ol class="list-inside list-disc">

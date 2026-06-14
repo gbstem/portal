@@ -604,13 +604,8 @@
         <Select
           bind:value={classFilter}
           placeholder="Filter by course"
-          options={coursesJson}
+          options={[{ name: 'all' }, ...coursesJson]}
         />
-        {#if classFilter !== ''}
-          <Button color="blue" on:click={() => clearFilter()}
-            >Remove Filter</Button
-          >
-        {/if}
       </div>
       {#if isStudent}
         <Button
@@ -624,51 +619,13 @@
 
     <div class="grid gap-6 md:grid-cols-2" transition:fade={{ duration: 500 }}>
       {#each classes as classInfo (classInfo.id)}
-        {#if classFilter == '' || classFilter == classInfo.course}
+        {#if classFilter == '' || classFilter == 'all' || classFilter == classInfo.course}
           {#if !onlyShowEnrolled || Object.entries(studentUidToClassIds).some( ([studentUid, classIds]) => classIds.includes(classInfo.id), )}
             <Card
               class="group relative overflow-hidden rounded-xl border border-gray-200 bg-white p-6 shadow-xs transition-all duration-200 hover:border-gray-300 hover:shadow-lg"
             >
-              <!-- Status Badge -->
-              <div class="absolute top-4 right-4">
-                <span
-                  class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold text-white shadow-xs {classInfo.spotsRemaining <=
-                  0
-                    ? 'bg-red-500'
-                    : 'bg-green-500'}"
-                >
-                  {#if classInfo.spotsRemaining <= 0}
-                    <svg
-                      class="mr-1 h-3 w-3"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fill-rule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                        clip-rule="evenodd"
-                      />
-                    </svg>
-                    Class Full
-                  {:else}
-                    <svg
-                      class="mr-1 h-3 w-3"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fill-rule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                        clip-rule="evenodd"
-                      />
-                    </svg>
-                    {classInfo.spotsRemaining} spots
-                  {/if}
-                </span>
-              </div>
-
-              <!-- Course Header -->
-              <div class="mb-4">
+              <!-- Course Header & Status Badge -->
+              <div class="mb-4 flex items-start justify-between gap-4">
                 <h2
                   class="text-xl font-bold text-gray-900 transition-colors group-hover:text-blue-600"
                 >
@@ -679,6 +636,42 @@
                     </span>
                   {/if}
                 </h2>
+                <div class="shrink-0">
+                  <span
+                    class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold text-white shadow-xs {classInfo.spotsRemaining <=
+                    0
+                      ? 'bg-red-500'
+                      : 'bg-green-500'}"
+                  >
+                    {#if classInfo.spotsRemaining <= 0}
+                      <svg
+                        class="mr-1 h-3 w-3"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fill-rule="evenodd"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                          clip-rule="evenodd"
+                        />
+                      </svg>
+                      Class Full
+                    {:else}
+                      <svg
+                        class="mr-1 h-3 w-3"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fill-rule="evenodd"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                          clip-rule="evenodd"
+                        />
+                      </svg>
+                      {classInfo.spotsRemaining} spots
+                    {/if}
+                  </span>
+                </div>
               </div>
 
               <!-- Class Type & Instructor -->
@@ -855,6 +848,8 @@
                       </svg>
                       <a
                         href={`mailto:${classInfo.instructorEmail}`}
+                        target="_blank"
+                        rel="noopener"
                         class="hover:underline"
                       >
                         Contact Instructor

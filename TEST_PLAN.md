@@ -273,13 +273,13 @@ graph TD
   3. Verify that the enrolled class details are displayed.
   4. Use the course filter select dropdown to filter classes by a specific course (e.g. `"Python 1"`).
   5. Verify that only class cards matching that course are shown.
-  6. Click **"Remove Filter"** to clear.
+  6. Select **"all"** from the course filter select dropdown to clear.
   7. Click the **"Show all enrolled classes"** toggle button.
   8. Click the **"Show all classes"** toggle button.
 - **Expected Results (Assertions)**:
   - The enrolled class details (Course, Instructor, Zoom Link, Class Time) are displayed.
   - Selecting a filter restricts the displayed class cards to the selected course.
-  - Removing the filter displays all classes again.
+  - Selecting "all" displays all classes again.
   - Clicking "Show all enrolled classes" hides all classes that the student's children are not enrolled in.
   - Clicking "Show all classes" displays all available classes again.
 
@@ -291,13 +291,13 @@ graph TD
   2. Navigate to `/classes`.
   3. Locate the **"Filter by course"** dropdown.
   4. Select a specific course that is taught (e.g., `"Python 1"`).
-  5. Click the **"Remove Filter"** button.
+  5. Select the **"all"** option from the dropdown.
 - Expected Results (Assertions):
   - The classes the instructor is teaching are displayed.
   - The roster of enrolled students is visible.
   - Meeting links and class times are rendered correctly.
   - Selecting a filter hides all classes not matching that course, showing only the filtered class.
-  - Clicking "Remove Filter" displays all taught classes again.
+  - Selecting "all" displays all taught classes again.
 
 #### Test Case 10b: Instructor Submit Attendance Feedback
 
