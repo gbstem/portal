@@ -105,6 +105,7 @@
         class="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-gray-200 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-400 sm:hidden"
         type="button"
         aria-label={open ? 'Close menu' : 'Open menu'}
+        aria-expanded={open}
         on:click={() => {
           open = !open
         }}

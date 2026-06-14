@@ -226,27 +226,26 @@
               <StudentSelect />
             </div>
             <div class="flex flex-col gap-2">
-              <a href="/apply">
-                <Button
-                  class="flex w-full items-center justify-center gap-2"
-                  color="blue"
+              <Button
+                href="/apply"
+                class="flex w-full items-center justify-center gap-2"
+                color="blue"
+              >
+                <svg
+                  class="h-5 w-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
                 >
-                  <svg
-                    class="h-5 w-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                    />
-                  </svg>
-                  Create or View A Student Account
-                </Button>
-              </a>
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                  />
+                </svg>
+                Create or View A Student Account
+              </Button>
             </div>
           </Card>
           <Card class="rounded-xl bg-white p-6 shadow-lg">
@@ -356,29 +355,28 @@
                       {/if}
                     </p>
                   </div>
-                  <a href="/apply">
-                    <Button
-                      class="mt-5 flex w-full items-center justify-center gap-2"
-                      color="blue"
+                  <Button
+                    href="/apply"
+                    class="mt-5 flex w-full items-center justify-center gap-2"
+                    color="blue"
+                  >
+                    <svg
+                      class="h-5 w-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
                     >
-                      <svg
-                        class="h-5 w-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                        />
-                      </svg>
-                      {data.application.status === null
-                        ? 'Edit Application'
-                        : 'View Application'}
-                    </Button>
-                  </a>
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                      />
+                    </svg>
+                    {data.application.status === null
+                      ? 'Edit Application'
+                      : 'View Application'}
+                  </Button>
                 </div>
               {:else}
                 <div class="mb-4">
@@ -394,27 +392,26 @@
                       You have no student accounts set up for this semester.
                     </div>
                   {/if}
-                  <a href="/apply">
-                    <Button
-                      class="mt-5 flex w-full items-center justify-center gap-2"
-                      color="blue"
+                  <Button
+                    href="/apply"
+                    class="mt-5 flex w-full items-center justify-center gap-2"
+                    color="blue"
+                  >
+                    <svg
+                      class="h-5 w-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
                     >
-                      <svg
-                        class="h-5 w-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                        />
-                      </svg>
-                      Create or View A Student Account
-                    </Button>
-                  </a>
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                      />
+                    </svg>
+                    Create or View A Student Account
+                  </Button>
                 </div>
               {/if}
             {:else if new Date() >= new Date(semesterDates.classesStart) && ((!isStudent && data.application.status === null) || (isStudent && numSubmitted === 0))}
