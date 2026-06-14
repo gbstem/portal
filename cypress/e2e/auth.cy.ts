@@ -29,6 +29,22 @@ describe('Section A: Authentication and Navigation', () => {
     cy.waitForNotification('Wrong password.', 'bg-red-200')
   })
 
+  it('Test Case 2b: Unsuccessful Sign In as Admin', () => {
+    cy.visit('/signin')
+    cy.get('input[type="email"]').should('be.visible')
+    cy.wait(500)
+    cy.fillInput('input[type="email"]', 'demo@gbstem.org')
+    cy.fillInput('input[type="password"]', 'penguin')
+    cy.get('button[type="submit"]').click()
+
+    // Assert that we stay on signin and an alert error is visible
+    cy.url().should('include', '/signin')
+    cy.waitForNotification(
+      'Admins must sign in on the admin site.',
+      'bg-red-200',
+    )
+  })
+
   it('Test Case 3a: Successful Sign In as Instructor', () => {
     cy.visit('/')
     cy.url().should('include', '/signin')

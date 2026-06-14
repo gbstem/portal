@@ -290,7 +290,12 @@ describe('API routes POST endpoints', () => {
   it('authPOST POST and DELETE successfully', async () => {
     mockRequest.json.mockResolvedValue({ idToken: 'idToken123' })
     mockAdminAuth.verifyIdToken.mockResolvedValue({
+      uid: 'uid123',
       auth_time: new Date().getTime() / 1000 - 10,
+    })
+    mockAdminAuth.getUser.mockResolvedValue({
+      uid: 'uid123',
+      customClaims: { role: 'student' },
     })
     mockAdminAuth.createSessionCookie.mockResolvedValue('sessionCookieVal')
 
@@ -302,6 +307,54 @@ describe('API routes POST endpoints', () => {
 
     const delRes = await authDELETE({ cookies: mockCookies } as any)
     expect(delRes).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
+  })
+
+  it('authPOST fails if user is admin', async () => {
+    mockRequest.json.mockResolvedValue({ idToken: 'idToken123' })
+    mockAdminAuth.verifyIdToken.mockResolvedValue({
+      uid: 'uid123',
+      auth_time: new Date().getTime() / 1000 - 10,
+    })
+    mockAdminAuth.getUser.mockResolvedValue({
+      uid: 'uid123',
+      customClaims: { role: 'admin' },
+    })
+
+    await expect(
+      authPOST({
+        request: mockRequest,
+        cookies: mockCookies,
+      } as any),
+    ).rejects.toEqual(
+      expect.objectContaining({
+        status: 403,
+        message: 'Admins must sign in on the admin site.',
+      }),
+    )
+  })
+
+  it('authPOST fails if user is reviewer', async () => {
+    mockRequest.json.mockResolvedValue({ idToken: 'idToken123' })
+    mockAdminAuth.verifyIdToken.mockResolvedValue({
+      uid: 'uid123',
+      auth_time: new Date().getTime() / 1000 - 10,
+    })
+    mockAdminAuth.getUser.mockResolvedValue({
+      uid: 'uid123',
+      customClaims: { role: 'reviewer' },
+    })
+
+    await expect(
+      authPOST({
+        request: mockRequest,
+        cookies: mockCookies,
+      } as any),
+    ).rejects.toEqual(
+      expect.objectContaining({
+        status: 403,
+        message: 'Reviewers must sign in on the admin site.',
+      }),
+    )
   })
 
   it('communityServicePOST successfully', async () => {
