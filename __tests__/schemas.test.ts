@@ -3,6 +3,7 @@ import {
   tokenSchema,
   applicationSchema,
   registrationSchema,
+  passwordSchema,
 } from '../src/lib/components/forms/schemas'
 
 describe('Zod Validation Schemas', () => {
@@ -414,6 +415,33 @@ describe('Zod Validation Schemas', () => {
           }
         }
       })
+    })
+  })
+
+  describe('passwordSchema', () => {
+    it('passes for a valid password within 6 to 64 characters', () => {
+      expect(passwordSchema.safeParse('123456').success).toBe(true)
+      expect(passwordSchema.safeParse('a'.repeat(64)).success).toBe(true)
+    })
+
+    it('denies a password shorter than 6 characters', () => {
+      const result = passwordSchema.safeParse('12345')
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.error.issues[0].message).toBe(
+          'Password must be at least 6 characters',
+        )
+      }
+    })
+
+    it('denies a password longer than 64 characters', () => {
+      const result = passwordSchema.safeParse('a'.repeat(65))
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.error.issues[0].message).toBe(
+          'Password must be at most 64 characters',
+        )
+      }
     })
   })
 })

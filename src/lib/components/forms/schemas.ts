@@ -162,3 +162,17 @@ export const otherInstructorEmailsSchema = z
       message: 'Please enter valid, comma-separated email addresses',
     },
   )
+
+export const PASSWORD_MIN_LENGTH = 6
+export const PASSWORD_MAX_LENGTH = 64
+
+export const passwordSchema = z
+  .string()
+  .min(
+    PASSWORD_MIN_LENGTH,
+    `Password must be at least ${PASSWORD_MIN_LENGTH} characters`,
+  )
+  .max(
+    PASSWORD_MAX_LENGTH,
+    `Password must be at most ${PASSWORD_MAX_LENGTH} characters`,
+  )

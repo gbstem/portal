@@ -20,6 +20,7 @@
   import { superForm, defaults } from 'sveltekit-superforms'
   import { zod } from 'sveltekit-superforms/adapters'
   import { z } from 'zod'
+  import { passwordSchema } from './schemas'
 
   const schema = z
     .object({
@@ -27,7 +28,7 @@
       firstName: z.string().trim().min(1, 'First name is required'),
       lastName: z.string().trim().min(1, 'Last name is required'),
       email: z.string().email('Invalid email address'),
-      password: z.string().min(6, 'Password must be at least 6 characters'),
+      password: passwordSchema,
       confirmPassword: z.string().min(1, 'Confirm password is required'),
     })
     .refine((data) => data.password === data.confirmPassword, {
