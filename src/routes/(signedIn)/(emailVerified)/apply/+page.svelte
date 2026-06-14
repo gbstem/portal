@@ -1,17 +1,18 @@
 <script lang="ts">
-  import ApplyForm from '$lib/components/forms/ApplyForm.svelte'
   import { db, user } from '$lib/client/firebase'
-  import RegistrationForm from '$lib/components/forms/RegistrationForm.svelte'
   import Button from '$lib/components/Button.svelte'
-  import Select from '$lib/components/Select.svelte'
   import Card from '$lib/components/Card.svelte'
-  import { getDoc, doc } from 'firebase/firestore'
-  import { onMount } from 'svelte'
-  import { alert } from '$lib/stores'
+  import ApplyForm from '$lib/components/forms/ApplyForm.svelte'
+  import RegistrationForm from '$lib/components/forms/RegistrationForm.svelte'
+  import Select from '$lib/components/Select.svelte'
   import {
+    maxChildrenPerAccount,
     registrationsCollection,
     semesterDatesDocument,
   } from '$lib/data/collections'
+  import { alert } from '$lib/stores'
+  import { doc, getDoc } from 'firebase/firestore'
+  import { onMount } from 'svelte'
 
   // if this is a registration, iterate through the user's uid and check if uid-1, uid-2, etc. exists
   // if it does, add it to the options array
@@ -47,7 +48,7 @@
         }
       },
     )
-    for (let i = 1; i < 6; ++i) {
+    for (let i = 1; i <= maxChildrenPerAccount; ++i) {
       const docRef = await getDoc(
         doc(db, registrationsCollection, `${uid}-${i}`),
       )
@@ -76,8 +77,11 @@
   }
 
   const addChild = () => {
-    if (options.length >= 5) {
-      alert.trigger('error', 'You can only register up to 5 children')
+    if (options.length >= maxChildrenPerAccount) {
+      alert.trigger(
+        'error',
+        `You can only register up to ${maxChildrenPerAccount} children`,
+      )
       return
     }
     const newChildNumber = options.length + 1

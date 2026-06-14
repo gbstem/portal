@@ -12,10 +12,11 @@
   import {
     applicationsCollection,
     decisionsCollection,
+    maxChildrenPerAccount,
     registrationsCollection,
     semesterDatesDocument,
   } from '$lib/data/collections'
-  import { collection, doc, getDoc, getDocs, query } from 'firebase/firestore'
+  import { doc, getDoc } from 'firebase/firestore'
 
   type ApplicationStatus =
     | 'accepted'
@@ -93,7 +94,7 @@
               doc(db, 'semesterDates', semesterDatesDocument),
             )
             const registrationPromises = []
-            for (let i = 1; i <= 5; ++i) {
+            for (let i = 1; i <= maxChildrenPerAccount; ++i) {
               registrationPromises.push(
                 getDoc(
                   doc(

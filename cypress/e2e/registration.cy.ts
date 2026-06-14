@@ -1,4 +1,7 @@
-import { registrationsCollection } from '../../src/lib/data/collections'
+import {
+  registrationsCollection,
+  maxChildrenPerAccount,
+} from '../../src/lib/data/collections'
 import { generateDateHash } from '../support/utils'
 
 describe('Section B: Student Registration & Account Management', () => {
@@ -33,17 +36,17 @@ describe('Section B: Student Registration & Account Management', () => {
     // Assert Child 1 exists by default
     cy.get('input[name="select-a-child"]').should('have.value', 'Child 1')
 
-    // Click "Add Child Account" to add Child 2, 3, 4, 5
-    for (let i = 2; i <= 5; i++) {
+    // Click "Add Child Account" to add new children up to maxChildrenPerAccount
+    for (let i = 2; i <= maxChildrenPerAccount; i++) {
       cy.contains('button', 'Add Child Account').click()
       cy.wait(300)
       cy.get('input[name="select-a-child"]').should('have.value', `Child ${i}`)
     }
 
-    // Try to click a 6th time and assert blocked
+    // Try to click one more time and assert blocked
     cy.contains('button', 'Add Child Account').click()
     cy.waitForNotification(
-      'You can only register up to 5 children',
+      `You can only register up to ${maxChildrenPerAccount} children`,
       'bg-red-200',
     )
   })

@@ -1,34 +1,34 @@
 <script lang="ts">
-  import type { EnrollRequestBody } from '../../../api/enroll/+server'
   import { db, user } from '$lib/client/firebase'
-  import { onMount } from 'svelte'
-  import Card from '$lib/components/Card.svelte'
-  import Loading from '$lib/components/Loading.svelte'
-  import { fade } from 'svelte/transition'
-  import Dialog from '$lib/components/Dialog.svelte'
   import Button from '$lib/components/Button.svelte'
+  import Card from '$lib/components/Card.svelte'
+  import Dialog from '$lib/components/Dialog.svelte'
   import DialogActions from '$lib/components/DialogActions.svelte'
-  import {
-    collection,
-    getDocs,
-    getDoc,
-    updateDoc,
-    arrayUnion,
-    doc,
-    arrayRemove,
-  } from 'firebase/firestore'
-  import { alert } from '$lib/stores'
-  import StudentSelect from '$lib/components/StudentSelect.svelte'
+  import Link from '$lib/components/Link.svelte'
+  import Loading from '$lib/components/Loading.svelte'
   import Select from '$lib/components/Select.svelte'
+  import StudentSelect from '$lib/components/StudentSelect.svelte'
   import { coursesJson } from '$lib/data'
-  import Alert from '$lib/components/Alert.svelte'
-  import { formatDate, formatClassTimes } from '$lib/utils'
   import {
     classesCollection,
+    maxChildrenPerAccount,
     registrationsCollection,
     semesterDatesDocument,
   } from '$lib/data/collections'
-  import Link from '$lib/components/Link.svelte'
+  import { alert } from '$lib/stores'
+  import { formatClassTimes } from '$lib/utils'
+  import {
+    arrayRemove,
+    arrayUnion,
+    collection,
+    doc,
+    getDoc,
+    getDocs,
+    updateDoc,
+  } from 'firebase/firestore'
+  import { onMount } from 'svelte'
+  import { fade } from 'svelte/transition'
+  import type { EnrollRequestBody } from '../../../api/enroll/+server'
 
   type ClassInfo = {
     id: string
@@ -106,7 +106,7 @@
 
   const determineStudentEnrollment = async (user: Data.User.Store) => {
     const uid = user.object.uid
-    for (let i = 1; i < 6; ++i) {
+    for (let i = 1; i <= maxChildrenPerAccount; ++i) {
       const docRef = await getDoc(
         doc(db, registrationsCollection, `${uid}-${i}`),
       )

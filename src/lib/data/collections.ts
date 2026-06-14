@@ -9,3 +9,5 @@ export const registrationsCollection = 'registrations' + suffix
 export const semesterDatesDocument = suffix.toLowerCase()
 export const studentFeedbackCollection = 'classFeedback' + suffix
 export const substituteRequestsCollection = 'subRequests'
+
+export const maxChildrenPerAccount = 5

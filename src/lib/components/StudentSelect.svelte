@@ -1,11 +1,14 @@
 <script lang="ts">
-  import { doc, getDoc } from 'firebase/firestore'
-  import { onMount } from 'svelte'
+  import { db, user } from '$lib/client/firebase'
   import Loading from '$lib/components/Loading.svelte'
   import Select from '$lib/components/Select.svelte'
-  import { db, user } from '$lib/client/firebase'
-  import { registrationsCollection } from '$lib/data/collections'
+  import {
+    maxChildrenPerAccount,
+    registrationsCollection,
+  } from '$lib/data/collections'
   import { selectedStudentId } from '$lib/stores'
+  import { doc, getDoc } from 'firebase/firestore'
+  import { onMount } from 'svelte'
 
   let loading = true
 
@@ -32,7 +35,7 @@
 
   const fetchData = async (user: Data.User.Store) => {
     const uid = user.object.uid
-    for (let i = 1; i < 6; ++i) {
+    for (let i = 1; i <= maxChildrenPerAccount; ++i) {
       const docRef = await getDoc(
         doc(db, registrationsCollection, `${uid}-${i}`),
       )
