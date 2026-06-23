@@ -192,19 +192,19 @@ describe('curriculum', () => {
 
   it('generateCurriculumLink generates valid urls', () => {
     expect(generateCurriculumLink('Mathematics 1a')).toBe(
-      'https://curriculum.gbstem.org/#/math/math1A',
+      'https://curriculum.gbstem.org/math/math1A',
     )
     expect(generateCurriculumLink('Web Development A')).toBe(
-      'https://curriculum.gbstem.org/#/cs/webdev A',
+      'https://curriculum.gbstem.org/cs/webdev A',
     )
     expect(generateCurriculumLink('Environmental Science A')).toBe(
-      'https://curriculum.gbstem.org/#/science/environmental A',
+      'https://curriculum.gbstem.org/science/environmental A',
     )
     expect(generateCurriculumLink('Physics A')).toBe(
-      'https://curriculum.gbstem.org/#/science/physicsA',
+      'https://curriculum.gbstem.org/science/physicsA',
     )
     expect(generateCurriculumLink('Engineering 1a')).toBe(
-      'https://curriculum.gbstem.org/#/engineering/engineering1A',
+      'https://curriculum.gbstem.org/engineering/engineering1A',
     )
   })
 })

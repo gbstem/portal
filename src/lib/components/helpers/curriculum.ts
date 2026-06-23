@@ -6,7 +6,7 @@ export const tracks: string[] = [
   'Computer Science',
   'Engineering',
 ]
-const baseUrl = 'https://curriculum.gbstem.org/#/'
+const baseUrl = 'https://curriculum.gbstem.org'
 export const curriculums: Curriculum[] = [
   {
     class: 'Mathematics 1a',
