@@ -63,7 +63,14 @@ export const handle = (async ({ event, resolve }) => {
 }) satisfies Handle
 
 export const handleError = (({ error }) => {
-  console.error('[SvelteKit Server Error]:', error)
+  const is404 =
+    (error as any)?.status === 404 ||
+    (error as any)?.message?.includes('Not found')
+
+  if (!is404) {
+    console.error('[SvelteKit Server Error]:', error)
+  }
+
   return {
     message: (error as any)?.message || 'An unexpected error occurred.',
     code: (error as any)?.code || 'INTERNAL_ERROR',
