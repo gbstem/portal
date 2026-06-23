@@ -1,57 +1,45 @@
 <script lang="ts">
+  import { db, storage, user } from '$lib/client/firebase'
+  import Dialog from '$lib/components/Dialog.svelte'
+  import { decisionsCollection } from '$lib/data/collections'
   import { alert } from '$lib/stores'
   import {
     EmailAuthProvider,
     deleteUser,
     reauthenticateWithCredential,
   } from 'firebase/auth'
-  import Dialog from '$lib/components/Dialog.svelte'
-  import Form from '$lib/components/Form.svelte'
-  import Input from '$lib/components/Input.svelte'
-  import { doc, deleteDoc } from 'firebase/firestore'
-  import { ref, deleteObject } from 'firebase/storage'
-  import { db, storage, user } from '$lib/client/firebase'
+  import { deleteDoc, doc } from 'firebase/firestore'
+  import { deleteObject, ref } from 'firebase/storage'
+  import { defaults, superForm } from 'sveltekit-superforms'
+  import { zod } from 'sveltekit-superforms/adapters'
+  import { z } from 'zod'
   import Button from '../Button.svelte'
   import DialogActions from '../DialogActions.svelte'
-  import { cn } from '$lib/utils'
-    import { decisionsCollection } from '$lib/data/constants'
+  import FormInput from '../FormInput.svelte'
 
-  let className = ''
-  export { className as class }
+  const schema = z.object({
+    password: z.string().min(1, 'Password is required'),
+  })
 
   let dialogEl: Dialog
-  let showValidation = false
-  let disabled = false
-  let values = {
-    password: '',
-  }
 
-  function handleSubmit(e: CustomEvent<SubmitData>) {
-    if (e.detail.error === null) {
-      showValidation = false
-      dialogEl.open()
-    } else {
-      showValidation = true
-      alert.trigger('error', e.detail.error)
-    }
-  }
-  function handleCancel() {
-    alert.trigger('info', 'Account deletion canceled.')
-  }
-  async function handleReauthenticate(e: CustomEvent<SubmitData>) {
-    if ($user) {
-      const frozenUser = $user
-      if (e.detail.error === null) {
-        showValidation = false
-        disabled = true
-        reauthenticateWithCredential(
-          frozenUser.object,
-          EmailAuthProvider.credential(
-            frozenUser.object.email as string,
-            values.password,
-          ),
-        )
-          .then(async () => {
+  const formResult = superForm(
+    defaults({ password: '' }, zod(schema as any) as any) as any,
+    {
+      SPA: true,
+      validators: zod(schema as any) as any,
+      async onUpdate({ form: formVal }) {
+        if (!formVal.valid) return
+        if ($user) {
+          const frozenUser = $user
+          try {
+            await reauthenticateWithCredential(
+              frozenUser.object,
+              EmailAuthProvider.credential(
+                frozenUser.object.email as string,
+                formVal.data.password,
+              ),
+            )
             const id = frozenUser.profile.id
             const resumeRef = ref(
               storage,
@@ -64,80 +52,65 @@
                 deleteDoc(doc(db, decisionsCollection, frozenUser.object.uid)),
               ].map((p) => p.catch((e) => e)),
             )
-            Promise.all([
+            await Promise.all([
               deleteDoc(doc(db, 'ids', id)),
               deleteDoc(doc(db, 'users', frozenUser.object.uid)),
             ])
-              .then(() => {
-                deleteUser(frozenUser.object)
-                  .then(() => {
-                    alert.trigger(
-                      'success',
-                      'Account was successfully deleted.',
-                    )
-                    window.setTimeout(() => {
-                      location.reload()
-                    }, 2000)
-                  })
-                  .catch((err) => {
-                    console.log(err)
-                    disabled = false
-                  })
-              })
-              .catch((err) => {
-                // console.log('id/User Object Deletion:', err)
-                disabled = false
-              })
-          })
-          .catch((err) => {
-            disabled = false
+            await deleteUser(frozenUser.object)
+            alert.trigger('success', 'Account was successfully deleted.')
+            window.setTimeout(() => {
+              location.reload()
+            }, 2000)
+          } catch (err: any) {
             alert.trigger('error', err.code, true)
-          })
-      } else {
-        showValidation = true
-        alert.trigger('error', e.detail.error)
-      }
-    }
+          }
+        }
+      },
+    },
+  )
+
+  const { form, enhance, delayed, reset } = formResult
+
+  function handleCancel() {
+    reset()
+    alert.trigger('info', 'Account deletion canceled.')
   }
 </script>
 
-<Form
-  class={cn(showValidation && 'show-validation', className)}
-  on:submit={handleSubmit}
->
+<div class="w-full">
   <span class="font-bold">Delete account</span>
   <div class="mt-2">
-    <Button color="red" type="submit">Delete account</Button>
-  </div>
-</Form>
-
-<Dialog bind:this={dialogEl} on:cancel={handleCancel} {disabled} alert>
-  <svelte:fragment slot="title">Delete account</svelte:fragment>
-  <div slot="description" class="flex justify-center">
-    <Form
-      class={cn(showValidation && 'show-validation')}
-      on:submit={handleReauthenticate}
+    <Button color="red" type="button" on:click={() => dialogEl.open()}
+      >Delete account</Button
     >
-      <fieldset class="space-y-4" {disabled}>
+  </div>
+</div>
+
+<Dialog bind:this={dialogEl} on:cancel={handleCancel} disabled={$delayed} alert>
+  <svelte:fragment slot="title">Delete account</svelte:fragment>
+  <div slot="description" class="flex w-full justify-center">
+    <form use:enhance class="w-full max-w-lg">
+      <fieldset class="space-y-4" disabled={$delayed}>
         <div class="flex justify-center">
-          <div class="w-full max-w-lg space-y-4">
-            <Input
-              type="password"
-              bind:value={values.password}
+          <div class="w-full space-y-4">
+            <FormInput
+              form={formResult}
+              name="password"
               label="Password"
-              floating
-              required
+              type="password"
+              bind:value={$form.password}
               autocomplete="current-password"
-              focus
             />
-            <div class="font-bold">Warning! This is irreversible.</div>
+            <div class="text-center font-bold text-red-600">
+              Warning! This is irreversible.
+            </div>
           </div>
         </div>
         <DialogActions>
-          <Button on:click={dialogEl.cancel}>Cancel</Button>
-          <Button color="red" type="submit">Delete</Button>
+          <Button type="button" on:click={dialogEl.cancel}>Cancel</Button>
+          <Button color="red" type="submit" disabled={$delayed}>Delete</Button>
         </DialogActions>
       </fieldset>
-    </Form>
+    </form>
   </div>
 </Dialog>

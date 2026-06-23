@@ -3,7 +3,11 @@
 // for information about these interfaces
 declare global {
   namespace App {
-    // interface Error {}
+    interface Error {
+      message: string
+      code?: string
+      details?: string
+    }
     interface Locals {
       user: Data.User.Peek | null
     }

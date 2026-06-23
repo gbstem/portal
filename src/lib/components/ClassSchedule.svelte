@@ -1,43 +1,42 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
   import { db, user } from '$lib/client/firebase'
+  import Button from '$lib/components/Button.svelte'
+  import Dialog from '$lib/components/Dialog.svelte'
+  import DialogActions from '$lib/components/DialogActions.svelte'
+  import {
+    classesCollection,
+    registrationsCollection,
+  } from '$lib/data/collections'
+  import { alert } from '$lib/stores'
+  import {
+    classTodayHeld,
+    copyEmails,
+    copyToClipboard,
+    formatDateString,
+    getInstructorClasses,
+    isClassUpcoming,
+    normalizeCapitals,
+    toLocalISOString,
+  } from '$lib/utils'
   import {
     doc,
-    getDoc,
-    updateDoc,
     DocumentReference,
+    getDoc,
     setDoc,
-    getDocs,
-    collection,
+    updateDoc,
   } from 'firebase/firestore'
-  import Input from './Input.svelte'
-  import { slide } from 'svelte/transition'
-  import { alert } from '$lib/stores'
-  import Dialog from '$lib/components/Dialog.svelte'
-  import Button from '$lib/components/Button.svelte'
-  import DialogActions from '$lib/components/DialogActions.svelte'
-  import Card from './Card.svelte'
+  import { onMount } from 'svelte'
   import { MailIcon } from 'svelte-feather-icons'
-  import { classTodayHeld, 
-          copyToClipboard, 
-          formatDateString, 
-          isClassUpcoming, 
-          normalizeCapitals, 
-          timestampToDate, 
-          toLocalISOString,
-          getInstructorClasses
-        } from '$lib/utils'
+  import Card from './Card.svelte'
+  import Input from './Input.svelte'
+  import ClassDetailsForm from './forms/ClassDetailsForm.svelte'
+  import InstructorFeedbackForm from './forms/InstructorFeedbackForm.svelte'
+  import { ClassStatus } from './helpers/ClassStatus'
+  import { SubRequestStatus } from './helpers/SubRequestStatus'
+  import { generateCurriculumLink } from './helpers/curriculumLink'
+  import generateMeetingTimeChangeEmail from './helpers/generateMeetingTimeChangeEmail'
   import sendClassReminder from './helpers/sendClassReminder'
   import type Student from './types/Student'
-  import generateMeetingTimeChangeEmail from './helpers/generateMeetingTimeChangeEmail'
-  import { classesCollection, registrationsCollection } from '$lib/data/constants'
-  import { ClassStatus } from './helpers/ClassStatus'
-    import InstructorFeedbackForm from './forms/InstructorFeedbackForm.svelte'
-    import ClassDetailsForm from './forms/ClassDetailsForm.svelte'
-    import { bind } from 'lodash-es'
-    import { SubRequestStatus } from './helpers/SubRequestStatus'
-    import { curriculums } from './helpers/curriculum'
-    import { generateCurriculumLink } from './helpers/curriculumLink'
 
   export let semesterDates: Data.SemesterDates
   let editMode: boolean = false
@@ -55,13 +54,13 @@
     course: '',
     meetingLink: '',
     meetingTimes: [],
-    completedClassDates: []
+    completedClassDates: [],
   }
 
   //index of the next class date from the list of meeting times
   let nextClassIndex = -1
   let classId = ''
-  let instructorClasses: {[classId: string]: Data.ClassDetails} = {}
+  let instructorClasses: { [classId: string]: Data.ClassDetails } = {}
   let availableClassIds: string[] = []
   let selectedClassId = ''
   let dialogEl: Dialog
@@ -109,17 +108,29 @@
   }
 
   function checkStatuses() {
-    
-    let {classStatuses, feedbackCompleted, meetingTimes} = values
+    let { classStatuses, feedbackCompleted, meetingTimes } = values
 
-    classStatuses = classStatuses.concat(Array(meetingTimes.length - classStatuses.length).fill(ClassStatus.ClassInFuture));
+    classStatuses = classStatuses.concat(
+      Array(meetingTimes.length - classStatuses.length).fill(
+        ClassStatus.ClassInFuture,
+      ),
+    )
 
     const updateStatuses = (classStatus: string, index: number) => {
-      if(new Date() > meetingTimes[index] && classStatus !== ClassStatus.EverythingComplete && classStatus !== ClassStatus.FeedbackIncomplete) {
-        return feedbackCompleted[index] ? ClassStatus.EverythingComplete : ClassStatus.ClassNotHeld
+      if (
+        new Date() > meetingTimes[index] &&
+        classStatus !== ClassStatus.EverythingComplete &&
+        classStatus !== ClassStatus.FeedbackIncomplete
+      ) {
+        return feedbackCompleted[index]
+          ? ClassStatus.EverythingComplete
+          : ClassStatus.ClassNotHeld
       } else if (isClassUpcoming(meetingTimes[index])) {
         return ClassStatus.ClassUpcomingSoon
-      } else if (classStatus === ClassStatus.FeedbackIncomplete && feedbackCompleted[index]) {
+      } else if (
+        classStatus === ClassStatus.FeedbackIncomplete &&
+        feedbackCompleted[index]
+      ) {
         return ClassStatus.EverythingComplete
       } else {
         return classStatus
@@ -127,7 +138,7 @@
     }
 
     classStatuses = classStatuses.map(updateStatuses)
-    
+
     updateDoc(doc(db, classesCollection, classId), {
       classStatuses: classStatuses,
     })
@@ -160,7 +171,10 @@
 
   function saveChanges(): void {
     editMode = false
-    emailHtmlContent = generateMeetingTimeChangeEmail(originalMeetingTimes, editedMeetingTimes)
+    emailHtmlContent = generateMeetingTimeChangeEmail(
+      originalMeetingTimes,
+      editedMeetingTimes,
+    )
     // sort the meeting times
     editedMeetingTimes.sort((a, b) => {
       const dateA = new Date(a)
@@ -207,7 +221,9 @@
     })
 
     originalMeetingTimes = [...editedMeetingTimes]
-    values.meetingTimes = editedMeetingTimes.map((time: string) => new Date(time))
+    values.meetingTimes = editedMeetingTimes.map(
+      (time: string) => new Date(time),
+    )
     feedbackCompleted = newFeedback
     classStatuses = newClassStatuses
     updateMeetingTimes(feedbackCompleted, classStatuses)
@@ -218,15 +234,33 @@
    * @returns The index of the next class date
    */
   function findNextClassDate() {
-     const todayDates = values.meetingTimes.filter(schedule => new Date(schedule).toDateString() === new Date().toDateString())
-     if(todayDates.length === 1) {
-        return values.meetingTimes.findIndex(schedule => new Date(schedule).toDateString() === new Date().toDateString())
-     } else if (todayDates.length > 1) {
-       const futureTodayClasses = todayDates.filter((classDate) => new Date(classDate).getHours() >= new Date().getHours())
-       return futureTodayClasses.length > 0 ? values.meetingTimes.findIndex(date => new Date(date).toDateString() === new Date().toDateString() && date.getHours() >= new Date().getHours()) : values.meetingTimes.findIndex(schedule => new Date(schedule) > new Date())
-     } else{
-       return values.meetingTimes.findIndex(schedule => new Date(schedule) > new Date())
-     }
+    const todayDates = values.meetingTimes.filter(
+      (schedule) =>
+        new Date(schedule).toDateString() === new Date().toDateString(),
+    )
+    if (todayDates.length === 1) {
+      return values.meetingTimes.findIndex(
+        (schedule) =>
+          new Date(schedule).toDateString() === new Date().toDateString(),
+      )
+    } else if (todayDates.length > 1) {
+      const futureTodayClasses = todayDates.filter(
+        (classDate) => new Date(classDate).getHours() >= new Date().getHours(),
+      )
+      return futureTodayClasses.length > 0
+        ? values.meetingTimes.findIndex(
+            (date) =>
+              new Date(date).toDateString() === new Date().toDateString() &&
+              date.getHours() >= new Date().getHours(),
+          )
+        : values.meetingTimes.findIndex(
+            (schedule) => new Date(schedule) > new Date(),
+          )
+    } else {
+      return values.meetingTimes.findIndex(
+        (schedule) => new Date(schedule) > new Date(),
+      )
+    }
   }
 
   /**
@@ -235,41 +269,46 @@
    * @param link The link to the class session
    */
   const recordClass = async (classId: string) => {
-    let {meetingLink, meetingTimes, feedbackCompleted, classStatuses, completedClassDates} = values;
-      const confirmHoldClass = confirm(
-        `Please confirm you are holding class now. Confirming will redirect you to ${meetingLink}`,
-      )
-      if (confirmHoldClass) {
-        if (!classTodayHeld(completedClassDates))
-          completedClassDates = [...completedClassDates, new Date()]
-        let classToday = false
-        console.log(nextClassIndex)
-        if (
-          nextClassIndex !== -1 &&
-          nextClassIndex < meetingTimes.length &&
-          new Date().toDateString() ===
-            meetingTimes[nextClassIndex].toDateString()
-        ) {
-          classToday = true
-          classStatuses[nextClassIndex] = feedbackCompleted[nextClassIndex]
-            ? ClassStatus.EverythingComplete
-            : ClassStatus.FeedbackIncomplete
-        }
-        if (!classToday) {
-          alert.trigger(
-            'error',
-            'No class session found today! Please update your class schedule if you are planning to hold class today.',
-          )
-          return;
-        } else {
-            updateDoc(doc(db, classesCollection, classId), {
-            completedClassDates: completedClassDates,
-            classStatuses: classStatuses,
-          })
-        }
-        window.open(meetingLink)
+    let {
+      meetingLink,
+      meetingTimes,
+      feedbackCompleted,
+      classStatuses,
+      completedClassDates,
+    } = values
+    const confirmHoldClass = confirm(
+      `Please confirm you are holding class now. Confirming will redirect you to ${meetingLink}`,
+    )
+    if (confirmHoldClass) {
+      if (!classTodayHeld(completedClassDates))
+        completedClassDates = [...completedClassDates, new Date()]
+      let classToday = false
+      if (
+        nextClassIndex !== -1 &&
+        nextClassIndex < meetingTimes.length &&
+        new Date().toDateString() ===
+          meetingTimes[nextClassIndex].toDateString()
+      ) {
+        classToday = true
+        classStatuses[nextClassIndex] = feedbackCompleted[nextClassIndex]
+          ? ClassStatus.EverythingComplete
+          : ClassStatus.FeedbackIncomplete
       }
-    } 
+      if (!classToday) {
+        alert.trigger(
+          'error',
+          'No class session found today! Please update your class schedule if you are planning to hold class today.',
+        )
+        return
+      } else {
+        updateDoc(doc(db, classesCollection, classId), {
+          completedClassDates: completedClassDates,
+          classStatuses: classStatuses,
+        })
+      }
+      window.open(meetingLink)
+    }
+  }
 
   function sendSubRequest() {
     const subRequest: Data.SubRequest = {
@@ -279,47 +318,34 @@
       notes: subRequestNotes,
       course: values.course,
       originalInstructorEmail: values.instructorEmail,
-      subInstructorFirstName: '',      
+      subInstructorFirstName: '',
       subInstructorEmail: '',
       subInstructorId: '',
       subRequestStatus: SubRequestStatus.SubstituteNeeded,
       link: values.meetingLink,
     }
 
-    setDoc(doc(db, 'subRequests', classId + '---' + subRequestClassNumber), subRequest).then((res) => {
-      alert.trigger('success', 'Sub request sent!')
-      window.setTimeout(() => { location.reload() }, 1000)
-    }).catch((err) => {
-      alert.trigger('error', 'Failed to send sub request, please try again.')
-    })
-  }
-
-  function copyEmails() {
-  const emailList = studentList
-    .map(
-      (student) =>
-        `${student.email}${
-          student.secondaryEmail ? `, ${student.secondaryEmail}` : ''
-        }`,
+    setDoc(
+      doc(db, 'subRequests', classId + '---' + subRequestClassNumber),
+      subRequest,
     )
-    .join(', ')
-
-  navigator.clipboard
-    .writeText(emailList)
-    .then(() => {
-      alert.trigger('success', 'Emails copied to clipboard!')
-    })
-    .catch((err) => {
-      alert.trigger('error', 'Failed to copy emails to clipboard!')
-    })
-}
+      .then((res) => {
+        alert.trigger('success', 'Sub request sent!')
+        window.setTimeout(() => {
+          location.reload()
+        }, 1000)
+      })
+      .catch((err) => {
+        alert.trigger('error', 'Failed to send sub request, please try again.')
+      })
+  }
 
   function selectClass(newClassId: string) {
     selectedClassId = newClassId
     classId = newClassId
     values = instructorClasses[newClassId]
     studentList = [] // Reset student list
-    
+
     let { students, meetingTimes } = values
     if (students) {
       getStudentList(students)
@@ -337,14 +363,17 @@
     }
   }
 
-onMount(() => {
+  onMount(() => {
     return user.subscribe(async (user) => {
       if (user) {
         // Get all classes for this instructor using helper function
-        const userClasses = await getInstructorClasses(user.object.uid, user.object.email || '')
-        
+        const userClasses = await getInstructorClasses(
+          user.object.uid,
+          user.object.email || '',
+        )
+
         // Convert to ClassDetails format and add id field
-        const classDetails: {[classId: string]: Data.ClassDetails} = {}
+        const classDetails: { [classId: string]: Data.ClassDetails } = {}
         Object.entries(userClasses).forEach(([classId, classData]) => {
           classDetails[classId] = {
             id: classId,
@@ -358,13 +387,13 @@ onMount(() => {
             course: classData.course,
             meetingLink: classData.meetingLink,
             meetingTimes: classData.meetingTimes,
-            completedClassDates: classData.completedClassDates
+            completedClassDates: classData.completedClassDates,
           }
         })
-        
+
         instructorClasses = classDetails
         availableClassIds = Object.keys(instructorClasses).sort()
-        
+
         // Auto-select first class if available
         if (availableClassIds.length > 0) {
           selectClass(availableClassIds[0])
@@ -384,7 +413,10 @@ onMount(() => {
       Here is an email template you can copy to send to your students' parents.
     </p>
     <div class="mt-5 flex justify-end">
-      <Button on:click={() => copyToClipboard(emailHtmlContent)} class="flex items-center gap-1">
+      <Button
+        on:click={() => copyToClipboard(emailHtmlContent)}
+        class="flex items-center gap-1"
+      >
         <svg
           fill="#000000"
           height="20"
@@ -411,124 +443,164 @@ onMount(() => {
     {@html emailHtmlContent}
 
     <DialogActions>
-      <Button on:click={() => {dialogEl.cancel(); location.reload();}}>Close</Button>
+      <Button
+        on:click={() => {
+          dialogEl.cancel()
+          location.reload()
+        }}>Close</Button
+      >
     </DialogActions>
   </div>
 </Dialog>
 <Dialog bind:this={feedbackDialogEl} size="min" alert>
-  <svelte:fragment slot="title"><div class = "flex justify-between items-center">Weekly {values.course} Class Feedback Form <Button color = 'red' class="font-light" on:click={feedbackDialogEl.cancel}>Close</Button></div> </svelte:fragment>
+  <svelte:fragment slot="title"
+    ><div class="flex items-center justify-between">
+      Weekly {values.course} Class Feedback Form <Button
+        color="red"
+        class="font-light"
+        on:click={feedbackDialogEl.cancel}>Close</Button
+      >
+    </div>
+  </svelte:fragment>
   <div slot="description">
-    <InstructorFeedbackForm classBeingSubbed={undefined} sessionNumber = {nextClassIndex + 1} classId={classId}/>
+    <InstructorFeedbackForm
+      classBeingSubbed={undefined}
+      sessionNumber={nextClassIndex + 1}
+      {classId}
+    />
   </div>
 </Dialog>
-<ClassDetailsForm bind:classDetailsDialogEl dialog={true} semesterDates={semesterDates}/>
+<ClassDetailsForm bind:classDetailsDialogEl dialog={true} {semesterDates} />
 
 <div class="p-0">
   <Dialog bind:this={studentDetailsDialogEl} size="full">
-    <svelte:fragment slot="title"><div class = "flex justify-between items-center"> Class List <Button color = 'red' class="font-light" on:click={studentDetailsDialogEl.cancel}>Close</Button></div> </svelte:fragment>
-  <Card slot="description" class="mb-4">
-    <div class="mb-4 flex items-center justify-end">
-      <Button on:click={copyEmails} class="flex items-center gap-1 justify-end">
-        <svg
-          fill="#000000"
-          height="20"
-          width="20"
-          version="1.1"
-          id="Capa_1"
-          xmlns="http://www.w3.org/2000/svg"
-          xmlns:xlink="http://www.w3.org/1999/xlink"
-          viewBox="0 0 352.804 352.804"
-          xml:space="preserve"
+    <svelte:fragment slot="title"
+      ><div class="flex items-center justify-between">
+        Class List <Button
+          color="red"
+          class="font-light"
+          on:click={studentDetailsDialogEl.cancel}>Close</Button
         >
-          <g>
-            <path
-              d="M318.54,57.282h-47.652V15c0-8.284-6.716-15-15-15H34.264c-8.284,0-15,6.716-15,15v265.522c0,8.284,6.716,15,15,15h47.651
+      </div>
+    </svelte:fragment>
+    <Card slot="description" class="mb-4">
+      <div class="mb-4 flex items-center justify-end">
+        <Button
+          on:click={() =>
+            copyEmails(
+              studentList.flatMap((student) => [
+                student.email,
+                student.secondaryEmail,
+              ]),
+            )}
+          class="flex items-center justify-end gap-1"
+        >
+          <svg
+            fill="#000000"
+            height="20"
+            width="20"
+            version="1.1"
+            id="Capa_1"
+            xmlns="http://www.w3.org/2000/svg"
+            xmlns:xlink="http://www.w3.org/1999/xlink"
+            viewBox="0 0 352.804 352.804"
+            xml:space="preserve"
+          >
+            <g>
+              <path
+                d="M318.54,57.282h-47.652V15c0-8.284-6.716-15-15-15H34.264c-8.284,0-15,6.716-15,15v265.522c0,8.284,6.716,15,15,15h47.651
      v42.281c0,8.284,6.716,15,15,15H318.54c8.284,0,15-6.716,15-15V72.282C333.54,63.998,326.824,57.282,318.54,57.282z
       M49.264,265.522V30h191.623v27.282H96.916c-8.284,0-15,6.716-15,15v193.24H49.264z M303.54,322.804H111.916V87.282H303.54V322.804
      z"
-            />
-          </g>
-        </svg>
-        <span>Copy</span>
-      </Button>
-    </div>
-    <div style="overflow: auto;">
-      <table style="border-collapse: collapse; width: 100%;">
-        <thead>
-          <tr>
-            <th
-              style="white-space: nowrap; border-bottom: 1px solid #ccc; padding: 8px;"
-              >Student Name</th
-            >
-            <th
-              style="white-space: nowrap; border-bottom: 1px solid #ccc; padding: 8px;"
-              >Email</th
-            >
-            <th
-              style="white-space: nowrap; border-bottom: 1px solid #ccc; padding: 8px;"
-              >Secondary Email</th
-            >
-            <th
-              style="white-space: nowrap; border-bottom: 1px solid #ccc; padding: 8px;"
-              >Phone</th
-            >
-            <th
-              style="white-space: nowrap; border-bottom: 1px solid #ccc; padding: 8px;"
-              >Grade</th
-            >
-            <th
-              style="white-space: nowrap; border-bottom: 1px solid #ccc; padding: 8px;"
-              >School</th
-            >
-            <th
-              style="white-space: nowrap; border-bottom: 1px solid #ccc; padding: 8px;"
-            ></th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each studentList as student}
-            <tr style="border-bottom: 1px solid #ccc;">
-              <td style="padding: 8px;">{normalizeCapitals(student.name)}</td>
-              <td style="padding: 8px;">{student.email}</td>
-              <td style="padding: 8px;">{student.secondaryEmail}</td>
-              <td style="padding: 8px;">{student.phone}</td>
-              <td style="padding: 8px;">{student.grade}</td>
-              <td style="padding: 8px;">{student.school}</td>
-              <td
-                ><Button
-                  color="blue"
-                  on:click={() =>
-                    sendClassReminder({
-                      studentList,
-                      studentName: normalizeCapitals(student.name),
-                      studentEmail: student.email,
-                      instructorName: values.instructorFirstName + ' ' + values.instructorLastName,
-                      instructorEmail: values.instructorEmail,
-                      otherInstructorEmails: values.otherInstructorEmails,
-                      className: values.course,
-                      nextMeetingTime: nextClassIndex === -1
-                        ? 'No Upcoming Classes'
-                        : values.course +
-                            ', ' +
-                            formatDateString(editedMeetingTimes[nextClassIndex]),
-                    })}><MailIcon size="16" /></Button
-                ></td
+              />
+            </g>
+          </svg>
+          <span>Copy</span>
+        </Button>
+      </div>
+      <div style="overflow: auto;">
+        <table style="border-collapse: collapse; width: 100%;">
+          <thead>
+            <tr>
+              <th
+                style="white-space: nowrap; border-bottom: 1px solid #ccc; padding: 8px;"
+                >Student Name</th
               >
+              <th
+                style="white-space: nowrap; border-bottom: 1px solid #ccc; padding: 8px;"
+                >Email</th
+              >
+              <th
+                style="white-space: nowrap; border-bottom: 1px solid #ccc; padding: 8px;"
+                >Secondary Email</th
+              >
+              <th
+                style="white-space: nowrap; border-bottom: 1px solid #ccc; padding: 8px;"
+                >Phone</th
+              >
+              <th
+                style="white-space: nowrap; border-bottom: 1px solid #ccc; padding: 8px;"
+                >Grade</th
+              >
+              <th
+                style="white-space: nowrap; border-bottom: 1px solid #ccc; padding: 8px;"
+                >School</th
+              >
+              <th
+                style="white-space: nowrap; border-bottom: 1px solid #ccc; padding: 8px;"
+              ></th>
             </tr>
-          {/each}
-        </tbody>
-      </table>
-    </div>
-  </Card>
+          </thead>
+          <tbody>
+            {#each studentList as student}
+              <tr style="border-bottom: 1px solid #ccc;">
+                <td style="padding: 8px;">{normalizeCapitals(student.name)}</td>
+                <td style="padding: 8px;">{student.email}</td>
+                <td style="padding: 8px;">{student.secondaryEmail}</td>
+                <td style="padding: 8px;">{student.phone}</td>
+                <td style="padding: 8px;">{student.grade}</td>
+                <td style="padding: 8px;">{student.school}</td>
+                <td
+                  ><Button
+                    color="blue"
+                    on:click={() =>
+                      sendClassReminder({
+                        studentList,
+                        studentName: normalizeCapitals(student.name),
+                        studentEmail: student.email,
+                        instructorName:
+                          values.instructorFirstName +
+                          ' ' +
+                          values.instructorLastName,
+                        instructorEmail: values.instructorEmail,
+                        otherInstructorEmails: values.otherInstructorEmails,
+                        className: values.course,
+                        nextMeetingTime:
+                          nextClassIndex === -1
+                            ? 'No Upcoming Classes'
+                            : values.course +
+                              ', ' +
+                              formatDateString(
+                                editedMeetingTimes[nextClassIndex],
+                              ),
+                      })}><MailIcon size="16" /></Button
+                  ></td
+                >
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    </Card>
   </Dialog>
   <!-- Class Selector -->
   {#if availableClassIds.length > 1}
     <Card class="mb-4">
-      <h3 class="text-lg font-semibold mb-3">Select Class</h3>
+      <h3 class="mb-3 text-lg font-semibold">Select Class</h3>
       <div class="flex flex-wrap gap-2">
         {#each availableClassIds as classId}
-          <Button 
-            color={selectedClassId === classId ? "blue" : "gray"}
+          <Button
+            color={selectedClassId === classId ? 'blue' : 'gray'}
             on:click={() => selectClass(classId)}
           >
             Class {classId.split('-')[1]}
@@ -542,143 +614,281 @@ onMount(() => {
   {/if}
 
   {#if values.id !== ''}
-  <Card class="mb-4">
-    <div class="font-bold">Next Upcoming Class:</div>
-    <div>
-      {nextClassIndex === -1
-        ? 'No Upcoming Classes'
-        : values.course + ', ' + formatDateString(editedMeetingTimes[nextClassIndex])}
-    </div>
-    <Button color="blue" class="mt-2" on:click={() => window.open(`${generateCurriculumLink(values.course)}`, "_blank")}>Curriculum</Button>
-    <Button
-      color="blue"
-      class="mt-4"
-      on:click={() => {
-        recordClass(classId)
-      }}>Join Class</Button
-    >
-    <Button
-      color="blue"
-      on:click={() =>
-        sendClassReminder(
-          {
-          studentList,
-          instructorName: values.instructorFirstName,
-          instructorEmail: values.instructorEmail,
-          otherInstructorEmails: values.otherInstructorEmails,
-          className: values.course,
-          nextMeetingTime: nextClassIndex === -1
-            ? 'No Upcoming Classes'
-            : values.course + ', ' + formatDateString(editedMeetingTimes[nextClassIndex]),
-        })}>Send Reminder</Button
-    >
-    <Button color="blue" class="mt-2" on:click={() => feedbackDialogEl.open()}>Submit Feedback</Button>
-    <Button color="blue" class="mt-2" on:click={() => classDetailsDialogEl.open()}>Class Details</Button>
-    <Button color="blue" class="mt-2" on:click={() => studentDetailsDialogEl.open()}>View Student List</Button>
-  </Card>
-
-  <div class="mb-4 flex justify-between">
-    <Button
-      color="blue"
-      class={`${editMode ? 'hidden' : ''}`}
-      on:click={() => (editMode = true)}>Edit Schedule</Button
-    >
-    <Button
-      color="green"
-      class={`${editMode ? 'hidden' : ''}`}
-      on:click={() => (addingClass = true)}>Add Class to Schedule</Button
-    >
-
-    <Dialog
-      bind:this={addClassDialogEl}
-      initial={addingClass}
-      size="min"
-      on:cancel={() => (addingClass = false)}
-    >
-      <svelte:fragment slot="title">Add Class to Schedule</svelte:fragment>
-
-      <div slot="description" class="space-y-4">
-        <p>
-          Please enter the date and time of the class you would like to add.
-        </p>
-
-        <Input
-          type="datetime-local"
-          class="rounded border p-1"
-          bind:value={classToBeAdded}
-        />
-        <Button
-          color="green"
-          on:click={() => {
-            editedMeetingTimes.push(classToBeAdded)
-            editedMeetingTimes = editedMeetingTimes.slice()
-            saveChanges()
-            addingClass = false
-          }}>Add Class</Button
-        >
-        <DialogActions>
-          <Button on:click={() => (addingClass = false)}>Close</Button>
-        </DialogActions>
+    <Card class="mb-4">
+      <div class="font-bold">Next Upcoming Class:</div>
+      <div>
+        {nextClassIndex === -1
+          ? 'No Upcoming Classes'
+          : values.course +
+            ', ' +
+            formatDateString(editedMeetingTimes[nextClassIndex])}
       </div>
-    </Dialog>
+      <div class="mt-4 flex flex-wrap gap-2">
+        <Button
+          color="blue"
+          on:click={() =>
+            window.open(`${generateCurriculumLink(values.course)}`, '_blank')}
+          >Curriculum</Button
+        >
+        <Button
+          color="blue"
+          on:click={() => {
+            recordClass(classId)
+          }}>Join Class</Button
+        >
+        <Button
+          color="blue"
+          on:click={() =>
+            sendClassReminder({
+              studentList,
+              instructorName: values.instructorFirstName,
+              instructorEmail: values.instructorEmail,
+              otherInstructorEmails: values.otherInstructorEmails,
+              className: values.course,
+              nextMeetingTime:
+                nextClassIndex === -1
+                  ? 'No Upcoming Classes'
+                  : values.course +
+                    ', ' +
+                    formatDateString(editedMeetingTimes[nextClassIndex]),
+            })}>Send Reminder</Button
+        >
+        <Button color="blue" on:click={() => feedbackDialogEl.open()}
+          >Submit Feedback</Button
+        >
+        <Button color="blue" on:click={() => classDetailsDialogEl.open()}
+          >Class Details</Button
+        >
+        <Button color="blue" on:click={() => studentDetailsDialogEl.open()}
+          >View Student List</Button
+        >
+      </div>
+    </Card>
 
-    {#if editMode}
-      <Button color="red" on:click={cancelChanges}>Cancel Changes</Button>
-      <Button color="green" on:click={saveChanges}>Save Changes</Button>
-    {/if}
-  </div>
+    <div class="mb-4 flex flex-wrap justify-between gap-2">
+      <Button
+        color="blue"
+        class={`${editMode ? 'hidden' : ''}`}
+        on:click={() => (editMode = true)}>Edit Schedule</Button
+      >
+      <Button
+        color="green"
+        class={`${editMode ? 'hidden' : ''}`}
+        on:click={() => (addingClass = true)}>Add Class to Schedule</Button
+      >
+
+      <Dialog
+        bind:this={addClassDialogEl}
+        initial={addingClass}
+        size="min"
+        on:cancel={() => (addingClass = false)}
+      >
+        <svelte:fragment slot="title">Add Class to Schedule</svelte:fragment>
+
+        <div slot="description" class="space-y-4">
+          <p>
+            Please enter the date and time of the class you would like to add.
+          </p>
+
+          <Input
+            type="datetime-local"
+            class="rounded-sm border p-1"
+            bind:value={classToBeAdded}
+          />
+          <Button
+            color="green"
+            on:click={() => {
+              editedMeetingTimes.push(classToBeAdded)
+              editedMeetingTimes = editedMeetingTimes.slice()
+              saveChanges()
+              addingClass = false
+            }}>Add Class</Button
+          >
+          <DialogActions>
+            <Button on:click={() => (addingClass = false)}>Close</Button>
+          </DialogActions>
+        </div>
+      </Dialog>
+
+      {#if editMode}
+        <Button color="red" on:click={cancelChanges}>Cancel Changes</Button>
+        <Button color="green" on:click={saveChanges}>Save Changes</Button>
+      {/if}
+    </div>
   {:else}
-  <Card>
-    <div class="mb-2 font-bold">Fill out the class details form to get your schedule!</div>
-  </Card>
+    <Card>
+      <div class="mb-2 font-bold">
+        Fill out the class details form to get your schedule!
+      </div>
+    </Card>
   {/if}
   <ul class="list-none space-y-4">
     {#each editedMeetingTimes as classTime, classNumber}
-      <li class="rounded-xl shadow border flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 bg-white relative transition hover:shadow-lg">
-        <div class="flex items-center gap-4 flex-1 min-w-0">
+      <li
+        class="relative flex flex-wrap items-center justify-between gap-4 rounded-xl border bg-white p-4 shadow-sm transition hover:shadow-lg"
+      >
+        <div class="flex min-w-[200px] flex-1 items-center gap-4">
           <!-- Status badge -->
           {#if values.classStatuses[classNumber] === ClassStatus.ClassNotHeld}
-            <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-100 text-red-700 text-xs font-semibold">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            <span
+              class="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-1 text-xs font-semibold text-red-700"
+            >
+              <svg
+                class="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                ><path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M6 18L18 6M6 6l12 12"
+                /></svg
+              >
               Not Held
             </span>
           {:else if values.classStatuses[classNumber] === ClassStatus.FeedbackIncomplete}
-            <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-yellow-100 text-yellow-800 text-xs font-semibold">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3"/></svg>
+            <span
+              class="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-1 text-xs font-semibold text-yellow-800"
+            >
+              <svg
+                class="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                ><path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 8v4l3 3"
+                /></svg
+              >
               Feedback Needed
             </span>
           {:else if values.classStatuses[classNumber] === ClassStatus.ClassUpcomingSoon}
-            <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-100 text-blue-800 text-xs font-semibold">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="none"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6l4 2"/></svg>
+            <span
+              class="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-1 text-xs font-semibold text-blue-800"
+            >
+              <svg
+                class="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                ><circle
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  fill="none"
+                /><path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 6v6l4 2"
+                /></svg
+              >
               Upcoming
             </span>
           {:else if values.classStatuses[classNumber] === ClassStatus.EverythingComplete}
-            <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-green-100 text-green-800 text-xs font-semibold">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            <span
+              class="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-800"
+            >
+              <svg
+                class="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                ><path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M5 13l4 4L19 7"
+                /></svg
+              >
               Complete
             </span>
           {:else}
-            <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-gray-200 text-gray-700 text-xs font-semibold">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+            <span
+              class="inline-flex items-center gap-1 rounded-full bg-gray-200 px-2 py-1 text-xs font-semibold text-gray-700"
+            >
+              <svg
+                class="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                ><circle
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  fill="none"
+                /></svg
+              >
               Scheduled
             </span>
           {/if}
-          <div class="flex flex-col min-w-0">
-            <span class="font-semibold text-lg truncate">Class {classNumber + 1}: {values.course}</span>
-            <span class="text-gray-600 text-sm truncate">{formatDateString(classTime)}</span>
+          <div class="flex min-w-0 flex-col">
+            <span class="text-lg font-semibold"
+              >Class {classNumber + 1}: {values.course}</span
+            >
+            <span class="text-sm text-gray-600"
+              >{formatDateString(classTime)}</span
+            >
           </div>
         </div>
-        <div class="flex flex-col md:flex-row gap-2 md:gap-4 items-end md:items-center mt-2 md:mt-0">
+        <div class="flex flex-wrap items-center gap-2">
           {#if editMode}
-            <Input type="datetime-local" class="rounded border p-1" bind:value={editedMeetingTimes[classNumber]} />
-            <Button color="red" on:click={() => { editedMeetingTimes.splice(classNumber, 1); editedMeetingTimes = editedMeetingTimes.slice(); }}>
-              <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            <Input
+              type="datetime-local"
+              class={{ container: 'mt-0', input: 'rounded-sm border p-1 h-10' }}
+              bind:value={editedMeetingTimes[classNumber]}
+            />
+            <Button
+              color="red"
+              on:click={() => {
+                editedMeetingTimes.splice(classNumber, 1)
+                editedMeetingTimes = editedMeetingTimes.slice()
+              }}
+            >
+              <svg
+                class="mr-1 h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                ><path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M6 18L18 6M6 6l12 12"
+                /></svg
+              >
               Delete
             </Button>
           {:else}
             {#if values.classStatuses[classNumber] !== ClassStatus.ClassNotHeld && values.classStatuses[classNumber] !== ClassStatus.FeedbackIncomplete && values.classStatuses[classNumber] !== ClassStatus.ClassUpcomingSoon && values.classStatuses[classNumber] !== ClassStatus.EverythingComplete}
-              <Button color="blue" on:click={() => { subRequestDate = classTime; subRequestClassNumber = classNumber + 1; subRequestNotes = ''; subRequestDialogEl.open(); }}>
-                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              <Button
+                color="blue"
+                on:click={() => {
+                  subRequestDate = classTime
+                  subRequestClassNumber = classNumber + 1
+                  subRequestNotes = ''
+                  subRequestDialogEl.open()
+                }}
+              >
+                <svg
+                  class="mr-1 h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  ><path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M12 4v16m8-8H4"
+                  /></svg
+                >
                 Request Sub
               </Button>
             {/if}
@@ -690,30 +900,31 @@ onMount(() => {
   <!-- Sub Request Dialog (restored, available for all sessions) -->
   <Dialog bind:this={subRequestDialogEl} initial={false} size="min">
     <svelte:fragment slot="title">
-      <div class="flex items-center justify-between">Submit A Sub Request
+      <div class="flex items-center justify-between">
+        Submit A Sub Request
         <DialogActions>
-          <Button on:click={() => subRequestDialogEl.close()} color='red'>Close</Button>
+          <Button on:click={() => subRequestDialogEl.close()} color="red"
+            >Close</Button
+          >
         </DialogActions>
       </div>
     </svelte:fragment>
     <div slot="description" class="space-y-4">
       <Input
         type="number"
-        class="rounded border p-1"
+        class="rounded-sm border p-1"
         bind:value={subRequestClassNumber}
-        floating
         label="Please confirm the class number ."
       />
       <Input
         type="datetime-local"
-        class="rounded border p-1"
+        class="rounded-sm border p-1"
         bind:value={subRequestDate}
-        floating
         label="Please confirm the date and time of the class you would like to request a sub for."
       />
       <Input
         type="text"
-        class="rounded border p-1"
+        class="rounded-sm border p-1"
         bind:value={subRequestNotes}
         label="Please describe what topic/lesson the substitute class will cover, and any helpful notes for the substitute instructor."
       />
@@ -722,7 +933,8 @@ onMount(() => {
         on:click={() => {
           sendSubRequest()
           subRequestDialogEl.close()
-        }}>Confirm Request</Button>
+        }}>Confirm Request</Button
+      >
     </div>
   </Dialog>
 </div>

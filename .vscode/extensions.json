@@ -1,0 +1,10 @@
+{
+  "recommendations": [
+    "svelte.svelte-vscode",
+    "dbaeumer.vscode-eslint",
+    "bradlc.vscode-tailwindcss",
+    "orta.vscode-jest",
+    "davidanson.vscode-markdownlint",
+    "bierner.markdown-mermaid"
+  ]
+}

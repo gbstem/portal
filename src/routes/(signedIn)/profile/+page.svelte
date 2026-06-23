@@ -1,20 +1,19 @@
 <script lang="ts">
+  import type { ActionRequestBody } from '../../api/action/+server'
   import ChangeEmailForm from '$lib/components/forms/ChangeEmailForm.svelte'
   import ChangePasswordForm from '$lib/components/forms/ChangePasswordForm.svelte'
   import DeleteAccountForm from '$lib/components/forms/DeleteAccountForm.svelte'
   import { fade } from 'svelte/transition'
   import { alert } from '$lib/stores'
+  import { writeToClipboard } from '$lib/utils'
   import ChangeNameForm from '$lib/components/forms/ChangeNameForm.svelte'
   import Card from '$lib/components/Card.svelte'
   import type { PageData } from './$types'
   import { user } from '$lib/client/firebase'
-  import PageLayout from '$lib/components/PageLayout.svelte'
   import Field from '$lib/components/Field.svelte'
   import Dialog from '$lib/components/Dialog.svelte'
   import Button from '$lib/components/Button.svelte'
   import DialogActions from '$lib/components/DialogActions.svelte'
-  import QRious from 'qrious'
-  import { onMount } from 'svelte'
   import Link from '$lib/components/Link.svelte'
 
   export let data: PageData
@@ -22,33 +21,24 @@
   let dialogEl: Dialog
   let disabled = false
 
-  onMount(() => {
-    return user.subscribe((userValue) => {
-      new QRious({
-        element: document.getElementById('qr'),
-        value: `https://admin.gbstem.org/user/${userValue ? userValue.profile.id : ''}`,
-        size: 200,
-      })
-    })
-  })
-
   async function handleVerificationEmail() {
     if ($user) {
       disabled = true
+      const payload: ActionRequestBody = {
+        type: 'verifyEmail',
+      }
       fetch('/api/action', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          type: 'verifyEmail',
-        }),
+        body: JSON.stringify(payload),
       }).then(async (res) => {
         if (res.ok) {
           alert.trigger('info', 'Verification email was sent.')
         } else {
           const { message } = await res.json()
-          console.log(message)
+          console.error('Email verification send error:', message)
           alert.trigger('error', message)
         }
         disabled = false
@@ -84,12 +74,13 @@
   </div>
 </Dialog>
 
-<PageLayout>
-  <svelte:fragment slot="title">Profile</svelte:fragment>
+<h1 class="mb-4 text-5xl font-bold md:text-6xl">Profile</h1>
+
+<div class="mx-auto flex max-w-6xl flex-col items-center px-2 py-8 md:px-8">
   <div class="grid w-full max-w-2xl gap-6">
     {#if !data.user.emailVerified}
       <div
-        class="mt-2 flex w-full items-center gap-4 rounded-md bg-red-200 px-5 py-4 shadow"
+        class="mt-2 flex w-full items-center gap-4 rounded-md bg-red-200 px-5 py-4 shadow-sm"
         transition:fade
       >
         <svg
@@ -121,18 +112,19 @@
       <div class="relative">
         <Field class="pr-9">
           <div class="relative h-6 overflow-x-auto">
-            <div class="absolute left-0 top-0 whitespace-nowrap">
+            <div class="absolute top-0 left-0 whitespace-nowrap">
               {`id: ${$user ? $user.profile?.id : ''}`}
             </div>
           </div>
         </Field>
-        <div class="absolute right-2 top-2.5">
+        <div class="absolute top-2.5 right-2">
           <button
             class="text-black transition-colors duration-300 hover:text-gray-700"
             type="button"
+            aria-label="Copy User ID"
             on:click={() => {
               if ($user) {
-                navigator.clipboard.writeText($user.profile.id)
+                writeToClipboard($user.profile.id)
               }
             }}
           >
@@ -151,7 +143,7 @@
         </div>
       </div>
 
-      <div class="w-50 flex justify-center">
+      <div class="flex justify-center">
         <Link href="/dashboard">
           Click here to go to your application dashboard.</Link
         >
@@ -159,13 +151,15 @@
 
       <div class="text-sm">
         Any problems with changing your profile? Contact us at <Link
-          href="mailto:contact@gbstem.org">contact@gbstem.org</Link
+          href="mailto:contact@gbstem.org"
+          target="_blank"
+          rel="noopener">contact@gbstem.org</Link
         >.
       </div>
     </Card>
     <ChangeNameForm />
     <ChangeEmailForm />
     <ChangePasswordForm />
-    <!-- <DeleteAccountForm /> -->
+    <DeleteAccountForm />
   </div>
-</PageLayout>
+</div>

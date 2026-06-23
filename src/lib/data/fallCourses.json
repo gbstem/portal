@@ -1,56 +1,74 @@
 [
   {
-    "name": "Scratch 1"
+    "name": "Scratch 1",
+    "track": "cs"
   },
   {
-    "name": "Scratch 2"
-  },
-   {
-    "name": "Scratch 3"
+    "name": "Scratch 2",
+    "track": "cs"
   },
   {
-    "name": "Python 1"
+    "name": "Scratch 3",
+    "track": "cs"
   },
   {
-    "name": "Python 2"
+    "name": "Python 1",
+    "track": "cs"
   },
   {
-    "name": "Python 3"
+    "name": "Python 2",
+    "track": "cs"
   },
   {
-    "name": "Web Development"
+    "name": "Python 3",
+    "track": "cs"
   },
   {
-    "name": "Mathematics 1a"
+    "name": "Web Development",
+    "track": "cs"
   },
   {
-    "name": "Mathematics 2a"
+    "name": "Mathematics 1a",
+    "track": "math"
   },
   {
-    "name": "Mathematics 3a"
+    "name": "Mathematics 2a",
+    "track": "math"
   },
   {
-    "name": "Mathematics 4a"
+    "name": "Mathematics 3a",
+    "track": "math"
   },
   {
-    "name": "Mathematics 5a"
+    "name": "Mathematics 4a",
+    "track": "math"
   },
   {
-    "name": "Engineering 1"
+    "name": "Mathematics 5a",
+    "track": "math"
   },
   {
-    "name": "Engineering 2"
+    "name": "Engineering 1",
+    "track": "engineering"
   },
   {
-    "name": "Engineering 3"
+    "name": "Engineering 2",
+    "track": "engineering"
   },
   {
-    "name": "Lego Robotics Competition"
+    "name": "Engineering 3",
+    "track": "engineering"
   },
   {
-    "name": "Environmental Science A"
+    "name": "Lego Robotics Competition",
+    "track": "engineering"
   },
   {
-    "name": "Physics A"
+    "name": "Environmental Science A",
+    "track": "science"
+  },
+  {
+    "name": "Physics A",
+    "track": "science"
   }
 ]

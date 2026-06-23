@@ -1,16 +1,19 @@
-import { formatDateString } from "$lib/utils"
+import { formatDateString } from '$lib/utils'
 
 /**
  * Generates email based on changes to meeting times
- * @param originalMeetingTimes 
- * @param editedMeetingTimes 
+ * @param originalMeetingTimes
+ * @param editedMeetingTimes
  * @returns html email template
  */
-function generateMeetingTimeChangeEmail(originalMeetingTimes: string[], editedMeetingTimes: string[]): string {
+function generateMeetingTimeChangeEmail(
+  originalMeetingTimes: string[],
+  editedMeetingTimes: string[],
+): string {
   const addedClasses: string[] = []
   const removedClasses: string[] = []
 
-  // Check for deletions 
+  // Check for deletions
   originalMeetingTimes.forEach((time) => {
     if (!editedMeetingTimes.includes(time)) {
       removedClasses.push(`Class on ${formatDateString(time)}`)
@@ -59,5 +62,4 @@ function generateMeetingTimeChangeEmail(originalMeetingTimes: string[], editedMe
   return emailBody
 }
 
-
-export default generateMeetingTimeChangeEmail;
+export default generateMeetingTimeChangeEmail

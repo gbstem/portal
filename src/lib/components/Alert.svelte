@@ -54,7 +54,7 @@
     <button class="w-full" type="button" on:click={close} transition:fade>
       <div
         class={cn(
-          'flex w-full items-center gap-2 rounded-md p-3 shadow',
+          'flex w-full items-center gap-2 rounded-md p-3 shadow-sm',
           $alert.type === 'success' && 'bg-green-200',
           $alert.type === 'info' && 'bg-gray-200',
           $alert.type === 'error' && 'bg-red-200',

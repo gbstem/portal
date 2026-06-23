@@ -1,18 +1,21 @@
-import { error, json } from '@sveltejs/kit'
-import type { RequestHandler } from './$types'
-import postmark from 'postmark'
-import {
-  SENDGRID_API_TOKEN,
-} from '$env/static/private'
-import { addDataToHtmlTemplate } from '$lib/utils'
 import { interviewRequestedEmailTemplate } from '$lib/data/emailTemplates/interviewRequestedEmailTemplate'
-import MailService, { type MailDataRequired } from '@sendgrid/mail'
+import { verifyAuthenticated, handleApiError } from '$lib/server/apiHelpers'
+import { sendEmail } from '$lib/server/email'
+import { addDataToHtmlTemplate } from '$lib/utils'
+import { json } from '@sveltejs/kit'
+import type { RequestHandler } from './$types'
+
+export interface SlotRequestRequestBody {
+  firstName: string
+  timeSlot: string
+  intervieweeEmail: string
+}
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-  const body = await request.json();
-  if (locals.user === null) {
-    throw error(400, 'User not signed in.')
-  } else {
+  try {
+    verifyAuthenticated(locals)
+    const body = (await request.json()) as SlotRequestRequestBody
+
     const template = {
       name: 'interviewSlotRequest',
       data: {
@@ -27,27 +30,27 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       },
     }
 
-    const htmlBody = addDataToHtmlTemplate(interviewRequestedEmailTemplate, template);
+    const htmlBody = addDataToHtmlTemplate(
+      interviewRequestedEmailTemplate,
+      template,
+    )
 
-    const emailData: MailDataRequired = {
-      from: 'donotreply@gbstem.org',
-      to: 'admin@gbstem.org',
-      cc: 'contact@gbstem.org',
-      subject: String(template.data.subject),
-      html: htmlBody,
-      replyTo: 'contact@gbstem.org',
-      text: 'New Interview Timeslot Request',
-    }
-    MailService.setApiKey(SENDGRID_API_TOKEN)
     try {
-      await MailService.send(emailData);
-      console.log('Email sent');
+      await sendEmail({
+        to: 'admin@gbstem.org',
+        cc: 'contact@gbstem.org',
+        subject: String(template.data.subject),
+        html: htmlBody,
+      })
     } catch (mailError) {
-      console.error('Error sending email:', mailError);
-      return json({ error: 'Failed to send email. Please try again later.' }, { status: 500 });
-  }
-     return json({ message: 'Email sent successfully.' });
-     
-    return new Response()
+      return json(
+        { error: 'Failed to send email. Please try again later.' },
+        { status: 500 },
+      )
+    }
+
+    return json({ message: 'Email sent successfully.' })
+  } catch (err) {
+    throw handleApiError(err)
   }
 }

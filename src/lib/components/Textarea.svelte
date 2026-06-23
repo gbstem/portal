@@ -39,14 +39,14 @@
 </script>
 
 <div class="relative mt-2">
-  <label for={id}>
+  <label for={id} class="text-sm font-bold">
     <span>
       {label}<span class={cn('text-red-500', !required && 'hidden')}>*</span>
     </span>
   </label>
   <textarea
     class={cn(
-      'mt-2 block h-min w-full appearance-none rounded-md border border-gray-400 p-3 transition-colors placeholder:text-gray-500 focus:border-gray-600 focus:outline-none disabled:bg-white disabled:text-gray-400 disabled:placeholder:text-gray-400',
+      'mt-2 block h-min w-full appearance-none rounded-md border border-gray-400 p-3 transition-colors placeholder:text-gray-500 focus:border-gray-600 focus:outline-hidden disabled:bg-white disabled:text-gray-400 disabled:placeholder:text-gray-400',
       className,
     )}
     style={`min-height:${calcHeight}rem;height:${calcHeight}rem`}
@@ -58,10 +58,10 @@
     {name}
     {required}
     {...$$restProps}
-  />
+  ></textarea>
   {#if $$restProps?.maxlength && visible}
     <div
-      class="absolute bottom-3 right-3 rounded border border-gray-100 bg-gray-100 px-1 text-gray-500 shadow-sm"
+      class="absolute right-3 bottom-3 rounded-sm border border-gray-100 bg-gray-100 px-1 text-gray-500 shadow-xs"
       transition:fade
     >
       {value?.length || 0}/{$$restProps.maxlength}

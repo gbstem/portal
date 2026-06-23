@@ -34,7 +34,7 @@
 <div>
   <button
     class={cn(
-      'flex w-full items-center rounded-md border border-gray-200 p-4 shadow',
+      'flex w-full items-center rounded-md border border-gray-200 p-4 shadow-sm',
       className,
     )}
     type="button"

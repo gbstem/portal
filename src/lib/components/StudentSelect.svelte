@@ -1,11 +1,14 @@
 <script lang="ts">
-  import { doc, getDoc } from 'firebase/firestore'
-  import { onMount } from 'svelte'
+  import { db, user } from '$lib/client/firebase'
   import Loading from '$lib/components/Loading.svelte'
   import Select from '$lib/components/Select.svelte'
-  import { db, user } from '$lib/client/firebase'
-  import { registrationsCollection } from '$lib/data/constants'
+  import {
+    maxChildrenPerAccount,
+    registrationsCollection,
+  } from '$lib/data/collections'
   import { selectedStudentId } from '$lib/stores'
+  import { doc, getDoc } from 'firebase/firestore'
+  import { onMount } from 'svelte'
 
   let loading = true
 
@@ -16,11 +19,13 @@
   const nameToUid: Record<string, string> = {}
 
   const initializeFromPreloadedData = () => {
-    studentsOptions = preloadedStudents.map(student => ({ name: student.name }))
-    preloadedStudents.forEach(student => {
+    studentsOptions = preloadedStudents.map((student) => ({
+      name: student.name,
+    }))
+    preloadedStudents.forEach((student) => {
       nameToUid[student.name] = student.uid
     })
-    
+
     // Set the selected student to the first student if available
     if (studentsOptions.length > 0 && !selectedStudent) {
       selectedStudent = studentsOptions[0].name
@@ -30,7 +35,7 @@
 
   const fetchData = async (user: Data.User.Store) => {
     const uid = user.object.uid
-    for (let i = 1; i < 6; ++i) {
+    for (let i = 1; i <= maxChildrenPerAccount; ++i) {
       const docRef = await getDoc(
         doc(db, registrationsCollection, `${uid}-${i}`),
       )
@@ -86,17 +91,23 @@
     return {
       props: {
         selectedStudentUid: selectedStudentUid,
-      }
+      },
     }
   }
 </script>
 
-<div class="bg-white rounded-lg shadow-sm p-4">
-  <label class="block text-sm font-medium text-gray-700 mb-2">Select Student</label>
+<div class="rounded-lg bg-white p-4 shadow-xs">
+  <span class="mb-2 block text-sm font-medium text-gray-700"
+    >Select Student</span
+  >
   {#if loading}
     <Loading />
   {:else if studentsOptions.length === 1}
-    <div class="bg-blue-50 text-blue-900 rounded px-4 py-2 font-semibold text-center">{studentsOptions[0].name}</div>
+    <div
+      class="rounded-sm bg-blue-50 px-4 py-2 text-center font-semibold text-blue-900"
+    >
+      {studentsOptions[0].name}
+    </div>
   {:else if studentsOptions.length === 0}
     <div class="text-gray-500 italic">No students found.</div>
   {:else}
@@ -104,7 +115,6 @@
       bind:value={selectedStudent}
       options={studentsOptions}
       label="Select a child"
-      floating
       class="w-full"
     />
   {/if}

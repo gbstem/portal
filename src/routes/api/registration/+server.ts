@@ -1,21 +1,25 @@
-import { error, json } from '@sveltejs/kit'
-import type { RequestHandler } from './$types'
-import postmark from 'postmark'
-import {
-  SENDGRID_API_TOKEN,
-} from '$env/static/private'
-import { addDataToHtmlTemplate } from '$lib/utils'
 import { registrationSubmittedEmailTemplate } from '$lib/data/emailTemplates/registrationSubmittedEmailTemplate'
-import MailService, { type MailDataRequired } from '@sendgrid/mail'
+import { verifyAuthenticated, handleApiError } from '$lib/server/apiHelpers'
+import { sendEmail } from '$lib/server/email'
+import { addDataToHtmlTemplate } from '$lib/utils'
+import { json } from '@sveltejs/kit'
+import type { RequestHandler } from './$types'
+
+export interface RegistrationRequestBody {
+  firstName: string
+  studentName: string
+  secondaryEmail?: string
+  parentOrientationDate: string
+}
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-  const body = await request.json();
-  const firstName = body.firstName;
-  const studentName = body.studentName;
-  const secondaryEmail = body.secondaryEmail;
-  if (locals.user === null) {
-    throw error(400, 'User not signed in.')
-  } else {
+  try {
+    const user = verifyAuthenticated(locals)
+    const body = (await request.json()) as RegistrationRequestBody
+    const firstName = body.firstName
+    const studentName = body.studentName
+    const secondaryEmail = body.secondaryEmail
+
     const template = {
       name: 'registrationSubmitted',
       data: {
@@ -30,27 +34,28 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       },
     }
 
-    const htmlBody = addDataToHtmlTemplate(registrationSubmittedEmailTemplate, template);
+    const htmlBody = addDataToHtmlTemplate(
+      registrationSubmittedEmailTemplate,
+      template,
+    )
 
-    const emailData: MailDataRequired = {
-      from: 'donotreply@gbstem.org',
-      to: secondaryEmail !== '' ? `${locals.user.email}, ${secondaryEmail}` : locals.user.email,
-      cc: '',
-      subject: String(template.data.subject),
-      html: htmlBody,
-      replyTo: 'contact@gbstem.org',
-      text: 'Registration Submitted',
-    }
-    MailService.setApiKey(SENDGRID_API_TOKEN)
+    const to = secondaryEmail ? [user.email, secondaryEmail] : user.email
+
     try {
-      await MailService.send(emailData);
-      console.log('Email sent');
+      await sendEmail({
+        to,
+        subject: String(template.data.subject),
+        html: htmlBody,
+      })
     } catch (mailError) {
-      console.error('Error sending email:', mailError);
-      return json({ error: 'Failed to send email. Please try again later.' }, { status: 500 });
-  }
-     return json({ message: 'Email sent successfully.' });
+      return json(
+        { error: 'Failed to send email. Please try again later.' },
+        { status: 500 },
+      )
+    }
 
-    return new Response()
+    return json({ message: 'Email sent successfully.' })
+  } catch (err) {
+    throw handleApiError(err)
   }
 }

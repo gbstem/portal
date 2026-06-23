@@ -1,97 +1,123 @@
 <script lang="ts">
-  import Input from '$lib/components/Input.svelte'
-  import { alert } from '$lib/stores'
+  import { user } from '$lib/client/firebase'
   import Dialog from '$lib/components/Dialog.svelte'
   import ReauthenticateForm from '$lib/components/forms/ReauthenticateForm.svelte'
-  import Form from '$lib/components/Form.svelte'
-  import { user } from '$lib/client/firebase'
-  import DialogActions from '../DialogActions.svelte'
+  import { alert } from '$lib/stores'
+  import { defaults, superForm } from 'sveltekit-superforms'
+  import { zod } from 'sveltekit-superforms/adapters'
+  import { z } from 'zod'
+  import type { ActionRequestBody } from '../../../routes/api/action/+server'
   import Button from '../Button.svelte'
-  import { cn } from '$lib/utils'
+  import DialogActions from '../DialogActions.svelte'
+  import FormInput from '../FormInput.svelte'
 
-  let className = ''
-  export { className as class }
+  const schema = z.object({
+    newEmail: z.string().email('Invalid email address'),
+  })
 
   let dialogEl: Dialog
-  let disabled = false
-  let showValidation = false
-  let values = {
-    newEmail: '',
-  }
-  function handleSubmit(e: CustomEvent<SubmitData>) {
-    if (e.detail.error === null) {
-      showValidation = false
-      disabled = true
-      dialogEl.open()
-    } else {
-      showValidation = true
-      alert.trigger('error', e.detail.error)
-    }
-  }
+  let emailToUpdate = ''
+
+  const formResult = superForm(
+    defaults({ newEmail: '' }, zod(schema as any) as any) as any,
+    {
+      SPA: true,
+      validators: zod(schema as any) as any,
+      invalidateAll: false,
+      applyAction: false,
+      onUpdate({ form: formVal }) {
+        if (!formVal.valid) return
+        emailToUpdate = formVal.data.newEmail
+        dialogEl.open()
+      },
+    },
+  )
+
+  const { form, enhance, delayed, reset } = formResult
+
   function handleCancel() {
-    disabled = false
-    values = {
-      newEmail: '',
-    }
+    reset()
     alert.trigger('info', 'Email change canceled.')
   }
-  function handleReauthenticate() {
+
+  async function handleReauthenticate() {
     if ($user) {
       dialogEl.close()
-      fetch('/api/action', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          type: 'changeEmail',
-          newEmail: values.newEmail,
-          firstName: $user.profile.firstName,
-        }),
-      }).then(async (res) => {
+      const payload: ActionRequestBody = {
+        type: 'changeEmail',
+        newEmail: emailToUpdate,
+        firstName: $user.profile.firstName,
+      }
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        })
         if (res.ok) {
           alert.trigger('info', 'A verification email was sent.')
         } else {
           const { message } = await res.json()
           alert.trigger('error', message)
         }
-        values = {
-          newEmail: '',
-        }
-        disabled = false
-      })
+      } catch (err: any) {
+        console.error('Email change error:', err)
+        alert.trigger('error', err.message || 'An error occurred.')
+      } finally {
+        reset()
+      }
     }
   }
 </script>
 
-<Form
-  class={cn(showValidation && 'show-validation', className)}
-  on:submit={handleSubmit}
->
-  <fieldset {disabled}>
+<form use:enhance class="w-full">
+  <fieldset class="space-y-4" disabled={$delayed}>
     <span class="font-bold">Change email</span>
-    <Input
-      type="email"
-      value={$user && $user.object.email ? $user.object.email : ''}
-      label="Current email"
-      floating
-      readonly
-    />
-    <div class="relative">
-      <Input
-        class="pr-[5.25rem]"
-        type="email"
-        bind:value={values.newEmail}
-        label="New email"
-        floating
-        required
-      />
-      <div class="absolute right-2 top-0 flex h-12 items-center">
-        <Button color="blue" class="px-2 py-1" type="submit">Update</Button>
+
+    <div class="flex items-end gap-2">
+      <div class="flex w-full flex-col gap-1.5">
+        <label class="text-sm font-bold" for="current-email"
+          >Current email</label
+        >
+        <input
+          id="current-email"
+          type="email"
+          value={$user && $user.object.email ? $user.object.email : ''}
+          readonly
+          disabled
+          class="block h-12 w-full appearance-none rounded-md border border-gray-300 bg-gray-50 px-3 text-gray-500 outline-hidden"
+        />
       </div>
+      <Button
+        class="invisible h-12 shrink-0 select-none"
+        type="button"
+        tabindex="-1">Update</Button
+      >
+    </div>
+
+    <div class="flex items-end gap-2">
+      <div class="flex w-full flex-col gap-1.5">
+        <FormInput
+          form={formResult}
+          name="newEmail"
+          label="New email"
+          type="email"
+          bind:value={$form.newEmail}
+        />
+      </div>
+      <Button
+        color="blue"
+        class="h-12 shrink-0"
+        type="submit"
+        disabled={$delayed}
+      >
+        Update
+      </Button>
     </div>
   </fieldset>
-</Form>
+</form>
 
 <Dialog bind:this={dialogEl} on:cancel={handleCancel}>
   <svelte:fragment slot="title">Reauthenticate</svelte:fragment>

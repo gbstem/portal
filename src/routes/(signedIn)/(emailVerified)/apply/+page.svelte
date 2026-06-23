@@ -1,15 +1,18 @@
 <script lang="ts">
-  import PageLayout from '$lib/components/PageLayout.svelte'
-  import ApplyForm from '$lib/components/forms/ApplyForm.svelte'
   import { db, user } from '$lib/client/firebase'
-  import RegistrationForm from '$lib/components/forms/RegistrationForm.svelte'
   import Button from '$lib/components/Button.svelte'
-  import Select from '$lib/components/Select.svelte'
   import Card from '$lib/components/Card.svelte'
-  import { getDoc, doc } from 'firebase/firestore'
-  import { onMount } from 'svelte'
+  import ApplyForm from '$lib/components/forms/ApplyForm.svelte'
+  import RegistrationForm from '$lib/components/forms/RegistrationForm.svelte'
+  import Select from '$lib/components/Select.svelte'
+  import {
+    maxChildrenPerAccount,
+    registrationsCollection,
+    semesterDatesDocument,
+  } from '$lib/data/collections'
   import { alert } from '$lib/stores'
-    import { registrationsCollection, semesterDatesDocument } from '$lib/data/constants'
+  import { doc, getDoc } from 'firebase/firestore'
+  import { onMount } from 'svelte'
 
   // if this is a registration, iterate through the user's uid and check if uid-1, uid-2, etc. exists
   // if it does, add it to the options array
@@ -37,13 +40,15 @@
 
   const fetchData = async (user: Data.User.Store) => {
     uid = user.object.uid
-    await getDoc(doc(db, 'semesterDates', semesterDatesDocument)).then((datesDoc) => {
+    await getDoc(doc(db, 'semesterDates', semesterDatesDocument)).then(
+      (datesDoc) => {
         const datesDocExists = datesDoc.exists()
         if (datesDocExists) {
           semesterDates = datesDoc.data() as Data.SemesterDates
         }
-    })
-    for (let i = 1; i < 6; ++i) {
+      },
+    )
+    for (let i = 1; i <= maxChildrenPerAccount; ++i) {
       const docRef = await getDoc(
         doc(db, registrationsCollection, `${uid}-${i}`),
       )
@@ -72,8 +77,11 @@
   }
 
   const addChild = () => {
-    if (options.length >= 5) {
-      alert.trigger('error', 'You can only register up to 5 children')
+    if (options.length >= maxChildrenPerAccount) {
+      alert.trigger(
+        'error',
+        `You can only register up to ${maxChildrenPerAccount} children`,
+      )
       return
     }
     const newChildNumber = options.length + 1
@@ -101,42 +109,43 @@
 </svelte:head>
 
 {#if $user?.profile.role === 'instructor'}
-  <PageLayout>
-    <svelte:fragment slot="title">Apply</svelte:fragment>
-    <ApplyForm semesterDates = {semesterDates}/>
-  </PageLayout>
+  <h1 class="mb-4 text-5xl font-bold md:text-6xl">Apply</h1>
+  <div class="mx-auto flex max-w-6xl flex-col items-center px-2 py-8 md:px-8">
+    <ApplyForm {semesterDates} />
+  </div>
 {:else}
-  <PageLayout>
-    <svelte:fragment slot="title">Student Account Creation</svelte:fragment>
-    {#if ready}
-      <div class="font-bold">Your Existing Accounts</div>
-      <div class="grid gap-1 sm:grid-cols-3 sm:gap-3">
-        <div class="sm:col-span-2">
-          {#each [options] as optionList (optionList.length)}
-            <Select
-              bind:value
-              class="mr-2 w-full"
-              label="Select a child"
-              {options}
-              floating
-            />
-          {/each}
+  <h1 class="mb-4 text-5xl font-bold md:text-6xl">Student Account Creation</h1>
+  <div class="mx-auto flex max-w-6xl flex-col items-center px-2 py-8 md:px-8">
+    <div class="w-full">
+      {#if ready}
+        <div class="font-bold">Your Existing Accounts</div>
+        <div class="grid gap-1 sm:grid-cols-3 sm:gap-3">
+          <div class="sm:col-span-2">
+            {#each [options] as optionList (optionList.length)}
+              <Select
+                bind:value
+                class="mr-2 w-full"
+                label="Select a child"
+                {options}
+              />
+            {/each}
+          </div>
+          <div class="flex justify-end">
+            <Button
+              on:click={addChild}
+              color="blue"
+              class="px-2 py-1"
+              type="button">Add Child Account</Button
+            >
+          </div>
         </div>
-        <div class="flex justify-end">
-          <Button
-            on:click={addChild}
-            color="blue"
-            class="px-2 py-1"
-            type="button">Add Child Account</Button
-          >
-        </div>
-      </div>
-    {/if}
-    {#if nameToUid[value]}
-    <!-- <div class="rounded-lg bg-red-100 p-4 mt-8 w-full text-center"> This form is not available yet. Student account creation for this semester will open on {semesterDates.newInstructorAppsOpen}!</div> -->
-    <Card class="mx-auto w-fit mt-4">
-      <RegistrationForm childUid={nameToUid[value]} semesterDates = {semesterDates}/>
-    </Card>
-    {/if}
-  </PageLayout>
+      {/if}
+      {#if nameToUid[value]}
+        <!-- <div class="rounded-lg bg-red-100 p-4 mt-8 w-full text-center"> This form is not available yet. Student account creation for this semester will open on {semesterDates.newInstructorAppsOpen}!</div> -->
+        <Card class="mx-auto mt-4 w-fit">
+          <RegistrationForm childUid={nameToUid[value]} {semesterDates} />
+        </Card>
+      {/if}
+    </div>
+  </div>
 {/if}

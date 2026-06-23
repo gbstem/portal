@@ -1,85 +1,59 @@
-import { error, json } from '@sveltejs/kit'
-import type { RequestHandler } from './$types'
-import postmark from 'postmark'
-import type { FirebaseError } from 'firebase-admin'
-import {
-  SENDGRID_API_TOKEN,
-} from '$env/static/private'
-import { addDataToHtmlTemplate } from '$lib/utils'
 import { classReminderEmailTemplate } from '$lib/data/emailTemplates/classReminderEmailTemplate'
-import MailService, { type MailDataRequired } from '@sendgrid/mail'
+import { verifyAuthenticated, handleApiError } from '$lib/server/apiHelpers'
+import { sendEmail } from '$lib/server/email'
+import { addDataToHtmlTemplate } from '$lib/utils'
+import { json } from '@sveltejs/kit'
+import type { RequestHandler } from './$types'
+
+export interface RemindStudentsRequestBody {
+  email: string
+  otherInstructorEmails: string
+  name: string
+  class: string
+  classTime: string
+  instructorName: string
+}
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-  let topError
   try {
-    const body = await request.json()
-    try {
-      const email = body.email;
-      const otherInstructorEmails = body.otherInstructorEmails
-      if (locals.user === null) {
-        throw error(400, 'User not signed in.')
-      } else {
-        const template = {
-          name: 'classReminder',
-          data: {
-            subject: 'gbSTEM Class Reminder',
-            app: {
-              firstName: body.name,
-              name: 'Portal',
-              class: body.class,
-              classTime: body.classTime,
-              instructor: body.instructorName,
-            },
-          },
-        }
+    verifyAuthenticated(locals)
+    const body = (await request.json()) as RemindStudentsRequestBody
 
-        const htmlBody = addDataToHtmlTemplate(classReminderEmailTemplate, template);
+    const email = body.email
+    const otherInstructorEmails = body.otherInstructorEmails
 
-        const emailData: MailDataRequired = {
-          from: 'donotreply@gbstem.org',
-          to: email,
-          cc: otherInstructorEmails,
-          subject: String(template.data.subject),
-          html: htmlBody,
-          replyTo: 'contact@gbstem.org',
-          text: 'Class Reminder',
-        }
-        MailService.setApiKey(SENDGRID_API_TOKEN)
-        try {
-          await MailService.send(emailData);
-          console.log('Email sent');
-        } catch (mailError) {
-          console.error('Error sending email:', mailError);
-          return json({ error: 'Failed to send email. Please try again later.' }, { status: 500 });
-      }
-         return json({ message: 'Email sent successfully.' });
-      }
-    } catch (err) {
-      if (typeof err === 'string') {
-        topError = error(400, err)
-      } else {
-        const typedErr = err as
-          | FirebaseError
-          | {
-            errorInfo: FirebaseError
-            codePrefix: string
-          }
-        if ('errorInfo' in typedErr) {
-          topError = error(
-            400,
-            typedErr.errorInfo.message ||
-            'Please wait a few minutes before trying again.',
-          )
-        } else if ('message' in typedErr) {
-          topError = error(400, typedErr.message)
-        } else {
-          topError = error(400, 'Something went wrong. Please try again.')
-        }
-      }
+    const template = {
+      name: 'classReminder',
+      data: {
+        subject: 'gbSTEM Class Reminder',
+        app: {
+          firstName: body.name,
+          name: 'Portal',
+          class: body.class,
+          classTime: body.classTime,
+          instructor: body.instructorName,
+        },
+      },
     }
-  } catch (err) {
-    topError = error(400, 'Invalid request body.')
-  }
-  throw topError
 
+    const htmlBody = addDataToHtmlTemplate(classReminderEmailTemplate, template)
+
+    try {
+      await sendEmail({
+        to: email,
+        cc: otherInstructorEmails,
+        subject: String(template.data.subject),
+        html: htmlBody,
+      })
+    } catch (mailError) {
+      return json(
+        { error: 'Failed to send email. Please try again later.' },
+        { status: 500 },
+      )
+    }
+
+    return json({ message: 'Email sent successfully.' })
+  } catch (err) {
+    throw handleApiError(err)
+  }
 }

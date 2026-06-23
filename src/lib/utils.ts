@@ -1,10 +1,19 @@
+import { db } from '$lib/client/firebase'
+import { classesCollection } from '$lib/data/collections'
+import { alert } from '$lib/stores'
 import type { ClassValue } from 'clsx'
 import clsx from 'clsx'
-import { Timestamp, doc, getDoc, getDocs, collection, setDoc, updateDoc, arrayUnion } from 'firebase/firestore'
+import {
+  Timestamp,
+  arrayUnion,
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  setDoc,
+  updateDoc,
+} from 'firebase/firestore'
 import { twMerge } from 'tailwind-merge'
-import { alert } from '$lib/stores'
-import { db } from '$lib/client/firebase'
-import { classesCollection } from '$lib/data/constants'
 
 export function cn(...classes: Array<ClassValue>) {
   return twMerge(clsx(...classes))
@@ -59,19 +68,23 @@ export function trapFocus(node: HTMLElement) {
 }
 
 // replace html template with data
-export function addDataToHtmlTemplate(html, template) {
-  const htmlBody = html.replace(/{{(.*?)}}/g, (_, key) => {
-    const keys = key.trim().split('.');
-    let value = template.data;
+export function addDataToHtmlTemplate(
+  html: string,
+  template: { data: Record<string, any> },
+): string {
+  const htmlBody = html.replace(/{{(.*?)}}/g, (_: string, key: string) => {
+    const keys = key.trim().split('.')
+    let value: any = template.data
     for (const k of keys) {
-      value = value[k];
-      if (value === undefined) {
-        return '';
+      if (value && typeof value === 'object' && k in value) {
+        value = value[k]
+      } else {
+        return ''
       }
     }
-    return value;
-  });
-  return htmlBody;
+    return String(value ?? '')
+  })
+  return htmlBody
 }
 
 export function formatTime24to12(time24: string): string {
@@ -93,38 +106,13 @@ export function formatTime24to12(time24: string): string {
   })
 }
 
-export const timestampToDate = (timestamp: Timestamp | Date) => {
-  return new Date(timestamp.seconds * 1000)
-}
-
-export const classTodayHeld = (datesHeld: Date[]) => {
-  return (
-    datesHeld.filter(
-      (date) =>
-        new Date().toDateString() === timestampToDate(date).toDateString() &&
-        new Date() > date,
-    ).length > 0
+export function formatClassTimes(
+  classDays: string[],
+  classTimes: string[],
+): string[] {
+  return classDays.map(
+    (day, index) => `${day} at ${formatTime24to12(classTimes[index])}`,
   )
-}
-
-export function normalizeCapitals(name: string) {
-  if(name === undefined) return ''
-  return name
-    .split(' ')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ')
-}
-
-export function formatDateString(date: string): string {
-  const dateObj = new Date(date)
-  const options: Intl.DateTimeFormatOptions = {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }
-  return dateObj.toLocaleString(undefined, options)
 }
 
 export const formatDate = (date: Date) => {
@@ -138,6 +126,17 @@ export const formatDate = (date: Date) => {
   })
 }
 
+export function formatDateString(dateString: string) {
+  const date = new Date(dateString)
+  return date.toLocaleString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
 export function formatDateLocal(date: Date) {
   return date.toLocaleString('en-US', {
     weekday: 'long', // long, short, narrow
@@ -146,7 +145,7 @@ export function formatDateLocal(date: Date) {
     hour: 'numeric', // numeric, 2-digit
     minute: 'numeric', // numeric, 2-digit
     hour12: true, // use 12-hour time format with AM/PM
-    timeZoneName: 'long', 
+    timeZoneName: 'long',
   })
 }
 
@@ -159,8 +158,36 @@ export function formatDateStringLocal(time: string) {
     hour: 'numeric', // numeric, 2-digit
     minute: 'numeric', // numeric, 2-digit
     hour12: true, // use 12-hour time format with AM/PM
-    timeZoneName: 'long', 
+    timeZoneName: 'long',
   })
+}
+
+export const timestampToDate = (timestamp: Timestamp | Date) => {
+  if (timestamp instanceof Date) {
+    return timestamp
+  }
+  if (timestamp && typeof timestamp === 'object' && 'seconds' in timestamp) {
+    return new Date(timestamp.seconds * 1000)
+  }
+  return new Date(timestamp)
+}
+
+export const classTodayHeld = (datesHeld: Date[]) => {
+  return (
+    datesHeld.filter(
+      (date) =>
+        new Date().toDateString() === timestampToDate(date).toDateString() &&
+        new Date() > date,
+    ).length > 0
+  )
+}
+
+export function normalizeCapitals(name: string) {
+  if (name === undefined) return ''
+  return name
+    .split(' ')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ')
 }
 
 export function htmlToPlainText(html: string): string {
@@ -177,6 +204,21 @@ export function htmlToPlainText(html: string): string {
   return doc.body.textContent?.replace(/\n+/g, '\n').trim() || ''
 }
 
+export function writeToClipboard(text: string): Promise<void> {
+  if (
+    typeof navigator === 'undefined' ||
+    !navigator.clipboard ||
+    typeof navigator.clipboard.writeText !== 'function'
+  ) {
+    return Promise.reject(new Error('Clipboard API not supported'))
+  }
+  const promise = navigator.clipboard.writeText(text)
+  if (promise && typeof promise.then === 'function') {
+    return promise
+  }
+  return Promise.resolve()
+}
+
 export function copyToClipboard(emailHtmlContent: string) {
   const el = document.createElement('textarea')
   el.value = htmlToPlainText(emailHtmlContent)
@@ -187,8 +229,26 @@ export function copyToClipboard(emailHtmlContent: string) {
   alert.trigger('success', 'Email copied to clipboard!')
 }
 
+export function copyEmails(emails: Array<string | null | undefined>) {
+  const cleanEmails = emails
+    .filter(
+      (email): email is string =>
+        typeof email === 'string' && email.trim() !== '',
+    )
+    .map((email) => email.trim())
+    .sort()
+  writeToClipboard(cleanEmails.join(', '))
+    .then(() => {
+      alert.trigger('success', 'Emails copied to clipboard!')
+    })
+    .catch(() => {
+      alert.trigger('error', 'Failed to copy emails to clipboard!')
+    })
+}
+
 export function toLocalISOString(date: Date) {
   const pad = (number: number) => (number < 10 ? '0' + number : number)
+
   const year = date.getFullYear()
   const month = pad(date.getMonth() + 1) // JavaScript months are 0-indexed.
   const day = pad(date.getDate())
@@ -198,6 +258,23 @@ export function toLocalISOString(date: Date) {
   return `${year}-${month}-${day}T${hour}:${minute}`.slice(0, 16)
 }
 
+export function cleanEnvVar(value: string | undefined): string | undefined {
+  if (!value) return ''
+
+  const trimmed = value.trim()
+  const firstChar = trimmed[0]
+  const lastChar = trimmed[trimmed.length - 1]
+
+  // Check if the string is wrapped in matching single or double quotes
+  if (
+    (firstChar === '"' && lastChar === '"') ||
+    (firstChar === "'" && lastChar === "'")
+  ) {
+    return trimmed.slice(1, -1)
+  }
+
+  return trimmed
+}
 
 export const isClassUpcoming = (date: Date) => {
   return (
@@ -209,56 +286,65 @@ export const isClassUpcoming = (date: Date) => {
 
 /**
  * Get all classes that an instructor has access to (both owned and co-taught)
- * @param instructorUID - The instructor's Firebase UID  
+ * @param instructorUID - The instructor's Firebase UID
  * @param instructorEmail - The instructor's email address
  * @returns Object with classId as key and class data as value
  */
-export async function getInstructorClasses(instructorUID: string, instructorEmail: string): Promise<{[classId: string]: Data.Class}> {
+export async function getInstructorClasses(
+  instructorUID: string,
+  instructorEmail: string,
+): Promise<{ [classId: string]: Data.Class }> {
   try {
     // Get instructor's class access mapping using email
-    const instructorClassesDoc = await getDoc(doc(db, 'instructorClasses', instructorEmail))
+    const instructorClassesDoc = await getDoc(
+      doc(db, 'instructorClasses', instructorEmail),
+    )
     let accessibleClassIds: string[] = []
-    
+
     if (instructorClassesDoc.exists()) {
       // Use mapping if it exists
       accessibleClassIds = instructorClassesDoc.data()?.classIds || []
     }
-    
+
     // Also include classes created by this instructor (for backward compatibility)
     const allClassesSnapshot = await getDocs(collection(db, classesCollection))
     const ownedClassIds: string[] = []
-    
+
     allClassesSnapshot.forEach((doc) => {
       if (doc.id.startsWith(instructorUID + '-')) {
         ownedClassIds.push(doc.id)
       }
     })
-    
+
     // Combine and deduplicate
     const allClassIds = [...new Set([...accessibleClassIds, ...ownedClassIds])]
-    
+
     // Fetch all accessible classes
-    const classPromises = allClassIds.map(classId => 
-      getDoc(doc(db, classesCollection, classId))
+    const classPromises = allClassIds.map((classId) =>
+      getDoc(doc(db, classesCollection, classId)),
     )
-    
+
     const classDocs = await Promise.all(classPromises)
-    const classes: {[classId: string]: Data.Class} = {}
-    
+    const classes: { [classId: string]: Data.Class } = {}
+
     classDocs.forEach((classDoc, index) => {
       if (classDoc.exists()) {
         const classData = classDoc.data() as Data.Class
         // Convert Firestore timestamps to dates
         if (classData.meetingTimes) {
-          classData.meetingTimes = classData.meetingTimes.map((time: Timestamp | Date) => timestampToDate(time))
+          classData.meetingTimes = classData.meetingTimes.map(
+            (time: Timestamp | Date) => timestampToDate(time),
+          )
         }
         if (classData.completedClassDates) {
-          classData.completedClassDates = classData.completedClassDates.map((time: Timestamp | Date) => timestampToDate(time))
+          classData.completedClassDates = classData.completedClassDates.map(
+            (time: Timestamp | Date) => timestampToDate(time),
+          )
         }
         classes[allClassIds[index]] = classData
       }
     })
-    
+
     return classes
   } catch (error) {
     console.error('Error fetching instructor classes:', error)
@@ -273,21 +359,21 @@ export async function getInstructorClasses(instructorUID: string, instructorEmai
  * @param otherInstructorEmails - Comma-separated co-instructor emails
  */
 export async function updateInstructorClassMappings(
-  classId: string, 
-  mainInstructorEmail: string, 
-  otherInstructorEmails: string
+  classId: string,
+  mainInstructorEmail: string,
+  otherInstructorEmails: string,
 ): Promise<void> {
   try {
     // Always ensure main instructor has access
     await addInstructorToClass(mainInstructorEmail, classId)
-    
+
     if (otherInstructorEmails.trim()) {
       // Parse co-instructor emails
       const coInstructorEmails = otherInstructorEmails
         .split(',')
-        .map(email => email.trim())
-        .filter(email => email.length > 0)
-      
+        .map((email) => email.trim())
+        .filter((email) => email.length > 0)
+
       // Add access for each co-instructor
       for (const email of coInstructorEmails) {
         await addInstructorToClass(email, classId)
@@ -301,20 +387,21 @@ export async function updateInstructorClassMappings(
 /**
  * Add an instructor to a class mapping
  */
-async function addInstructorToClass(instructorEmail: string, classId: string): Promise<void> {
+async function addInstructorToClass(
+  instructorEmail: string,
+  classId: string,
+): Promise<void> {
   const instructorClassesRef = doc(db, 'instructorClasses', instructorEmail)
-  
+
   try {
     // Try to update existing document
     await updateDoc(instructorClassesRef, {
-      classIds: arrayUnion(classId)
+      classIds: arrayUnion(classId),
     })
   } catch (error) {
     // If document doesn't exist, create it
     await setDoc(instructorClassesRef, {
-      classIds: [classId]
+      classIds: [classId],
     })
   }
 }
-
-

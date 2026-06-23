@@ -1,5 +1,3 @@
-declare module 'qrious'
-
 type Validation = [errorCondition: boolean, errorMessage: string]
 
 type SubmitError = string | null
