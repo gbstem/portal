@@ -142,7 +142,7 @@
 
 <div class="mx-auto flex max-w-6xl flex-col items-center px-2 py-8 md:px-8">
   {#if loading}
-    <div class="w-full max-w-[620px] animate-pulse space-y-8">
+    <div class="w-full max-w-155 animate-pulse space-y-8">
       <!-- Card Skeleton 1 -->
       <div class="rounded-xl bg-white p-6 shadow-lg">
         <div class="mb-4 flex items-center">
@@ -174,7 +174,7 @@
     <div
       class="grid w-full gap-8 {hasRightColumn
         ? 'md:grid-cols-2'
-        : 'max-w-[620px] grid-cols-1'}"
+        : 'max-w-155 grid-cols-1'}"
     >
       <div class="flex flex-col gap-8">
         {#if $user?.profile?.role === 'instructor' && new Date() >= new Date(semesterDates.classesStart) && data.application.status === 'submitted'}

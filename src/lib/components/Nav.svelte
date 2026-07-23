@@ -79,7 +79,7 @@
         {#each pages as page}
           <a
             class={cn(
-              'relative rounded-full px-1.5 py-1 text-[11px] md:px-2 md:py-1.5 md:text-xs lg:px-2.5 lg:py-2 lg:text-sm xl:px-4 xl:text-base font-medium transition-colors duration-200 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-400 text-center leading-tight flex items-center justify-center min-h-10 max-w-[120px] shrink-0',
+              'relative rounded-full px-1.5 py-1 text-[11px] md:px-2 md:py-1.5 md:text-xs lg:px-2.5 lg:py-2 lg:text-sm xl:px-4 xl:text-base font-medium transition-colors duration-200 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-400 text-center leading-tight flex items-center justify-center min-h-10 max-w-30 shrink-0',
               pathname === page.href
                 ? 'bg-blue-100 text-blue-700 shadow-xs'
                 : 'hover:bg-gray-100 hover:text-blue-600',

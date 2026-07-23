@@ -727,7 +727,7 @@
       <li
         class="relative flex flex-wrap items-center justify-between gap-4 rounded-xl border bg-white p-4 shadow-sm transition hover:shadow-lg"
       >
-        <div class="flex min-w-[200px] flex-1 items-center gap-4">
+        <div class="flex min-w-50 flex-1 items-center gap-4">
           <!-- Status badge -->
           {#if values.classStatuses[classNumber] === ClassStatus.ClassNotHeld}
             <span

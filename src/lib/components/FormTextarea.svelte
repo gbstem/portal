@@ -56,7 +56,7 @@
           maxlength={$$restProps.maxlength ?? fieldConstraints?.maxlength}
           bind:value
           class={cn(
-            'mt-1 block min-h-[120px] w-full appearance-none rounded-md border border-gray-400 p-3 transition-colors placeholder:text-gray-500 focus:border-gray-600 focus:outline-hidden disabled:bg-white disabled:text-gray-400',
+            'mt-1 block min-h-30 w-full appearance-none rounded-md border border-gray-400 p-3 transition-colors placeholder:text-gray-500 focus:border-gray-600 focus:outline-hidden disabled:bg-white disabled:text-gray-400',
             className,
           )}
           {...$$restProps}
