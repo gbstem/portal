@@ -5,6 +5,7 @@
     instructorFeedbackCollection,
     registrationsCollection,
     substituteRequestsCollection,
+    withSemester,
   } from '$lib/data/collections'
   import { alert } from '$lib/stores'
   import { cn } from '$lib/utils'
@@ -99,7 +100,7 @@
           try {
             await setDoc(
               doc(db, instructorFeedbackCollection, `${id}-${Date.now()}`),
-              submissionValues,
+              withSemester(submissionValues),
             )
             await updateDoc(doc(db, classesCollection, id), {
               feedbackCompleted: feedbackCompletedArray,

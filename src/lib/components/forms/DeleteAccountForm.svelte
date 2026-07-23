@@ -1,7 +1,10 @@
 <script lang="ts">
   import { db, storage, user } from '$lib/client/firebase'
   import Dialog from '$lib/components/Dialog.svelte'
-  import { decisionsCollection } from '$lib/data/collections'
+  import {
+    applicationsCollection,
+    decisionsCollection,
+  } from '$lib/data/collections'
   import { alert } from '$lib/stores'
   import {
     EmailAuthProvider,
@@ -48,7 +51,9 @@
             await Promise.all(
               [
                 deleteObject(resumeRef),
-                deleteDoc(doc(db, 'applications', frozenUser.object.uid)),
+                deleteDoc(
+                  doc(db, applicationsCollection, frozenUser.object.uid),
+                ),
                 deleteDoc(doc(db, decisionsCollection, frozenUser.object.uid)),
               ].map((p) => p.catch((e) => e)),
             )

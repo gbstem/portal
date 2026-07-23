@@ -20,7 +20,7 @@
   import Card from '$lib/components/Card.svelte'
   import { db, user } from '$lib/client/firebase'
   import { cloneDeep, isEqual } from 'lodash-es'
-  import { registrationsCollection } from '$lib/data/collections'
+  import { registrationsCollection, withSemester } from '$lib/data/collections'
   import { superForm, defaults } from 'sveltekit-superforms'
   import { zod } from 'sveltekit-superforms/adapters'
   import { registrationSchema } from './schemas'
@@ -146,7 +146,10 @@
               updated: serverTimestamp(),
             },
           }
-          setDoc(doc(db, registrationsCollection, childUid), updatedValues)
+          setDoc(
+            doc(db, registrationsCollection, childUid),
+            withSemester(updatedValues),
+          )
             .then(() => {
               getDoc(doc(db, registrationsCollection, childUid)).then(
                 (applicationDoc) => {
@@ -353,7 +356,10 @@
             updated: serverTimestamp(),
           },
         }
-        setDoc(doc(db, registrationsCollection, childUid), updatedValues)
+        setDoc(
+          doc(db, registrationsCollection, childUid),
+          withSemester(updatedValues),
+        )
           .then(() => {
             getDoc(doc(db, registrationsCollection, childUid)).then(
               (applicationDoc) => {
