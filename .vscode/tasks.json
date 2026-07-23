@@ -4,7 +4,7 @@
     {
       "label": "Run All Tests (Lint, Jest, Cypress)",
       "type": "shell",
-      "command": "yarn lint && yarn test && yarn cypress:run",
+      "command": "npm run lint && npm run test && npm run cypress",
       "group": {
         "kind": "test",
         "isDefault": true
@@ -18,7 +18,7 @@
     {
       "label": "Run Lint",
       "type": "shell",
-      "command": "yarn lint",
+      "command": "npm run lint",
       "group": "test",
       "presentation": {
         "reveal": "always",
@@ -29,7 +29,7 @@
     {
       "label": "Run Jest Tests",
       "type": "shell",
-      "command": "yarn test",
+      "command": "npm run test",
       "group": "test",
       "presentation": {
         "reveal": "always",
@@ -40,7 +40,7 @@
     {
       "label": "Run Cypress Tests (E2E)",
       "type": "shell",
-      "command": "yarn cypress:run",
+      "command": "npm run cypress",
       "group": "test",
       "presentation": {
         "reveal": "always",

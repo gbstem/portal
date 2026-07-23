@@ -13,7 +13,6 @@
     "format:check": "prettier . --check .",
     "format": "prettier --write --plugin prettier-plugin-svelte --plugin prettier-plugin-tailwindcss .",
     "test": "jest",
-    "cypress:run": "start-server-and-test start http://localhost:3000 cypress",
     "cypress": "cypress run",
     "deploy": "npm run build && firebase deploy",
     "emulators": "firebase emulators:start --log-verbosity=quiet",
