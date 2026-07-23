@@ -1,3 +1,4 @@
+import { currentSemester } from '../../src/lib/data/collections'
 import { generateDateHash } from '../support/utils'
 
 describe('Section F: Profile Customization & Account Management', () => {
@@ -108,9 +109,6 @@ describe('Section F: Profile Customization & Account Management', () => {
     cy.url().should('include', '/signin', { timeout: 10000 })
   })
 
-  // Note: 'Spring26' below is the current semester (collections.ts's `currentSemester`),
-  // hardcoded rather than imported since Cypress specs in this repo don't import app source -
-  // update it alongside the `suffix` constant when the semester rolls over.
   it('Test Case 13: Deleting An Instructor Account Removes Their Application', () => {
     const emailPrefix = generateDateHash('delete-instructor')
     const email = `${emailPrefix}@gbstem.org`
@@ -143,7 +141,7 @@ describe('Section F: Profile Customization & Account Management', () => {
       expect(uid).to.be.a('string')
       expect((uid as string).length).to.be.greaterThan(0)
 
-      const applicationDocPath = `semesters/Spring26/applications/${uid}`
+      const applicationDocPath = `semesters/${currentSemester}/applications/${uid}`
 
       // Confirm the application doc actually exists before deletion, so the "gone after
       // deletion" check below can't be a false pass from it never having been created.

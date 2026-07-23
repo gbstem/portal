@@ -117,7 +117,7 @@ Open [http://localhost:5173](http://localhost:5173) with your browser to see the
 
 To transition the gbSTEM system to a new semester, configuration and course catalog updates must be applied.
 
-For detailed, step-by-step instructions on how to transition the collections, copy the updated course catalog configurations, and deploy the required Firebase extensions, please refer to the **[Adding a New Semester section in the Admin Repository's README.md](https://github.com/gbstem/admin/blob/main/README.md#adding-a-new-semester)**.
+For detailed, step-by-step instructions on updating the semester suffix and copying the updated course catalog configurations, please refer to the **[Adding a New Semester section in the Admin Repository's README.md](https://github.com/gbstem/admin/blob/main/README.md#adding-a-new-semester)**.
 
 ## Updating Dependencies
 
