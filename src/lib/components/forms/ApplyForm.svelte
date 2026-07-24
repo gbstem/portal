@@ -11,7 +11,7 @@
   import type { FirebaseError } from 'firebase/app'
   import Card from '$lib/components/Card.svelte'
   import { coursesJson, gendersJson, raceJson, reasonsJson } from '$lib/data'
-  import { applicationsCollection } from '$lib/data/collections'
+  import { applicationsCollection, withSemester } from '$lib/data/collections'
   import { superForm, defaults } from 'sveltekit-superforms'
   import { zod } from 'sveltekit-superforms/adapters'
   import { applicationSchema } from './schemas'
@@ -26,7 +26,6 @@
   export let semesterDates: Data.SemesterDates = {
     classesEnd: '',
     classesStart: '',
-    leadershipAppsDue: '',
     newInstructorAppsDue: '',
     returningInstructorAppsDue: '',
     instructorOrientation: '',
@@ -178,7 +177,7 @@
           }
           setDoc(
             doc(db, applicationsCollection, frozenUser.object.uid),
-            updatedValues,
+            withSemester(updatedValues),
           )
             .then(() => {
               getDoc(
@@ -316,7 +315,7 @@
         }
         setDoc(
           doc(db, applicationsCollection, frozenUser.object.uid),
-          updatedValues,
+          withSemester(updatedValues),
         )
           .then(() => {
             getDoc(doc(db, applicationsCollection, frozenUser.object.uid)).then(

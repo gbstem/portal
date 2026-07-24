@@ -20,7 +20,7 @@
   import Card from '$lib/components/Card.svelte'
   import { db, user } from '$lib/client/firebase'
   import { cloneDeep, isEqual } from 'lodash-es'
-  import { registrationsCollection } from '$lib/data/collections'
+  import { registrationsCollection, withSemester } from '$lib/data/collections'
   import { superForm, defaults } from 'sveltekit-superforms'
   import { zod } from 'sveltekit-superforms/adapters'
   import { registrationSchema } from './schemas'
@@ -34,7 +34,6 @@
   export let semesterDates: Data.SemesterDates = {
     classesEnd: '',
     classesStart: '',
-    leadershipAppsDue: '',
     newInstructorAppsDue: '',
     returningInstructorAppsDue: '',
     instructorOrientation: '',
@@ -146,7 +145,10 @@
               updated: serverTimestamp(),
             },
           }
-          setDoc(doc(db, registrationsCollection, childUid), updatedValues)
+          setDoc(
+            doc(db, registrationsCollection, childUid),
+            withSemester(updatedValues),
+          )
             .then(() => {
               getDoc(doc(db, registrationsCollection, childUid)).then(
                 (applicationDoc) => {
@@ -353,7 +355,10 @@
             updated: serverTimestamp(),
           },
         }
-        setDoc(doc(db, registrationsCollection, childUid), updatedValues)
+        setDoc(
+          doc(db, registrationsCollection, childUid),
+          withSemester(updatedValues),
+        )
           .then(() => {
             getDoc(doc(db, registrationsCollection, childUid)).then(
               (applicationDoc) => {
@@ -491,7 +496,7 @@
     </div>
   </Card>
 {:else}
-  {#if new Date() >= new Date(semesterDates.registrationsDue + 604800000) && !values.meta.submitted}
+  {#if new Date().getTime() >= new Date(semesterDates.registrationsDue).getTime() + 604800000 && !values.meta.submitted}
     <Card class="mb-6 max-w-2xl border-red-200 bg-red-50">
       <div class="flex items-start gap-3">
         <svg

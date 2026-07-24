@@ -8,7 +8,7 @@
   import {
     maxChildrenPerAccount,
     registrationsCollection,
-    semesterDatesDocument,
+    semesterDates,
   } from '$lib/data/collections'
   import { alert } from '$lib/stores'
   import { doc, getDoc } from 'firebase/firestore'
@@ -23,31 +23,9 @@
   let value = ''
   let ready = false
   let uid = ''
-  let semesterDates: Data.SemesterDates = {
-    classesEnd: '',
-    classesStart: '',
-    leadershipAppsDue: '',
-    newInstructorAppsDue: '',
-    returningInstructorAppsDue: '',
-    instructorOrientation: '',
-    newInstructorAppsOpen: '',
-    returningInstructorAppsOpen: '',
-    studentOrientation: '',
-    registrationsDue: '',
-    parentOrientation: '',
-    registrationsOpen: '',
-  }
 
   const fetchData = async (user: Data.User.Store) => {
     uid = user.object.uid
-    await getDoc(doc(db, 'semesterDates', semesterDatesDocument)).then(
-      (datesDoc) => {
-        const datesDocExists = datesDoc.exists()
-        if (datesDocExists) {
-          semesterDates = datesDoc.data() as Data.SemesterDates
-        }
-      },
-    )
     for (let i = 1; i <= maxChildrenPerAccount; ++i) {
       const docRef = await getDoc(
         doc(db, registrationsCollection, `${uid}-${i}`),

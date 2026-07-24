@@ -1,3 +1,4 @@
+import { currentSemester } from '../../src/lib/data/collections'
 import { generateDateHash } from '../support/utils'
 
 describe('Section F: Profile Customization & Account Management', () => {
@@ -106,5 +107,61 @@ describe('Section F: Profile Customization & Account Management', () => {
         cy.contains('button', 'Delete').click()
       })
     cy.url().should('include', '/signin', { timeout: 10000 })
+  })
+
+  it('Test Case 13: Deleting An Instructor Account Removes Their Application', () => {
+    const emailPrefix = generateDateHash('delete-instructor')
+    const email = `${emailPrefix}@gbstem.org`
+    const password = 'password123'
+
+    cy.loadSignupPage()
+    cy.selectOption(
+      'input[name="role"]',
+      'High school/college student applying to be an instructor',
+    )
+    cy.fillInput('input[name="firstName"]', 'DeleteMe')
+    cy.fillInput('input[name="lastName"]', 'Instructor')
+    cy.fillInput('input[name="email"]', email)
+    cy.fillInput('input[name="password"]', password)
+    cy.fillInput('input[name="confirmPassword"]', password)
+    cy.contains('button', 'Sign up').click()
+    cy.get('[role="dialog"]').contains('button', 'Go to dashboard').click()
+    cy.getLatestOobLink(email, 'VERIFY_EMAIL').then((link) => {
+      cy.request(link)
+    })
+
+    // Visiting /apply as an instructor auto-creates a draft application doc.
+    cy.visit('/apply')
+    cy.wait(2000)
+
+    // getFirestoreUserId/checkFirestoreDocExists use the Admin SDK (cypress.config.ts task),
+    // which bypasses firestore.rules - unlike a plain cy.request() against the Firestore REST
+    // API, which enforces them and would 403 for this unauthenticated check.
+    cy.task('getFirestoreUserId', email).then((uid) => {
+      expect(uid).to.be.a('string')
+      expect((uid as string).length).to.be.greaterThan(0)
+
+      const applicationDocPath = `semesters/${currentSemester}/applications/${uid}`
+
+      // Confirm the application doc actually exists before deletion, so the "gone after
+      // deletion" check below can't be a false pass from it never having been created.
+      cy.task('checkFirestoreDocExists', applicationDocPath).should('eq', true)
+
+      cy.visit('/profile')
+      cy.wait(1000)
+      cy.contains('button', 'Delete account').click()
+      cy.get('[role="dialog"]')
+        .last()
+        .within(() => {
+          cy.get('input[name="password"]').clear().type(password)
+          cy.contains('button', 'Delete').click()
+        })
+      cy.url().should('include', '/signin', { timeout: 10000 })
+
+      cy.task('checkFirestoreDocExists', applicationDocPath).should(
+        'eq',
+        false,
+      )
+    })
   })
 })

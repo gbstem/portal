@@ -13,7 +13,7 @@
     classesCollection,
     maxChildrenPerAccount,
     registrationsCollection,
-    semesterDatesDocument,
+    semesterDates,
   } from '$lib/data/collections'
   import { alert } from '$lib/stores'
   import { formatClassTimes } from '$lib/utils'
@@ -55,21 +55,6 @@
 
   let classFilter = ''
   let onlyShowEnrolled = false
-
-  let semesterDates: Data.SemesterDates = {
-    classesEnd: '',
-    classesStart: '',
-    leadershipAppsDue: '',
-    newInstructorAppsDue: '',
-    returningInstructorAppsDue: '',
-    instructorOrientation: '',
-    newInstructorAppsOpen: '',
-    returningInstructorAppsOpen: '',
-    studentOrientation: '',
-    registrationsDue: '',
-    parentOrientation: '',
-    registrationsOpen: '',
-  }
 
   const studentUidToClassIds: {
     [studentUid: string]: string[]
@@ -180,12 +165,6 @@
   }
 
   onMount(() => {
-    getDoc(doc(db, 'semesterDates', semesterDatesDocument)).then((datesDoc) => {
-      const datesDocExists = datesDoc.exists()
-      if (datesDocExists) {
-        semesterDates = datesDoc.data() as Data.SemesterDates
-      }
-    })
     getData()
   })
 

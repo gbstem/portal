@@ -4,6 +4,7 @@ import fs from 'fs'
 import path from 'path'
 import { initializeApp, getApps } from 'firebase-admin/app'
 import { getAuth } from 'firebase-admin/auth'
+import { getFirestore } from 'firebase-admin/firestore'
 import { fileURLToPath } from 'url'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -90,6 +91,19 @@ export default defineConfig({
             console.error('Error in getFirestoreUserId task:', error)
             return null
           }
+        },
+        // Admin SDK access bypasses firestore.rules (unlike a plain cy.request() against the
+        // Firestore REST API, which enforces them and 403s for an unauthenticated caller) -
+        // needed for tests asserting server-side document state directly, such as confirming a
+        // doc was actually deleted rather than just reflected in optimistic UI state.
+        async checkFirestoreDocExists(docPath: string) {
+          if (getApps().length === 0) {
+            initializeApp({
+              projectId: process.env.FIREBASE_PROJECT_ID || 'demo-gbstem',
+            })
+          }
+          const doc = await getFirestore().doc(docPath).get()
+          return doc.exists
         },
       })
       return config

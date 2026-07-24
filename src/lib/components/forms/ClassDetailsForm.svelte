@@ -1,7 +1,7 @@
 <script lang="ts">
   import { db, user } from '$lib/client/firebase'
   import { coursesJson, daysOfWeekJson } from '$lib/data'
-  import { classesCollection } from '$lib/data/collections'
+  import { classesCollection, withSemester } from '$lib/data/collections'
   import { alert } from '$lib/stores'
   import {
     cn,
@@ -178,7 +178,10 @@
               classId = `${frozenUser.object.uid}-${classNumber}`
             }
 
-            await setDoc(doc(db, classesCollection, classId), newValues)
+            await setDoc(
+              doc(db, classesCollection, classId),
+              withSemester(newValues),
+            )
 
             await updateInstructorClassMappings(
               classId,

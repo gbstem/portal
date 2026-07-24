@@ -4,6 +4,7 @@
     classesCollection,
     registrationsCollection,
     studentFeedbackCollection,
+    withSemester,
   } from '$lib/data/collections'
   import { alert, selectedStudentId } from '$lib/stores'
   import { cn } from '$lib/utils'
@@ -79,7 +80,7 @@
               studentFeedbackCollection,
               `${formVal.data.classId}-${Date.now()}`,
             ),
-            submissionValues,
+            withSemester(submissionValues),
           )
             .then(() => {
               alert.trigger('success', 'Class Feedback saved!')

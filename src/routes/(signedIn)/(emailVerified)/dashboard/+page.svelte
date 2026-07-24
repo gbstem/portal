@@ -14,7 +14,7 @@
     decisionsCollection,
     maxChildrenPerAccount,
     registrationsCollection,
-    semesterDatesDocument,
+    semesterDates,
   } from '$lib/data/collections'
   import { doc, getDoc } from 'firebase/firestore'
 
@@ -42,21 +42,6 @@
     },
   }
 
-  let semesterDates: Data.SemesterDates = {
-    classesEnd: '',
-    classesStart: '',
-    leadershipAppsDue: '',
-    newInstructorAppsDue: '',
-    returningInstructorAppsDue: '',
-    instructorOrientation: '',
-    newInstructorAppsOpen: '',
-    returningInstructorAppsOpen: '',
-    studentOrientation: '',
-    registrationsDue: '',
-    parentOrientation: '',
-    registrationsOpen: '',
-  }
-
   let isStudent = false
 
   user.subscribe((userObj) => {
@@ -68,15 +53,10 @@
           if (userObj.profile.role === 'instructor') {
             data.application.status = null
 
-            const [datesDoc, applicationDoc, decisionDoc] = await Promise.all([
-              getDoc(doc(db, 'semesterDates', semesterDatesDocument)),
+            const [applicationDoc, decisionDoc] = await Promise.all([
               getDoc(doc(db, applicationsCollection, userObj.object.uid)),
               getDoc(doc(db, decisionsCollection, userObj.object.uid)),
             ])
-
-            if (datesDoc.exists()) {
-              semesterDates = datesDoc.data() as Data.SemesterDates
-            }
 
             if (applicationDoc.exists()) {
               const applicationData = applicationDoc.data() as Data.Application
@@ -90,9 +70,6 @@
             }
             data = data
           } else {
-            const datesPromise = getDoc(
-              doc(db, 'semesterDates', semesterDatesDocument),
-            )
             const registrationPromises = []
             for (let i = 1; i <= maxChildrenPerAccount; ++i) {
               registrationPromises.push(
@@ -105,14 +82,7 @@
                 ),
               )
             }
-            const [datesDoc, ...snapshots] = await Promise.all([
-              datesPromise,
-              ...registrationPromises,
-            ])
-
-            if (datesDoc.exists()) {
-              semesterDates = datesDoc.data() as Data.SemesterDates
-            }
+            const snapshots = await Promise.all(registrationPromises)
 
             numSubmitted = 0
             snapshots.forEach((snapshot) => {
@@ -142,7 +112,7 @@
 
 <div class="mx-auto flex max-w-6xl flex-col items-center px-2 py-8 md:px-8">
   {#if loading}
-    <div class="w-full max-w-[620px] animate-pulse space-y-8">
+    <div class="w-full max-w-155 animate-pulse space-y-8">
       <!-- Card Skeleton 1 -->
       <div class="rounded-xl bg-white p-6 shadow-lg">
         <div class="mb-4 flex items-center">
@@ -174,7 +144,7 @@
     <div
       class="grid w-full gap-8 {hasRightColumn
         ? 'md:grid-cols-2'
-        : 'max-w-[620px] grid-cols-1'}"
+        : 'max-w-155 grid-cols-1'}"
     >
       <div class="flex flex-col gap-8">
         {#if $user?.profile?.role === 'instructor' && new Date() >= new Date(semesterDates.classesStart) && data.application.status === 'submitted'}
