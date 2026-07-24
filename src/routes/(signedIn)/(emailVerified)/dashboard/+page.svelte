@@ -14,7 +14,7 @@
     decisionsCollection,
     maxChildrenPerAccount,
     registrationsCollection,
-    semesterDatesDocument,
+    semesterDates,
   } from '$lib/data/collections'
   import { doc, getDoc } from 'firebase/firestore'
 
@@ -42,21 +42,6 @@
     },
   }
 
-  let semesterDates: Data.SemesterDates = {
-    classesEnd: '',
-    classesStart: '',
-    leadershipAppsDue: '',
-    newInstructorAppsDue: '',
-    returningInstructorAppsDue: '',
-    instructorOrientation: '',
-    newInstructorAppsOpen: '',
-    returningInstructorAppsOpen: '',
-    studentOrientation: '',
-    registrationsDue: '',
-    parentOrientation: '',
-    registrationsOpen: '',
-  }
-
   let isStudent = false
 
   user.subscribe((userObj) => {
@@ -68,15 +53,10 @@
           if (userObj.profile.role === 'instructor') {
             data.application.status = null
 
-            const [datesDoc, applicationDoc, decisionDoc] = await Promise.all([
-              getDoc(doc(db, 'semesterDates', semesterDatesDocument)),
+            const [applicationDoc, decisionDoc] = await Promise.all([
               getDoc(doc(db, applicationsCollection, userObj.object.uid)),
               getDoc(doc(db, decisionsCollection, userObj.object.uid)),
             ])
-
-            if (datesDoc.exists()) {
-              semesterDates = datesDoc.data() as Data.SemesterDates
-            }
 
             if (applicationDoc.exists()) {
               const applicationData = applicationDoc.data() as Data.Application
@@ -90,9 +70,6 @@
             }
             data = data
           } else {
-            const datesPromise = getDoc(
-              doc(db, 'semesterDates', semesterDatesDocument),
-            )
             const registrationPromises = []
             for (let i = 1; i <= maxChildrenPerAccount; ++i) {
               registrationPromises.push(
@@ -105,14 +82,7 @@
                 ),
               )
             }
-            const [datesDoc, ...snapshots] = await Promise.all([
-              datesPromise,
-              ...registrationPromises,
-            ])
-
-            if (datesDoc.exists()) {
-              semesterDates = datesDoc.data() as Data.SemesterDates
-            }
+            const snapshots = await Promise.all(registrationPromises)
 
             numSubmitted = 0
             snapshots.forEach((snapshot) => {

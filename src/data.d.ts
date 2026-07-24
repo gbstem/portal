@@ -54,10 +54,11 @@ declare global {
       html: string
     }
 
+    // MM/DD/YY strings; see src/lib/data/semesterDates.json and
+    // collections.ts's `semesterDates` export.
     type SemesterDates = {
       classesEnd: string
       classesStart: string
-      leadershipAppsDue: string
       newInstructorAppsDue: string
       returningInstructorAppsDue: string
       instructorOrientation: string

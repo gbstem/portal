@@ -26,7 +26,6 @@
   export let semesterDates: Data.SemesterDates = {
     classesEnd: '',
     classesStart: '',
-    leadershipAppsDue: '',
     newInstructorAppsDue: '',
     returningInstructorAppsDue: '',
     instructorOrientation: '',

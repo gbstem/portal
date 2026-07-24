@@ -34,7 +34,6 @@
   export let semesterDates: Data.SemesterDates = {
     classesEnd: '',
     classesStart: '',
-    leadershipAppsDue: '',
     newInstructorAppsDue: '',
     returningInstructorAppsDue: '',
     instructorOrientation: '',
@@ -497,7 +496,7 @@
     </div>
   </Card>
 {:else}
-  {#if new Date() >= new Date(semesterDates.registrationsDue + 604800000) && !values.meta.submitted}
+  {#if new Date().getTime() >= new Date(semesterDates.registrationsDue).getTime() + 604800000 && !values.meta.submitted}
     <Card class="mb-6 max-w-2xl border-red-200 bg-red-50">
       <div class="flex items-start gap-3">
         <svg
