@@ -1,4 +1,4 @@
-# Agent Instructions for gbSTEM Admin
+# Agent Instructions for gbSTEM Portal
 
 1. This is a SvelteKit project. See [README.md](README.md) for background on the site, its architecture, and development processes.
 2. Use `npm` as the package manager.
