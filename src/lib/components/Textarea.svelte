@@ -4,20 +4,33 @@
   import { onDestroy } from 'svelte'
   import { fade } from 'svelte/transition'
 
-  let className = ''
-  export { className as class }
+  interface Props {
+    class?: string
+    self?: any
+    id?: any
+    value: string
+    label?: string
+    name?: any
+    required?: boolean
+    rows?: number
+    [key: string]: any
+  }
 
-  export let self = undefined
-  export let id = uniqueId('textarea-')
-  export let value: string
-  export let label = ''
-  export let name = kebabCase(label)
-  export let required = false
-  export let rows = 5
-  const calcHeight = 1.5 + 1.5 * rows
+  let {
+    class: className = '',
+    self = $bindable(undefined),
+    id = uniqueId('textarea-'),
+    value = $bindable(),
+    label = '',
+    name = kebabCase(label),
+    required = false,
+    rows = 5,
+    ...rest
+  }: Props = $props()
+  let calcHeight = $derived(1.5 + 1.5 * rows)
 
   let timer: number | undefined
-  let visible = false
+  let visible = $state(false)
   onDestroy(() => {
     clearTimeout(timer)
   })
@@ -51,20 +64,20 @@
     )}
     style={`min-height:${calcHeight}rem;height:${calcHeight}rem`}
     bind:this={self}
-    on:input={handleInput}
-    on:keyup={handleKeyUp}
+    oninput={handleInput}
+    onkeyup={handleKeyUp}
     {id}
     {value}
     {name}
     {required}
-    {...$$restProps}
+    {...rest}
   ></textarea>
-  {#if $$restProps?.maxlength && visible}
+  {#if rest?.maxlength && visible}
     <div
       class="absolute right-3 bottom-3 rounded-sm border border-gray-100 bg-gray-100 px-1 text-gray-500 shadow-xs"
       transition:fade
     >
-      {value?.length || 0}/{$$restProps.maxlength}
+      {value?.length || 0}/{rest.maxlength}
     </div>
   {/if}
 </div>

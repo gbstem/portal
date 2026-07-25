@@ -2,16 +2,29 @@
   import Select from '$lib/components/Select.svelte'
   import { Control, Field, FieldErrors } from 'formsnap'
 
-  let className = ''
-  export { className as class }
+  interface Props {
+    class?: string
+    form: any
+    name: string
+    label?: string
+    required?: boolean | undefined
+    value: string
+    options: any[]
+    inputName?: string
+    [key: string]: any
+  }
 
-  export let form: any
-  export let name: string
-  export let label: string = ''
-  export let required: boolean | undefined = undefined
-  export let value: string
-  export let options: any[]
-  export let inputName: string = ''
+  let {
+    class: className = '',
+    form,
+    name,
+    label = '',
+    required = undefined,
+    value = $bindable(),
+    options,
+    inputName = '',
+    ...rest
+  }: Props = $props()
 
   /**
    * Helper function to dynamically retrieve constraint values (e.g. required)
@@ -32,9 +45,8 @@
     return current || {}
   }
 
-  const constraintsStore = form.constraints
-  $: fieldConstraints = getConstraint($constraintsStore, name)
-  $: isRequired = required ?? fieldConstraints?.required ?? false
+  let fieldConstraints = $derived(getConstraint(form?.constraints, name))
+  let isRequired = $derived(required ?? fieldConstraints?.required ?? false)
 </script>
 
 <Field {form} {name}>
@@ -48,7 +60,7 @@
         {options}
         required={isRequired}
         bind:value
-        {...$$restProps}
+        {...rest}
       />
     {/snippet}
   </Control>

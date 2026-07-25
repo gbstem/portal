@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { run } from 'svelte/legacy'
+
   import { db } from '$lib/client/firebase'
   import { doc, getDoc } from 'firebase/firestore'
   import Button from './Button.svelte'
@@ -11,12 +13,12 @@
   import { selectedStudentId } from '$lib/stores'
 
   type ClassDate = { course: string; meetingTime: Date; link: string }
-  let classes: ClassDate[] = []
-  let nextClass: ClassDate | null = null
+  let classes: ClassDate[] = $state([])
+  let nextClass: ClassDate | null = $state(null)
   let listView: boolean = false
   let courses = new Set()
-  let selectedStudentUid = ''
-  let selectedStudentName = ''
+  let selectedStudentUid = $state('')
+  let selectedStudentName = $state('')
 
   const subscribe = selectedStudentId.subscribe((value) => {
     selectedStudentUid = value
@@ -44,52 +46,56 @@
     return fetchedClasses
   }
 
-  $: if (selectedStudentUid) {
-    ;(async () => {
-      try {
-        const docSnapshot = await getDoc(
-          doc(db, registrationsCollection, selectedStudentUid),
-        )
-        if (docSnapshot.exists()) {
-          const data = docSnapshot.data()
-          const classIds = data.classes || []
-          selectedStudentName = data.personal.studentFirstName
-          classes = await fetchClassSchedules(classIds)
-          const now = new Date()
-          const classesToday = classes.filter(
-            (classDate) =>
-              classDate.meetingTime.toDateString() === now.toDateString(),
+  run(() => {
+    if (selectedStudentUid) {
+      ;(async () => {
+        try {
+          const docSnapshot = await getDoc(
+            doc(db, registrationsCollection, selectedStudentUid),
           )
-          if (classesToday.length > 0) {
-            const futureTodayClasses = classesToday
-              .filter(
-                (classDate) =>
-                  classDate.meetingTime.getHours() >= now.getHours(),
-              )
-              .sort((a, b) => a.meetingTime.getTime() - b.meetingTime.getTime())
-            nextClass =
-              futureTodayClasses.length > 0
-                ? futureTodayClasses[0]
-                : classes
-                    .filter((classDate) => classDate.meetingTime > now)
-                    .sort(
-                      (a, b) =>
-                        a.meetingTime.getTime() - b.meetingTime.getTime(),
-                    )[0] || null
-          } else {
-            nextClass =
-              classes
-                .filter((classDate) => classDate.meetingTime > now)
+          if (docSnapshot.exists()) {
+            const data = docSnapshot.data()
+            const classIds = data.classes || []
+            selectedStudentName = data.personal.studentFirstName
+            classes = await fetchClassSchedules(classIds)
+            const now = new Date()
+            const classesToday = classes.filter(
+              (classDate) =>
+                classDate.meetingTime.toDateString() === now.toDateString(),
+            )
+            if (classesToday.length > 0) {
+              const futureTodayClasses = classesToday
+                .filter(
+                  (classDate) =>
+                    classDate.meetingTime.getHours() >= now.getHours(),
+                )
                 .sort(
                   (a, b) => a.meetingTime.getTime() - b.meetingTime.getTime(),
-                )[0] || null
+                )
+              nextClass =
+                futureTodayClasses.length > 0
+                  ? futureTodayClasses[0]
+                  : classes
+                      .filter((classDate) => classDate.meetingTime > now)
+                      .sort(
+                        (a, b) =>
+                          a.meetingTime.getTime() - b.meetingTime.getTime(),
+                      )[0] || null
+            } else {
+              nextClass =
+                classes
+                  .filter((classDate) => classDate.meetingTime > now)
+                  .sort(
+                    (a, b) => a.meetingTime.getTime() - b.meetingTime.getTime(),
+                  )[0] || null
+            }
           }
+        } catch (err) {
+          console.error('Failed to fetch class schedules:', err)
         }
-      } catch (err) {
-        console.error('Failed to fetch class schedules:', err)
-      }
-    })()
-  }
+      })()
+    }
+  })
 </script>
 
 <div class="rounded-lg bg-white p-6 shadow-xs">

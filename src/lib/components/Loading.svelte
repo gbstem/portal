@@ -2,8 +2,11 @@
   import { cn } from '$lib/utils'
   import { fade } from 'svelte/transition'
 
-  let className = ''
-  export { className as class }
+  interface Props {
+    class?: string
+  }
+
+  let { class: className = '' }: Props = $props()
 </script>
 
 <div

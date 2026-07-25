@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { run } from 'svelte/legacy'
+
   import { alert } from '$lib/stores'
   import { navigating } from '$app/stores'
   import { fade } from 'svelte/transition'
@@ -7,12 +9,7 @@
   import { cn } from '$lib/utils'
 
   let timer: number | undefined
-  let visible = false
-  $: if (browser && $navigating) {
-    if (visible) {
-      close()
-    }
-  }
+  let visible = $state(false)
   onMount(() => {
     return alert.subscribe((alert) => {
       if (alert.type !== null) {
@@ -44,14 +41,21 @@
       close()
     }
   }
+  run(() => {
+    if (browser && $navigating) {
+      if (visible) {
+        close()
+      }
+    }
+  })
 </script>
 
-<svelte:document on:keydown={visible ? handleEscape : undefined} />
+<svelte:document onkeydown={visible ? handleEscape : undefined} />
 {#if visible}
   <div
     class="fixed bottom-3 left-1/2 z-50 w-full max-w-xl -translate-x-1/2 px-3"
   >
-    <button class="w-full" type="button" on:click={close} transition:fade>
+    <button class="w-full" type="button" onclick={close} transition:fade>
       <div
         class={cn(
           'flex w-full items-center gap-2 rounded-md p-3 shadow-sm',

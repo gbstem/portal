@@ -38,11 +38,15 @@
   import sendClassReminder from './helpers/sendClassReminder'
   import type Student from './types/Student'
 
-  export let semesterDates: Data.SemesterDates
-  let editMode: boolean = false
+  interface Props {
+    semesterDates: Data.SemesterDates
+  }
+
+  let { semesterDates }: Props = $props()
+  let editMode: boolean = $state(false)
   let originalMeetingTimes: string[] = []
-  let editedMeetingTimes: string[] = []
-  let values: Data.ClassDetails = {
+  let editedMeetingTimes: string[] = $state([])
+  let values: Data.ClassDetails = $state({
     id: '',
     students: [],
     classStatuses: [],
@@ -55,28 +59,28 @@
     meetingLink: '',
     meetingTimes: [],
     completedClassDates: [],
-  }
+  })
 
   //index of the next class date from the list of meeting times
-  let nextClassIndex = -1
-  let classId = ''
-  let instructorClasses: { [classId: string]: Data.ClassDetails } = {}
-  let availableClassIds: string[] = []
-  let selectedClassId = ''
-  let dialogEl: Dialog
-  let addClassDialogEl: Dialog
-  let feedbackDialogEl: Dialog
-  let classDetailsDialogEl: Dialog
-  let studentDetailsDialogEl: Dialog
-  let subRequestDialogEl: Dialog
-  let emailHtmlContent = ''
-  let studentList: Student[] = []
-  let addingClass = false
+  let nextClassIndex = $state(-1)
+  let classId = $state('')
+  let instructorClasses: { [classId: string]: Data.ClassDetails } = $state({})
+  let availableClassIds: string[] = $state([])
+  let selectedClassId = $state('')
+  let dialogEl: any = $state()
+  let addClassDialogEl: any = $state()
+  let feedbackDialogEl: any = $state()
+  let classDetailsDialogEl: any = $state()
+  let studentDetailsDialogEl: any = $state()
+  let subRequestDialogEl: any = $state()
+  let emailHtmlContent = $state('')
+  let studentList: Student[] = $state([])
+  let addingClass = $state(false)
 
-  let classToBeAdded = ''
-  let subRequestDate: string = ''
-  let subRequestClassNumber: number = 0
-  let subRequestNotes: string = ''
+  let classToBeAdded = $state('')
+  let subRequestDate: string = $state('')
+  let subRequestClassNumber: number = $state(0)
+  let subRequestNotes: string = $state('')
   /**
    * Iterates through each student UID to get student info
    * @param studentUids
@@ -404,96 +408,20 @@
 </script>
 
 <Dialog bind:this={dialogEl} initial={emailHtmlContent !== ''} size="min">
-  <svelte:fragment slot="title"
-    >Please notify your student's parents about your class time changes</svelte:fragment
-  >
+  {#snippet title()}
+    Please notify your student's parents about your class time changes
+  {/snippet}
 
-  <div slot="description" class="space-y-4">
-    <p>
-      Here is an email template you can copy to send to your students' parents.
-    </p>
-    <div class="mt-5 flex justify-end">
-      <Button
-        on:click={() => copyToClipboard(emailHtmlContent)}
-        class="flex items-center gap-1"
-      >
-        <svg
-          fill="#000000"
-          height="20"
-          width="20"
-          version="1.1"
-          id="Capa_1"
-          xmlns="http://www.w3.org/2000/svg"
-          xmlns:xlink="http://www.w3.org/1999/xlink"
-          viewBox="0 0 352.804 352.804"
-          xml:space="preserve"
-        >
-          <g>
-            <path
-              d="M318.54,57.282h-47.652V15c0-8.284-6.716-15-15-15H34.264c-8.284,0-15,6.716-15,15v265.522c0,8.284,6.716,15,15,15h47.651
-       v42.281c0,8.284,6.716,15,15,15H318.54c8.284,0,15-6.716,15-15V72.282C333.54,63.998,326.824,57.282,318.54,57.282z
-        M49.264,265.522V30h191.623v27.282H96.916c-8.284,0-15,6.716-15,15v193.24H49.264z M303.54,322.804H111.916V87.282H303.54V322.804
-       z"
-            />
-          </g>
-        </svg>
-        <span>Copy</span>
-      </Button>
-    </div>
-    {@html emailHtmlContent}
-
-    <DialogActions>
-      <Button
-        on:click={() => {
-          dialogEl.cancel()
-          location.reload()
-        }}>Close</Button
-      >
-    </DialogActions>
-  </div>
-</Dialog>
-<Dialog bind:this={feedbackDialogEl} size="min" alert>
-  <svelte:fragment slot="title"
-    ><div class="flex items-center justify-between">
-      Weekly {values.course} Class Feedback Form <Button
-        color="red"
-        class="font-light"
-        on:click={feedbackDialogEl.cancel}>Close</Button
-      >
-    </div>
-  </svelte:fragment>
-  <div slot="description">
-    <InstructorFeedbackForm
-      classBeingSubbed={undefined}
-      sessionNumber={nextClassIndex + 1}
-      {classId}
-    />
-  </div>
-</Dialog>
-<ClassDetailsForm bind:classDetailsDialogEl dialog={true} {semesterDates} />
-
-<div class="p-0">
-  <Dialog bind:this={studentDetailsDialogEl} size="full">
-    <svelte:fragment slot="title"
-      ><div class="flex items-center justify-between">
-        Class List <Button
-          color="red"
-          class="font-light"
-          on:click={studentDetailsDialogEl.cancel}>Close</Button
-        >
-      </div>
-    </svelte:fragment>
-    <Card slot="description" class="mb-4">
-      <div class="mb-4 flex items-center justify-end">
+  {#snippet description()}
+    <div class="space-y-4">
+      <p>
+        Here is an email template you can copy to send to your students'
+        parents.
+      </p>
+      <div class="mt-5 flex justify-end">
         <Button
-          on:click={() =>
-            copyEmails(
-              studentList.flatMap((student) => [
-                student.email,
-                student.secondaryEmail,
-              ]),
-            )}
-          class="flex items-center justify-end gap-1"
+          on:click={() => copyToClipboard(emailHtmlContent)}
+          class="flex items-center gap-1"
         >
           <svg
             fill="#000000"
@@ -509,89 +437,174 @@
             <g>
               <path
                 d="M318.54,57.282h-47.652V15c0-8.284-6.716-15-15-15H34.264c-8.284,0-15,6.716-15,15v265.522c0,8.284,6.716,15,15,15h47.651
-     v42.281c0,8.284,6.716,15,15,15H318.54c8.284,0,15-6.716,15-15V72.282C333.54,63.998,326.824,57.282,318.54,57.282z
-      M49.264,265.522V30h191.623v27.282H96.916c-8.284,0-15,6.716-15,15v193.24H49.264z M303.54,322.804H111.916V87.282H303.54V322.804
-     z"
+         v42.281c0,8.284,6.716,15,15,15H318.54c8.284,0,15-6.716,15-15V72.282C333.54,63.998,326.824,57.282,318.54,57.282z
+          M49.264,265.522V30h191.623v27.282H96.916c-8.284,0-15,6.716-15,15v193.24H49.264z M303.54,322.804H111.916V87.282H303.54V322.804
+         z"
               />
             </g>
           </svg>
           <span>Copy</span>
         </Button>
       </div>
-      <div style="overflow: auto;">
-        <table style="border-collapse: collapse; width: 100%;">
-          <thead>
-            <tr>
-              <th
-                style="white-space: nowrap; border-bottom: 1px solid #ccc; padding: 8px;"
-                >Student Name</th
-              >
-              <th
-                style="white-space: nowrap; border-bottom: 1px solid #ccc; padding: 8px;"
-                >Email</th
-              >
-              <th
-                style="white-space: nowrap; border-bottom: 1px solid #ccc; padding: 8px;"
-                >Secondary Email</th
-              >
-              <th
-                style="white-space: nowrap; border-bottom: 1px solid #ccc; padding: 8px;"
-                >Phone</th
-              >
-              <th
-                style="white-space: nowrap; border-bottom: 1px solid #ccc; padding: 8px;"
-                >Grade</th
-              >
-              <th
-                style="white-space: nowrap; border-bottom: 1px solid #ccc; padding: 8px;"
-                >School</th
-              >
-              <th
-                style="white-space: nowrap; border-bottom: 1px solid #ccc; padding: 8px;"
-              ></th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each studentList as student}
-              <tr style="border-bottom: 1px solid #ccc;">
-                <td style="padding: 8px;">{normalizeCapitals(student.name)}</td>
-                <td style="padding: 8px;">{student.email}</td>
-                <td style="padding: 8px;">{student.secondaryEmail}</td>
-                <td style="padding: 8px;">{student.phone}</td>
-                <td style="padding: 8px;">{student.grade}</td>
-                <td style="padding: 8px;">{student.school}</td>
-                <td
-                  ><Button
-                    color="blue"
-                    on:click={() =>
-                      sendClassReminder({
-                        studentList,
-                        studentName: normalizeCapitals(student.name),
-                        studentEmail: student.email,
-                        instructorName:
-                          values.instructorFirstName +
-                          ' ' +
-                          values.instructorLastName,
-                        instructorEmail: values.instructorEmail,
-                        otherInstructorEmails: values.otherInstructorEmails,
-                        className: values.course,
-                        nextMeetingTime:
-                          nextClassIndex === -1
-                            ? 'No Upcoming Classes'
-                            : values.course +
-                              ', ' +
-                              formatDateString(
-                                editedMeetingTimes[nextClassIndex],
-                              ),
-                      })}><MailIcon size="16" /></Button
-                  ></td
-                >
-              </tr>
-            {/each}
-          </tbody>
-        </table>
+      {@html emailHtmlContent}
+
+      <DialogActions>
+        <Button
+          on:click={() => {
+            dialogEl.cancel()
+            location.reload()
+          }}>Close</Button
+        >
+      </DialogActions>
+    </div>
+  {/snippet}
+</Dialog>
+<Dialog bind:this={feedbackDialogEl} size="min" alert>
+  {#snippet title()}
+    <div class="flex items-center justify-between">
+      Weekly {values.course} Class Feedback Form <Button
+        color="red"
+        class="font-light"
+        on:click={feedbackDialogEl.cancel}>Close</Button
+      >
+    </div>
+  {/snippet}
+  {#snippet description()}
+    <div>
+      <InstructorFeedbackForm
+        classBeingSubbed={undefined}
+        sessionNumber={nextClassIndex + 1}
+        {classId}
+      />
+    </div>
+  {/snippet}
+</Dialog>
+<ClassDetailsForm bind:classDetailsDialogEl dialog={true} {semesterDates} />
+
+<div class="p-0">
+  <Dialog bind:this={studentDetailsDialogEl} size="full">
+    {#snippet title()}
+      <div class="flex items-center justify-between">
+        Class List <Button
+          color="red"
+          class="font-light"
+          on:click={studentDetailsDialogEl.cancel}>Close</Button
+        >
       </div>
-    </Card>
+    {/snippet}
+    {#snippet description()}
+      <Card class="mb-4">
+        <div class="mb-4 flex items-center justify-end">
+          <Button
+            on:click={() =>
+              copyEmails(
+                studentList.flatMap((student) => [
+                  student.email,
+                  student.secondaryEmail,
+                ]),
+              )}
+            class="flex items-center justify-end gap-1"
+          >
+            <svg
+              fill="#000000"
+              height="20"
+              width="20"
+              version="1.1"
+              id="Capa_1"
+              xmlns="http://www.w3.org/2000/svg"
+              xmlns:xlink="http://www.w3.org/1999/xlink"
+              viewBox="0 0 352.804 352.804"
+              xml:space="preserve"
+            >
+              <g>
+                <path
+                  d="M318.54,57.282h-47.652V15c0-8.284-6.716-15-15-15H34.264c-8.284,0-15,6.716-15,15v265.522c0,8.284,6.716,15,15,15h47.651
+       v42.281c0,8.284,6.716,15,15,15H318.54c8.284,0,15-6.716,15-15V72.282C333.54,63.998,326.824,57.282,318.54,57.282z
+        M49.264,265.522V30h191.623v27.282H96.916c-8.284,0-15,6.716-15,15v193.24H49.264z M303.54,322.804H111.916V87.282H303.54V322.804
+       z"
+                />
+              </g>
+            </svg>
+            <span>Copy</span>
+          </Button>
+        </div>
+        <div style="overflow: auto;">
+          <table style="border-collapse: collapse; width: 100%;">
+            <thead>
+              <tr>
+                <th
+                  style="white-space: nowrap; border-bottom: 1px solid #ccc; padding: 8px;"
+                  >Student Name</th
+                >
+                <th
+                  style="white-space: nowrap; border-bottom: 1px solid #ccc; padding: 8px;"
+                  >Email</th
+                >
+                <th
+                  style="white-space: nowrap; border-bottom: 1px solid #ccc; padding: 8px;"
+                  >Secondary Email</th
+                >
+                <th
+                  style="white-space: nowrap; border-bottom: 1px solid #ccc; padding: 8px;"
+                  >Phone</th
+                >
+                <th
+                  style="white-space: nowrap; border-bottom: 1px solid #ccc; padding: 8px;"
+                  >Grade</th
+                >
+                <th
+                  style="white-space: nowrap; border-bottom: 1px solid #ccc; padding: 8px;"
+                  >School</th
+                >
+                <th
+                  style="white-space: nowrap; border-bottom: 1px solid #ccc; padding: 8px;"
+                ></th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each studentList as student}
+                <tr style="border-bottom: 1px solid #ccc;">
+                  <td style="padding: 8px;"
+                    >{normalizeCapitals(student.name)}</td
+                  >
+                  <td style="padding: 8px;">{student.email}</td>
+                  <td style="padding: 8px;">{student.secondaryEmail}</td>
+                  <td style="padding: 8px;">{student.phone}</td>
+                  <td style="padding: 8px;">{student.grade}</td>
+                  <td style="padding: 8px;">{student.school}</td>
+                  <td
+                    ><Button
+                      color="blue"
+                      on:click={() =>
+                        sendClassReminder({
+                          studentList,
+                          studentName: normalizeCapitals(student.name),
+                          studentEmail: student.email,
+                          instructorName:
+                            values.instructorFirstName +
+                            ' ' +
+                            values.instructorLastName,
+                          instructorEmail: values.instructorEmail,
+                          otherInstructorEmails: values.otherInstructorEmails,
+                          className: values.course,
+                          nextMeetingTime:
+                            nextClassIndex === -1
+                              ? 'No Upcoming Classes'
+                              : values.course +
+                                ', ' +
+                                formatDateString(
+                                  editedMeetingTimes[nextClassIndex],
+                                ),
+                        })}><MailIcon size="16" /></Button
+                    ></td
+                  >
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    {/snippet}
   </Dialog>
   <!-- Class Selector -->
   {#if availableClassIds.length > 1}
@@ -683,31 +696,35 @@
         size="min"
         on:cancel={() => (addingClass = false)}
       >
-        <svelte:fragment slot="title">Add Class to Schedule</svelte:fragment>
+        {#snippet title()}
+          Add Class to Schedule
+        {/snippet}
 
-        <div slot="description" class="space-y-4">
-          <p>
-            Please enter the date and time of the class you would like to add.
-          </p>
+        {#snippet description()}
+          <div class="space-y-4">
+            <p>
+              Please enter the date and time of the class you would like to add.
+            </p>
 
-          <Input
-            type="datetime-local"
-            class="rounded-sm border p-1"
-            bind:value={classToBeAdded}
-          />
-          <Button
-            color="green"
-            on:click={() => {
-              editedMeetingTimes.push(classToBeAdded)
-              editedMeetingTimes = editedMeetingTimes.slice()
-              saveChanges()
-              addingClass = false
-            }}>Add Class</Button
-          >
-          <DialogActions>
-            <Button on:click={() => (addingClass = false)}>Close</Button>
-          </DialogActions>
-        </div>
+            <Input
+              type="datetime-local"
+              class="rounded-sm border p-1"
+              bind:value={classToBeAdded}
+            />
+            <Button
+              color="green"
+              on:click={() => {
+                editedMeetingTimes.push(classToBeAdded)
+                editedMeetingTimes = editedMeetingTimes.slice()
+                saveChanges()
+                addingClass = false
+              }}>Add Class</Button
+            >
+            <DialogActions>
+              <Button on:click={() => (addingClass = false)}>Close</Button>
+            </DialogActions>
+          </div>
+        {/snippet}
       </Dialog>
 
       {#if editMode}
@@ -899,7 +916,7 @@
   </ul>
   <!-- Sub Request Dialog (restored, available for all sessions) -->
   <Dialog bind:this={subRequestDialogEl} initial={false} size="min">
-    <svelte:fragment slot="title">
+    {#snippet title()}
       <div class="flex items-center justify-between">
         Submit A Sub Request
         <DialogActions>
@@ -908,34 +925,36 @@
           >
         </DialogActions>
       </div>
-    </svelte:fragment>
-    <div slot="description" class="space-y-4">
-      <Input
-        type="number"
-        class="rounded-sm border p-1"
-        bind:value={subRequestClassNumber}
-        label="Please confirm the class number ."
-      />
-      <Input
-        type="datetime-local"
-        class="rounded-sm border p-1"
-        bind:value={subRequestDate}
-        label="Please confirm the date and time of the class you would like to request a sub for."
-      />
-      <Input
-        type="text"
-        class="rounded-sm border p-1"
-        bind:value={subRequestNotes}
-        label="Please describe what topic/lesson the substitute class will cover, and any helpful notes for the substitute instructor."
-      />
-      <Button
-        color="green"
-        on:click={() => {
-          sendSubRequest()
-          subRequestDialogEl.close()
-        }}>Confirm Request</Button
-      >
-    </div>
+    {/snippet}
+    {#snippet description()}
+      <div class="space-y-4">
+        <Input
+          type="number"
+          class="rounded-sm border p-1"
+          bind:value={subRequestClassNumber}
+          label="Please confirm the class number ."
+        />
+        <Input
+          type="datetime-local"
+          class="rounded-sm border p-1"
+          bind:value={subRequestDate}
+          label="Please confirm the date and time of the class you would like to request a sub for."
+        />
+        <Input
+          type="text"
+          class="rounded-sm border p-1"
+          bind:value={subRequestNotes}
+          label="Please describe what topic/lesson the substitute class will cover, and any helpful notes for the substitute instructor."
+        />
+        <Button
+          color="green"
+          on:click={() => {
+            sendSubRequest()
+            subRequestDialogEl.close()
+          }}>Confirm Request</Button
+        >
+      </div>
+    {/snippet}
   </Dialog>
 </div>
 

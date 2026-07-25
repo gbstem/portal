@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { run } from 'svelte/legacy'
+
   import {
     doc,
     getDoc,
@@ -23,25 +25,31 @@
   import FormCheckbox from '../FormCheckbox.svelte'
   import FormTextarea from '../FormTextarea.svelte'
 
-  export let semesterDates: Data.SemesterDates = {
-    classesEnd: '',
-    classesStart: '',
-    newInstructorAppsDue: '',
-    returningInstructorAppsDue: '',
-    instructorOrientation: '',
-    newInstructorAppsOpen: '',
-    returningInstructorAppsOpen: '',
-    studentOrientation: '',
-    registrationsDue: '',
-    parentOrientation: '',
-    registrationsOpen: '',
+  interface Props {
+    semesterDates?: Data.SemesterDates
   }
 
-  let saving = false
+  let {
+    semesterDates = {
+      classesEnd: '',
+      classesStart: '',
+      newInstructorAppsDue: '',
+      returningInstructorAppsDue: '',
+      instructorOrientation: '',
+      newInstructorAppsOpen: '',
+      returningInstructorAppsOpen: '',
+      studentOrientation: '',
+      registrationsDue: '',
+      parentOrientation: '',
+      registrationsOpen: '',
+    },
+  }: Props = $props()
+
+  let saving = $state(false)
   let showValidation = false
   let dbValues: Data.Application
 
-  let values: Data.Application = {
+  let values: Data.Application = $state({
     personal: {
       email: '',
       firstName: '',
@@ -84,7 +92,7 @@
       created: serverTimestamp() as Timestamp,
       updated: serverTimestamp() as Timestamp,
     },
-  }
+  })
 
   const defaultValues: Data.Application = {
     personal: {
@@ -341,53 +349,55 @@
   }
 
   // React to loaded/saved values changing
-  $: if (values) {
-    $form.personal = {
-      phoneNumber: values.personal?.phoneNumber || '',
-      dateOfBirth: values.personal?.dateOfBirth || '',
-      gender: values.personal?.gender || '',
-      race: values.personal?.race || [],
+  run(() => {
+    if (values) {
+      $form.personal = {
+        phoneNumber: values.personal?.phoneNumber || '',
+        dateOfBirth: values.personal?.dateOfBirth || '',
+        gender: values.personal?.gender || '',
+        race: values.personal?.race || [],
+      }
+      $form.academic = {
+        school: values.academic?.school || '',
+        graduationYear:
+          values.academic?.graduationYear || new Date().getFullYear(),
+      }
+      $form.program = {
+        courses: values.program?.courses || [],
+        preferences: values.program?.preferences || '',
+        timeSlots: values.program?.timeSlots || '',
+        notAvailable: values.program?.notAvailable || '',
+        inPerson:
+          values.program?.inPerson !== undefined
+            ? values.program.inPerson
+            : false,
+        reason: values.program?.reason || '',
+      }
+      $form.essay = {
+        taughtBefore:
+          values.essay?.taughtBefore !== undefined
+            ? values.essay.taughtBefore
+            : false,
+        academicBackground: values.essay?.academicBackground || '',
+        teachingScenario: values.essay?.teachingScenario || '',
+        why: values.essay?.why || '',
+      }
+      $form.agreements = {
+        entireProgram:
+          values.agreements?.entireProgram !== undefined
+            ? values.agreements.entireProgram
+            : false,
+        timeCommitment:
+          values.agreements?.timeCommitment !== undefined
+            ? values.agreements.timeCommitment
+            : false,
+        submitting:
+          values.agreements?.submitting !== undefined
+            ? values.agreements.submitting
+            : false,
+      }
     }
-    $form.academic = {
-      school: values.academic?.school || '',
-      graduationYear:
-        values.academic?.graduationYear || new Date().getFullYear(),
-    }
-    $form.program = {
-      courses: values.program?.courses || [],
-      preferences: values.program?.preferences || '',
-      timeSlots: values.program?.timeSlots || '',
-      notAvailable: values.program?.notAvailable || '',
-      inPerson:
-        values.program?.inPerson !== undefined
-          ? values.program.inPerson
-          : false,
-      reason: values.program?.reason || '',
-    }
-    $form.essay = {
-      taughtBefore:
-        values.essay?.taughtBefore !== undefined
-          ? values.essay.taughtBefore
-          : false,
-      academicBackground: values.essay?.academicBackground || '',
-      teachingScenario: values.essay?.teachingScenario || '',
-      why: values.essay?.why || '',
-    }
-    $form.agreements = {
-      entireProgram:
-        values.agreements?.entireProgram !== undefined
-          ? values.agreements.entireProgram
-          : false,
-      timeCommitment:
-        values.agreements?.timeCommitment !== undefined
-          ? values.agreements.timeCommitment
-          : false,
-      submitting:
-        values.agreements?.submitting !== undefined
-          ? values.agreements.submitting
-          : false,
-    }
-  }
+  })
 
   function handleUnload(e: BeforeUnloadEvent) {
     // Construct values comparison object
@@ -422,7 +432,7 @@
   }
 </script>
 
-<svelte:window on:beforeunload={handleUnload} />
+<svelte:window onbeforeunload={handleUnload} />
 
 <form use:enhance class="max-w-2xl">
   {#if new Date() >= new Date(semesterDates.newInstructorAppsDue)}
@@ -725,7 +735,7 @@
       {:else}
         <button
           type="button"
-          on:click={() => handleSave()}
+          onclick={() => handleSave()}
           class="rounded-md bg-gray-100 px-4 py-2 text-gray-900 shadow-xs transition-colors duration-300 hover:bg-gray-200 disabled:bg-gray-200 disabled:text-gray-500"
         >
           Save draft

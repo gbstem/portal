@@ -33,16 +33,16 @@
     }
   }
 
-  let loading = true
-  let numSubmitted = 0
+  let loading = $state(true)
+  let numSubmitted = $state(0)
 
-  let data: DashboardData = {
+  let data: DashboardData = $state({
     application: {
       status: null,
     },
-  }
+  })
 
-  let isStudent = false
+  let isStudent = $state(false)
 
   user.subscribe((userObj) => {
     if (userObj) {
@@ -100,9 +100,10 @@
     }
   })
 
-  $: hasRightColumn =
+  let hasRightColumn = $derived(
     data.application.status === 'accepted' ||
-    (isStudent && new Date() > new Date(semesterDates.studentOrientation))
+      (isStudent && new Date() > new Date(semesterDates.studentOrientation)),
+  )
 </script>
 
 <svelte:head>

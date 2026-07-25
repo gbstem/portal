@@ -2,15 +2,27 @@
   import { Field, Control, Label, FieldErrors } from 'formsnap'
   import { cn } from '$lib/utils'
 
-  let className = ''
-  export { className as class }
+  interface Props {
+    class?: string
+    form: any
+    name: string
+    label?: string
+    checked: boolean
+    required?: boolean | undefined
+    inputName?: string
+    [key: string]: any
+  }
 
-  export let form: any
-  export let name: string
-  export let label: string = ''
-  export let checked: boolean
-  export let required: boolean | undefined = undefined
-  export let inputName: string = ''
+  let {
+    class: className = '',
+    form,
+    name,
+    label = '',
+    checked = $bindable(),
+    required = undefined,
+    inputName = '',
+    ...rest
+  }: Props = $props()
 
   /**
    * Helper function to dynamically retrieve constraint values (e.g. required)
@@ -31,9 +43,8 @@
     return current || {}
   }
 
-  const constraintsStore = form.constraints
-  $: fieldConstraints = getConstraint($constraintsStore, name)
-  $: isRequired = required ?? fieldConstraints?.required ?? false
+  let fieldConstraints = $derived(getConstraint(form?.constraints, name))
+  let isRequired = $derived(required ?? fieldConstraints?.required ?? false)
 </script>
 
 <Field {form} {name}>
@@ -50,7 +61,7 @@
             'peer h-5 w-5 shrink-0 cursor-pointer appearance-none rounded-md border border-gray-400 checked:border-gray-600 checked:bg-gray-600 focus:border-gray-600 focus:outline-hidden focus:ring-1 focus:ring-gray-600 focus:ring-offset-1 disabled:cursor-default disabled:checked:border-gray-400 disabled:checked:bg-gray-400',
             className,
           )}
-          {...$$restProps}
+          {...rest}
         />
         {#if label}
           <Label

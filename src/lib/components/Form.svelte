@@ -2,15 +2,21 @@
   import { cn } from '$lib/utils'
   import { createEventDispatcher } from 'svelte'
 
-  export let className: string
-  export { className as class }
+  interface Props {
+    class: string
+    children?: import('svelte').Snippet
+    [key: string]: any
+  }
+
+  let { class: className, children, ...rest }: Props = $props()
 
   const dispatch = createEventDispatcher<{
     submit: SubmitData
   }>()
-  let self: HTMLFormElement
+  let self: HTMLFormElement | undefined = $state()
 
   function handleSubmit(e: SubmitEvent) {
+    if (!self) return
     const state = [
       ...Array.from(self.querySelectorAll('input')),
       ...Array.from(self.querySelectorAll('textarea')),
@@ -26,8 +32,11 @@
   class={cn('w-full', className)}
   novalidate
   bind:this={self}
-  on:submit|preventDefault={handleSubmit}
-  {...$$restProps}
+  onsubmit={(e) => {
+    e.preventDefault()
+    handleSubmit(e)
+  }}
+  {...rest}
 >
-  <slot />
+  {@render children?.()}
 </form>

@@ -2,15 +2,29 @@
   import { Field, Control, Label, FieldErrors } from 'formsnap'
   import { cn } from '$lib/utils'
 
-  let className = ''
-  export { className as class }
+  interface Props {
+    class?: string
+    form: any
+    name: string
+    label?: string
+    required?: boolean | undefined
+    value: any
+    inputName?: string
+    children?: import('svelte').Snippet
+    [key: string]: any
+  }
 
-  export let form: any
-  export let name: string
-  export let label: string = ''
-  export let required: boolean | undefined = undefined
-  export let value: any
-  export let inputName: string = ''
+  let {
+    class: className = '',
+    form,
+    name,
+    label = '',
+    required = undefined,
+    value = $bindable(),
+    inputName = '',
+    children: selectChildren,
+    ...rest
+  }: Props = $props()
 
   /**
    * Helper function to dynamically retrieve constraint values (e.g. required)
@@ -31,9 +45,8 @@
     return current || {}
   }
 
-  const constraintsStore = form.constraints
-  $: fieldConstraints = getConstraint($constraintsStore, name)
-  $: isRequired = required ?? fieldConstraints?.required ?? false
+  let fieldConstraints = $derived(getConstraint(form?.constraints, name))
+  let isRequired = $derived(required ?? fieldConstraints?.required ?? false)
 </script>
 
 <Field {form} {name}>
@@ -55,9 +68,9 @@
             'mt-1 block h-12 w-full rounded-md border border-gray-400 bg-white px-3 transition-colors focus:border-gray-600 focus:outline-hidden disabled:bg-white disabled:text-gray-400',
             className,
           )}
-          {...$$restProps}
+          {...rest}
         >
-          <slot />
+          {@render selectChildren?.()}
         </select>
       </div>
     {/snippet}

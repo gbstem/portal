@@ -1,14 +1,29 @@
 <script lang="ts">
+  import { createBubbler } from 'svelte/legacy'
+
+  const bubble = createBubbler()
   import { cn } from '$lib/utils'
 
   type ButtonColor = 'red' | 'blue' | 'gray' | 'green' | 'yellow' | 'purple'
   type ButtonType = 'button' | 'submit' | 'reset'
 
-  let className = ''
-  export { className as class }
-  export let color: ButtonColor = 'gray'
-  export let type: ButtonType = 'button'
-  export let href: string | undefined = undefined
+  interface Props {
+    class?: string
+    color?: ButtonColor
+    type?: ButtonType
+    href?: string | undefined
+    children?: import('svelte').Snippet
+    [key: string]: any
+  }
+
+  let {
+    class: className = '',
+    color = 'gray',
+    type = 'button',
+    href = undefined,
+    children,
+    ...rest
+  }: Props = $props()
 </script>
 
 <svelte:element
@@ -34,16 +49,16 @@
   {href}
   type={href ? undefined : type}
   role={href ? 'button' : undefined}
-  on:click
-  on:change
-  on:keydown
-  on:keyup
-  on:touchstart
-  on:touchend
-  on:touchcancel
-  on:mouseenter
-  on:mouseleave
-  {...$$restProps}
+  onclick={bubble('click')}
+  onchange={bubble('change')}
+  onkeydown={bubble('keydown')}
+  onkeyup={bubble('keyup')}
+  ontouchstart={bubble('touchstart')}
+  ontouchend={bubble('touchend')}
+  ontouchcancel={bubble('touchcancel')}
+  onmouseenter={bubble('mouseenter')}
+  onmouseleave={bubble('mouseleave')}
+  {...rest}
 >
-  <slot />
+  {@render children?.()}
 </svelte:element>

@@ -1,4 +1,4 @@
-<script context="module" lang="ts">
+<script module lang="ts">
   type SelectData = {
     id: string
     setOpen: (newState: boolean) => void
@@ -21,32 +21,41 @@
   import { debounce, kebabCase, uniqueId } from 'lodash-es'
   import { fade } from 'svelte/transition'
 
-  let className = ''
-  export { className as class }
-
-  export let self: HTMLInputElement | undefined = undefined
-  export let id = uniqueId('select-')
-  export let value: string
-  export let label = ''
-  export let name = kebabCase(label)
-  export let required = false
-  export let placeholder: string | undefined = undefined
   type SelectOption = string
   type SelectOptionJson = {
     name: string
     [key: string]: any
   }
-  let optionsJson: Array<SelectOptionJson> = []
-  export { optionsJson as options }
-
-  let open = false
-  let selectedOptionIndex = 0
-
-  $: options = optionsJson.map((item) => item.name)
-  $: if (options) {
-    filterOptionsBy(value)
+  interface Props {
+    class?: string
+    self?: HTMLInputElement | undefined
+    id?: any
+    value: string
+    label?: string
+    name?: any
+    required?: boolean
+    placeholder?: string | undefined
+    options?: Array<SelectOptionJson>
+    [key: string]: any
   }
-  let filteredOptions: Array<SelectOption> = []
+
+  let {
+    class: className = '',
+    self = $bindable(undefined),
+    id = uniqueId('select-'),
+    value = $bindable(),
+    label = '',
+    name = kebabCase(label),
+    required = false,
+    placeholder = undefined,
+    options: optionsJson = [],
+    ...rest
+  }: Props = $props()
+
+  let open = $state(false)
+  let selectedOptionIndex = $state(0)
+
+  let filteredOptions: Array<SelectOption> = $state([])
   const filterOptionsBy = debounce((givenValue) => {
     const val = givenValue ?? ''
     if (val === '') {
@@ -61,39 +70,9 @@
 
   // Handle open state changes without causing infinite loops
   let previousOpenState = false
-  $: if (open !== previousOpenState) {
-    previousOpenState = open
-    if (open) {
-      registerOpenSelect(id, (newValue) => {
-        if (newValue !== open) {
-          open = newValue
-        }
-      })
-    } else {
-      // validate value before close
-      if (!options.includes(value)) {
-        value = ''
-      }
-    }
-  }
 
   // Handle value validation separately to prevent loops
   let previousValue = value
-  $: if (value !== previousValue) {
-    previousValue = value
-    filterOptionsBy(value)
-    if (self) {
-      if (value === '' && required) {
-        self.setCustomValidity('Please fill required fields.')
-      } else {
-        if (options.includes(value)) {
-          self.setCustomValidity('')
-        } else {
-          self.setCustomValidity('Please select valid options.')
-        }
-      }
-    }
-  }
 
   filterOptionsBy(value)
 
@@ -146,12 +125,52 @@
     }
     open = true
   }
+  let options = $derived(optionsJson.map((item) => item.name))
+  $effect(() => {
+    if (open !== previousOpenState) {
+      previousOpenState = open
+      if (open) {
+        registerOpenSelect(id, (newValue) => {
+          if (newValue !== open) {
+            open = newValue
+          }
+        })
+      } else {
+        // validate value before close
+        if (!options.includes(value)) {
+          value = ''
+        }
+      }
+    }
+  })
+  $effect(() => {
+    if (options) {
+      filterOptionsBy(value)
+    }
+  })
+  $effect(() => {
+    if (value !== previousValue) {
+      previousValue = value
+      filterOptionsBy(value)
+      if (self) {
+        if (value === '' && required) {
+          self.setCustomValidity('Please fill required fields.')
+        } else {
+          if (options.includes(value)) {
+            self.setCustomValidity('')
+          } else {
+            self.setCustomValidity('Please select valid options.')
+          }
+        }
+      }
+    }
+  })
 </script>
 
 <div
   class={cn('relative mt-2', className)}
   use:clickOutside
-  on:outclick={() => {
+  onoutclick={() => {
     open = false
   }}
 >
@@ -165,7 +184,7 @@
       <button
         type="button"
         aria-label="Toggle dropdown"
-        on:click={() => {
+        onclick={() => {
           open = !open
           if (open && self) {
             self.focus()
@@ -196,15 +215,15 @@
       type="text"
       data-1p-ignore
       bind:this={self}
-      on:input={handleInput}
-      on:keydown={handleKeyDown}
-      on:focusin={handleFocusIn}
+      oninput={handleInput}
+      onkeydown={handleKeyDown}
+      onfocusin={handleFocusIn}
       {value}
       {id}
       {name}
       {required}
       {placeholder}
-      {...$$restProps}
+      {...rest}
     />
     {#if open}
       <div
@@ -217,7 +236,7 @@
           <button
             class="w-full bg-gray-100 px-6 py-2 text-left transition-colors duration-300"
             type="button"
-            on:click={() => {
+            onclick={() => {
               value = filteredOptions[0]
               open = false
             }}
@@ -232,11 +251,11 @@
                 index === selectedOptionIndex && 'bg-gray-100',
               )}
               type="button"
-              on:click={() => {
+              onclick={() => {
                 value = name
                 open = false
               }}
-              on:mouseenter={() => {
+              onmouseenter={() => {
                 selectedOptionIndex = index
               }}
             >

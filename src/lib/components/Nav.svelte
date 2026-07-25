@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { run } from 'svelte/legacy'
+
   import { navigating, page } from '$app/stores'
   import { db, user } from '$lib/client/firebase'
   import { decisionsCollection } from '$lib/data/collections'
@@ -10,13 +12,13 @@
   import Brand from './Brand.svelte'
   import ProfileMenu from './ProfileMenu.svelte'
 
-  $: userRole = $user?.profile?.role
-  let shadow = false
-  let open = false
-  let showAdditionalPages = false
+  let userRole = $derived($user?.profile?.role)
+  let shadow = $state(false)
+  let open = $state(false)
+  let showAdditionalPages = $state(false)
 
   // Reactive statement to update the forms page name based on user role
-  $: pages = [
+  let pages = $derived([
     { name: 'Dashboard', href: '/dashboard' },
     { name: userRole === 'student' ? 'Register' : 'Apply', href: '/apply' },
     { name: 'Classes', href: '/classes' },
@@ -29,23 +31,25 @@
           },
         ]
       : []),
-  ]
+  ])
 
   // Only fetch document when user is loaded, has a uid, and is an instructor
-  $: if ($user?.object?.uid && userRole === 'instructor') {
-    ;(async () => {
-      try {
-        const document = await getDoc(
-          doc(db, decisionsCollection, $user.object.uid),
-        )
-        if (document.exists() && document.data().type === 'accepted') {
-          showAdditionalPages = true
+  run(() => {
+    if ($user?.object?.uid && userRole === 'instructor') {
+      ;(async () => {
+        try {
+          const document = await getDoc(
+            doc(db, decisionsCollection, $user.object.uid),
+          )
+          if (document.exists() && document.data().type === 'accepted') {
+            showAdditionalPages = true
+          }
+        } catch (error) {
+          console.error('Error fetching document:', error)
         }
-      } catch (error) {
-        console.error('Error fetching document:', error)
-      }
-    })()
-  }
+      })()
+    }
+  })
 
   onMount(() => {
     updateShadow()
@@ -55,14 +59,14 @@
       }
     })
   })
-  $: pathname = $page.url.pathname
+  let pathname = $derived($page.url.pathname)
 
   function updateShadow() {
     shadow = window.scrollY !== 0
   }
 </script>
 
-<svelte:window on:scroll={updateShadow} />
+<svelte:window onscroll={updateShadow} />
 <nav
   class={cn(
     'px-4 md:px-6 lg:px-8 fixed left-0 top-0 z-40 flex h-20 w-full items-center justify-between border-b bg-white/70 backdrop-blur-md transition-all duration-300 gap-2 md:gap-4 lg:gap-6',
@@ -106,7 +110,7 @@
         type="button"
         aria-label={open ? 'Close menu' : 'Open menu'}
         aria-expanded={open}
-        on:click={() => {
+        onclick={() => {
           open = !open
         }}
       >

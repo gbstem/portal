@@ -5,6 +5,11 @@
   import { navigating } from '$app/stores'
   import { onMount } from 'svelte'
   import progress from '$lib/client/progress'
+  interface Props {
+    children?: import('svelte').Snippet
+  }
+
+  let { children }: Props = $props()
 
   onMount(() => {
     return navigating.subscribe((navigating) => {
@@ -19,7 +24,7 @@
 
 <div class="flex min-h-screen flex-col">
   <div class="flex grow flex-col">
-    <slot />
+    {@render children?.()}
   </div>
   <Footer />
 </div>

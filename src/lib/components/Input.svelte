@@ -2,40 +2,59 @@
   import { cn } from '$lib/utils'
   import { isArray, isBoolean, kebabCase, uniqueId } from 'lodash-es'
 
-  let className:
-    | string
-    | {
-        input?: string
-        container?: string
-      } = ''
-  export { className as class }
-
-  export let self: HTMLInputElement | undefined = undefined
-  export let id = uniqueId('input-')
-  export let type = 'text'
-  export let value: string | number | boolean | Array<string> | File = ''
-  export let label = ''
-  export let name = kebabCase(label)
-  export let required = false
-  export let validations: Array<Validation> = []
-  export let focus = false
-  export let placeholder: string | undefined = undefined
-
-  // if file input
-  export let accept: Array<string> | undefined = undefined
-  export let maxSize = 0
-  // Handle focus without causing infinite loops
-  let previousFocus = focus
-  $: if (focus !== previousFocus && self) {
-    previousFocus = focus
-    if (focus) {
-      self.focus()
-    }
+  interface Props {
+    class?:
+      | string
+      | {
+          input?: string
+          container?: string
+        }
+    self?: HTMLInputElement | undefined
+    id?: any
+    type?: string
+    value?: string | number | boolean | Array<string> | File
+    label?: string
+    name?: any
+    required?: boolean
+    validations?: Array<Validation>
+    focus?: boolean
+    placeholder?: string | undefined
+    // if file input
+    accept?: Array<string> | undefined
+    maxSize?: number
+    [key: string]: any
   }
+
+  let {
+    class: className = '',
+    self = $bindable(undefined),
+    id = uniqueId('input-'),
+    type = 'text',
+    value = $bindable(''),
+    label = '',
+    name = kebabCase(label),
+    required = false,
+    validations = [],
+    focus = false,
+    placeholder = undefined,
+    accept = undefined,
+    maxSize = 0,
+    ...rest
+  }: Props = $props()
+  // Handle focus without causing infinite loops
+  let previousFocus: boolean | undefined = undefined
+  $effect(() => {
+    if (focus !== previousFocus && self) {
+      previousFocus = focus
+      if (focus) {
+        self.focus()
+      }
+    }
+  })
 
   // Handle validation without causing infinite loops
   let previousValidationState = ''
-  $: {
+  $effect(() => {
     if (self) {
       const state = (
         [
@@ -58,7 +77,7 @@
         self.setCustomValidity(validationMessage)
       }
     }
-  }
+  })
 
   function handleInput(e: any) {
     if (e.target instanceof HTMLInputElement) {
@@ -85,7 +104,7 @@
       }
     }
   }
-  let passwordVisible = false
+  let passwordVisible = $state(false)
 </script>
 
 {#if type === 'checkbox'}
@@ -105,11 +124,11 @@
         type="checkbox"
         checked={value.includes(name)}
         bind:this={self}
-        on:input={handleInput}
+        oninput={handleInput}
         {id}
         {name}
         {placeholder}
-        {...$$restProps}
+        {...rest}
       />
       <label
         for={id}
@@ -136,12 +155,12 @@
         type="checkbox"
         checked={isBoolean(value) && value}
         bind:this={self}
-        on:input={handleInput}
+        oninput={handleInput}
         {id}
         {name}
         {required}
         {placeholder}
-        {...$$restProps}
+        {...rest}
       />
       <label
         for={id}
@@ -171,12 +190,12 @@
       type="file"
       accept={accept === undefined ? undefined : accept.join(',')}
       bind:this={self}
-      on:input={handleInput}
+      oninput={handleInput}
       {id}
       {name}
       {required}
       {placeholder}
-      {...$$restProps}
+      {...rest}
     />
   </div>
 {:else}
@@ -198,8 +217,8 @@
           className instanceof Object && className.input,
         )}
         bind:this={self}
-        on:input={handleInput}
-        on:focusout={() => {
+        oninput={handleInput}
+        onfocusout={() => {
           if (passwordVisible) {
             passwordVisible = false
           }
@@ -210,14 +229,14 @@
         {name}
         {required}
         {placeholder}
-        {...$$restProps}
+        {...rest}
       />
       {#if type === 'password'}
         <div class="absolute top-0 right-3 bottom-0 flex items-center">
           <button
             class="text-gray-500"
             type="button"
-            on:click={() => {
+            onclick={() => {
               passwordVisible = !passwordVisible
             }}
           >

@@ -10,7 +10,7 @@
   import { alert } from '$lib/stores'
   import { cn } from '$lib/utils'
   import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
-  import { onMount } from 'svelte'
+  import { onMount, untrack } from 'svelte'
   import Button from '../Button.svelte'
   import Card from '../Card.svelte'
   import FormInput from '../FormInput.svelte'
@@ -21,17 +21,21 @@
   import { zod } from 'sveltekit-superforms/adapters'
   import { z } from 'zod'
 
-  export let classBeingSubbed: Data.SubRequest | undefined
-  export let sessionNumber: number
-  export let classId: string | undefined = undefined
+  interface Props {
+    classBeingSubbed: Data.SubRequest | undefined
+    sessionNumber: number
+    classId?: string | undefined
+  }
+
+  let { classBeingSubbed, sessionNumber, classId = undefined }: Props = $props()
 
   let showValidation = false
   let currentUser: Data.User.Store
-  let loading = true
+  let loading = $state(true)
   let feedbackCompletedArray: boolean[] = []
   let classStatusesArray: string[] = []
 
-  let classList: string[] = []
+  let classList: string[] = $state([])
 
   const schema = z.object({
     classDate: z.string().min(1, 'Date of class is required'),
@@ -47,12 +51,13 @@
     defaults(
       {
         classDate: '',
-        classNumber:
+        classNumber: untrack(() =>
           sessionNumber !== undefined
             ? sessionNumber
             : classBeingSubbed === undefined
               ? 1
               : classBeingSubbed.classNumber,
+        ),
         feedback: '',
         attendanceList: {},
       },

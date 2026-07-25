@@ -158,10 +158,7 @@ describe('Section F: Profile Customization & Account Management', () => {
         })
       cy.url().should('include', '/signin', { timeout: 10000 })
 
-      cy.task('checkFirestoreDocExists', applicationDocPath).should(
-        'eq',
-        false,
-      )
+      cy.task('checkFirestoreDocExists', applicationDocPath).should('eq', false)
     })
   })
 })

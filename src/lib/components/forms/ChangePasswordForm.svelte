@@ -22,7 +22,7 @@
       path: ['confirmPassword'],
     })
 
-  let dialogEl: Dialog
+  let dialogEl: any = $state()
   let passwordToUpdate = ''
 
   const formResult = superForm(
@@ -38,7 +38,7 @@
       onUpdate({ form: formVal }) {
         if (!formVal.valid) return
         passwordToUpdate = formVal.data.newPassword
-        dialogEl.open()
+        dialogEl?.open()
       },
     },
   )
@@ -59,7 +59,7 @@
         alert.trigger('error', err.code, true)
       } finally {
         reset()
-        dialogEl.close()
+        dialogEl?.close()
       }
     }
   }
@@ -109,13 +109,15 @@
 </form>
 
 <Dialog bind:this={dialogEl} on:cancel={handleCancel}>
-  <svelte:fragment slot="title">Reauthenticate</svelte:fragment>
-  <svelte:fragment slot="description">
+  {#snippet title()}
+    Reauthenticate
+  {/snippet}
+  {#snippet description()}
     <ReauthenticateForm on:reauthenticate={handleReauthenticate}>
       <DialogActions>
-        <Button on:click={dialogEl.cancel}>Cancel</Button>
+        <Button on:click={() => dialogEl?.cancel()}>Cancel</Button>
         <Button type="submit" color="blue">Reauthenticate</Button>
       </DialogActions>
     </ReauthenticateForm>
-  </svelte:fragment>
+  {/snippet}
 </Dialog>

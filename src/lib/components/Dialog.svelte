@@ -9,24 +9,39 @@
   type Size = 'min' | 'full'
 
   const dispatch = createEventDispatcher()
-  export let size: Size = 'min'
-  export let disabled = false
-  let openState = false
-  export { openState as initial }
+
   const id = uniqueId('dialog-')
-  export let alert = false
-  let bodyLocked = false
-  $: if (browser) {
-    if (openState) {
-      dialog.set(id)
-      document.body.style.overflowY = 'hidden'
-      bodyLocked = true
-    } else if ($dialog === id) {
-      dialog.set(null)
-      document.body.style.overflowY = 'auto'
-      bodyLocked = false
-    }
+  interface Props {
+    size?: Size
+    disabled?: boolean
+    initial?: boolean
+    alert?: boolean
+    title?: import('svelte').Snippet
+    description?: import('svelte').Snippet
   }
+
+  let {
+    size = 'min',
+    disabled = false,
+    initial: openState = $bindable(false),
+    alert = false,
+    title,
+    description,
+  }: Props = $props()
+  let bodyLocked = $state(false)
+  $effect(() => {
+    if (browser) {
+      if (openState) {
+        dialog.set(id)
+        document.body.style.overflowY = 'hidden'
+        bodyLocked = true
+      } else if ($dialog === id) {
+        dialog.set(null)
+        document.body.style.overflowY = 'auto'
+        bodyLocked = false
+      }
+    }
+  })
 
   onDestroy(() => {
     if (browser) {
@@ -65,7 +80,12 @@
   }
 </script>
 
-<svelte:body on:keydown|stopPropagation={handleEscape} />
+<svelte:body
+  onkeydown={(e) => {
+    e.stopPropagation()
+    handleEscape(e)
+  }}
+/>
 
 {#if openState}
   <div
@@ -88,7 +108,7 @@
         role="dialog"
         use:trapFocus
         use:clickOutside
-        on:outclick={() => {
+        onoutclick={() => {
           if (!alert) {
             cancel()
           }
@@ -97,7 +117,7 @@
         <button
           type="button"
           class="absolute top-2 right-2 z-50 cursor-pointer rounded-full border border-gray-200 bg-white p-1.5 text-gray-500 shadow-sm transition-colors hover:bg-gray-100 hover:text-gray-700 focus:outline-none disabled:opacity-50 sm:top-4 sm:right-4"
-          on:click={cancel}
+          onclick={cancel}
           {disabled}
           aria-label="Close dialog"
         >
@@ -118,9 +138,9 @@
         <h1
           class="rounded-md bg-gray-200 px-4 py-3 pr-12 text-xl font-bold uppercase"
         >
-          <slot name="title" />
+          {@render title?.()}
         </h1>
-        <slot name="description" />
+        {@render description?.()}
       </div>
     </div>
   </div>

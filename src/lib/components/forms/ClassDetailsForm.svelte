@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { run } from 'svelte/legacy'
+
   import { db, user } from '$lib/client/firebase'
   import { coursesJson, daysOfWeekJson } from '$lib/data'
   import { classesCollection, withSemester } from '$lib/data/collections'
@@ -9,7 +11,7 @@
     updateInstructorClassMappings,
   } from '$lib/utils'
   import { doc, setDoc } from 'firebase/firestore'
-  import { onMount } from 'svelte'
+  import { onMount, untrack } from 'svelte'
   import { defaults, superForm } from 'sveltekit-superforms'
   import { zod } from 'sveltekit-superforms/adapters'
   import { z } from 'zod'
@@ -22,17 +24,25 @@
   import FormSelect from '../FormSelect.svelte'
   import { ClassStatus } from '../helpers/ClassStatus'
 
-  export let semesterDates: Data.SemesterDates
-  export let classDetailsDialogEl: Dialog | undefined = undefined
-  export let dialog = false
+  interface Props {
+    semesterDates: Data.SemesterDates
+    classDetailsDialogEl?: Dialog | undefined
+    dialog?: boolean
+  }
 
-  let disabled = false
-  let showValidation = false
+  let {
+    semesterDates,
+    classDetailsDialogEl = $bindable(undefined),
+    dialog = false,
+  }: Props = $props()
+
+  let disabled = $state(false)
+  let showValidation = $state(false)
   let submitted = false
-  let isCreatingNewClass = false
-  let isCreatingLink = false
+  let isCreatingNewClass = $state(false)
+  let isCreatingLink = $state(false)
 
-  let values: Data.Class = {
+  let values: Data.Class = $state({
     classDay1: '',
     classTime1: '',
     classDay2: '',
@@ -52,9 +62,9 @@
     classCap: 7,
     online: true,
     students: [],
-  }
+  })
 
-  let createClassSchedule = true
+  let createClassSchedule = $state(true)
 
   const schema = z.object({
     course: z.string().min(1, 'Course is required'),
@@ -113,7 +123,9 @@
       zod(schema as any) as any,
     ) as any,
     {
-      id: dialog ? 'class-details-dialog' : 'class-details-inline',
+      id: untrack(() => dialog)
+        ? 'class-details-dialog'
+        : 'class-details-inline',
       SPA: true,
       validators: zod(schema as any) as any,
       async onUpdate({ form: formVal }: { form: any }) {
@@ -289,9 +301,9 @@
     return meetingDates
   }
 
-  let instructorClasses: { [classId: string]: Data.Class } = {}
-  let selectedClassId = ''
-  let availableClassIds: string[] = []
+  let instructorClasses: { [classId: string]: Data.Class } = $state({})
+  let selectedClassId = $state('')
+  let availableClassIds: string[] = $state([])
 
   onMount(() => {
     return user.subscribe(async (user) => {
@@ -418,244 +430,248 @@
   }
 
   // React to parent values changing (e.g. loaded data or cancel changes)
-  $: if (values) {
-    $form.course = values.course || ''
-    $form.gradeRecommendation = values.gradeRecommendation || ''
-    $form.classCap = values.classCap || 7
-    $form.meetingLink = values.meetingLink || ''
-    $form.classDay1 = (values.classDay1 as any) || ''
-    $form.classTime1 = values.classTime1 || ''
-    $form.classDay2 = (values.classDay2 as any) || ''
-    $form.classTime2 = values.classTime2 || ''
-    $form.online = values.online !== undefined ? values.online : true
-    $form.otherInstructorEmails = values.otherInstructorEmails || ''
-    $form.submitting = values.submitting || false
-  }
+  run(() => {
+    if (values) {
+      $form.course = values.course || ''
+      $form.gradeRecommendation = values.gradeRecommendation || ''
+      $form.classCap = values.classCap || 7
+      $form.meetingLink = values.meetingLink || ''
+      $form.classDay1 = (values.classDay1 as any) || ''
+      $form.classTime1 = values.classTime1 || ''
+      $form.classDay2 = (values.classDay2 as any) || ''
+      $form.classTime2 = values.classTime2 || ''
+      $form.online = values.online !== undefined ? values.online : true
+      $form.otherInstructorEmails = values.otherInstructorEmails || ''
+      $form.submitting = values.submitting || false
+    }
+  })
 </script>
 
 {#if dialog === true}
   <Dialog bind:this={classDetailsDialogEl} size="full" alert>
-    <svelte:fragment slot="title"
-      ><div class="flex items-center justify-between">
+    {#snippet title()}
+      <div class="flex items-center justify-between">
         Your class details <Button
           color="red"
           class="font-light"
-          on:click={classDetailsDialogEl.cancel}>Close</Button
+          on:click={() => classDetailsDialogEl?.cancel()}>Close</Button
         >
       </div>
-    </svelte:fragment>
-    <div slot="description">
-      <Card class="sticky top-2 z-50 flex justify-between gap-3 p-3 md:p-3">
-        <form
-          use:enhance
-          class={cn(showValidation && 'show-validation', 'w-full')}
-        >
-          {#if disabled}
-            <Button
-              color="blue"
-              class="mb-5"
-              type="button"
-              on:click={() => (disabled = false)}>Edit class details</Button
-            >
-            <p class="text-sm text-gray-500">
-              Note that editing your class details will reset your class
-              schedule.
-            </p>
-          {/if}
+    {/snippet}
+    {#snippet description()}
+      <div>
+        <Card class="sticky top-2 z-50 flex justify-between gap-3 p-3 md:p-3">
+          <form
+            use:enhance
+            class={cn(showValidation && 'show-validation', 'w-full')}
+          >
+            {#if disabled}
+              <Button
+                color="blue"
+                class="mb-5"
+                type="button"
+                on:click={() => (disabled = false)}>Edit class details</Button
+              >
+              <p class="text-sm text-gray-500">
+                Note that editing your class details will reset your class
+                schedule.
+              </p>
+            {/if}
 
-          <fieldset class="mt-4 space-y-4" disabled={disabled || $delayed}>
-            <p class="text-sm text-gray-600">
-              Please do not fill this form out until you have been told by
-              gbSTEM leadership what class you will be teaching. Submitting this
-              form will generate a meeting link for your class; you can join
-              using the 'Join Class' button in the portal.
-            </p>
+            <fieldset class="mt-4 space-y-4" disabled={disabled || $delayed}>
+              <p class="text-sm text-gray-600">
+                Please do not fill this form out until you have been told by
+                gbSTEM leadership what class you will be teaching. Submitting
+                this form will generate a meeting link for your class; you can
+                join using the 'Join Class' button in the portal.
+              </p>
 
-            <!-- Class Management Section -->
-            <div class="rounded-lg bg-gray-50 p-4">
-              <h3 class="mb-3 text-lg font-semibold">Manage Your Classes</h3>
+              <!-- Class Management Section -->
+              <div class="rounded-lg bg-gray-50 p-4">
+                <h3 class="mb-3 text-lg font-semibold">Manage Your Classes</h3>
 
-              <div class="mb-3 flex flex-wrap gap-2">
-                {#each availableClassIds as classId}
-                  <Button
-                    color={selectedClassId === classId ? 'blue' : 'gray'}
-                    type="button"
-                    on:click={() => selectClass(classId)}
-                  >
-                    Class {classId.split('-')[1]}
-                    {#if instructorClasses[classId]?.course}
-                      - {instructorClasses[classId].course}
-                    {/if}
+                <div class="mb-3 flex flex-wrap gap-2">
+                  {#each availableClassIds as classId}
+                    <Button
+                      color={selectedClassId === classId ? 'blue' : 'gray'}
+                      type="button"
+                      on:click={() => selectClass(classId)}
+                    >
+                      Class {classId.split('-')[1]}
+                      {#if instructorClasses[classId]?.course}
+                        - {instructorClasses[classId].course}
+                      {/if}
+                    </Button>
+                  {/each}
+
+                  <Button color="green" type="button" on:click={createNewClass}>
+                    + Create New Class
                   </Button>
-                {/each}
+                </div>
 
-                <Button color="green" type="button" on:click={createNewClass}>
-                  + Create New Class
-                </Button>
+                {#if isCreatingNewClass}
+                  <p class="text-sm text-blue-600">Creating new class...</p>
+                {:else if selectedClassId}
+                  <p class="text-sm text-gray-600">
+                    Editing Class {selectedClassId.split('-')[1]}
+                  </p>
+                {:else}
+                  <p class="text-sm text-gray-600">
+                    No classes created yet. Click "Create New Class" to start.
+                  </p>
+                {/if}
               </div>
 
-              {#if isCreatingNewClass}
-                <p class="text-sm text-blue-600">Creating new class...</p>
-              {:else if selectedClassId}
-                <p class="text-sm text-gray-600">
-                  Editing Class {selectedClassId.split('-')[1]}
-                </p>
-              {:else}
-                <p class="text-sm text-gray-600">
-                  No classes created yet. Click "Create New Class" to start.
-                </p>
-              {/if}
-            </div>
+              <h2 class="text-xl font-bold">
+                {isCreatingNewClass
+                  ? 'New Class Details'
+                  : selectedClassId
+                    ? `Class ${selectedClassId.split('-')[1]} Details`
+                    : 'Class Details'}
+              </h2>
 
-            <h2 class="text-xl font-bold">
-              {isCreatingNewClass
-                ? 'New Class Details'
-                : selectedClassId
-                  ? `Class ${selectedClassId.split('-')[1]} Details`
-                  : 'Class Details'}
-            </h2>
-
-            <div class="mt-2 flex flex-col gap-1.5">
-              <FormSelect
-                form={formResult}
-                name="course"
-                label="Course"
-                options={coursesJson}
-                bind:value={$form.course}
-              />
-            </div>
-
-            <div class="mt-2 flex flex-col gap-1.5">
-              <FormInput
-                form={formResult}
-                name="gradeRecommendation"
-                label="Grade recommendation. For example, 3-5 or 6-8."
-                bind:value={$form.gradeRecommendation}
-              />
-            </div>
-
-            <div class="grid gap-1">
-              <span class="mt-2 text-sm font-bold text-gray-700"
-                >Online classes meet once weekly at consistent days and times
-                throughout the semester and run for 60 minutes each; with the
-                exception of math, which meets twice weekly for 60 minutes each.
-                In-person classes meet once a week on a weekend afternoon at the
-                Cambridge Public Library.
-              </span>
-
-              <div class="grid gap-1 sm:grid-cols-3 sm:gap-3">
-                <div class="flex flex-col gap-1.5 sm:col-span-2">
-                  <FormSelect
-                    form={formResult}
-                    name="classDay1"
-                    label="Meeting day 1"
-                    options={daysOfWeekJson}
-                    bind:value={$form.classDay1}
-                  />
-                </div>
-                <div class="flex flex-col gap-1.5">
-                  <FormInput
-                    form={formResult}
-                    name="classTime1"
-                    label="Meeting time 1"
-                    type="time"
-                    bind:value={$form.classTime1}
-                  />
-                </div>
+              <div class="mt-2 flex flex-col gap-1.5">
+                <FormSelect
+                  form={formResult}
+                  name="course"
+                  label="Course"
+                  options={coursesJson}
+                  bind:value={$form.course}
+                />
               </div>
 
-              {#if $form.course && $form.course
-                  .toLowerCase()
-                  .includes('math') && $form.online}
+              <div class="mt-2 flex flex-col gap-1.5">
+                <FormInput
+                  form={formResult}
+                  name="gradeRecommendation"
+                  label="Grade recommendation. For example, 3-5 or 6-8."
+                  bind:value={$form.gradeRecommendation}
+                />
+              </div>
+
+              <div class="grid gap-1">
+                <span class="mt-2 text-sm font-bold text-gray-700"
+                  >Online classes meet once weekly at consistent days and times
+                  throughout the semester and run for 60 minutes each; with the
+                  exception of math, which meets twice weekly for 60 minutes
+                  each. In-person classes meet once a week on a weekend
+                  afternoon at the Cambridge Public Library.
+                </span>
+
                 <div class="grid gap-1 sm:grid-cols-3 sm:gap-3">
                   <div class="flex flex-col gap-1.5 sm:col-span-2">
                     <FormSelect
                       form={formResult}
-                      name="classDay2"
-                      label="Meeting day 2"
+                      name="classDay1"
+                      label="Meeting day 1"
                       options={daysOfWeekJson}
-                      bind:value={$form.classDay2}
+                      bind:value={$form.classDay1}
                     />
                   </div>
                   <div class="flex flex-col gap-1.5">
                     <FormInput
                       form={formResult}
-                      name="classTime2"
-                      label="Meeting time 2"
+                      name="classTime1"
+                      label="Meeting time 1"
                       type="time"
-                      bind:value={$form.classTime2}
+                      bind:value={$form.classTime1}
                     />
                   </div>
                 </div>
-              {/if}
-            </div>
 
-            <div class="mt-2 flex flex-col gap-1.5">
-              <FormInput
-                form={formResult}
-                name="classCap"
-                label="Class capacity"
-                type="number"
-                bind:value={$form.classCap}
-              />
-            </div>
+                {#if $form.course && $form.course
+                    .toLowerCase()
+                    .includes('math') && $form.online}
+                  <div class="grid gap-1 sm:grid-cols-3 sm:gap-3">
+                    <div class="flex flex-col gap-1.5 sm:col-span-2">
+                      <FormSelect
+                        form={formResult}
+                        name="classDay2"
+                        label="Meeting day 2"
+                        options={daysOfWeekJson}
+                        bind:value={$form.classDay2}
+                      />
+                    </div>
+                    <div class="flex flex-col gap-1.5">
+                      <FormInput
+                        form={formResult}
+                        name="classTime2"
+                        label="Meeting time 2"
+                        type="time"
+                        bind:value={$form.classTime2}
+                      />
+                    </div>
+                  </div>
+                {/if}
+              </div>
 
-            <div class="mt-2 flex flex-col gap-1.5">
-              <FormInput
-                form={formResult}
-                name="otherInstructorEmails"
-                label="Enter the emails of any co-instructors here, comma separated. Keep in mind that only one instructor per class should fill out this form."
-                bind:value={$form.otherInstructorEmails}
-              />
-            </div>
-
-            {#if $form.online}
               <div class="mt-2 flex flex-col gap-1.5">
                 <FormInput
                   form={formResult}
-                  name="meetingLink"
-                  label="Your meeting link. If you have Zoom Pro/Google Meet Pro and prefer to use it, you may enter the link here. Otherwise, you should use the Teams link."
-                  bind:value={$form.meetingLink}
+                  name="classCap"
+                  label="Class capacity"
+                  type="number"
+                  bind:value={$form.classCap}
                 />
               </div>
-            {/if}
 
-            <div class="mt-4 flex flex-col gap-1.5">
-              <FormCheckbox
-                form={formResult}
-                name="online"
-                label="Class taught online?"
-                bind:checked={$form.online}
-              />
-            </div>
+              <div class="mt-2 flex flex-col gap-1.5">
+                <FormInput
+                  form={formResult}
+                  name="otherInstructorEmails"
+                  label="Enter the emails of any co-instructors here, comma separated. Keep in mind that only one instructor per class should fill out this form."
+                  bind:value={$form.otherInstructorEmails}
+                />
+              </div>
 
-            <div class="mt-2 flex flex-col gap-1.5">
-              <FormCheckbox
-                form={formResult}
-                name="submitting"
-                label="I understand submitting will make my class available for registration, so I should not submit until I am sure the class and class times work for me."
-                bind:checked={$form.submitting}
-              />
-            </div>
+              {#if $form.online}
+                <div class="mt-2 flex flex-col gap-1.5">
+                  <FormInput
+                    form={formResult}
+                    name="meetingLink"
+                    label="Your meeting link. If you have Zoom Pro/Google Meet Pro and prefer to use it, you may enter the link here. Otherwise, you should use the Teams link."
+                    bind:value={$form.meetingLink}
+                  />
+                </div>
+              {/if}
 
-            <div class="mt-2 flex flex-col gap-1.5">
-              <FormCheckbox
-                form={formResult}
-                name="createClassSchedule"
-                label="Would you like a class schedule to be automatically created for you? Typically, you want to check this box the first time you submit your class details, but you should avoid checking this box when submitting the form again to edit your class details because it will overwrite changes you have made to your existing class schedule."
-                bind:checked={createClassSchedule}
-              />
-            </div>
+              <div class="mt-4 flex flex-col gap-1.5">
+                <FormCheckbox
+                  form={formResult}
+                  name="online"
+                  label="Class taught online?"
+                  bind:checked={$form.online}
+                />
+              </div>
 
-            <div class="flex justify-end">
-              <Button color="blue" type="submit" disabled={$delayed}
-                >Submit</Button
-              >
-            </div>
-          </fieldset>
-        </form>
-      </Card>
-    </div>
+              <div class="mt-2 flex flex-col gap-1.5">
+                <FormCheckbox
+                  form={formResult}
+                  name="submitting"
+                  label="I understand submitting will make my class available for registration, so I should not submit until I am sure the class and class times work for me."
+                  bind:checked={$form.submitting}
+                />
+              </div>
+
+              <div class="mt-2 flex flex-col gap-1.5">
+                <FormCheckbox
+                  form={formResult}
+                  name="createClassSchedule"
+                  label="Would you like a class schedule to be automatically created for you? Typically, you want to check this box the first time you submit your class details, but you should avoid checking this box when submitting the form again to edit your class details because it will overwrite changes you have made to your existing class schedule."
+                  bind:checked={createClassSchedule}
+                />
+              </div>
+
+              <div class="flex justify-end">
+                <Button color="blue" type="submit" disabled={$delayed}
+                  >Submit</Button
+                >
+              </div>
+            </fieldset>
+          </form>
+        </Card>
+      </div>
+    {/snippet}
   </Dialog>
 {:else}
   <form use:enhance class={cn(showValidation && 'show-validation', 'w-full')}>

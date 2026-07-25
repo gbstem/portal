@@ -1,9 +1,14 @@
 <script lang="ts">
   import { cn } from '$lib/utils'
 
-  let className = ''
-  export { className as class }
-  export let href = ''
+  interface Props {
+    class?: string
+    href?: string
+    children?: import('svelte').Snippet
+    [key: string]: any
+  }
+
+  let { class: className = '', href = '', children, ...rest }: Props = $props()
 </script>
 
 <a
@@ -12,7 +17,7 @@
     className,
   )}
   {href}
-  {...$$restProps}
+  {...rest}
 >
-  <slot />
+  {@render children?.()}
 </a>

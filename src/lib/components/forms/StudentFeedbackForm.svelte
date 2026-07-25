@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { run } from 'svelte/legacy'
+
   import { db, user } from '$lib/client/firebase'
   import {
     classesCollection,
@@ -16,15 +18,15 @@
   import FormInput from '../FormInput.svelte'
 
   let showValidation = false
-  let selectedStudentUid = ''
+  let selectedStudentUid = $state('')
 
   selectedStudentId.subscribe((value) => {
     selectedStudentUid = value
   })
 
-  let selectedStudentCourses: any[] = []
-  let pastSelected = ''
-  let studentName = ''
+  let selectedStudentCourses: any[] = $state([])
+  let pastSelected = $state('')
+  let studentName = $state('')
 
   const schema = z.object({
     classId: z.string().min(1, 'Please select a course'),
@@ -125,28 +127,30 @@
     }
   }
 
-  $: if (selectedStudentUid) {
-    if (selectedStudentUid !== pastSelected || pastSelected === '') {
-      getDoc(doc(db, registrationsCollection, selectedStudentUid))
-        .then((docSnapshot) => {
-          if (docSnapshot.exists()) {
-            studentName =
-              docSnapshot.data().personal.studentFirstName +
-              ' ' +
-              docSnapshot.data().personal.studentLastName
-            const classIds = docSnapshot.data().classes || []
-            fetchCourseList(classIds)
-          }
-        })
-        .catch((err) => {
-          console.error(
-            '[StudentFeedbackForm] Error fetching student registration:',
-            err,
-          )
-        })
-      pastSelected = selectedStudentUid
+  run(() => {
+    if (selectedStudentUid) {
+      if (selectedStudentUid !== pastSelected || pastSelected === '') {
+        getDoc(doc(db, registrationsCollection, selectedStudentUid))
+          .then((docSnapshot) => {
+            if (docSnapshot.exists()) {
+              studentName =
+                docSnapshot.data().personal.studentFirstName +
+                ' ' +
+                docSnapshot.data().personal.studentLastName
+              const classIds = docSnapshot.data().classes || []
+              fetchCourseList(classIds)
+            }
+          })
+          .catch((err) => {
+            console.error(
+              '[StudentFeedbackForm] Error fetching student registration:',
+              err,
+            )
+          })
+        pastSelected = selectedStudentUid
+      }
     }
-  }
+  })
 </script>
 
 <form class={cn(showValidation && 'show-validation')} use:enhance>

@@ -10,6 +10,11 @@
   import { zod } from 'sveltekit-superforms/adapters'
   import { z } from 'zod'
   import FormInput from '../FormInput.svelte'
+  interface Props {
+    children?: import('svelte').Snippet
+  }
+
+  let { children }: Props = $props()
 
   const dispatch = createEventDispatcher<{
     reauthenticate: boolean
@@ -59,6 +64,6 @@
         autocomplete="current-password"
       />
     </div>
-    <slot />
+    {@render children?.()}
   </fieldset>
 </form>

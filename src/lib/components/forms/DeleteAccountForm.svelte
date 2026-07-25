@@ -24,7 +24,7 @@
     password: z.string().min(1, 'Password is required'),
   })
 
-  let dialogEl: Dialog
+  let dialogEl: any = $state()
 
   const formResult = superForm(
     defaults({ password: '' }, zod(schema as any) as any) as any,
@@ -85,37 +85,44 @@
 <div class="w-full">
   <span class="font-bold">Delete account</span>
   <div class="mt-2">
-    <Button color="red" type="button" on:click={() => dialogEl.open()}
+    <Button color="red" type="button" on:click={() => dialogEl?.open()}
       >Delete account</Button
     >
   </div>
 </div>
 
 <Dialog bind:this={dialogEl} on:cancel={handleCancel} disabled={$delayed} alert>
-  <svelte:fragment slot="title">Delete account</svelte:fragment>
-  <div slot="description" class="flex w-full justify-center">
-    <form use:enhance class="w-full max-w-lg">
-      <fieldset class="space-y-4" disabled={$delayed}>
-        <div class="flex justify-center">
-          <div class="w-full space-y-4">
-            <FormInput
-              form={formResult}
-              name="password"
-              label="Password"
-              type="password"
-              bind:value={$form.password}
-              autocomplete="current-password"
-            />
-            <div class="text-center font-bold text-red-600">
-              Warning! This is irreversible.
+  {#snippet title()}
+    Delete account
+  {/snippet}
+  {#snippet description()}
+    <div class="flex w-full justify-center">
+      <form use:enhance class="w-full max-w-lg">
+        <fieldset class="space-y-4" disabled={$delayed}>
+          <div class="flex justify-center">
+            <div class="w-full space-y-4">
+              <FormInput
+                form={formResult}
+                name="password"
+                label="Password"
+                type="password"
+                bind:value={$form.password}
+                autocomplete="current-password"
+              />
+              <div class="text-center font-bold text-red-600">
+                Warning! This is irreversible.
+              </div>
             </div>
           </div>
-        </div>
-        <DialogActions>
-          <Button type="button" on:click={dialogEl.cancel}>Cancel</Button>
-          <Button color="red" type="submit" disabled={$delayed}>Delete</Button>
-        </DialogActions>
-      </fieldset>
-    </form>
-  </div>
+          <DialogActions>
+            <Button type="button" on:click={() => dialogEl?.cancel()}
+              >Cancel</Button
+            >
+            <Button color="red" type="submit" disabled={$delayed}>Delete</Button
+            >
+          </DialogActions>
+        </fieldset>
+      </form>
+    </div>
+  {/snippet}
 </Dialog>

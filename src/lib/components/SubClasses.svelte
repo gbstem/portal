@@ -32,20 +32,24 @@
   import { curriculums } from './helpers/curriculum'
   import { Trash2Icon } from 'svelte-feather-icons'
 
-  export let subInstructor: boolean
+  interface Props {
+    subInstructor: boolean
+  }
 
-  let feedbackDialogEl: (Dialog | null)[] = []
-  let notesDialogEl: (Dialog | null)[] = []
-  let subRequestDialogEl: (Dialog | null)[] = []
+  let { subInstructor }: Props = $props()
+
+  let feedbackDialogEl: (Dialog | null)[] = $state([])
+  let notesDialogEl: (Dialog | null)[] = $state([])
+  let subRequestDialogEl: (Dialog | null)[] = $state([])
   let currentUser: Data.User.Store
-  let classesMissingSubs: Data.SubRequest[] = []
-  let userSubClassesList: Data.SubRequest[] = []
+  let classesMissingSubs: Data.SubRequest[] = $state([])
+  let userSubClassesList: Data.SubRequest[] = $state([])
   let loading = true
-  let classesCheckedOff: any[] = []
-  let updating = false
-  let subRequestsFromUser: Data.SubRequest[] = []
-  let stringSubRequestDates: string[] = []
-  let originalSubClassNumbers: number[] = []
+  let classesCheckedOff: any[] = $state([])
+  let updating = $state(false)
+  let subRequestsFromUser: Data.SubRequest[] = $state([])
+  let stringSubRequestDates: string[] = $state([])
+  let originalSubClassNumbers: number[] = $state([])
 
   onMount(() => {
     return user.subscribe(async (user) => {
@@ -295,39 +299,43 @@
       {#if userSubClassesList.length > 0}
         {#each userSubClassesList as classBeingSubbed, i}
           <Dialog bind:this={feedbackDialogEl[i]} size="min" alert>
-            <svelte:fragment slot="title"
-              ><div class="flex items-center justify-between">
+            {#snippet title()}
+              <div class="flex items-center justify-between">
                 {classBeingSubbed.course} Substitute Class Feedback Form <Button
                   color="red"
                   class="font-light"
-                  on:click={feedbackDialogEl[i].cancel}>Close</Button
+                  on:click={() => feedbackDialogEl[i]?.cancel()}>Close</Button
                 >
               </div>
-            </svelte:fragment>
-            <div slot="description">
-              <InstructorFeedbackForm
-                {classBeingSubbed}
-                sessionNumber={classBeingSubbed.classNumber}
-              />
-            </div>
+            {/snippet}
+            {#snippet description()}
+              <div>
+                <InstructorFeedbackForm
+                  {classBeingSubbed}
+                  sessionNumber={classBeingSubbed.classNumber}
+                />
+              </div>
+            {/snippet}
           </Dialog>
           <Dialog bind:this={notesDialogEl[i]} size="min">
-            <svelte:fragment slot="title"
-              ><div class="flex items-center justify-between">
+            {#snippet title()}
+              <div class="flex items-center justify-between">
                 <div>Class Prep Notes</div>
-                <Button color="red" on:click={notesDialogEl[i].cancel}
+                <Button color="red" on:click={() => notesDialogEl[i]?.cancel()}
                   >Close</Button
                 >
-              </div></svelte:fragment
-            >
-            <Card slot="description">
-              <p>{classBeingSubbed.notes}</p>
-              <br />
-              <p>
-                Please reach out to the class's usual instructor at {classBeingSubbed.originalInstructorEmail}
-                if you have questions!
-              </p>
-            </Card>
+              </div>
+            {/snippet}
+            {#snippet description()}
+              <Card>
+                <p>{classBeingSubbed.notes}</p>
+                <br />
+                <p>
+                  Please reach out to the class's usual instructor at {classBeingSubbed.originalInstructorEmail}
+                  if you have questions!
+                </p>
+              </Card>
+            {/snippet}
           </Dialog>
           <hr />
           <div
@@ -388,42 +396,45 @@
           {#if subRequestsFromUser.length > 0}
             {#each subRequestsFromUser as subRequest, i}
               <Dialog bind:this={subRequestDialogEl[i]} size="min" alert>
-                <svelte:fragment slot="title"
-                  ><div class="flex items-center justify-between">
+                {#snippet title()}
+                  <div class="flex items-center justify-between">
                     {subRequest.course} Substitute Class Feedback Form <Button
                       color="red"
                       class="font-light"
-                      on:click={subRequestDialogEl[i].cancel}>Close</Button
+                      on:click={() => subRequestDialogEl[i]?.cancel()}
+                      >Close</Button
                     >
                   </div>
-                </svelte:fragment>
-                <div slot="description">
-                  <Input
-                    type="number"
-                    class="rounded-sm border p-1"
-                    bind:value={subRequestsFromUser[i].classNumber}
-                    label="Please confirm the class number ."
-                  />
-                  <Input
-                    type="datetime-local"
-                    class="rounded-sm border p-1"
-                    bind:value={stringSubRequestDates[i]}
-                    label="Please confirm the date and time of the class you would like to request a sub for."
-                  />
-                  <Input
-                    type="text"
-                    class="rounded-sm border p-1"
-                    bind:value={subRequestsFromUser[i].notes}
-                    label="Please describe what topic/lesson the substitute class will cover, and any helpful notes for the substitute instructor."
-                  />
-                  <Button
-                    color="green"
-                    on:click={() => {
-                      sendSubRequest(i)
-                      subRequestDialogEl[i]?.close()
-                    }}>Save Edits</Button
-                  >
-                </div>
+                {/snippet}
+                {#snippet description()}
+                  <div>
+                    <Input
+                      type="number"
+                      class="rounded-sm border p-1"
+                      bind:value={subRequestsFromUser[i].classNumber}
+                      label="Please confirm the class number ."
+                    />
+                    <Input
+                      type="datetime-local"
+                      class="rounded-sm border p-1"
+                      bind:value={stringSubRequestDates[i]}
+                      label="Please confirm the date and time of the class you would like to request a sub for."
+                    />
+                    <Input
+                      type="text"
+                      class="rounded-sm border p-1"
+                      bind:value={subRequestsFromUser[i].notes}
+                      label="Please describe what topic/lesson the substitute class will cover, and any helpful notes for the substitute instructor."
+                    />
+                    <Button
+                      color="green"
+                      on:click={() => {
+                        sendSubRequest(i)
+                        subRequestDialogEl[i]?.close()
+                      }}>Save Edits</Button
+                    >
+                  </div>
+                {/snippet}
               </Dialog>
               {#if subRequest.subRequestStatus === SubRequestStatus.SubstituteFound}
                 <div

@@ -9,7 +9,9 @@
 </svelte:head>
 
 <PageLayout cols={2}>
-  <svelte:fragment slot="title">Schedule Your Interview</svelte:fragment>
+  {#snippet title()}
+    Schedule Your Interview
+  {/snippet}
   <div class="relative w-full">
     <InterviewForm {semesterDates} />
   </div>

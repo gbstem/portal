@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { run } from 'svelte/legacy'
+
   import type { RegistrationRequestBody } from '../../../routes/api/registration/+server'
   import {
     doc,
@@ -29,24 +31,30 @@
   import FormSelect from '../FormSelect.svelte'
   import FormCheckbox from '../FormCheckbox.svelte'
 
-  export let childUid: string = ''
-
-  export let semesterDates: Data.SemesterDates = {
-    classesEnd: '',
-    classesStart: '',
-    newInstructorAppsDue: '',
-    returningInstructorAppsDue: '',
-    instructorOrientation: '',
-    newInstructorAppsOpen: '',
-    returningInstructorAppsOpen: '',
-    studentOrientation: '',
-    registrationsDue: '',
-    parentOrientation: '',
-    registrationsOpen: '',
+  interface Props {
+    childUid?: string
+    semesterDates?: Data.SemesterDates
   }
 
-  let loading = true
-  let saving = false
+  let {
+    childUid = '',
+    semesterDates = {
+      classesEnd: '',
+      classesStart: '',
+      newInstructorAppsDue: '',
+      returningInstructorAppsDue: '',
+      instructorOrientation: '',
+      newInstructorAppsOpen: '',
+      returningInstructorAppsOpen: '',
+      studentOrientation: '',
+      registrationsDue: '',
+      parentOrientation: '',
+      registrationsOpen: '',
+    },
+  }: Props = $props()
+
+  let loading = $state(true)
+  let saving = $state(false)
   let showValidation = false
   let dbValues: Data.Registration
 
@@ -99,7 +107,7 @@
     },
   }
 
-  let values: Data.Registration = cloneDeep(emptyValues)
+  let values: Data.Registration = $state(cloneDeep(emptyValues))
 
   const schema = registrationSchema
 
@@ -294,9 +302,11 @@
     // Rely on the reactive statement below to run on initial mount
   })
 
-  $: if (childUid) {
-    initializeForm()
-  }
+  run(() => {
+    if (childUid) {
+      initializeForm()
+    }
+  })
 
   onDestroy(() => {
     clearInterval(saveInterval)
@@ -382,63 +392,65 @@
   }
 
   // React to loaded/saved values changing
-  $: if (values) {
-    $form.personal = {
-      studentFirstName: values.personal?.studentFirstName || '',
-      studentLastName: values.personal?.studentLastName || '',
-      parentFirstName: values.personal?.parentFirstName || '',
-      parentLastName: values.personal?.parentLastName || '',
-      email: values.personal?.email || '',
-      secondaryEmail: values.personal?.secondaryEmail || '',
-      phoneNumber: values.personal?.phoneNumber || '',
-      dateOfBirth: values.personal?.dateOfBirth || '',
-      gender: values.personal?.gender || '',
-      race: values.personal?.race || [],
-      frlp: values.personal?.frlp || '',
-      parentEducation: values.personal?.parentEducation || '',
+  run(() => {
+    if (values) {
+      $form.personal = {
+        studentFirstName: values.personal?.studentFirstName || '',
+        studentLastName: values.personal?.studentLastName || '',
+        parentFirstName: values.personal?.parentFirstName || '',
+        parentLastName: values.personal?.parentLastName || '',
+        email: values.personal?.email || '',
+        secondaryEmail: values.personal?.secondaryEmail || '',
+        phoneNumber: values.personal?.phoneNumber || '',
+        dateOfBirth: values.personal?.dateOfBirth || '',
+        gender: values.personal?.gender || '',
+        race: values.personal?.race || [],
+        frlp: values.personal?.frlp || '',
+        parentEducation: values.personal?.parentEducation || '',
+      }
+      $form.academic = {
+        school: values.academic?.school || '',
+        grade: values.academic?.grade || '',
+      }
+      $form.program = {
+        csCourse: values.program?.csCourse || '',
+        mathCourse: values.program?.mathCourse || '',
+        engineeringCourse: values.program?.engineeringCourse || '',
+        scienceCourse: values.program?.scienceCourse || '',
+        inPerson:
+          values.program?.inPerson !== undefined
+            ? values.program.inPerson
+            : false,
+        reason: values.program?.reason || '',
+      }
+      $form.inPerson = {
+        allergies: values.inPerson?.allergies || '',
+        parentPickup: values.inPerson?.parentPickup || '',
+      }
+      $form.agreements = {
+        mediaRelease:
+          values.agreements?.mediaRelease !== undefined
+            ? values.agreements.mediaRelease
+            : false,
+        bypassAgeLimits:
+          values.agreements?.bypassAgeLimits !== undefined
+            ? values.agreements.bypassAgeLimits
+            : false,
+        entireProgram:
+          values.agreements?.entireProgram !== undefined
+            ? values.agreements.entireProgram
+            : false,
+        timeCommitment:
+          values.agreements?.timeCommitment !== undefined
+            ? values.agreements.timeCommitment
+            : false,
+        submitting:
+          values.agreements?.submitting !== undefined
+            ? values.agreements.submitting
+            : false,
+      }
     }
-    $form.academic = {
-      school: values.academic?.school || '',
-      grade: values.academic?.grade || '',
-    }
-    $form.program = {
-      csCourse: values.program?.csCourse || '',
-      mathCourse: values.program?.mathCourse || '',
-      engineeringCourse: values.program?.engineeringCourse || '',
-      scienceCourse: values.program?.scienceCourse || '',
-      inPerson:
-        values.program?.inPerson !== undefined
-          ? values.program.inPerson
-          : false,
-      reason: values.program?.reason || '',
-    }
-    $form.inPerson = {
-      allergies: values.inPerson?.allergies || '',
-      parentPickup: values.inPerson?.parentPickup || '',
-    }
-    $form.agreements = {
-      mediaRelease:
-        values.agreements?.mediaRelease !== undefined
-          ? values.agreements.mediaRelease
-          : false,
-      bypassAgeLimits:
-        values.agreements?.bypassAgeLimits !== undefined
-          ? values.agreements.bypassAgeLimits
-          : false,
-      entireProgram:
-        values.agreements?.entireProgram !== undefined
-          ? values.agreements.entireProgram
-          : false,
-      timeCommitment:
-        values.agreements?.timeCommitment !== undefined
-          ? values.agreements.timeCommitment
-          : false,
-      submitting:
-        values.agreements?.submitting !== undefined
-          ? values.agreements.submitting
-          : false,
-    }
-  }
+  })
 
   function handleUnload(e: BeforeUnloadEvent) {
     const currentValues = {
@@ -472,7 +484,7 @@
   }
 </script>
 
-<svelte:window on:beforeunload={handleUnload} />
+<svelte:window onbeforeunload={handleUnload} />
 
 {#if new Date() < new Date(semesterDates.registrationsOpen)}
   <Card class="mb-6 max-w-2xl border-red-200 bg-red-50">
@@ -768,7 +780,7 @@
         <div class="mt-8 grid grid-cols-2 gap-3">
           <button
             type="button"
-            on:click={() => handleSave()}
+            onclick={() => handleSave()}
             class="rounded-md bg-gray-100 px-4 py-2 text-gray-900 shadow-xs transition-colors duration-300 hover:bg-gray-200 disabled:bg-gray-200 disabled:text-gray-500"
           >
             Save draft
