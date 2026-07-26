@@ -33,14 +33,22 @@ export default tseslint.config(
       '@typescript-eslint/no-unused-vars': 'off',
       '@typescript-eslint/no-require-imports': 'off',
       'svelte/no-navigation-without-resolve': 'off',
+      // Real violations exist (Set/Date instances in $derived/$state) -
+      // fix is Phase 8b of the Svelte 5 migration (swap to svelte/reactivity
+      // only where stored in $state and mutated), then re-enable.
       'svelte/prefer-svelte-reactivity': 'off',
+      // 24 unkeyed {#each} blocks (55 combined with admin) - Phase 8c of
+      // the Svelte 5 migration adds keys, then re-enables this.
       'svelte/require-each-key': 'off',
+      // One violation (SignUpForm.svelte's `let createdUser = null`, dead
+      // because it's unconditionally reassigned before any read) - a minor
+      // one-off nit, unrelated to the Svelte 5 migration.
       'no-useless-assignment': 'off',
-      'svelte/no-useless-mustaches': 'off',
-      'svelte/infinite-reactive-loop': 'off',
       'svelte/a11y-consider-explicit-label': 'off',
-      'svelte/element_invalid_self_closing_tag': 'off',
-      'svelte/reactive_declaration_module_script_dependency': 'off',
+      // no-constant-binary-expression's only violations are intentional
+      // literal true/false in __tests__/utils.test.ts demonstrating cn()'s
+      // conditional-class behavior - pre-existing test fixture, not a bug,
+      // and unrelated to the Svelte 5 migration.
       'no-constant-binary-expression': 'off',
       'svelte/no-at-html-tags': 'off',
     },
