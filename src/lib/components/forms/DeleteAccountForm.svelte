@@ -91,7 +91,7 @@
   </div>
 </div>
 
-<Dialog bind:this={dialogEl} on:cancel={handleCancel} disabled={$delayed} alert>
+<Dialog bind:this={dialogEl} onCancel={handleCancel} disabled={$delayed} alert>
   {#snippet title()}
     Delete account
   {/snippet}

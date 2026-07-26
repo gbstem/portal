@@ -108,12 +108,12 @@
   </fieldset>
 </form>
 
-<Dialog bind:this={dialogEl} on:cancel={handleCancel}>
+<Dialog bind:this={dialogEl} onCancel={handleCancel}>
   {#snippet title()}
     Reauthenticate
   {/snippet}
   {#snippet description()}
-    <ReauthenticateForm on:reauthenticate={handleReauthenticate}>
+    <ReauthenticateForm onReauthenticate={handleReauthenticate}>
       <DialogActions>
         <Button onclick={() => dialogEl?.cancel()}>Cancel</Button>
         <Button type="submit" color="blue">Reauthenticate</Button>

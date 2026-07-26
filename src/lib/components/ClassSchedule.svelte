@@ -694,7 +694,7 @@
         bind:this={addClassDialogEl}
         initial={addingClass}
         size="min"
-        on:cancel={() => (addingClass = false)}
+        onCancel={() => (addingClass = false)}
       >
         {#snippet title()}
           Add Class to Schedule

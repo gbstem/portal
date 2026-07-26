@@ -3,12 +3,10 @@
   import { dialog } from '$lib/stores'
   import { clickOutside, cn, trapFocus } from '$lib/utils'
   import { uniqueId } from 'lodash-es'
-  import { createEventDispatcher, onDestroy } from 'svelte'
+  import { onDestroy } from 'svelte'
   import { fade } from 'svelte/transition'
 
   type Size = 'min' | 'full'
-
-  const dispatch = createEventDispatcher()
 
   const id = uniqueId('dialog-')
   interface Props {
@@ -16,6 +14,9 @@
     disabled?: boolean
     initial?: boolean
     alert?: boolean
+    onOpen?: () => void
+    onClose?: () => void
+    onCancel?: () => void
     title?: import('svelte').Snippet
     description?: import('svelte').Snippet
   }
@@ -25,6 +26,9 @@
     disabled = false,
     initial: openState = $bindable(false),
     alert = false,
+    onOpen,
+    onClose,
+    onCancel,
     title,
     description,
   }: Props = $props()
@@ -56,19 +60,19 @@
   export function open() {
     if (!disabled) {
       openState = true
-      dispatch('open', true)
+      onOpen?.()
     }
   }
   export function close() {
     if (!disabled) {
       openState = false
-      dispatch('close', true)
+      onClose?.()
     }
   }
   export function cancel() {
     if (!disabled) {
       openState = false
-      dispatch('cancel', true)
+      onCancel?.()
     }
   }
   function handleEscape(e: KeyboardEvent) {
