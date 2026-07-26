@@ -1,6 +1,4 @@
 <script lang="ts">
-  import { run } from 'svelte/legacy'
-
   import { db, user } from '$lib/client/firebase'
   import { coursesJson, daysOfWeekJson } from '$lib/data'
   import { classesCollection, withSemester } from '$lib/data/collections'
@@ -105,23 +103,25 @@
     submitting: z.boolean().default(false),
   })
 
+  function toFormValues(v: Data.Class) {
+    return {
+      course: v.course || '',
+      gradeRecommendation: v.gradeRecommendation || '',
+      classCap: v.classCap || 7,
+      meetingLink: v.meetingLink || '',
+      classDay1: (v.classDay1 as any) || '',
+      classTime1: v.classTime1 || '',
+      classDay2: (v.classDay2 as any) || '',
+      classTime2: v.classTime2 || '',
+      online: v.online !== undefined ? v.online : true,
+      otherInstructorEmails: v.otherInstructorEmails || '',
+      submitting: v.submitting || false,
+    }
+  }
+
+  // svelte-ignore state_referenced_locally
   const formResult = superForm(
-    defaults(
-      {
-        course: '',
-        gradeRecommendation: '',
-        classCap: 7,
-        meetingLink: '',
-        classDay1: '' as any,
-        classTime1: '',
-        classDay2: '' as any,
-        classTime2: '',
-        online: true,
-        otherInstructorEmails: '',
-        submitting: false,
-      },
-      zod(schema as any) as any,
-    ) as any,
+    defaults(toFormValues(values) as any, zod(schema as any) as any) as any,
     {
       id: untrack(() => dialog)
         ? 'class-details-dialog'
@@ -430,20 +430,8 @@
   }
 
   // React to parent values changing (e.g. loaded data or cancel changes)
-  run(() => {
-    if (values) {
-      $form.course = values.course || ''
-      $form.gradeRecommendation = values.gradeRecommendation || ''
-      $form.classCap = values.classCap || 7
-      $form.meetingLink = values.meetingLink || ''
-      $form.classDay1 = (values.classDay1 as any) || ''
-      $form.classTime1 = values.classTime1 || ''
-      $form.classDay2 = (values.classDay2 as any) || ''
-      $form.classTime2 = values.classTime2 || ''
-      $form.online = values.online !== undefined ? values.online : true
-      $form.otherInstructorEmails = values.otherInstructorEmails || ''
-      $form.submitting = values.submitting || false
-    }
+  $effect(() => {
+    form.set(toFormValues(values))
   })
 </script>
 

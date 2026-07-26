@@ -1,6 +1,4 @@
 <script lang="ts">
-  import { run } from 'svelte/legacy'
-
   import type { RegistrationRequestBody } from '../../../routes/api/registration/+server'
   import {
     doc,
@@ -111,8 +109,67 @@
 
   const schema = registrationSchema
 
+  function toFormValues(v: Data.Registration) {
+    return {
+      personal: {
+        studentFirstName: v.personal?.studentFirstName || '',
+        studentLastName: v.personal?.studentLastName || '',
+        parentFirstName: v.personal?.parentFirstName || '',
+        parentLastName: v.personal?.parentLastName || '',
+        email: v.personal?.email || '',
+        secondaryEmail: v.personal?.secondaryEmail || '',
+        phoneNumber: v.personal?.phoneNumber || '',
+        dateOfBirth: v.personal?.dateOfBirth || '',
+        gender: v.personal?.gender || '',
+        race: v.personal?.race || [],
+        frlp: v.personal?.frlp || '',
+        parentEducation: v.personal?.parentEducation || '',
+      },
+      academic: {
+        school: v.academic?.school || '',
+        grade: v.academic?.grade || '',
+      },
+      program: {
+        csCourse: v.program?.csCourse || '',
+        mathCourse: v.program?.mathCourse || '',
+        engineeringCourse: v.program?.engineeringCourse || '',
+        scienceCourse: v.program?.scienceCourse || '',
+        inPerson:
+          v.program?.inPerson !== undefined ? v.program.inPerson : false,
+        reason: v.program?.reason || '',
+      },
+      inPerson: {
+        allergies: v.inPerson?.allergies || '',
+        parentPickup: v.inPerson?.parentPickup || '',
+      },
+      agreements: {
+        mediaRelease:
+          v.agreements?.mediaRelease !== undefined
+            ? v.agreements.mediaRelease
+            : false,
+        bypassAgeLimits:
+          v.agreements?.bypassAgeLimits !== undefined
+            ? v.agreements.bypassAgeLimits
+            : false,
+        entireProgram:
+          v.agreements?.entireProgram !== undefined
+            ? v.agreements.entireProgram
+            : false,
+        timeCommitment:
+          v.agreements?.timeCommitment !== undefined
+            ? v.agreements.timeCommitment
+            : false,
+        submitting:
+          v.agreements?.submitting !== undefined
+            ? v.agreements.submitting
+            : false,
+      },
+    }
+  }
+
+  // svelte-ignore state_referenced_locally
   const formResult = superForm(
-    defaults(cloneDeep(emptyValues) as any, zod(schema as any) as any) as any,
+    defaults(toFormValues(values) as any, zod(schema as any) as any) as any,
     {
       SPA: true,
       validators: zod(schema as any) as any,
@@ -392,64 +449,8 @@
   }
 
   // React to loaded/saved values changing
-  run(() => {
-    if (values) {
-      $form.personal = {
-        studentFirstName: values.personal?.studentFirstName || '',
-        studentLastName: values.personal?.studentLastName || '',
-        parentFirstName: values.personal?.parentFirstName || '',
-        parentLastName: values.personal?.parentLastName || '',
-        email: values.personal?.email || '',
-        secondaryEmail: values.personal?.secondaryEmail || '',
-        phoneNumber: values.personal?.phoneNumber || '',
-        dateOfBirth: values.personal?.dateOfBirth || '',
-        gender: values.personal?.gender || '',
-        race: values.personal?.race || [],
-        frlp: values.personal?.frlp || '',
-        parentEducation: values.personal?.parentEducation || '',
-      }
-      $form.academic = {
-        school: values.academic?.school || '',
-        grade: values.academic?.grade || '',
-      }
-      $form.program = {
-        csCourse: values.program?.csCourse || '',
-        mathCourse: values.program?.mathCourse || '',
-        engineeringCourse: values.program?.engineeringCourse || '',
-        scienceCourse: values.program?.scienceCourse || '',
-        inPerson:
-          values.program?.inPerson !== undefined
-            ? values.program.inPerson
-            : false,
-        reason: values.program?.reason || '',
-      }
-      $form.inPerson = {
-        allergies: values.inPerson?.allergies || '',
-        parentPickup: values.inPerson?.parentPickup || '',
-      }
-      $form.agreements = {
-        mediaRelease:
-          values.agreements?.mediaRelease !== undefined
-            ? values.agreements.mediaRelease
-            : false,
-        bypassAgeLimits:
-          values.agreements?.bypassAgeLimits !== undefined
-            ? values.agreements.bypassAgeLimits
-            : false,
-        entireProgram:
-          values.agreements?.entireProgram !== undefined
-            ? values.agreements.entireProgram
-            : false,
-        timeCommitment:
-          values.agreements?.timeCommitment !== undefined
-            ? values.agreements.timeCommitment
-            : false,
-        submitting:
-          values.agreements?.submitting !== undefined
-            ? values.agreements.submitting
-            : false,
-      }
-    }
+  $effect(() => {
+    form.set(toFormValues(values))
   })
 
   function handleUnload(e: BeforeUnloadEvent) {
