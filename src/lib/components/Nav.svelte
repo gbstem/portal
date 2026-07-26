@@ -80,7 +80,7 @@
       <div
         class="no-scrollbar hidden min-w-0 flex-1 items-center justify-start gap-0.5 overflow-x-auto px-2 py-1 sm:flex md:gap-1 lg:justify-center lg:gap-1.5 xl:gap-2"
       >
-        {#each pages as page}
+        {#each pages as page (page.href)}
           <a
             class={cn(
               'relative rounded-full px-1.5 py-1 text-[11px] md:px-2 md:py-1.5 md:text-xs lg:px-2.5 lg:py-2 lg:text-sm xl:px-4 xl:text-base font-medium transition-colors duration-200 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-400 text-center leading-tight flex items-center justify-center min-h-10 max-w-30 shrink-0',
@@ -159,7 +159,7 @@
     style="backdrop-filter: blur(12px);"
   >
     {#if $user?.object?.emailVerified}
-      {#each pages as page}
+      {#each pages as page (page.href)}
         <a
           class={cn(
             'rounded-full px-3 py-2 font-medium transition-colors duration-200 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-400',

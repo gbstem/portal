@@ -166,7 +166,7 @@
     {:else}
       <div class="mb-5">
         <h3 class="mb-2 text-sm font-bold">Select Course:</h3>
-        {#each selectedStudentCourses as { instructor, course, classId }}
+        {#each selectedStudentCourses as { instructor, course, classId } (classId)}
           <label class="mt-1 flex cursor-pointer items-center gap-2 text-sm">
             <input
               type="radio"

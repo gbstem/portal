@@ -244,7 +244,7 @@
             {filteredOptions[0]}
           </button>
         {:else}
-          {#each filteredOptions as name, index}
+          {#each filteredOptions as name, index (name)}
             <button
               class={cn(
                 'w-full px-6 py-2 text-left transition-colors duration-300',

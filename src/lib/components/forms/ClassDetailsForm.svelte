@@ -491,7 +491,7 @@
                 <h3 class="mb-3 text-lg font-semibold">Manage Your Classes</h3>
 
                 <div class="mb-3 flex flex-wrap gap-2">
-                  {#each availableClassIds as classId}
+                  {#each availableClassIds as classId (classId)}
                     <Button
                       color={selectedClassId === classId ? 'blue' : 'gray'}
                       type="button"
@@ -698,7 +698,7 @@
         <h3 class="mb-3 text-lg font-semibold">Manage Your Classes</h3>
 
         <div class="mb-3 flex flex-wrap gap-2">
-          {#each availableClassIds as classId}
+          {#each availableClassIds as classId (classId)}
             <Button
               color={selectedClassId === classId ? 'blue' : 'gray'}
               type="button"

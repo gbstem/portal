@@ -37,9 +37,6 @@ export default tseslint.config(
       // fix is Phase 8b of the Svelte 5 migration (swap to svelte/reactivity
       // only where stored in $state and mutated), then re-enable.
       'svelte/prefer-svelte-reactivity': 'off',
-      // 24 unkeyed {#each} blocks (55 combined with admin) - Phase 8c of
-      // the Svelte 5 migration adds keys, then re-enables this.
-      'svelte/require-each-key': 'off',
       // One violation (SignUpForm.svelte's `let createdUser = null`, dead
       // because it's unconditionally reassigned before any read) - a minor
       // one-off nit, unrelated to the Svelte 5 migration.

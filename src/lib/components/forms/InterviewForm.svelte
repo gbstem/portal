@@ -311,7 +311,7 @@
           {#if value.length > 0}
             <div class="mb-4">
               <div class="grid grid-cols-2 gap-2">
-                {#each value as val}
+                {#each value as val (val.id)}
                   <label
                     class="mt-1 flex cursor-pointer items-center gap-2 text-sm"
                   >

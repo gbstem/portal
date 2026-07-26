@@ -23,7 +23,7 @@
   {#snippet title()}
     Announcements
   {/snippet}
-  {#each announcements as announcement}
+  {#each announcements as announcement (announcement.timestamp.toString() + announcement.title)}
     <div class="mb-4">
       <h3 class="text-lg font-semibold">{announcement.title}</h3>
       <p>{announcement.content}</p>

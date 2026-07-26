@@ -297,7 +297,7 @@
     <Card>
       <h2 class="mt-4 mb-2 text-xl font-bold">Your Classes To Substitute</h2>
       {#if userSubClassesList.length > 0}
-        {#each userSubClassesList as classBeingSubbed, i}
+        {#each userSubClassesList as classBeingSubbed, i (classBeingSubbed.id)}
           <Dialog bind:this={feedbackDialogEl[i]} size="min" alert>
             {#snippet title()}
               <div class="flex items-center justify-between">
@@ -394,7 +394,7 @@
         <h2 class="my-2 text-xl font-bold">Your Sub Requests</h2>
         <div>
           {#if subRequestsFromUser.length > 0}
-            {#each subRequestsFromUser as subRequest, i}
+            {#each subRequestsFromUser as subRequest, i (subRequest.id)}
               <Dialog bind:this={subRequestDialogEl[i]} size="min" alert>
                 {#snippet title()}
                   <div class="flex items-center justify-between">
@@ -550,7 +550,7 @@
             }
           }}
         >
-          {#each classesMissingSubs as classToSub, i}
+          {#each classesMissingSubs as classToSub, i (classToSub.id)}
             <div>
               <label>
                 <input

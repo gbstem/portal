@@ -229,7 +229,7 @@
 
       <h2 class="mb-2 text-lg font-bold">Class Attendance</h2>
       <div class="mt-2 space-y-2">
-        {#each classList as student}
+        {#each classList as student, i (i)}
           {#if $form.attendanceList[student]}
             <div class="flex flex-col gap-1.5">
               <FormCheckbox

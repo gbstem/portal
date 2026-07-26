@@ -473,7 +473,7 @@
                 : '2-hour class'})
             </h4>
             <div class="space-y-2">
-              {#each formatClassTimes(dialogClassDetails.classDays, dialogClassDetails.classTimes) as classTime}
+              {#each formatClassTimes(dialogClassDetails.classDays, dialogClassDetails.classTimes) as classTime (classTime)}
                 <div class="flex items-center text-blue-800">
                   <svg
                     class="mr-3 h-4 w-4 text-blue-600"
@@ -729,7 +729,7 @@
                     : '2-hour class'})
                 </h4>
                 <div class="space-y-1">
-                  {#each formatClassTimes(classInfo.classDays, classInfo.classTimes) as classTime}
+                  {#each formatClassTimes(classInfo.classDays, classInfo.classTimes) as classTime (classTime)}
                     <div class="flex items-center text-sm text-gray-600">
                       <svg
                         class="mr-2 h-3 w-3 text-gray-400"
@@ -772,7 +772,7 @@
                     Your Enrolled Students
                   </h4>
                   <div class="space-y-1">
-                    {#each Object.entries(studentUidToClassIds) as [studentUid, classIds]}
+                    {#each Object.entries(studentUidToClassIds) as [studentUid, classIds] (studentUid)}
                       {#if classIds.includes(classInfo.id)}
                         <div class="flex items-center text-sm text-blue-700">
                           <svg

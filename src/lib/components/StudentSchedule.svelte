@@ -142,7 +142,7 @@
       {/if}
       <div class="mb-2 font-bold">{selectedStudentName}'s Class Schedule</div>
       <ul class="space-y-3">
-        {#each classes as classSession}
+        {#each classes as classSession (classSession.course + classSession.meetingTime.getTime())}
           <li
             class="flex items-center rounded-lg bg-blue-50 px-4 py-3 shadow-xs"
           >

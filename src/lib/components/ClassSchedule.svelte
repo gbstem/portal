@@ -562,7 +562,7 @@
               </tr>
             </thead>
             <tbody>
-              {#each studentList as student}
+              {#each studentList as student (student.email)}
                 <tr style="border-bottom: 1px solid #ccc;">
                   <td style="padding: 8px;"
                     >{normalizeCapitals(student.name)}</td
@@ -611,7 +611,7 @@
     <Card class="mb-4">
       <h3 class="mb-3 text-lg font-semibold">Select Class</h3>
       <div class="flex flex-wrap gap-2">
-        {#each availableClassIds as classId}
+        {#each availableClassIds as classId (classId)}
           <Button
             color={selectedClassId === classId ? 'blue' : 'gray'}
             onclick={() => selectClass(classId)}
@@ -740,7 +740,7 @@
     </Card>
   {/if}
   <ul class="list-none space-y-4">
-    {#each editedMeetingTimes as classTime, classNumber}
+    {#each editedMeetingTimes as classTime, classNumber (classTime)}
       <li
         class="relative flex flex-wrap items-center justify-between gap-4 rounded-xl border bg-white p-4 shadow-sm transition hover:shadow-lg"
       >

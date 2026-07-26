@@ -50,11 +50,11 @@
     {/snippet}
   </Dialog>
   <div class="w-full max-w-2xl space-y-4">
-    {#each tracks as track}
+    {#each tracks as track (track)}
       <Card>
         <h2 class="font-bold">{track}</h2>
         <div class="mb-4 inline-block">
-          {#each curriculums.filter((curriculum) => curriculum.track === track) as curriculum}
+          {#each curriculums.filter((curriculum) => curriculum.track === track) as curriculum (curriculum.class)}
             <div class="mt-2">
               <Button
                 onclick={() => {
