@@ -1,6 +1,4 @@
 <script lang="ts">
-  import { run } from 'svelte/legacy'
-
   import { navigating, page } from '$app/stores'
   import { db, user } from '$lib/client/firebase'
   import { decisionsCollection } from '$lib/data/collections'
@@ -34,20 +32,23 @@
   ])
 
   // Only fetch document when user is loaded, has a uid, and is an instructor
-  run(() => {
-    if ($user?.object?.uid && userRole === 'instructor') {
-      ;(async () => {
-        try {
-          const document = await getDoc(
-            doc(db, decisionsCollection, $user.object.uid),
-          )
-          if (document.exists() && document.data().type === 'accepted') {
-            showAdditionalPages = true
-          }
-        } catch (error) {
-          console.error('Error fetching document:', error)
+  $effect(() => {
+    const uid = $user?.object?.uid
+    if (!uid || userRole !== 'instructor') return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const document = await getDoc(doc(db, decisionsCollection, uid))
+        if (cancelled) return
+        if (document.exists() && document.data().type === 'accepted') {
+          showAdditionalPages = true
         }
-      })()
+      } catch (error) {
+        console.error('Error fetching document:', error)
+      }
+    })()
+    return () => {
+      cancelled = true
     }
   })
 

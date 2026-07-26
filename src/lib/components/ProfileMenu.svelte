@@ -1,6 +1,4 @@
 <script lang="ts">
-  import { run } from 'svelte/legacy'
-
   import { fade } from 'svelte/transition'
   import { clickOutside, cn } from '$lib/utils'
   import { navigating } from '$app/stores'
@@ -16,7 +14,7 @@
   let { class: className = '' }: Props = $props()
 
   let open = $state(false)
-  run(() => {
+  $effect(() => {
     if ($navigating) {
       open = false
     }

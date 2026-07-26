@@ -1,6 +1,4 @@
 <script lang="ts">
-  import { run } from 'svelte/legacy'
-
   import { db } from '$lib/client/firebase'
   import { doc, getDoc } from 'firebase/firestore'
   import Button from './Button.svelte'
@@ -46,54 +44,57 @@
     return fetchedClasses
   }
 
-  run(() => {
-    if (selectedStudentUid) {
-      ;(async () => {
-        try {
-          const docSnapshot = await getDoc(
-            doc(db, registrationsCollection, selectedStudentUid),
+  $effect(() => {
+    const currentUid = selectedStudentUid
+    if (!currentUid) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const docSnapshot = await getDoc(
+          doc(db, registrationsCollection, currentUid),
+        )
+        if (cancelled) return
+        if (docSnapshot.exists()) {
+          const data = docSnapshot.data()
+          const classIds = data.classes || []
+          selectedStudentName = data.personal.studentFirstName
+          classes = await fetchClassSchedules(classIds)
+          const now = new Date()
+          const classesToday = classes.filter(
+            (classDate) =>
+              classDate.meetingTime.toDateString() === now.toDateString(),
           )
-          if (docSnapshot.exists()) {
-            const data = docSnapshot.data()
-            const classIds = data.classes || []
-            selectedStudentName = data.personal.studentFirstName
-            classes = await fetchClassSchedules(classIds)
-            const now = new Date()
-            const classesToday = classes.filter(
-              (classDate) =>
-                classDate.meetingTime.toDateString() === now.toDateString(),
-            )
-            if (classesToday.length > 0) {
-              const futureTodayClasses = classesToday
-                .filter(
-                  (classDate) =>
-                    classDate.meetingTime.getHours() >= now.getHours(),
-                )
+          if (classesToday.length > 0) {
+            const futureTodayClasses = classesToday
+              .filter(
+                (classDate) =>
+                  classDate.meetingTime.getHours() >= now.getHours(),
+              )
+              .sort((a, b) => a.meetingTime.getTime() - b.meetingTime.getTime())
+            nextClass =
+              futureTodayClasses.length > 0
+                ? futureTodayClasses[0]
+                : classes
+                    .filter((classDate) => classDate.meetingTime > now)
+                    .sort(
+                      (a, b) =>
+                        a.meetingTime.getTime() - b.meetingTime.getTime(),
+                    )[0] || null
+          } else {
+            nextClass =
+              classes
+                .filter((classDate) => classDate.meetingTime > now)
                 .sort(
                   (a, b) => a.meetingTime.getTime() - b.meetingTime.getTime(),
-                )
-              nextClass =
-                futureTodayClasses.length > 0
-                  ? futureTodayClasses[0]
-                  : classes
-                      .filter((classDate) => classDate.meetingTime > now)
-                      .sort(
-                        (a, b) =>
-                          a.meetingTime.getTime() - b.meetingTime.getTime(),
-                      )[0] || null
-            } else {
-              nextClass =
-                classes
-                  .filter((classDate) => classDate.meetingTime > now)
-                  .sort(
-                    (a, b) => a.meetingTime.getTime() - b.meetingTime.getTime(),
-                  )[0] || null
-            }
+                )[0] || null
           }
-        } catch (err) {
-          console.error('Failed to fetch class schedules:', err)
         }
-      })()
+      } catch (err) {
+        console.error('Failed to fetch class schedules:', err)
+      }
+    })()
+    return () => {
+      cancelled = true
     }
   })
 </script>

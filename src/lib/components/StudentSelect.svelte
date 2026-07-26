@@ -1,6 +1,4 @@
 <script lang="ts">
-  import { run } from 'svelte/legacy'
-
   import { db, user } from '$lib/client/firebase'
   import Loading from '$lib/components/Loading.svelte'
   import Select from '$lib/components/Select.svelte'
@@ -62,7 +60,7 @@
     }
   }
 
-  run(() => {
+  $effect(() => {
     if (selectedStudent) {
       const selectedStudentRegistration = studentsOptions.find(
         (option) => option.name === selectedStudent,
@@ -74,7 +72,7 @@
     }
   })
 
-  run(() => {
+  $effect(() => {
     if (preloadedStudents.length > 0) {
       initializeFromPreloadedData()
     }

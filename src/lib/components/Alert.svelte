@@ -1,6 +1,4 @@
 <script lang="ts">
-  import { run } from 'svelte/legacy'
-
   import { alert } from '$lib/stores'
   import { navigating } from '$app/stores'
   import { fade } from 'svelte/transition'
@@ -41,7 +39,7 @@
       close()
     }
   }
-  run(() => {
+  $effect(() => {
     if (browser && $navigating) {
       if (visible) {
         close()

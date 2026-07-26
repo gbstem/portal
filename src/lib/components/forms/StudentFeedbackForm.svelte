@@ -1,6 +1,4 @@
 <script lang="ts">
-  import { run } from 'svelte/legacy'
-
   import { db, user } from '$lib/client/firebase'
   import {
     classesCollection,
@@ -25,7 +23,6 @@
   })
 
   let selectedStudentCourses: any[] = $state([])
-  let pastSelected = $state('')
   let studentName = $state('')
 
   const schema = z.object({
@@ -127,28 +124,30 @@
     }
   }
 
-  run(() => {
-    if (selectedStudentUid) {
-      if (selectedStudentUid !== pastSelected || pastSelected === '') {
-        getDoc(doc(db, registrationsCollection, selectedStudentUid))
-          .then((docSnapshot) => {
-            if (docSnapshot.exists()) {
-              studentName =
-                docSnapshot.data().personal.studentFirstName +
-                ' ' +
-                docSnapshot.data().personal.studentLastName
-              const classIds = docSnapshot.data().classes || []
-              fetchCourseList(classIds)
-            }
-          })
-          .catch((err) => {
-            console.error(
-              '[StudentFeedbackForm] Error fetching student registration:',
-              err,
-            )
-          })
-        pastSelected = selectedStudentUid
-      }
+  $effect(() => {
+    const currentUid = selectedStudentUid
+    if (!currentUid) return
+    let cancelled = false
+    getDoc(doc(db, registrationsCollection, currentUid))
+      .then((docSnapshot) => {
+        if (cancelled) return
+        if (docSnapshot.exists()) {
+          studentName =
+            docSnapshot.data().personal.studentFirstName +
+            ' ' +
+            docSnapshot.data().personal.studentLastName
+          const classIds = docSnapshot.data().classes || []
+          fetchCourseList(classIds)
+        }
+      })
+      .catch((err) => {
+        console.error(
+          '[StudentFeedbackForm] Error fetching student registration:',
+          err,
+        )
+      })
+    return () => {
+      cancelled = true
     }
   })
 </script>

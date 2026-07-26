@@ -302,7 +302,7 @@
     // Rely on the reactive statement below to run on initial mount
   })
 
-  run(() => {
+  $effect(() => {
     if (childUid) {
       initializeForm()
     }
