@@ -41,42 +41,34 @@
     maxSize = 0,
     ...rest
   }: Props = $props()
-  // Handle focus without causing infinite loops
-  let previousFocus: boolean | undefined = undefined
   $effect(() => {
-    if (focus !== previousFocus && self) {
-      previousFocus = focus
-      if (focus) {
-        self.focus()
-      }
+    if (focus && self) {
+      self.focus()
     }
   })
 
-  // Handle validation without causing infinite loops
-  let previousValidationState = ''
-  $effect(() => {
-    if (self) {
-      const state = (
+  let validationMessage = $derived.by(() => {
+    if (!self) return ''
+    const state = (
+      [
         [
-          [
-            required &&
-              (value === '' ||
-                (self.files instanceof FileList && self.files.length === 0) ||
-                (type === 'checkbox' && isArray(value) && value.length === 0)),
-            'Please fill required fields.',
-          ],
-          ...(type === 'file' && value !== undefined
-            ? [[(value as File).size > maxSize, 'File exceeds maximum size.']]
-            : []),
-          ...validations,
-        ] as Array<Validation>
-      ).find((validation) => validation[0])
-      const validationMessage = state === undefined ? '' : state[1]
-      if (validationMessage !== previousValidationState) {
-        previousValidationState = validationMessage
-        self.setCustomValidity(validationMessage)
-      }
-    }
+          required &&
+            (value === '' ||
+              (self.files instanceof FileList && self.files.length === 0) ||
+              (type === 'checkbox' && isArray(value) && value.length === 0)),
+          'Please fill required fields.',
+        ],
+        ...(type === 'file' && value !== undefined
+          ? [[(value as File).size > maxSize, 'File exceeds maximum size.']]
+          : []),
+        ...validations,
+      ] as Array<Validation>
+    ).find((validation) => validation[0])
+    return state === undefined ? '' : state[1]
+  })
+
+  $effect(() => {
+    self?.setCustomValidity(validationMessage)
   })
 
   function handleInput(e: any) {

@@ -20,6 +20,7 @@
   import { clickOutside, cn } from '$lib/utils'
   import { debounce, kebabCase, uniqueId } from 'lodash-es'
   import { fade } from 'svelte/transition'
+  import { untrack } from 'svelte'
 
   type SelectOption = string
   type SelectOptionJson = {
@@ -36,6 +37,7 @@
     required?: boolean
     placeholder?: string | undefined
     options?: Array<SelectOptionJson>
+    onchange?: (value: string) => void
     [key: string]: any
   }
 
@@ -49,6 +51,7 @@
     required = false,
     placeholder = undefined,
     options: optionsJson = [],
+    onchange,
     ...rest
   }: Props = $props()
 
@@ -68,10 +71,13 @@
     }
   }, 150)
 
-  // Handle open state changes without causing infinite loops
-  let previousOpenState = false
-
-  // Handle value validation separately to prevent loops
+  // Guards the effect below against re-validating on every remount before
+  // a freshly-mounted field's real value (from async parent data) settles -
+  // not an infinite-loop guard, but a genuine fix: without it, a fresh
+  // instance briefly sees its placeholder empty value, calls
+  // setCustomValidity with an error, and native constraint validation then
+  // blocks form submission even after the real value arrives, because
+  // nothing else ever clears that message.
   let previousValue = value
 
   filterOptionsBy(value)
@@ -84,6 +90,7 @@
     }
     selectedOptionIndex = 0
     value = (e.target as HTMLInputElement).value
+    onchange?.(value)
   }
   function handleKeyDown(e: KeyboardEvent) {
     switch (e.code) {
@@ -94,12 +101,14 @@
         e.preventDefault()
         open = false
         value = filteredOptions[selectedOptionIndex]
+        onchange?.(value)
         break
       case 'Tab':
         if (open) {
           e.preventDefault()
           open = false
           value = filteredOptions[selectedOptionIndex]
+          onchange?.(value)
         }
         break
       case 'ArrowUp':
@@ -126,21 +135,23 @@
     open = true
   }
   let options = $derived(optionsJson.map((item) => item.name))
+
+  // Tracks only `open` - the register/validate branches read `value` and
+  // `options` but shouldn't re-run just because those change while the
+  // dropdown state itself hasn't, so those reads are untracked.
   $effect(() => {
-    if (open !== previousOpenState) {
-      previousOpenState = open
-      if (open) {
-        registerOpenSelect(id, (newValue) => {
-          if (newValue !== open) {
-            open = newValue
-          }
-        })
-      } else {
-        // validate value before close
+    if (open) {
+      registerOpenSelect(id, (newValue) => {
+        if (newValue !== open) {
+          open = newValue
+        }
+      })
+    } else {
+      untrack(() => {
         if (!options.includes(value)) {
           value = ''
         }
-      }
+      })
     }
   })
   $effect(() => {
@@ -239,6 +250,7 @@
             onclick={() => {
               value = filteredOptions[0]
               open = false
+              onchange?.(value)
             }}
           >
             {filteredOptions[0]}
@@ -254,6 +266,7 @@
               onclick={() => {
                 value = name
                 open = false
+                onchange?.(value)
               }}
               onmouseenter={() => {
                 selectedOptionIndex = index
