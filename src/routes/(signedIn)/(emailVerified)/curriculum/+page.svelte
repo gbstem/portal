@@ -7,7 +7,7 @@
   import { curriculums, tracks } from '$lib/components/helpers/curriculum'
   import type Curriculum from '$lib/components/types/Curriculum'
 
-  let dialogEl: Dialog | undefined = $state()
+  let showCurriculumDialog = $state(false)
   let selectedCurriculum: Curriculum = $state({
     class: '',
     url: '',
@@ -22,7 +22,7 @@
   {#snippet title()}
     {selectedCurriculum.class} Curriculum
   {/snippet}
-  <Dialog bind:this={dialogEl} size="full">
+  <Dialog bind:open={showCurriculumDialog} size="full">
     {#snippet title()}
       <div class="flex items-center justify-between">
         <div>{selectedCurriculum.class} Curriculum</div>
@@ -31,7 +31,9 @@
             color="blue"
             onclick={() => window.open(selectedCurriculum.url, '_blank')}
             >View in Docs</Button
-          ><Button color="red" onclick={() => dialogEl?.close()}>Close</Button>
+          ><Button color="red" onclick={() => (showCurriculumDialog = false)}
+            >Close</Button
+          >
         </div>
       </div>
     {/snippet}
@@ -59,7 +61,7 @@
               <Button
                 onclick={() => {
                   selectedCurriculum = curriculum
-                  dialogEl?.open()
+                  showCurriculumDialog = true
                 }}
                 color="blue">View the {curriculum.class} Curriculum</Button
               >

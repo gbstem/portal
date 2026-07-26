@@ -38,9 +38,9 @@
 
   let { subInstructor }: Props = $props()
 
-  let feedbackDialogEl: (Dialog | null)[] = $state([])
-  let notesDialogEl: (Dialog | null)[] = $state([])
-  let subRequestDialogEl: (Dialog | null)[] = $state([])
+  let feedbackOpenStates: boolean[] = $state([])
+  let notesOpenStates: boolean[] = $state([])
+  let subRequestOpenStates: boolean[] = $state([])
   let currentUser: Data.User.Store
   let classesMissingSubs: Data.SubRequest[] = $state([])
   let userSubClassesList: Data.SubRequest[] = $state([])
@@ -50,6 +50,32 @@
   let subRequestsFromUser: Data.SubRequest[] = $state([])
   let stringSubRequestDates: string[] = $state([])
   let originalSubClassNumbers: number[] = $state([])
+
+  // Sized to match userSubClassesList/subRequestsFromUser so bind:open
+  // never binds to undefined (Svelte forbids that when the prop has a
+  // fallback value). Runs pre-DOM-update so a growing list is backfilled
+  // before the {#each} blocks below re-render.
+  $effect.pre(() => {
+    for (
+      let i = feedbackOpenStates.length;
+      i < userSubClassesList.length;
+      i++
+    ) {
+      feedbackOpenStates[i] = false
+    }
+    for (let i = notesOpenStates.length; i < userSubClassesList.length; i++) {
+      notesOpenStates[i] = false
+    }
+  })
+  $effect.pre(() => {
+    for (
+      let i = subRequestOpenStates.length;
+      i < subRequestsFromUser.length;
+      i++
+    ) {
+      subRequestOpenStates[i] = false
+    }
+  })
 
   onMount(() => {
     return user.subscribe(async (user) => {
@@ -90,8 +116,6 @@
           ...classInfo,
           id: doc.id,
         } as Data.SubRequest)
-        feedbackDialogEl.push(null)
-        notesDialogEl.push(null)
       }
     })
     subRequestsFromUser = userSubRequests
@@ -298,13 +322,13 @@
       <h2 class="mt-4 mb-2 text-xl font-bold">Your Classes To Substitute</h2>
       {#if userSubClassesList.length > 0}
         {#each userSubClassesList as classBeingSubbed, i (classBeingSubbed.id)}
-          <Dialog bind:this={feedbackDialogEl[i]} size="min" alert>
+          <Dialog bind:open={feedbackOpenStates[i]} size="min" alert>
             {#snippet title()}
               <div class="flex items-center justify-between">
                 {classBeingSubbed.course} Substitute Class Feedback Form <Button
                   color="red"
                   class="font-light"
-                  onclick={() => feedbackDialogEl[i]?.cancel()}>Close</Button
+                  onclick={() => (feedbackOpenStates[i] = false)}>Close</Button
                 >
               </div>
             {/snippet}
@@ -317,11 +341,11 @@
               </div>
             {/snippet}
           </Dialog>
-          <Dialog bind:this={notesDialogEl[i]} size="min">
+          <Dialog bind:open={notesOpenStates[i]} size="min">
             {#snippet title()}
               <div class="flex items-center justify-between">
                 <div>Class Prep Notes</div>
-                <Button color="red" onclick={() => notesDialogEl[i]?.cancel()}
+                <Button color="red" onclick={() => (notesOpenStates[i] = false)}
                   >Close</Button
                 >
               </div>
@@ -359,7 +383,7 @@
             color="blue"
             class="mt-2 mb-4"
             onclick={() => {
-              notesDialogEl[i]?.open()
+              notesOpenStates[i] = true
             }}>View Prep Notes</Button
           >
           <Button
@@ -381,7 +405,7 @@
           <Button
             color="blue"
             onclick={() => {
-              feedbackDialogEl[i]?.open()
+              feedbackOpenStates[i] = true
             }}>Submit Feedback</Button
           >
         {/each}
@@ -395,13 +419,13 @@
         <div>
           {#if subRequestsFromUser.length > 0}
             {#each subRequestsFromUser as subRequest, i (subRequest.id)}
-              <Dialog bind:this={subRequestDialogEl[i]} size="min" alert>
+              <Dialog bind:open={subRequestOpenStates[i]} size="min" alert>
                 {#snippet title()}
                   <div class="flex items-center justify-between">
                     {subRequest.course} Substitute Class Feedback Form <Button
                       color="red"
                       class="font-light"
-                      onclick={() => subRequestDialogEl[i]?.cancel()}
+                      onclick={() => (subRequestOpenStates[i] = false)}
                       >Close</Button
                     >
                   </div>
@@ -430,7 +454,7 @@
                       color="green"
                       onclick={() => {
                         sendSubRequest(i)
-                        subRequestDialogEl[i]?.close()
+                        subRequestOpenStates[i] = false
                       }}>Save Edits</Button
                     >
                   </div>
@@ -449,7 +473,7 @@
                   <Button
                     color="gray"
                     onclick={() => {
-                      subRequestDialogEl[i]?.open()
+                      subRequestOpenStates[i] = true
                     }}>Edit</Button
                   >
                   <Button
@@ -472,7 +496,7 @@
                   <Button
                     color="gray"
                     onclick={() => {
-                      subRequestDialogEl[i]?.open()
+                      subRequestOpenStates[i] = true
                     }}>Edit</Button
                   >
                   <Button
@@ -499,7 +523,7 @@
                   <Button
                     color="gray"
                     onclick={() => {
-                      subRequestDialogEl[i]?.open()
+                      subRequestOpenStates[i] = true
                     }}>Edit</Button
                   >
                   <Button

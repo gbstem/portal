@@ -47,7 +47,7 @@
 
   let classes: ClassInfo[] = $state([])
   let loading = $state(true)
-  let dialogEl: Dialog | undefined = $state()
+  let showClassDetailsDialog = $state(false)
   let dialogClassDetails: ClassInfo | null = $state(null)
   let selectedStudentUid = $state('')
   let userEmail = ''
@@ -274,7 +274,7 @@
             const { message } = await res.json()
             console.error('Enrollment API error:', message)
           }
-          dialogEl?.close()
+          showClassDetailsDialog = false
           window.scrollTo({
             top: 0,
             behavior: 'smooth',
@@ -317,7 +317,7 @@
     })
       .then(() => {
         alert.trigger('success', 'Unenrolled from class!')
-        dialogEl?.close()
+        showClassDetailsDialog = false
       })
       .catch((error) => {
         alert.trigger('error', 'Error unenrolling from class!')
@@ -329,7 +329,7 @@
   <title>Classes Overview</title>
 </svelte:head>
 
-<Dialog bind:this={dialogEl} size="min">
+<Dialog bind:open={showClassDetailsDialog} size="min">
   {#snippet title()}
     Class Details
   {/snippet}
@@ -561,7 +561,7 @@
       {/if}
 
       <DialogActions>
-        <Button onclick={() => dialogEl?.cancel()}>Close</Button>
+        <Button onclick={() => (showClassDetailsDialog = false)}>Close</Button>
       </DialogActions>
     </div>
   {/snippet}
@@ -852,7 +852,7 @@
                     color="blue"
                     onclick={() => {
                       dialogClassDetails = classInfo
-                      dialogEl?.open()
+                      showClassDetailsDialog = true
                     }}
                   >
                     <svg

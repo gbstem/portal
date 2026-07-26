@@ -12,10 +12,8 @@
   interface Props {
     size?: Size
     disabled?: boolean
-    initial?: boolean
+    open?: boolean
     alert?: boolean
-    onOpen?: () => void
-    onClose?: () => void
     onCancel?: () => void
     title?: import('svelte').Snippet
     description?: import('svelte').Snippet
@@ -24,10 +22,8 @@
   let {
     size = 'min',
     disabled = false,
-    initial: openState = $bindable(false),
+    open = $bindable(false),
     alert = false,
-    onOpen,
-    onClose,
     onCancel,
     title,
     description,
@@ -35,7 +31,7 @@
   let bodyLocked = $state(false)
   $effect(() => {
     if (browser) {
-      if (openState) {
+      if (open) {
         dialog.set(id)
         document.body.style.overflowY = 'hidden'
         bodyLocked = true
@@ -57,28 +53,22 @@
       }
     }
   })
-  export function open() {
+
+  // `open` is bindable, so a parent can flip it directly (open = true or
+  // open = false after a successful save, etc). onCancel only fires when
+  // the DIALOG itself dismisses via its own chrome (X button, Escape,
+  // outside click) - a parent-initiated `open = false` intentionally
+  // skips it, since the parent already knows why it closed.
+  function handleCancel() {
     if (!disabled) {
-      openState = true
-      onOpen?.()
-    }
-  }
-  export function close() {
-    if (!disabled) {
-      openState = false
-      onClose?.()
-    }
-  }
-  export function cancel() {
-    if (!disabled) {
-      openState = false
+      open = false
       onCancel?.()
     }
   }
   function handleEscape(e: KeyboardEvent) {
-    if (openState && !disabled) {
+    if (open && !disabled) {
       if (e.code === 'Escape') {
-        cancel()
+        handleCancel()
       }
     }
   }
@@ -91,7 +81,7 @@
   }}
 />
 
-{#if openState}
+{#if open}
   <div
     class="fixed inset-0 z-50 h-screen w-screen bg-black opacity-40"
     transition:fade={{ duration: 200 }}
@@ -114,14 +104,14 @@
         use:clickOutside
         onoutclick={() => {
           if (!alert) {
-            cancel()
+            handleCancel()
           }
         }}
       >
         <button
           type="button"
           class="absolute top-2 right-2 z-50 cursor-pointer rounded-full border border-gray-200 bg-white p-1.5 text-gray-500 shadow-sm transition-colors hover:bg-gray-100 hover:text-gray-700 focus:outline-none disabled:opacity-50 sm:top-4 sm:right-4"
-          onclick={cancel}
+          onclick={handleCancel}
           {disabled}
           aria-label="Close dialog"
         >

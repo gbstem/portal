@@ -22,7 +22,8 @@
 
   let { data }: Props = $props()
 
-  let dialogEl: Dialog | undefined = $state()
+  // svelte-ignore state_referenced_locally
+  let showVerifyDialog = $state(!data.user.emailVerified)
   let disabled = $state(false)
 
   async function handleVerificationEmail() {
@@ -55,7 +56,7 @@
   <title>Profile</title>
 </svelte:head>
 
-<Dialog bind:this={dialogEl} initial={!data.user.emailVerified} size="min">
+<Dialog bind:open={showVerifyDialog} size="min">
   {#snippet title()}
     Please verify your email
   {/snippet}
@@ -76,7 +77,7 @@
             setTimeout(() => (window.location.href = '/dashboard'), 100)
           }}>Go to dashboard</Button
         >
-        <Button onclick={() => dialogEl?.cancel()}>Close</Button>
+        <Button onclick={() => (showVerifyDialog = false)}>Close</Button>
       </DialogActions>
     </div>
   {/snippet}

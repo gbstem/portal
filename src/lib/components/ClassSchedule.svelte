@@ -67,12 +67,11 @@
   let instructorClasses: { [classId: string]: Data.ClassDetails } = $state({})
   let availableClassIds: string[] = $state([])
   let selectedClassId = $state('')
-  let dialogEl: any = $state()
-  let addClassDialogEl: any = $state()
-  let feedbackDialogEl: any = $state()
-  let classDetailsDialogEl: any = $state()
-  let studentDetailsDialogEl: any = $state()
-  let subRequestDialogEl: any = $state()
+  let showEmailDialog = $state(false)
+  let showFeedbackDialog = $state(false)
+  let showClassDetailsDialog = $state(false)
+  let showStudentListDialog = $state(false)
+  let showSubRequestDialog = $state(false)
   let emailHtmlContent = $state('')
   let studentList: Student[] = $state([])
   let addingClass = $state(false)
@@ -179,6 +178,7 @@
       originalMeetingTimes,
       editedMeetingTimes,
     )
+    showEmailDialog = emailHtmlContent !== ''
     // sort the meeting times
     editedMeetingTimes.sort((a, b) => {
       const dateA = new Date(a)
@@ -407,7 +407,7 @@
   })
 </script>
 
-<Dialog bind:this={dialogEl} initial={emailHtmlContent !== ''} size="min">
+<Dialog bind:open={showEmailDialog} size="min">
   {#snippet title()}
     Please notify your student's parents about your class time changes
   {/snippet}
@@ -451,7 +451,7 @@
       <DialogActions>
         <Button
           onclick={() => {
-            dialogEl.cancel()
+            showEmailDialog = false
             location.reload()
           }}>Close</Button
         >
@@ -459,13 +459,13 @@
     </div>
   {/snippet}
 </Dialog>
-<Dialog bind:this={feedbackDialogEl} size="min" alert>
+<Dialog bind:open={showFeedbackDialog} size="min" alert>
   {#snippet title()}
     <div class="flex items-center justify-between">
       Weekly {values.course} Class Feedback Form <Button
         color="red"
         class="font-light"
-        onclick={() => feedbackDialogEl?.cancel()}>Close</Button
+        onclick={() => (showFeedbackDialog = false)}>Close</Button
       >
     </div>
   {/snippet}
@@ -479,16 +479,20 @@
     </div>
   {/snippet}
 </Dialog>
-<ClassDetailsForm bind:classDetailsDialogEl dialog={true} {semesterDates} />
+<ClassDetailsForm
+  bind:open={showClassDetailsDialog}
+  dialog={true}
+  {semesterDates}
+/>
 
 <div class="p-0">
-  <Dialog bind:this={studentDetailsDialogEl} size="full">
+  <Dialog bind:open={showStudentListDialog} size="full">
     {#snippet title()}
       <div class="flex items-center justify-between">
         Class List <Button
           color="red"
           class="font-light"
-          onclick={() => studentDetailsDialogEl?.cancel()}>Close</Button
+          onclick={() => (showStudentListDialog = false)}>Close</Button
         >
       </div>
     {/snippet}
@@ -666,13 +670,13 @@
                     formatDateString(editedMeetingTimes[nextClassIndex]),
             })}>Send Reminder</Button
         >
-        <Button color="blue" onclick={() => feedbackDialogEl.open()}
+        <Button color="blue" onclick={() => (showFeedbackDialog = true)}
           >Submit Feedback</Button
         >
-        <Button color="blue" onclick={() => classDetailsDialogEl.open()}
+        <Button color="blue" onclick={() => (showClassDetailsDialog = true)}
           >Class Details</Button
         >
-        <Button color="blue" onclick={() => studentDetailsDialogEl.open()}
+        <Button color="blue" onclick={() => (showStudentListDialog = true)}
           >View Student List</Button
         >
       </div>
@@ -690,12 +694,7 @@
         onclick={() => (addingClass = true)}>Add Class to Schedule</Button
       >
 
-      <Dialog
-        bind:this={addClassDialogEl}
-        initial={addingClass}
-        size="min"
-        onCancel={() => (addingClass = false)}
-      >
+      <Dialog bind:open={addingClass} size="min">
         {#snippet title()}
           Add Class to Schedule
         {/snippet}
@@ -891,7 +890,7 @@
                   subRequestDate = classTime
                   subRequestClassNumber = classNumber + 1
                   subRequestNotes = ''
-                  subRequestDialogEl.open()
+                  showSubRequestDialog = true
                 }}
               >
                 <svg
@@ -915,12 +914,12 @@
     {/each}
   </ul>
   <!-- Sub Request Dialog (restored, available for all sessions) -->
-  <Dialog bind:this={subRequestDialogEl} initial={false} size="min">
+  <Dialog bind:open={showSubRequestDialog} size="min">
     {#snippet title()}
       <div class="flex items-center justify-between">
         Submit A Sub Request
         <DialogActions>
-          <Button onclick={() => subRequestDialogEl.close()} color="red"
+          <Button onclick={() => (showSubRequestDialog = false)} color="red"
             >Close</Button
           >
         </DialogActions>
@@ -950,7 +949,7 @@
           color="green"
           onclick={() => {
             sendSubRequest()
-            subRequestDialogEl.close()
+            showSubRequestDialog = false
           }}>Confirm Request</Button
         >
       </div>

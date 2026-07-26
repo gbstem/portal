@@ -24,13 +24,13 @@
 
   interface Props {
     semesterDates: Data.SemesterDates
-    classDetailsDialogEl?: Dialog | undefined
+    open?: boolean
     dialog?: boolean
   }
 
   let {
     semesterDates,
-    classDetailsDialogEl = $bindable(undefined),
+    open = $bindable(false),
     dialog = false,
   }: Props = $props()
 
@@ -436,13 +436,13 @@
 </script>
 
 {#if dialog === true}
-  <Dialog bind:this={classDetailsDialogEl} size="full" alert>
+  <Dialog bind:open size="full" alert>
     {#snippet title()}
       <div class="flex items-center justify-between">
         Your class details <Button
           color="red"
           class="font-light"
-          onclick={() => classDetailsDialogEl?.cancel()}>Close</Button
+          onclick={() => (open = false)}>Close</Button
         >
       </div>
     {/snippet}

@@ -15,7 +15,7 @@
     newEmail: z.string().email('Invalid email address'),
   })
 
-  let dialogEl: any = $state()
+  let showReauthDialog = $state(false)
   let emailToUpdate = ''
 
   const formResult = superForm(
@@ -28,7 +28,7 @@
       onUpdate({ form: formVal }) {
         if (!formVal.valid) return
         emailToUpdate = formVal.data.newEmail
-        dialogEl?.open()
+        showReauthDialog = true
       },
     },
   )
@@ -42,7 +42,7 @@
 
   async function handleReauthenticate() {
     if ($user) {
-      dialogEl?.close()
+      showReauthDialog = false
       const payload: ActionRequestBody = {
         type: 'changeEmail',
         newEmail: emailToUpdate,
@@ -119,14 +119,19 @@
   </fieldset>
 </form>
 
-<Dialog bind:this={dialogEl} onCancel={handleCancel}>
+<Dialog bind:open={showReauthDialog} onCancel={handleCancel}>
   {#snippet title()}
     Reauthenticate
   {/snippet}
   {#snippet description()}
     <ReauthenticateForm onReauthenticate={handleReauthenticate}>
       <DialogActions>
-        <Button onclick={() => dialogEl?.cancel()}>Cancel</Button>
+        <Button
+          onclick={() => {
+            handleCancel()
+            showReauthDialog = false
+          }}>Cancel</Button
+        >
         <Button type="submit" color="blue">Reauthenticate</Button>
       </DialogActions>
     </ReauthenticateForm>

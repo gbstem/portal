@@ -22,7 +22,7 @@
       path: ['confirmPassword'],
     })
 
-  let dialogEl: any = $state()
+  let showReauthDialog = $state(false)
   let passwordToUpdate = ''
 
   const formResult = superForm(
@@ -38,7 +38,7 @@
       onUpdate({ form: formVal }) {
         if (!formVal.valid) return
         passwordToUpdate = formVal.data.newPassword
-        dialogEl?.open()
+        showReauthDialog = true
       },
     },
   )
@@ -59,7 +59,7 @@
         alert.trigger('error', err.code, true)
       } finally {
         reset()
-        dialogEl?.close()
+        showReauthDialog = false
       }
     }
   }
@@ -108,14 +108,19 @@
   </fieldset>
 </form>
 
-<Dialog bind:this={dialogEl} onCancel={handleCancel}>
+<Dialog bind:open={showReauthDialog} onCancel={handleCancel}>
   {#snippet title()}
     Reauthenticate
   {/snippet}
   {#snippet description()}
     <ReauthenticateForm onReauthenticate={handleReauthenticate}>
       <DialogActions>
-        <Button onclick={() => dialogEl?.cancel()}>Cancel</Button>
+        <Button
+          onclick={() => {
+            handleCancel()
+            showReauthDialog = false
+          }}>Cancel</Button
+        >
         <Button type="submit" color="blue">Reauthenticate</Button>
       </DialogActions>
     </ReauthenticateForm>
