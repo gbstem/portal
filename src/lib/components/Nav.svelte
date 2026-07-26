@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { navigating, page } from '$app/stores'
+  import { navigating, page } from '$app/state'
   import { db, user } from '$lib/client/firebase'
   import { decisionsCollection } from '$lib/data/collections'
   import { cn } from '$lib/utils'
@@ -54,13 +54,13 @@
 
   onMount(() => {
     updateShadow()
-    return navigating.subscribe((navigating) => {
-      if (navigating) {
-        open = false
-      }
-    })
   })
-  let pathname = $derived($page.url.pathname)
+  $effect(() => {
+    if (navigating.to) {
+      open = false
+    }
+  })
+  let pathname = $derived(page.url.pathname)
 
   function updateShadow() {
     shadow = window.scrollY !== 0

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { fade } from 'svelte/transition'
   import { clickOutside, cn } from '$lib/utils'
-  import { navigating } from '$app/stores'
+  import { navigating } from '$app/state'
   import { signOut } from 'firebase/auth'
   import { auth } from '$lib/client/firebase'
   import { goto } from '$app/navigation'
@@ -15,7 +15,7 @@
 
   let open = $state(false)
   $effect(() => {
-    if ($navigating) {
+    if (navigating.to) {
       open = false
     }
   })

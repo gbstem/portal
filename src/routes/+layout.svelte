@@ -2,8 +2,7 @@
   import '../app.css'
   import Alert from '$lib/components/Alert.svelte'
   import Footer from '$lib/components/Footer.svelte'
-  import { navigating } from '$app/stores'
-  import { onMount } from 'svelte'
+  import { navigating } from '$app/state'
   import progress from '$lib/client/progress'
   interface Props {
     children?: import('svelte').Snippet
@@ -11,14 +10,12 @@
 
   let { children }: Props = $props()
 
-  onMount(() => {
-    return navigating.subscribe((navigating) => {
-      if (navigating) {
-        progress.start()
-      } else {
-        progress.done()
-      }
-    })
+  $effect(() => {
+    if (navigating.to) {
+      progress.start()
+    } else {
+      progress.done()
+    }
   })
 </script>
 
