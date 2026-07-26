@@ -1,7 +1,4 @@
 <script lang="ts">
-  import { createBubbler } from 'svelte/legacy'
-
-  const bubble = createBubbler()
   import { cn } from '$lib/utils'
 
   type ButtonColor = 'red' | 'blue' | 'gray' | 'green' | 'yellow' | 'purple'
@@ -49,15 +46,6 @@
   {href}
   type={href ? undefined : type}
   role={href ? 'button' : undefined}
-  onclick={bubble('click')}
-  onchange={bubble('change')}
-  onkeydown={bubble('keydown')}
-  onkeyup={bubble('keyup')}
-  ontouchstart={bubble('touchstart')}
-  ontouchend={bubble('touchend')}
-  ontouchcancel={bubble('touchcancel')}
-  onmouseenter={bubble('mouseenter')}
-  onmouseleave={bubble('mouseleave')}
   {...rest}
 >
   {@render children?.()}

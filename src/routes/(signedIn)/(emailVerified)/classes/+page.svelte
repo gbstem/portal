@@ -522,7 +522,7 @@
                   color={isEnrolled(dialogClassDetails.id, selectedStudentUid)
                     ? 'red'
                     : 'blue'}
-                  on:click={() => {
+                  onclick={() => {
                     if (dialogClassDetails) {
                       toggleEnrollment(dialogClassDetails.id)
                     }
@@ -561,7 +561,7 @@
       {/if}
 
       <DialogActions>
-        <Button on:click={() => dialogEl?.cancel()}>Close</Button>
+        <Button onclick={() => dialogEl?.cancel()}>Close</Button>
       </DialogActions>
     </div>
   {/snippet}
@@ -595,7 +595,7 @@
       {#if isStudent}
         <Button
           color={onlyShowEnrolled ? 'blue' : 'gray'}
-          on:click={() => clearEnrolled()}
+          onclick={() => clearEnrolled()}
         >
           {onlyShowEnrolled ? 'Show all classes' : 'Show all enrolled classes'}
         </Button>
@@ -850,7 +850,7 @@
                   <Button
                     class="flex w-full items-center justify-center gap-2"
                     color="blue"
-                    on:click={() => {
+                    onclick={() => {
                       dialogClassDetails = classInfo
                       dialogEl?.open()
                     }}

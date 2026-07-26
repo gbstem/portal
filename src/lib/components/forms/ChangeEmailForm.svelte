@@ -126,7 +126,7 @@
   {#snippet description()}
     <ReauthenticateForm on:reauthenticate={handleReauthenticate}>
       <DialogActions>
-        <Button on:click={() => dialogEl?.cancel()}>Cancel</Button>
+        <Button onclick={() => dialogEl?.cancel()}>Cancel</Button>
         <Button type="submit" color="blue">Reauthenticate</Button>
       </DialogActions>
     </ReauthenticateForm>

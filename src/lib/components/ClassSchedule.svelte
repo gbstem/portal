@@ -420,7 +420,7 @@
       </p>
       <div class="mt-5 flex justify-end">
         <Button
-          on:click={() => copyToClipboard(emailHtmlContent)}
+          onclick={() => copyToClipboard(emailHtmlContent)}
           class="flex items-center gap-1"
         >
           <svg
@@ -450,7 +450,7 @@
 
       <DialogActions>
         <Button
-          on:click={() => {
+          onclick={() => {
             dialogEl.cancel()
             location.reload()
           }}>Close</Button
@@ -465,7 +465,7 @@
       Weekly {values.course} Class Feedback Form <Button
         color="red"
         class="font-light"
-        on:click={feedbackDialogEl.cancel}>Close</Button
+        onclick={() => feedbackDialogEl?.cancel()}>Close</Button
       >
     </div>
   {/snippet}
@@ -488,7 +488,7 @@
         Class List <Button
           color="red"
           class="font-light"
-          on:click={studentDetailsDialogEl.cancel}>Close</Button
+          onclick={() => studentDetailsDialogEl?.cancel()}>Close</Button
         >
       </div>
     {/snippet}
@@ -496,7 +496,7 @@
       <Card class="mb-4">
         <div class="mb-4 flex items-center justify-end">
           <Button
-            on:click={() =>
+            onclick={() =>
               copyEmails(
                 studentList.flatMap((student) => [
                   student.email,
@@ -575,7 +575,7 @@
                   <td
                     ><Button
                       color="blue"
-                      on:click={() =>
+                      onclick={() =>
                         sendClassReminder({
                           studentList,
                           studentName: normalizeCapitals(student.name),
@@ -614,7 +614,7 @@
         {#each availableClassIds as classId}
           <Button
             color={selectedClassId === classId ? 'blue' : 'gray'}
-            on:click={() => selectClass(classId)}
+            onclick={() => selectClass(classId)}
           >
             Class {classId.split('-')[1]}
             {#if instructorClasses[classId]?.course}
@@ -639,19 +639,19 @@
       <div class="mt-4 flex flex-wrap gap-2">
         <Button
           color="blue"
-          on:click={() =>
+          onclick={() =>
             window.open(`${generateCurriculumLink(values.course)}`, '_blank')}
           >Curriculum</Button
         >
         <Button
           color="blue"
-          on:click={() => {
+          onclick={() => {
             recordClass(classId)
           }}>Join Class</Button
         >
         <Button
           color="blue"
-          on:click={() =>
+          onclick={() =>
             sendClassReminder({
               studentList,
               instructorName: values.instructorFirstName,
@@ -666,13 +666,13 @@
                     formatDateString(editedMeetingTimes[nextClassIndex]),
             })}>Send Reminder</Button
         >
-        <Button color="blue" on:click={() => feedbackDialogEl.open()}
+        <Button color="blue" onclick={() => feedbackDialogEl.open()}
           >Submit Feedback</Button
         >
-        <Button color="blue" on:click={() => classDetailsDialogEl.open()}
+        <Button color="blue" onclick={() => classDetailsDialogEl.open()}
           >Class Details</Button
         >
-        <Button color="blue" on:click={() => studentDetailsDialogEl.open()}
+        <Button color="blue" onclick={() => studentDetailsDialogEl.open()}
           >View Student List</Button
         >
       </div>
@@ -682,12 +682,12 @@
       <Button
         color="blue"
         class={`${editMode ? 'hidden' : ''}`}
-        on:click={() => (editMode = true)}>Edit Schedule</Button
+        onclick={() => (editMode = true)}>Edit Schedule</Button
       >
       <Button
         color="green"
         class={`${editMode ? 'hidden' : ''}`}
-        on:click={() => (addingClass = true)}>Add Class to Schedule</Button
+        onclick={() => (addingClass = true)}>Add Class to Schedule</Button
       >
 
       <Dialog
@@ -713,7 +713,7 @@
             />
             <Button
               color="green"
-              on:click={() => {
+              onclick={() => {
                 editedMeetingTimes.push(classToBeAdded)
                 editedMeetingTimes = editedMeetingTimes.slice()
                 saveChanges()
@@ -721,15 +721,15 @@
               }}>Add Class</Button
             >
             <DialogActions>
-              <Button on:click={() => (addingClass = false)}>Close</Button>
+              <Button onclick={() => (addingClass = false)}>Close</Button>
             </DialogActions>
           </div>
         {/snippet}
       </Dialog>
 
       {#if editMode}
-        <Button color="red" on:click={cancelChanges}>Cancel Changes</Button>
-        <Button color="green" on:click={saveChanges}>Save Changes</Button>
+        <Button color="red" onclick={cancelChanges}>Cancel Changes</Button>
+        <Button color="green" onclick={saveChanges}>Save Changes</Button>
       {/if}
     </div>
   {:else}
@@ -864,7 +864,7 @@
             />
             <Button
               color="red"
-              on:click={() => {
+              onclick={() => {
                 editedMeetingTimes.splice(classNumber, 1)
                 editedMeetingTimes = editedMeetingTimes.slice()
               }}
@@ -887,7 +887,7 @@
             {#if values.classStatuses[classNumber] !== ClassStatus.ClassNotHeld && values.classStatuses[classNumber] !== ClassStatus.FeedbackIncomplete && values.classStatuses[classNumber] !== ClassStatus.ClassUpcomingSoon && values.classStatuses[classNumber] !== ClassStatus.EverythingComplete}
               <Button
                 color="blue"
-                on:click={() => {
+                onclick={() => {
                   subRequestDate = classTime
                   subRequestClassNumber = classNumber + 1
                   subRequestNotes = ''
@@ -920,7 +920,7 @@
       <div class="flex items-center justify-between">
         Submit A Sub Request
         <DialogActions>
-          <Button on:click={() => subRequestDialogEl.close()} color="red"
+          <Button onclick={() => subRequestDialogEl.close()} color="red"
             >Close</Button
           >
         </DialogActions>
@@ -948,7 +948,7 @@
         />
         <Button
           color="green"
-          on:click={() => {
+          onclick={() => {
             sendSubRequest()
             subRequestDialogEl.close()
           }}>Confirm Request</Button

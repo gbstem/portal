@@ -356,7 +356,7 @@
         {:else}
           <Button
             type="button"
-            on:click={() => (showRequestNewTime = true)}
+            onclick={() => (showRequestNewTime = true)}
             color="blue"
             class="mt-4 block"
           >

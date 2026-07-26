@@ -304,7 +304,7 @@
                 {classBeingSubbed.course} Substitute Class Feedback Form <Button
                   color="red"
                   class="font-light"
-                  on:click={() => feedbackDialogEl[i]?.cancel()}>Close</Button
+                  onclick={() => feedbackDialogEl[i]?.cancel()}>Close</Button
                 >
               </div>
             {/snippet}
@@ -321,7 +321,7 @@
             {#snippet title()}
               <div class="flex items-center justify-between">
                 <div>Class Prep Notes</div>
-                <Button color="red" on:click={() => notesDialogEl[i]?.cancel()}
+                <Button color="red" onclick={() => notesDialogEl[i]?.cancel()}
                   >Close</Button
                 >
               </div>
@@ -358,14 +358,14 @@
           <Button
             color="blue"
             class="mt-2 mb-4"
-            on:click={() => {
+            onclick={() => {
               notesDialogEl[i]?.open()
             }}>View Prep Notes</Button
           >
           <Button
             color="blue"
             class="mt-2"
-            on:click={() =>
+            onclick={() =>
               window.open(
                 `${curriculums.filter((curriculum) => curriculum.class === classBeingSubbed.course)[0].url}`,
               )}>Curriculum</Button
@@ -373,14 +373,14 @@
           <Button
             color="blue"
             class="mt-2"
-            on:click={() => recordClass(classBeingSubbed)}>Join</Button
+            onclick={() => recordClass(classBeingSubbed)}>Join</Button
           >
-          <Button color="blue" on:click={() => sendReminder(classBeingSubbed)}>
+          <Button color="blue" onclick={() => sendReminder(classBeingSubbed)}>
             Send Reminder</Button
           >
           <Button
             color="blue"
-            on:click={() => {
+            onclick={() => {
               feedbackDialogEl[i]?.open()
             }}>Submit Feedback</Button
           >
@@ -401,7 +401,7 @@
                     {subRequest.course} Substitute Class Feedback Form <Button
                       color="red"
                       class="font-light"
-                      on:click={() => subRequestDialogEl[i]?.cancel()}
+                      onclick={() => subRequestDialogEl[i]?.cancel()}
                       >Close</Button
                     >
                   </div>
@@ -428,7 +428,7 @@
                     />
                     <Button
                       color="green"
-                      on:click={() => {
+                      onclick={() => {
                         sendSubRequest(i)
                         subRequestDialogEl[i]?.close()
                       }}>Save Edits</Button
@@ -448,13 +448,13 @@
                   <p><strong>Status: Substitute Found</strong></p>
                   <Button
                     color="gray"
-                    on:click={() => {
+                    onclick={() => {
                       subRequestDialogEl[i]?.open()
                     }}>Edit</Button
                   >
                   <Button
                     color="red"
-                    on:click={() =>
+                    onclick={() =>
                       deleteSubRequest(originalSubClassNumbers[i], true)}
                     ><Trash2Icon class="h-8" /></Button
                   >
@@ -471,13 +471,13 @@
                   <p><strong>Status: Substitute Needed</strong></p>
                   <Button
                     color="gray"
-                    on:click={() => {
+                    onclick={() => {
                       subRequestDialogEl[i]?.open()
                     }}>Edit</Button
                   >
                   <Button
                     color="red"
-                    on:click={() =>
+                    onclick={() =>
                       deleteSubRequest(originalSubClassNumbers[i], true)}
                     ><Trash2Icon class="h-8" /></Button
                   >
@@ -498,13 +498,13 @@
                   </p>
                   <Button
                     color="gray"
-                    on:click={() => {
+                    onclick={() => {
                       subRequestDialogEl[i]?.open()
                     }}>Edit</Button
                   >
                   <Button
                     color="red"
-                    on:click={() =>
+                    onclick={() =>
                       deleteSubRequest(originalSubClassNumbers[i], true)}
                     ><Trash2Icon class="h-8" /></Button
                   >
@@ -521,7 +521,7 @@
                   <p><strong>Status: Substituted Class Complete</strong></p>
                   <Button
                     color="red"
-                    on:click={() =>
+                    onclick={() =>
                       deleteSubRequest(originalSubClassNumbers[i], true)}
                     ><Trash2Icon class="h-8" /></Button
                   >
@@ -565,7 +565,7 @@
               </label>
             </div>
           {/each}
-          <Button color="blue" class="mt-2" on:click={handleSubmit}
+          <Button color="blue" class="mt-2" onclick={handleSubmit}
             >Submit</Button
           >
         </form>

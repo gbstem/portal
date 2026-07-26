@@ -110,7 +110,7 @@
           </div>
           <div class="flex justify-end">
             <Button
-              on:click={addChild}
+              onclick={addChild}
               color="blue"
               class="px-2 py-1"
               type="button">Add Child Account</Button

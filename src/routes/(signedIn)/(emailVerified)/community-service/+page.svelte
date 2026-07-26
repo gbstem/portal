@@ -129,7 +129,7 @@
         <Button
           color="blue"
           class="mt-2"
-          on:click={sendEmail}
+          onclick={sendEmail}
           disabled={!currentUser}>Get Hours Confirmation Email</Button
         >
       </div>

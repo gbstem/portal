@@ -29,9 +29,9 @@
         <div class="flex gap-4">
           <Button
             color="blue"
-            on:click={() => window.open(selectedCurriculum.url, '_blank')}
+            onclick={() => window.open(selectedCurriculum.url, '_blank')}
             >View in Docs</Button
-          ><Button color="red" on:click={() => dialogEl?.close()}>Close</Button>
+          ><Button color="red" onclick={() => dialogEl?.close()}>Close</Button>
         </div>
       </div>
     {/snippet}
@@ -57,7 +57,7 @@
           {#each curriculums.filter((curriculum) => curriculum.track === track) as curriculum}
             <div class="mt-2">
               <Button
-                on:click={() => {
+                onclick={() => {
                   selectedCurriculum = curriculum
                   dialogEl?.open()
                 }}

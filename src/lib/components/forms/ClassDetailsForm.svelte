@@ -454,7 +454,7 @@
         Your class details <Button
           color="red"
           class="font-light"
-          on:click={() => classDetailsDialogEl?.cancel()}>Close</Button
+          onclick={() => classDetailsDialogEl?.cancel()}>Close</Button
         >
       </div>
     {/snippet}
@@ -470,7 +470,7 @@
                 color="blue"
                 class="mb-5"
                 type="button"
-                on:click={() => (disabled = false)}>Edit class details</Button
+                onclick={() => (disabled = false)}>Edit class details</Button
               >
               <p class="text-sm text-gray-500">
                 Note that editing your class details will reset your class
@@ -495,7 +495,7 @@
                     <Button
                       color={selectedClassId === classId ? 'blue' : 'gray'}
                       type="button"
-                      on:click={() => selectClass(classId)}
+                      onclick={() => selectClass(classId)}
                     >
                       Class {classId.split('-')[1]}
                       {#if instructorClasses[classId]?.course}
@@ -504,7 +504,7 @@
                     </Button>
                   {/each}
 
-                  <Button color="green" type="button" on:click={createNewClass}>
+                  <Button color="green" type="button" onclick={createNewClass}>
                     + Create New Class
                   </Button>
                 </div>
@@ -680,7 +680,7 @@
         color="blue"
         class="mb-5"
         type="button"
-        on:click={() => (disabled = false)}>Edit class details</Button
+        onclick={() => (disabled = false)}>Edit class details</Button
       >
       <p class="text-sm text-gray-500">
         Note that editing your class details will reset your class schedule.
@@ -702,7 +702,7 @@
             <Button
               color={selectedClassId === classId ? 'blue' : 'gray'}
               type="button"
-              on:click={() => selectClass(classId)}
+              onclick={() => selectClass(classId)}
             >
               Class {classId.split('-')[1]}
               {#if instructorClasses[classId]?.course}
@@ -711,7 +711,7 @@
             </Button>
           {/each}
 
-          <Button color="green" type="button" on:click={createNewClass}>
+          <Button color="green" type="button" onclick={createNewClass}>
             + Create New Class
           </Button>
         </div>
@@ -845,7 +845,7 @@
           color="blue"
           type="button"
           disabled={isCreatingLink || $delayed}
-          on:click={async () =>
+          onclick={async () =>
             ($form.meetingLink = await createLink({ ...values, ...$form }))}
         >
           {#if isCreatingLink}

@@ -71,12 +71,12 @@
       <DialogActions>
         <Button
           color="blue"
-          on:click={() => {
+          onclick={() => {
             location.reload()
             setTimeout(() => (window.location.href = '/dashboard'), 100)
           }}>Go to dashboard</Button
         >
-        <Button on:click={() => dialogEl?.cancel()}>Close</Button>
+        <Button onclick={() => dialogEl?.cancel()}>Close</Button>
       </DialogActions>
     </div>
   {/snippet}

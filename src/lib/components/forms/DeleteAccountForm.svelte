@@ -85,7 +85,7 @@
 <div class="w-full">
   <span class="font-bold">Delete account</span>
   <div class="mt-2">
-    <Button color="red" type="button" on:click={() => dialogEl?.open()}
+    <Button color="red" type="button" onclick={() => dialogEl?.open()}
       >Delete account</Button
     >
   </div>
@@ -115,7 +115,7 @@
             </div>
           </div>
           <DialogActions>
-            <Button type="button" on:click={() => dialogEl?.cancel()}
+            <Button type="button" onclick={() => dialogEl?.cancel()}
               >Cancel</Button
             >
             <Button color="red" type="submit" disabled={$delayed}>Delete</Button
