@@ -338,7 +338,7 @@
         </form>
 
         {#if showRequestNewTime}
-          <form class={cn('max-w-2xl mt-4 space-y-4')} use:requestEnhance>
+          <form class={cn('mt-4 max-w-2xl space-y-4')} use:requestEnhance>
             <div class="mt-2 flex flex-col gap-1.5">
               <FormInput
                 form={requestFormResult}

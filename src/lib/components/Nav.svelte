@@ -70,7 +70,7 @@
 <svelte:window onscroll={updateShadow} />
 <nav
   class={cn(
-    'px-4 md:px-6 lg:px-8 fixed left-0 top-0 z-40 flex h-20 w-full items-center justify-between border-b bg-white/70 backdrop-blur-md transition-all duration-300 gap-2 md:gap-4 lg:gap-6',
+    'fixed top-0 left-0 z-40 flex h-20 w-full items-center justify-between gap-2 border-b bg-white/70 px-4 backdrop-blur-md transition-all duration-300 md:gap-4 md:px-6 lg:gap-6 lg:px-8',
     shadow && !open ? 'shadow-b border-gray-200' : 'border-white',
   )}
   style="backdrop-filter: blur(12px);"
@@ -84,7 +84,7 @@
         {#each pages as page (page.href)}
           <a
             class={cn(
-              'relative rounded-full px-1.5 py-1 text-[11px] md:px-2 md:py-1.5 md:text-xs lg:px-2.5 lg:py-2 lg:text-sm xl:px-4 xl:text-base font-medium transition-colors duration-200 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-400 text-center leading-tight flex items-center justify-center min-h-10 max-w-30 shrink-0',
+              'relative flex min-h-10 max-w-30 shrink-0 items-center justify-center rounded-full px-1.5 py-1 text-center text-[11px] leading-tight font-medium transition-colors duration-200 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-400 md:px-2 md:py-1.5 md:text-xs lg:px-2.5 lg:py-2 lg:text-sm xl:px-4 xl:text-base',
               pathname === page.href
                 ? 'bg-blue-100 text-blue-700 shadow-xs'
                 : 'hover:bg-gray-100 hover:text-blue-600',

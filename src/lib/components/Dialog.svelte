@@ -95,8 +95,8 @@
     >
       <div
         class={cn(
-          'p-4 sm:p-8 bg-white grid gap-3 sm:gap-6 w-full rounded-lg relative',
-          size === 'full' && 'min-h-full h-fit',
+          'relative grid w-full gap-3 rounded-lg bg-white p-4 sm:gap-6 sm:p-8',
+          size === 'full' && 'h-fit min-h-full',
           size === 'min' && 'max-w-2xl',
         )}
         role="dialog"

@@ -70,8 +70,7 @@
     {value}
     {name}
     {required}
-    {...rest}
-  ></textarea>
+    {...rest}></textarea>
   {#if rest?.maxlength && visible}
     <div
       class="absolute right-3 bottom-3 rounded-sm border border-gray-100 bg-gray-100 px-1 text-gray-500 shadow-xs"

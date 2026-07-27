@@ -605,7 +605,7 @@
     <div class="grid gap-6 md:grid-cols-2" transition:fade={{ duration: 500 }}>
       {#each classes as classInfo (classInfo.id)}
         {#if classFilter == '' || classFilter == 'all' || classFilter == classInfo.course}
-          {#if !onlyShowEnrolled || Object.entries(studentUidToClassIds).some( ([studentUid, classIds]) => classIds.includes(classInfo.id), )}
+          {#if !onlyShowEnrolled || Object.entries(studentUidToClassIds).some( ([studentUid, classIds]) => classIds.includes(classInfo.id) )}
             <Card
               class="group relative overflow-hidden rounded-xl border border-gray-200 bg-white p-6 shadow-xs transition-all duration-200 hover:border-gray-300 hover:shadow-lg"
             >
@@ -749,7 +749,7 @@
               </div>
 
               <!-- Enrolled Students Section -->
-              {#if Object.entries(studentUidToClassIds).some( ([studentUid, classIds]) => classIds.includes(classInfo.id), )}
+              {#if Object.entries(studentUidToClassIds).some( ([studentUid, classIds]) => classIds.includes(classInfo.id) )}
                 <div
                   class="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3"
                 >

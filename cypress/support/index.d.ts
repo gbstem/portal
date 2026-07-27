@@ -15,9 +15,7 @@ declare namespace Cypress {
     getLatestOobLink(
       email: string,
       requestType:
-        | 'VERIFY_EMAIL'
-        | 'PASSWORD_RESET'
-        | 'VERIFY_AND_CHANGE_EMAIL',
+        'VERIFY_EMAIL' | 'PASSWORD_RESET' | 'VERIFY_AND_CHANGE_EMAIL',
     ): Chainable<string>
     waitForNotification(
       text: string,

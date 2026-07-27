@@ -871,7 +871,7 @@
           {#if editMode}
             <Input
               type="datetime-local"
-              class={{ container: 'mt-0', input: 'rounded-sm border p-1 h-10' }}
+              class={{ container: 'mt-0', input: 'h-10 rounded-sm border p-1' }}
               bind:value={editedMeetingTimes[classNumber]}
             />
             <Button
