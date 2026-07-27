@@ -14,7 +14,6 @@
   let classes: ClassDate[] = $state([])
   let nextClass: ClassDate | null = $state(null)
   let listView: boolean = false
-  let courses = new Set()
   let selectedStudentUid = $derived(selectedStudentIdState.current)
   let selectedStudentName = $state('')
 
@@ -27,7 +26,6 @@
     for (const docSnapshot of schedulesDocs) {
       if (docSnapshot.exists()) {
         const data = docSnapshot.data() as Data.Class
-        courses.add(data.course)
         data.meetingTimes.forEach((date) => {
           fetchedClasses.push({
             course: data.course,

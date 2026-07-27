@@ -33,9 +33,16 @@ export default tseslint.config(
       '@typescript-eslint/no-unused-vars': 'off',
       '@typescript-eslint/no-require-imports': 'off',
       'svelte/no-navigation-without-resolve': 'off',
-      // Real violations exist (Set/Date instances in $derived/$state) -
-      // fix is Phase 8b of the Svelte 5 migration (swap to svelte/reactivity
-      // only where stored in $state and mutated), then re-enable.
+      // Off deliberately, not deferred. The rule flags any mutable instance
+      // of a built-in (Map/Set/Date/URL/URLSearchParams) inside a .svelte
+      // file; it can't tell whether the instance is actually held in
+      // reactive state. Both violations here are non-reactive by design:
+      // Disclosure.svelte's module-level `elements` Set is a registry
+      // mutated in onMount/teardown and iterated inside a click handler, and
+      // ClassDetailsForm.svelte's `currentDate` is a loop cursor in plain
+      // date arithmetic. Revisit only if a built-in instance is ever
+      // assigned to $state and mutated in place, which is the case the rule
+      // is actually for.
       'svelte/prefer-svelte-reactivity': 'off',
       // One violation (SignUpForm.svelte's `let createdUser = null`, dead
       // because it's unconditionally reassigned before any read) - a minor
