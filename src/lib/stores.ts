@@ -45,7 +45,3 @@ function createAlert() {
 }
 
 export const alert = createAlert()
-
-export const dialog = writable<string | null>(null)
-
-export const selectedStudentId = writable<string>('')

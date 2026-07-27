@@ -8,19 +8,15 @@
     registrationsCollection,
   } from '$lib/data/collections'
   import { getContext, onMount } from 'svelte'
-  import { selectedStudentId } from '$lib/stores'
+  import { selectedStudentIdState } from '$lib/stores.svelte'
 
   type ClassDate = { course: string; meetingTime: Date; link: string }
   let classes: ClassDate[] = $state([])
   let nextClass: ClassDate | null = $state(null)
   let listView: boolean = false
   let courses = new Set()
-  let selectedStudentUid = $state('')
+  let selectedStudentUid = $derived(selectedStudentIdState.current)
   let selectedStudentName = $state('')
-
-  const subscribe = selectedStudentId.subscribe((value) => {
-    selectedStudentUid = value
-  })
 
   async function fetchClassSchedules(classIds: string[]) {
     const schedulesPromises = classIds.map((classId) =>

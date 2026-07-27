@@ -1,6 +1,6 @@
 <script lang="ts">
   import { browser } from '$app/environment'
-  import { dialog } from '$lib/stores'
+  import { dialogState } from '$lib/stores.svelte'
   import { clickOutside, cn, trapFocus } from '$lib/utils'
   import { uniqueId } from 'lodash-es'
   import { onDestroy } from 'svelte'
@@ -32,11 +32,11 @@
   $effect(() => {
     if (browser) {
       if (open) {
-        dialog.set(id)
+        dialogState.current = id
         document.body.style.overflowY = 'hidden'
         bodyLocked = true
-      } else if ($dialog === id) {
-        dialog.set(null)
+      } else if (dialogState.current === id) {
+        dialogState.current = null
         document.body.style.overflowY = 'auto'
         bodyLocked = false
       }
@@ -45,8 +45,8 @@
 
   onDestroy(() => {
     if (browser) {
-      if ($dialog === id) {
-        dialog.set(null)
+      if (dialogState.current === id) {
+        dialogState.current = null
       }
       if (bodyLocked) {
         document.body.style.overflowY = 'auto'

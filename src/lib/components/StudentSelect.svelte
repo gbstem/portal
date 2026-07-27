@@ -6,7 +6,7 @@
     maxChildrenPerAccount,
     registrationsCollection,
   } from '$lib/data/collections'
-  import { selectedStudentId } from '$lib/stores'
+  import { selectedStudentIdState } from '$lib/stores.svelte'
   import { doc, getDoc } from 'firebase/firestore'
   import { onMount } from 'svelte'
 
@@ -67,7 +67,7 @@
       )
       if (selectedStudentRegistration) {
         selectedStudentUid = nameToUid[selectedStudentRegistration.name]
-        selectedStudentId.set(selectedStudentUid)
+        selectedStudentIdState.current = selectedStudentUid
       }
     }
   })

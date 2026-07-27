@@ -6,7 +6,8 @@
     studentFeedbackCollection,
     withSemester,
   } from '$lib/data/collections'
-  import { alert, selectedStudentId } from '$lib/stores'
+  import { alert } from '$lib/stores'
+  import { selectedStudentIdState } from '$lib/stores.svelte'
   import { cn } from '$lib/utils'
   import { doc, getDoc, setDoc } from 'firebase/firestore'
   import { defaults, superForm } from 'sveltekit-superforms'
@@ -16,11 +17,7 @@
   import FormInput from '../FormInput.svelte'
 
   let showValidation = false
-  let selectedStudentUid = $state('')
-
-  selectedStudentId.subscribe((value) => {
-    selectedStudentUid = value
-  })
+  let selectedStudentUid = $derived(selectedStudentIdState.current)
 
   let selectedStudentCourses: any[] = $state([])
   let studentName = $state('')
