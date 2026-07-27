@@ -77,9 +77,9 @@
   // instance briefly sees its placeholder empty value, calls
   // setCustomValidity with an error, and native constraint validation then
   // blocks form submission even after the real value arrives, because
-  // nothing else ever clears that message.
+  // nothing else ever clears that message. See git history for the Cypress
+  // failure this was caught by.
   let previousValue = value
-
   filterOptionsBy(value)
 
   function handleInput(
@@ -136,6 +136,13 @@
   }
   let options = $derived(optionsJson.map((item) => item.name))
 
+  function findOptionMatch(val: string): string | undefined {
+    if (!val || !options || options.length === 0) return undefined
+    if (options.includes(val)) return val
+    const lower = val.toLowerCase()
+    return options.find((o) => o.toLowerCase() === lower)
+  }
+
   // Tracks only `open` - the register/validate branches read `value` and
   // `options` but shouldn't re-run just because those change while the
   // dropdown state itself hasn't, so those reads are untracked.
@@ -148,26 +155,40 @@
       })
     } else {
       untrack(() => {
-        if (!options.includes(value)) {
-          value = ''
+        if (value) {
+          const match = findOptionMatch(value)
+          if (match) {
+            if (value !== match) {
+              value = match
+            }
+          } else {
+            value = ''
+          }
         }
       })
     }
   })
+
   $effect(() => {
     if (options) {
       filterOptionsBy(value)
     }
   })
+
   $effect(() => {
     if (value !== previousValue) {
       previousValue = value
       filterOptionsBy(value)
       if (self) {
-        if (value === '' && required) {
-          self.setCustomValidity('Please fill required fields.')
+        if (value === '') {
+          if (required) {
+            self.setCustomValidity('Please fill required fields.')
+          } else {
+            self.setCustomValidity('')
+          }
         } else {
-          if (options.includes(value)) {
+          const match = findOptionMatch(value)
+          if (match) {
             self.setCustomValidity('')
           } else {
             self.setCustomValidity('Please select valid options.')
@@ -185,11 +206,13 @@
     open = false
   }}
 >
-  <label for={id} class="text-sm font-bold">
-    <span>
-      {label}<span class={cn('text-red-500', !required && 'hidden')}>*</span>
-    </span>
-  </label>
+  {#if label}
+    <label for={id} class="text-sm font-bold">
+      <span>
+        {label}<span class={cn('text-red-500', !required && 'hidden')}>*</span>
+      </span>
+    </label>
+  {/if}
   <div class="relative">
     <div class="absolute top-0 right-0 flex h-12 items-center pr-2">
       <button
