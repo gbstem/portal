@@ -173,6 +173,7 @@
     {
       SPA: true,
       validators: zod(schema as any) as any,
+      resetForm: false,
       dataType: 'json',
       async onUpdate({ form: formVal }) {
         if (!formVal.valid) return

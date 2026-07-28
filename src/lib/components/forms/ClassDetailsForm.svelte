@@ -128,6 +128,7 @@
         : 'class-details-inline',
       SPA: true,
       validators: zod(schema as any) as any,
+      resetForm: false,
       async onUpdate({ form: formVal }: { form: any }) {
         if (!formVal.valid) return
         showValidation = false
