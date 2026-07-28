@@ -45,24 +45,24 @@
     online: boolean
   }
 
-  let classes: ClassInfo[] = []
-  let loading = true
-  let dialogEl: Dialog
-  let dialogClassDetails: ClassInfo | null = null
-  let selectedStudentUid = ''
+  let classes: ClassInfo[] = $state([])
+  let loading = $state(true)
+  let showClassDetailsDialog = $state(false)
+  let dialogClassDetails: ClassInfo | null = $state(null)
+  let selectedStudentUid = $state('')
   let userEmail = ''
   let userName = ''
 
-  let classFilter = ''
-  let onlyShowEnrolled = false
+  let classFilter = $state('')
+  let onlyShowEnrolled = $state(false)
 
   const studentUidToClassIds: {
     [studentUid: string]: string[]
-  } = {}
+  } = $state({})
 
   const studentUidToGrade: Record<string, string> = {}
 
-  const uidToName: Record<string, string> = {}
+  const uidToName: Record<string, string> = $state({})
 
   // Preload student data for the StudentSelect component
   let preloadedStudents: { uid: string; name: string }[] = []
@@ -87,7 +87,7 @@
     'Lego Robotics Competition': 5,
   }
 
-  let isStudent = true
+  let isStudent = $state(true)
 
   const determineStudentEnrollment = async (user: Data.User.Store) => {
     const uid = user.object.uid
@@ -274,7 +274,7 @@
             const { message } = await res.json()
             console.error('Enrollment API error:', message)
           }
-          dialogEl.close()
+          showClassDetailsDialog = false
           window.scrollTo({
             top: 0,
             behavior: 'smooth',
@@ -317,7 +317,7 @@
     })
       .then(() => {
         alert.trigger('success', 'Unenrolled from class!')
-        dialogEl.close()
+        showClassDetailsDialog = false
       })
       .catch((error) => {
         alert.trigger('error', 'Error unenrolling from class!')
@@ -329,169 +329,131 @@
   <title>Classes Overview</title>
 </svelte:head>
 
-<Dialog bind:this={dialogEl} size="min">
-  <svelte:fragment slot="title">Class Details</svelte:fragment>
+<Dialog bind:open={showClassDetailsDialog} size="min">
+  {#snippet title()}
+    Class Details
+  {/snippet}
 
-  <div slot="description" class="space-y-6 p-6">
-    <!-- Hidden focusable element to prevent auto-focus on StudentSelect -->
-    <button
-      type="button"
-      tabindex="0"
-      aria-label="hidden focus catch"
-      style="position: absolute; left: -9999px; width: 1px; height: 1px;"
-    ></button>
-    {#if dialogClassDetails !== null}
-      <!-- Status Badge -->
-      <div class="flex justify-end">
-        <span
-          class="inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold text-white shadow-xs {dialogClassDetails.spotsRemaining <=
-          0
-            ? 'bg-red-500'
-            : 'bg-green-500'}"
-        >
-          {#if dialogClassDetails.spotsRemaining <= 0}
-            <svg class="mr-2 h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-              <path
-                fill-rule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                clip-rule="evenodd"
-              />
-            </svg>
-            Class Full
-          {:else}
-            <svg class="mr-2 h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-              <path
-                fill-rule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                clip-rule="evenodd"
-              />
-            </svg>
-            {dialogClassDetails.spotsRemaining} spots available
-          {/if}
-        </span>
-      </div>
-
-      <!-- Course Header -->
-      <div class="border-b border-gray-200 pb-4">
-        <h2 class="text-2xl font-bold text-gray-900">
-          {dialogClassDetails.course}
-          {#if dialogClassDetails.gradeRecommendation}
-            <span class="ml-2 text-lg font-medium text-gray-500">
-              (Grades {dialogClassDetails.gradeRecommendation})
-            </span>
-          {/if}
-        </h2>
-      </div>
-
-      <!-- Class Details Grid -->
-      <div class="grid gap-4">
-        <!-- Class Type & Instructor -->
-        <div class="space-y-3">
-          <div class="flex items-center rounded-lg bg-gray-50 p-3">
-            <svg
-              class="mr-3 h-5 w-5 text-gray-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              {#if dialogClassDetails.online}
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                />
-              {:else}
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                />
-              {/if}
-            </svg>
-            <div>
-              <div class="font-semibold text-gray-900">
-                {dialogClassDetails.online ? 'Online Class' : 'In-Person Class'}
-              </div>
-              <div class="text-sm text-gray-600">
-                {dialogClassDetails.online
-                  ? 'Virtual classroom'
-                  : 'Cambridge Public Library Main Branch'}
-              </div>
-            </div>
-          </div>
-
-          <div class="flex items-center rounded-lg bg-gray-50 p-3">
-            <svg
-              class="mr-3 h-5 w-5 text-gray-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-              />
-            </svg>
-            <div>
-              <div class="font-semibold text-gray-900">Instructor</div>
-              <div class="text-sm text-gray-600">
-                {`${dialogClassDetails.instructorFirstName} ${dialogClassDetails.instructorLastName}`}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Class Times -->
-        <div class="rounded-lg border border-blue-200 bg-blue-50 p-4">
-          <h4
-            class="mb-3 flex items-center text-lg font-semibold text-blue-900"
+  {#snippet description()}
+    <div class="space-y-6 p-6">
+      <!-- Hidden focusable element to prevent auto-focus on StudentSelect -->
+      <button
+        type="button"
+        tabindex="0"
+        aria-label="hidden focus catch"
+        style="position: absolute; left: -9999px; width: 1px; height: 1px;"
+      ></button>
+      {#if dialogClassDetails !== null}
+        <!-- Status Badge -->
+        <div class="flex justify-end">
+          <span
+            class="inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold text-white shadow-xs {dialogClassDetails.spotsRemaining <=
+            0
+              ? 'bg-red-500'
+              : 'bg-green-500'}"
           >
-            <svg
-              class="mr-2 h-5 w-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            Class Schedule ({dialogClassDetails.online
-              ? '1-hour classes'
-              : '2-hour class'})
-          </h4>
-          <div class="space-y-2">
-            {#each formatClassTimes(dialogClassDetails.classDays, dialogClassDetails.classTimes) as classTime}
-              <div class="flex items-center text-blue-800">
-                <svg
-                  class="mr-3 h-4 w-4 text-blue-600"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    fill-rule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13a1 1 0 102 0V9.414l2.293 2.293a1 1 0 001.414-1.414z"
-                    clip-rule="evenodd"
-                  />
-                </svg>
-                <span class="font-medium">{classTime}</span>
-              </div>
-            {/each}
-          </div>
+            {#if dialogClassDetails.spotsRemaining <= 0}
+              <svg class="mr-2 h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                <path
+                  fill-rule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+              Class Full
+            {:else}
+              <svg class="mr-2 h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                <path
+                  fill-rule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+              {dialogClassDetails.spotsRemaining} spots available
+            {/if}
+          </span>
         </div>
 
-        <!-- Enrollment Section -->
-        {#if isStudent}
-          <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
+        <!-- Course Header -->
+        <div class="border-b border-gray-200 pb-4">
+          <h2 class="text-2xl font-bold text-gray-900">
+            {dialogClassDetails.course}
+            {#if dialogClassDetails.gradeRecommendation}
+              <span class="ml-2 text-lg font-medium text-gray-500">
+                (Grades {dialogClassDetails.gradeRecommendation})
+              </span>
+            {/if}
+          </h2>
+        </div>
+
+        <!-- Class Details Grid -->
+        <div class="grid gap-4">
+          <!-- Class Type & Instructor -->
+          <div class="space-y-3">
+            <div class="flex items-center rounded-lg bg-gray-50 p-3">
+              <svg
+                class="mr-3 h-5 w-5 text-gray-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                {#if dialogClassDetails.online}
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                  />
+                {:else}
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                  />
+                {/if}
+              </svg>
+              <div>
+                <div class="font-semibold text-gray-900">
+                  {dialogClassDetails.online
+                    ? 'Online Class'
+                    : 'In-Person Class'}
+                </div>
+                <div class="text-sm text-gray-600">
+                  {dialogClassDetails.online
+                    ? 'Virtual classroom'
+                    : 'Cambridge Public Library Main Branch'}
+                </div>
+              </div>
+            </div>
+
+            <div class="flex items-center rounded-lg bg-gray-50 p-3">
+              <svg
+                class="mr-3 h-5 w-5 text-gray-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                />
+              </svg>
+              <div>
+                <div class="font-semibold text-gray-900">Instructor</div>
+                <div class="text-sm text-gray-600">
+                  {`${dialogClassDetails.instructorFirstName} ${dialogClassDetails.instructorLastName}`}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Class Times -->
+          <div class="rounded-lg border border-blue-200 bg-blue-50 p-4">
             <h4
-              class="mb-3 flex items-center text-lg font-semibold text-gray-900"
+              class="mb-3 flex items-center text-lg font-semibold text-blue-900"
             >
               <svg
                 class="mr-2 h-5 w-5"
@@ -503,62 +465,106 @@
                   stroke-linecap="round"
                   stroke-linejoin="round"
                   stroke-width="2"
-                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                 />
               </svg>
-              Enrollment
+              Class Schedule ({dialogClassDetails.online
+                ? '1-hour classes'
+                : '2-hour class'})
             </h4>
-            <div class="space-y-3">
-              <div>
-                <StudentSelect bind:selectedStudentUid {preloadedStudents} />
-              </div>
-              <Button
-                class="flex w-full items-center justify-center gap-2"
-                color={isEnrolled(dialogClassDetails.id, selectedStudentUid)
-                  ? 'red'
-                  : 'blue'}
-                on:click={() => {
-                  if (dialogClassDetails) {
-                    toggleEnrollment(dialogClassDetails.id)
-                  }
-                }}
+            <div class="space-y-2">
+              {#each formatClassTimes(dialogClassDetails.classDays, dialogClassDetails.classTimes) as classTime (classTime)}
+                <div class="flex items-center text-blue-800">
+                  <svg
+                    class="mr-3 h-4 w-4 text-blue-600"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fill-rule="evenodd"
+                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13a1 1 0 102 0V9.414l2.293 2.293a1 1 0 001.414-1.414z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
+                  <span class="font-medium">{classTime}</span>
+                </div>
+              {/each}
+            </div>
+          </div>
+
+          <!-- Enrollment Section -->
+          {#if isStudent}
+            <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
+              <h4
+                class="mb-3 flex items-center text-lg font-semibold text-gray-900"
               >
                 <svg
-                  class="h-5 w-5"
+                  class="mr-2 h-5 w-5"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
                 >
-                  {#if isEnrolled(dialogClassDetails.id, selectedStudentUid)}
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                    />
-                  {:else}
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                    />
-                  {/if}
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                  />
                 </svg>
-                {isEnrolled(dialogClassDetails.id, selectedStudentUid)
-                  ? 'Unenroll Student'
-                  : 'Enroll Student'}
-              </Button>
+                Enrollment
+              </h4>
+              <div class="space-y-3">
+                <div>
+                  <StudentSelect bind:selectedStudentUid {preloadedStudents} />
+                </div>
+                <Button
+                  class="flex w-full items-center justify-center gap-2"
+                  color={isEnrolled(dialogClassDetails.id, selectedStudentUid)
+                    ? 'red'
+                    : 'blue'}
+                  onclick={() => {
+                    if (dialogClassDetails) {
+                      toggleEnrollment(dialogClassDetails.id)
+                    }
+                  }}
+                >
+                  <svg
+                    class="h-5 w-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    {#if isEnrolled(dialogClassDetails.id, selectedStudentUid)}
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
+                    {:else}
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                      />
+                    {/if}
+                  </svg>
+                  {isEnrolled(dialogClassDetails.id, selectedStudentUid)
+                    ? 'Unenroll Student'
+                    : 'Enroll Student'}
+                </Button>
+              </div>
             </div>
-          </div>
-        {/if}
-      </div>
-    {/if}
+          {/if}
+        </div>
+      {/if}
 
-    <DialogActions>
-      <Button on:click={dialogEl.cancel}>Close</Button>
-    </DialogActions>
-  </div>
+      <DialogActions>
+        <Button onclick={() => (showClassDetailsDialog = false)}>Close</Button>
+      </DialogActions>
+    </div>
+  {/snippet}
 </Dialog>
 
 <div>
@@ -589,7 +595,7 @@
       {#if isStudent}
         <Button
           color={onlyShowEnrolled ? 'blue' : 'gray'}
-          on:click={() => clearEnrolled()}
+          onclick={() => clearEnrolled()}
         >
           {onlyShowEnrolled ? 'Show all classes' : 'Show all enrolled classes'}
         </Button>
@@ -599,7 +605,7 @@
     <div class="grid gap-6 md:grid-cols-2" transition:fade={{ duration: 500 }}>
       {#each classes as classInfo (classInfo.id)}
         {#if classFilter == '' || classFilter == 'all' || classFilter == classInfo.course}
-          {#if !onlyShowEnrolled || Object.entries(studentUidToClassIds).some( ([studentUid, classIds]) => classIds.includes(classInfo.id), )}
+          {#if !onlyShowEnrolled || Object.entries(studentUidToClassIds).some( ([studentUid, classIds]) => classIds.includes(classInfo.id) )}
             <Card
               class="group relative overflow-hidden rounded-xl border border-gray-200 bg-white p-6 shadow-xs transition-all duration-200 hover:border-gray-300 hover:shadow-lg"
             >
@@ -723,7 +729,7 @@
                     : '2-hour class'})
                 </h4>
                 <div class="space-y-1">
-                  {#each formatClassTimes(classInfo.classDays, classInfo.classTimes) as classTime}
+                  {#each formatClassTimes(classInfo.classDays, classInfo.classTimes) as classTime (classTime)}
                     <div class="flex items-center text-sm text-gray-600">
                       <svg
                         class="mr-2 h-3 w-3 text-gray-400"
@@ -743,7 +749,7 @@
               </div>
 
               <!-- Enrolled Students Section -->
-              {#if Object.entries(studentUidToClassIds).some( ([studentUid, classIds]) => classIds.includes(classInfo.id), )}
+              {#if Object.entries(studentUidToClassIds).some( ([studentUid, classIds]) => classIds.includes(classInfo.id) )}
                 <div
                   class="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3"
                 >
@@ -766,7 +772,7 @@
                     Your Enrolled Students
                   </h4>
                   <div class="space-y-1">
-                    {#each Object.entries(studentUidToClassIds) as [studentUid, classIds]}
+                    {#each Object.entries(studentUidToClassIds) as [studentUid, classIds] (studentUid)}
                       {#if classIds.includes(classInfo.id)}
                         <div class="flex items-center text-sm text-blue-700">
                           <svg
@@ -844,9 +850,9 @@
                   <Button
                     class="flex w-full items-center justify-center gap-2"
                     color="blue"
-                    on:click={() => {
+                    onclick={() => {
                       dialogClassDetails = classInfo
-                      dialogEl.open()
+                      showClassDetailsDialog = true
                     }}
                   >
                     <svg

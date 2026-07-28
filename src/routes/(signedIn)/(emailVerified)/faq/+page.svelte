@@ -10,35 +10,24 @@
 </svelte:head>
 
 <PageLayout>
-  <svelte:fragment slot="title">FAQ</svelte:fragment>
+  {#snippet title()}
+    FAQ
+  {/snippet}
   <div class="w-full max-w-2xl space-y-4">
     <Disclosure>
-      <svelte:fragment slot="title">
+      {#snippet title()}
         I've verified my email but my application doesn't save or submit!
-      </svelte:fragment>
-      <svelte:fragment slot="content">
+      {/snippet}
+      {#snippet content()}
         Please store your application responses in a separate document. Then,
         sign out and sign back in.
-      </svelte:fragment>
+      {/snippet}
     </Disclosure>
-    <!-- <Disclosure>
-      <svelte:fragment slot="title"
-        >My school is not listed on the application.</svelte:fragment
-      >
-      <svelte:fragment slot="content"
-        >Please email us at <Link
-          href="mailto:contact@gbstem.org"
-          target="_blank"
-          rel="noopener">contact@gbstem.org</Link
-        > with information about your school and possibly a link to your school's
-        website.</svelte:fragment
-      >
-    </Disclosure> -->
     <Disclosure>
-      <svelte:fragment slot="title">
+      {#snippet title()}
         I keep encountering an error and can't submit!
-      </svelte:fragment>
-      <svelte:fragment slot="content">
+      {/snippet}
+      {#snippet content()}
         Please contact us immediately at <Link
           href="mailto:contact@gbstem.org"
           target="_blank"
@@ -57,7 +46,7 @@
             tools is extremely helpful.
           </li>
         </ol>
-      </svelte:fragment>
+      {/snippet}
     </Disclosure>
   </div>
 </PageLayout>

@@ -1,4 +1,4 @@
-<script context="module" lang="ts">
+<script module lang="ts">
   type DisclosureData = {
     id: string
     close: () => void
@@ -13,10 +13,15 @@
   import { quintOut } from 'svelte/easing'
   import { cn } from '$lib/utils'
 
-  let className = ''
-  export { className as class }
+  interface Props {
+    class?: string
+    title?: import('svelte').Snippet
+    content?: import('svelte').Snippet
+  }
 
-  let openState = false
+  let { class: className = '', title, content }: Props = $props()
+
+  let openState = $state(false)
   const id = uniqueId('disclosure-')
 
   onMount(() => {
@@ -38,7 +43,7 @@
       className,
     )}
     type="button"
-    on:click={() => {
+    onclick={() => {
       if (!openState) {
         elements.forEach((element) => {
           element.close()
@@ -48,7 +53,7 @@
     }}
   >
     <div class="grow text-left font-bold">
-      <slot name="title" />
+      {@render title?.()}
     </div>
     <svg
       class={cn(
@@ -71,7 +76,7 @@
 
   {#if openState}
     <div class="p-4" transition:slide={{ axis: 'y', easing: quintOut }}>
-      <slot name="content" />
+      {@render content?.()}
     </div>
   {/if}
 </div>

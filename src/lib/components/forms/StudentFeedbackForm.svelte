@@ -6,7 +6,8 @@
     studentFeedbackCollection,
     withSemester,
   } from '$lib/data/collections'
-  import { alert, selectedStudentId } from '$lib/stores'
+  import { alert } from '$lib/stores'
+  import { selectedStudentIdState } from '$lib/stores.svelte'
   import { cn } from '$lib/utils'
   import { doc, getDoc, setDoc } from 'firebase/firestore'
   import { defaults, superForm } from 'sveltekit-superforms'
@@ -16,15 +17,10 @@
   import FormInput from '../FormInput.svelte'
 
   let showValidation = false
-  let selectedStudentUid = ''
+  let selectedStudentUid = $derived(selectedStudentIdState.current)
 
-  selectedStudentId.subscribe((value) => {
-    selectedStudentUid = value
-  })
-
-  let selectedStudentCourses: any[] = []
-  let pastSelected = ''
-  let studentName = ''
+  let selectedStudentCourses: any[] = $state([])
+  let studentName = $state('')
 
   const schema = z.object({
     classId: z.string().min(1, 'Please select a course'),
@@ -125,28 +121,32 @@
     }
   }
 
-  $: if (selectedStudentUid) {
-    if (selectedStudentUid !== pastSelected || pastSelected === '') {
-      getDoc(doc(db, registrationsCollection, selectedStudentUid))
-        .then((docSnapshot) => {
-          if (docSnapshot.exists()) {
-            studentName =
-              docSnapshot.data().personal.studentFirstName +
-              ' ' +
-              docSnapshot.data().personal.studentLastName
-            const classIds = docSnapshot.data().classes || []
-            fetchCourseList(classIds)
-          }
-        })
-        .catch((err) => {
-          console.error(
-            '[StudentFeedbackForm] Error fetching student registration:',
-            err,
-          )
-        })
-      pastSelected = selectedStudentUid
+  $effect(() => {
+    const currentUid = selectedStudentUid
+    if (!currentUid) return
+    let cancelled = false
+    getDoc(doc(db, registrationsCollection, currentUid))
+      .then((docSnapshot) => {
+        if (cancelled) return
+        if (docSnapshot.exists()) {
+          studentName =
+            docSnapshot.data().personal.studentFirstName +
+            ' ' +
+            docSnapshot.data().personal.studentLastName
+          const classIds = docSnapshot.data().classes || []
+          fetchCourseList(classIds)
+        }
+      })
+      .catch((err) => {
+        console.error(
+          '[StudentFeedbackForm] Error fetching student registration:',
+          err,
+        )
+      })
+    return () => {
+      cancelled = true
     }
-  }
+  })
 </script>
 
 <form class={cn(showValidation && 'show-validation')} use:enhance>
@@ -162,7 +162,7 @@
     {:else}
       <div class="mb-5">
         <h3 class="mb-2 text-sm font-bold">Select Course:</h3>
-        {#each selectedStudentCourses as { instructor, course, classId }}
+        {#each selectedStudentCourses as { instructor, course, classId } (classId)}
           <label class="mt-1 flex cursor-pointer items-center gap-2 text-sm">
             <input
               type="radio"

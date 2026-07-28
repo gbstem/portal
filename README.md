@@ -128,12 +128,18 @@ We use the [npm-check-updates (ncu)](https://github.com/raineorshine/npm-check-u
 Once `ncu` is installed, follow this sequence of commands to update dependencies:
 
 > [!IMPORTANT]
-> **Pin Zod to version 3 (`^3.x.x`)**: We currently restrict Zod to v3 because SvelteKit Superforms and Formsnap adapters have known type resolution and shape-generation compatibility issues with Zod v4 (refer to the public discussion at [ciscoheat/sveltekit-superforms #630](https://github.com/ciscoheat/sveltekit-superforms/issues/630)). When executing `ncu -u`, ensure Zod is not upgraded to v4 which the commands below avoid, or manually revert its version in `package.json` before installing.
+> **Pin Zod to version 3 (`^3.x.x`)**: We currently restrict Zod to v3 because SvelteKit Superforms and Formsnap adapters have known type resolution and shape-generation compatibility issues with Zod v4 (refer to the public discussion at [ciscoheat/sveltekit-superforms #630](https://github.com/ciscoheat/sveltekit-superforms/issues/630)).
+>
+> **Pin TypeScript to version 6 (`^6.x.x`), `@types/node` to version 24 (`^24.x.x`) due to us configuring Vercel to use Node.js 24.x, and firebase/firebase-admin to their current versions**.
+>
+> When executing `ncu -u`, ensure the avoided major upgrades aren't applied.
 
 ```bash
-# Update the dependencies in package.json to the latest versions (minor/patch)
-ncu -t minor -u zod
-ncu --peer --reject zod -u
+# Update pinned dependencies to their latest minor/patch versions
+ncu -t minor -u firebase firebase-admin typescript "@types/node" zod
+
+# Update all other dependencies in package.json to the latest versions
+ncu --peer --reject firebase,firebase-admin,typescript,"@types/node",zod -u
 
 # Install the updated packages and update package-lock.json
 npm install

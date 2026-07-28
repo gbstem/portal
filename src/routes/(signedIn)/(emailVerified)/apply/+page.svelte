@@ -18,10 +18,10 @@
   // if it does, add it to the options array
   // if it doesn't, break out of the loop
 
-  let options: { name: string }[] = []
-  const nameToUid: Record<string, string> = {}
-  let value = ''
-  let ready = false
+  let options: { name: string }[] = $state([])
+  const nameToUid: Record<string, string> = $state({})
+  let value = $state('')
+  let ready = $state(false)
   let uid = ''
 
   const fetchData = async (user: Data.User.Store) => {
@@ -110,7 +110,7 @@
           </div>
           <div class="flex justify-end">
             <Button
-              on:click={addChild}
+              onclick={addChild}
               color="blue"
               class="px-2 py-1"
               type="button">Add Child Account</Button

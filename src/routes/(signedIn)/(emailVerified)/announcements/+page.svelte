@@ -5,7 +5,7 @@
   import { db } from '$lib/client/firebase'
   import PageLayout from '$lib/components/PageLayout.svelte'
 
-  let announcements: Array<Data.Announcement<'client'>> = []
+  let announcements: Array<Data.Announcement<'client'>> = $state([])
   onMount(() => {
     getDocs(collection(db, 'announcements')).then((snapshot) => {
       announcements = snapshot.docs.map(
@@ -20,8 +20,10 @@
 </svelte:head>
 
 <PageLayout cols={2}>
-  <svelte:fragment slot="title">Announcements</svelte:fragment>
-  {#each announcements as announcement}
+  {#snippet title()}
+    Announcements
+  {/snippet}
+  {#each announcements as announcement (announcement.timestamp.toString() + announcement.title)}
     <div class="mb-4">
       <h3 class="text-lg font-semibold">{announcement.title}</h3>
       <p>{announcement.content}</p>

@@ -28,16 +28,20 @@
   import { zod } from 'sveltekit-superforms/adapters'
   import { z } from 'zod'
 
-  export let semesterDates: Data.SemesterDates
+  interface Props {
+    semesterDates: Data.SemesterDates
+  }
+
+  let { semesterDates }: Props = $props()
 
   let showValidation = false
   let valuesJson: Data.InterviewSlot[] = []
-  let scheduledInterview: Data.InterviewSlot
+  let scheduledInterview: Data.InterviewSlot | undefined = $state()
   let currentUser: Data.User.Store
-  let scheduled = false
-  let data: Data.InterviewSlot[] = []
-  let loading = true
-  let showRequestNewTime = false
+  let scheduled = $state(false)
+  let data: Data.InterviewSlot[] = $state([])
+  let loading = $state(true)
+  let showRequestNewTime = $state(false)
 
   const bookingSchema = z.object({
     slotId: z.string().min(1, 'Please select an interview slot'),
@@ -307,7 +311,7 @@
           {#if value.length > 0}
             <div class="mb-4">
               <div class="grid grid-cols-2 gap-2">
-                {#each value as val}
+                {#each value as val (val.id)}
                   <label
                     class="mt-1 flex cursor-pointer items-center gap-2 text-sm"
                   >
@@ -334,7 +338,7 @@
         </form>
 
         {#if showRequestNewTime}
-          <form class={cn('max-w-2xl mt-4 space-y-4')} use:requestEnhance>
+          <form class={cn('mt-4 max-w-2xl space-y-4')} use:requestEnhance>
             <div class="mt-2 flex flex-col gap-1.5">
               <FormInput
                 form={requestFormResult}
@@ -352,26 +356,26 @@
         {:else}
           <Button
             type="button"
-            on:click={() => (showRequestNewTime = true)}
+            onclick={() => (showRequestNewTime = true)}
             color="blue"
             class="mt-4 block"
           >
             Request A Time
           </Button>
         {/if}
-      {:else if scheduledInterview.interviewSlotStatus === 'pending'}
+      {:else if scheduledInterview?.interviewSlotStatus === 'pending'}
         <div
           class="rounded-md border border-green-200 bg-green-100 px-4 py-2 text-center text-green-900 shadow-xs"
         >
           <p class="font-bold">
-            Your interview will be on {scheduledInterview.date} with
-            {scheduledInterview.interviewerName}.
+            Your interview will be on {scheduledInterview?.date} with
+            {scheduledInterview?.interviewerName}.
           </p>
           <p class="mt-2 text-sm">
             Your interview meeting link is <Link
-              href={scheduledInterview.meetingLink}
+              href={scheduledInterview?.meetingLink}
               target="_blank"
-              rel="noopener">{scheduledInterview.meetingLink}</Link
+              rel="noopener">{scheduledInterview?.meetingLink}</Link
             >.
           </p>
 
@@ -383,7 +387,7 @@
         <div
           class="rounded-md border border-green-200 bg-green-100 px-4 py-2 text-center font-bold text-green-900 shadow-xs"
         >
-          Your interview was on {scheduledInterview.date}.
+          Your interview was on {scheduledInterview?.date}.
         </div>
       {/if}
     {/await}

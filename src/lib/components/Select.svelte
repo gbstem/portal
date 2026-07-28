@@ -1,4 +1,4 @@
-<script context="module" lang="ts">
+<script module lang="ts">
   type SelectData = {
     id: string
     setOpen: (newState: boolean) => void
@@ -20,33 +20,45 @@
   import { clickOutside, cn } from '$lib/utils'
   import { debounce, kebabCase, uniqueId } from 'lodash-es'
   import { fade } from 'svelte/transition'
+  import { untrack } from 'svelte'
 
-  let className = ''
-  export { className as class }
-
-  export let self: HTMLInputElement | undefined = undefined
-  export let id = uniqueId('select-')
-  export let value: string
-  export let label = ''
-  export let name = kebabCase(label)
-  export let required = false
-  export let placeholder: string | undefined = undefined
   type SelectOption = string
   type SelectOptionJson = {
     name: string
     [key: string]: any
   }
-  let optionsJson: Array<SelectOptionJson> = []
-  export { optionsJson as options }
-
-  let open = false
-  let selectedOptionIndex = 0
-
-  $: options = optionsJson.map((item) => item.name)
-  $: if (options) {
-    filterOptionsBy(value)
+  interface Props {
+    class?: string
+    self?: HTMLInputElement | undefined
+    id?: any
+    value: string
+    label?: string
+    name?: any
+    required?: boolean
+    placeholder?: string | undefined
+    options?: Array<SelectOptionJson>
+    onchange?: (value: string) => void
+    [key: string]: any
   }
-  let filteredOptions: Array<SelectOption> = []
+
+  let {
+    class: className = '',
+    self = $bindable(undefined),
+    id = uniqueId('select-'),
+    value = $bindable(),
+    label = '',
+    name = kebabCase(label),
+    required = false,
+    placeholder = undefined,
+    options: optionsJson = [],
+    onchange,
+    ...rest
+  }: Props = $props()
+
+  let open = $state(false)
+  let selectedOptionIndex = $state(0)
+
+  let filteredOptions: Array<SelectOption> = $state([])
   const filterOptionsBy = debounce((givenValue) => {
     const val = givenValue ?? ''
     if (val === '') {
@@ -59,42 +71,15 @@
     }
   }, 150)
 
-  // Handle open state changes without causing infinite loops
-  let previousOpenState = false
-  $: if (open !== previousOpenState) {
-    previousOpenState = open
-    if (open) {
-      registerOpenSelect(id, (newValue) => {
-        if (newValue !== open) {
-          open = newValue
-        }
-      })
-    } else {
-      // validate value before close
-      if (!options.includes(value)) {
-        value = ''
-      }
-    }
-  }
-
-  // Handle value validation separately to prevent loops
+  // Guards the effect below against re-validating on every remount before
+  // a freshly-mounted field's real value (from async parent data) settles -
+  // not an infinite-loop guard, but a genuine fix: without it, a fresh
+  // instance briefly sees its placeholder empty value, calls
+  // setCustomValidity with an error, and native constraint validation then
+  // blocks form submission even after the real value arrives, because
+  // nothing else ever clears that message. See git history for the Cypress
+  // failure this was caught by.
   let previousValue = value
-  $: if (value !== previousValue) {
-    previousValue = value
-    filterOptionsBy(value)
-    if (self) {
-      if (value === '' && required) {
-        self.setCustomValidity('Please fill required fields.')
-      } else {
-        if (options.includes(value)) {
-          self.setCustomValidity('')
-        } else {
-          self.setCustomValidity('Please select valid options.')
-        }
-      }
-    }
-  }
-
   filterOptionsBy(value)
 
   function handleInput(
@@ -105,6 +90,7 @@
     }
     selectedOptionIndex = 0
     value = (e.target as HTMLInputElement).value
+    onchange?.(value)
   }
   function handleKeyDown(e: KeyboardEvent) {
     switch (e.code) {
@@ -115,12 +101,14 @@
         e.preventDefault()
         open = false
         value = filteredOptions[selectedOptionIndex]
+        onchange?.(value)
         break
       case 'Tab':
         if (open) {
           e.preventDefault()
           open = false
           value = filteredOptions[selectedOptionIndex]
+          onchange?.(value)
         }
         break
       case 'ArrowUp':
@@ -146,26 +134,91 @@
     }
     open = true
   }
+  let options = $derived(optionsJson.map((item) => item.name))
+
+  function findOptionMatch(val: string): string | undefined {
+    if (!val || !options || options.length === 0) return undefined
+    if (options.includes(val)) return val
+    const lower = val.toLowerCase()
+    return options.find((o) => o.toLowerCase() === lower)
+  }
+
+  // Tracks only `open` - the register/validate branches read `value` and
+  // `options` but shouldn't re-run just because those change while the
+  // dropdown state itself hasn't, so those reads are untracked.
+  $effect(() => {
+    if (open) {
+      registerOpenSelect(id, (newValue) => {
+        if (newValue !== open) {
+          open = newValue
+        }
+      })
+    } else {
+      untrack(() => {
+        if (value) {
+          const match = findOptionMatch(value)
+          if (match) {
+            if (value !== match) {
+              value = match
+            }
+          } else {
+            value = ''
+          }
+        }
+      })
+    }
+  })
+
+  $effect(() => {
+    if (options) {
+      filterOptionsBy(value)
+    }
+  })
+
+  $effect(() => {
+    if (value !== previousValue) {
+      previousValue = value
+      filterOptionsBy(value)
+      if (self) {
+        if (value === '') {
+          if (required) {
+            self.setCustomValidity('Please fill required fields.')
+          } else {
+            self.setCustomValidity('')
+          }
+        } else {
+          const match = findOptionMatch(value)
+          if (match) {
+            self.setCustomValidity('')
+          } else {
+            self.setCustomValidity('Please select valid options.')
+          }
+        }
+      }
+    }
+  })
 </script>
 
 <div
   class={cn('relative mt-2', className)}
   use:clickOutside
-  on:outclick={() => {
+  onoutclick={() => {
     open = false
   }}
 >
-  <label for={id} class="text-sm font-bold">
-    <span>
-      {label}<span class={cn('text-red-500', !required && 'hidden')}>*</span>
-    </span>
-  </label>
+  {#if label}
+    <label for={id} class="text-sm font-bold">
+      <span>
+        {label}<span class={cn('text-red-500', !required && 'hidden')}>*</span>
+      </span>
+    </label>
+  {/if}
   <div class="relative">
     <div class="absolute top-0 right-0 flex h-12 items-center pr-2">
       <button
         type="button"
         aria-label="Toggle dropdown"
-        on:click={() => {
+        onclick={() => {
           open = !open
           if (open && self) {
             self.focus()
@@ -190,21 +243,21 @@
     </div>
     <input
       class={cn(
-        'mt-1 block h-12 w-full appearance-none rounded-md border border-gray-400 pl-3 pr-9 transition-colors placeholder:text-gray-500 focus:border-gray-600 focus:outline-hidden disabled:bg-white disabled:text-gray-400 disabled:placeholder:text-gray-400',
+        'mt-1 block h-12 w-full appearance-none rounded-md border border-gray-400 pr-9 pl-3 transition-colors placeholder:text-gray-500 focus:border-gray-600 focus:outline-hidden disabled:bg-white disabled:text-gray-400 disabled:placeholder:text-gray-400',
         className,
       )}
       type="text"
       data-1p-ignore
       bind:this={self}
-      on:input={handleInput}
-      on:keydown={handleKeyDown}
-      on:focusin={handleFocusIn}
+      oninput={handleInput}
+      onkeydown={handleKeyDown}
+      onfocusin={handleFocusIn}
       {value}
       {id}
       {name}
       {required}
       {placeholder}
-      {...$$restProps}
+      {...rest}
     />
     {#if open}
       <div
@@ -217,26 +270,28 @@
           <button
             class="w-full bg-gray-100 px-6 py-2 text-left transition-colors duration-300"
             type="button"
-            on:click={() => {
+            onclick={() => {
               value = filteredOptions[0]
               open = false
+              onchange?.(value)
             }}
           >
             {filteredOptions[0]}
           </button>
         {:else}
-          {#each filteredOptions as name, index}
+          {#each filteredOptions as name, index (name)}
             <button
               class={cn(
                 'w-full px-6 py-2 text-left transition-colors duration-300',
                 index === selectedOptionIndex && 'bg-gray-100',
               )}
               type="button"
-              on:click={() => {
+              onclick={() => {
                 value = name
                 open = false
+                onchange?.(value)
               }}
-              on:mouseenter={() => {
+              onmouseenter={() => {
                 selectedOptionIndex = index
               }}
             >

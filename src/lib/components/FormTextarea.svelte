@@ -2,16 +2,29 @@
   import { Field, Control, Label, FieldErrors } from 'formsnap'
   import { cn } from '$lib/utils'
 
-  let className = ''
-  export { className as class }
+  interface Props {
+    class?: string
+    form: any
+    name: string
+    label?: string
+    required?: boolean | undefined
+    placeholder?: string
+    value: any
+    inputName?: string
+    [key: string]: any
+  }
 
-  export let form: any
-  export let name: string
-  export let label: string = ''
-  export let required: boolean | undefined = undefined
-  export let placeholder = ''
-  export let value: any
-  export let inputName: string = ''
+  let {
+    class: className = '',
+    form,
+    name,
+    label = '',
+    required = undefined,
+    placeholder = '',
+    value = $bindable(),
+    inputName = '',
+    ...rest
+  }: Props = $props()
 
   /**
    * Helper function to dynamically retrieve constraint values (e.g. minlength, maxlength, required)
@@ -32,9 +45,8 @@
     return current || {}
   }
 
-  const constraintsStore = form.constraints
-  $: fieldConstraints = getConstraint($constraintsStore, name)
-  $: isRequired = required ?? fieldConstraints?.required ?? false
+  let fieldConstraints = $derived(getConstraint(form?.constraints, name))
+  let isRequired = $derived(required ?? fieldConstraints?.required ?? false)
 </script>
 
 <Field {form} {name}>
@@ -52,15 +64,14 @@
           name={inputName || props.name}
           {placeholder}
           required={isRequired}
-          minlength={$$restProps.minlength ?? fieldConstraints?.minlength}
-          maxlength={$$restProps.maxlength ?? fieldConstraints?.maxlength}
+          minlength={rest.minlength ?? fieldConstraints?.minlength}
+          maxlength={rest.maxlength ?? fieldConstraints?.maxlength}
           bind:value
           class={cn(
             'mt-1 block min-h-30 w-full appearance-none rounded-md border border-gray-400 p-3 transition-colors placeholder:text-gray-500 focus:border-gray-600 focus:outline-hidden disabled:bg-white disabled:text-gray-400',
             className,
           )}
-          {...$$restProps}
-        ></textarea>
+          {...rest}></textarea>
       </div>
     {/snippet}
   </Control>

@@ -14,10 +14,10 @@
   import { collection, doc, getDoc, getDocs, query } from 'firebase/firestore'
   import { alert } from '$lib/stores'
 
-  let numHours = 0
-  let numRegHours = 0
-  let numSubHours = 0
-  let currentUser: Data.User.Store
+  let numHours = $state(0)
+  let numRegHours = $state(0)
+  let numSubHours = $state(0)
+  let currentUser: Data.User.Store | undefined = $state()
   let year: number = new Date().getFullYear()
   let isFall = false
   let course = ''
@@ -76,6 +76,7 @@
   })
 
   function sendEmail() {
+    if (!currentUser) return
     const payload: CommunityServiceRequestBody = {
       firstName: currentUser.profile.firstName,
       hours: numRegHours * 1.25 + numSubHours * 1.5,
@@ -128,7 +129,7 @@
         <Button
           color="blue"
           class="mt-2"
-          on:click={sendEmail}
+          onclick={sendEmail}
           disabled={!currentUser}>Get Hours Confirmation Email</Button
         >
       </div>

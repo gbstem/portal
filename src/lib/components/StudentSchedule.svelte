@@ -8,19 +8,14 @@
     registrationsCollection,
   } from '$lib/data/collections'
   import { getContext, onMount } from 'svelte'
-  import { selectedStudentId } from '$lib/stores'
+  import { selectedStudentIdState } from '$lib/stores.svelte'
 
   type ClassDate = { course: string; meetingTime: Date; link: string }
-  let classes: ClassDate[] = []
-  let nextClass: ClassDate | null = null
+  let classes: ClassDate[] = $state([])
+  let nextClass: ClassDate | null = $state(null)
   let listView: boolean = false
-  let courses = new Set()
-  let selectedStudentUid = ''
-  let selectedStudentName = ''
-
-  const subscribe = selectedStudentId.subscribe((value) => {
-    selectedStudentUid = value
-  })
+  let selectedStudentUid = $derived(selectedStudentIdState.current)
+  let selectedStudentName = $state('')
 
   async function fetchClassSchedules(classIds: string[]) {
     const schedulesPromises = classIds.map((classId) =>
@@ -31,7 +26,6 @@
     for (const docSnapshot of schedulesDocs) {
       if (docSnapshot.exists()) {
         const data = docSnapshot.data() as Data.Class
-        courses.add(data.course)
         data.meetingTimes.forEach((date) => {
           fetchedClasses.push({
             course: data.course,
@@ -44,12 +38,16 @@
     return fetchedClasses
   }
 
-  $: if (selectedStudentUid) {
+  $effect(() => {
+    const currentUid = selectedStudentUid
+    if (!currentUid) return
+    let cancelled = false
     ;(async () => {
       try {
         const docSnapshot = await getDoc(
-          doc(db, registrationsCollection, selectedStudentUid),
+          doc(db, registrationsCollection, currentUid),
         )
+        if (cancelled) return
         if (docSnapshot.exists()) {
           const data = docSnapshot.data()
           const classIds = data.classes || []
@@ -89,7 +87,10 @@
         console.error('Failed to fetch class schedules:', err)
       }
     })()
-  }
+    return () => {
+      cancelled = true
+    }
+  })
 </script>
 
 <div class="rounded-lg bg-white p-6 shadow-xs">
@@ -136,7 +137,7 @@
       {/if}
       <div class="mb-2 font-bold">{selectedStudentName}'s Class Schedule</div>
       <ul class="space-y-3">
-        {#each classes as classSession}
+        {#each classes as classSession (classSession.course + classSession.meetingTime.getTime())}
           <li
             class="flex items-center rounded-lg bg-blue-50 px-4 py-3 shadow-xs"
           >

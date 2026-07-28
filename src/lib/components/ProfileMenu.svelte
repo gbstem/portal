@@ -1,19 +1,24 @@
 <script lang="ts">
   import { fade } from 'svelte/transition'
   import { clickOutside, cn } from '$lib/utils'
-  import { navigating } from '$app/stores'
+  import { navigating } from '$app/state'
   import { signOut } from 'firebase/auth'
   import { auth } from '$lib/client/firebase'
   import { goto } from '$app/navigation'
   import { circInOut } from 'svelte/easing'
 
-  let className = ''
-  export { className as class }
-
-  let open = false
-  $: if ($navigating) {
-    open = false
+  interface Props {
+    class?: string
   }
+
+  let { class: className = '' }: Props = $props()
+
+  let open = $state(false)
+  $effect(() => {
+    if (navigating.to) {
+      open = false
+    }
+  })
   function handleSignOut() {
     fetch('/api/auth', {
       method: 'DELETE',
@@ -29,7 +34,7 @@
 <div
   class={cn('relative md:flex md:items-center', className)}
   use:clickOutside
-  on:outclick={() => {
+  onoutclick={() => {
     open = false
   }}
 >
@@ -37,7 +42,7 @@
     class="hidden h-10 w-10 items-center justify-center rounded-full border-2 border-black transition-colors hover:bg-gray-200 sm:flex"
     type="button"
     aria-label="Profile menu"
-    on:click={() => {
+    onclick={() => {
       open = !open
     }}
   >
@@ -68,7 +73,7 @@
       <button
         class="w-full px-5 py-[0.65rem] text-left transition-colors duration-300 hover:bg-gray-100"
         type="button"
-        on:click={handleSignOut}
+        onclick={handleSignOut}
       >
         Sign out
       </button>
@@ -82,7 +87,7 @@
     <button
       class="w-full rounded-md border border-gray-200 px-6 py-2 shadow-xs transition-colors duration-300 hover:bg-gray-100"
       type="button"
-      on:click={handleSignOut}
+      onclick={handleSignOut}
     >
       Sign out
     </button>

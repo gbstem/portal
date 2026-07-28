@@ -6,17 +6,25 @@
     maxChildrenPerAccount,
     registrationsCollection,
   } from '$lib/data/collections'
-  import { selectedStudentId } from '$lib/stores'
+  import { selectedStudentIdState } from '$lib/stores.svelte'
   import { doc, getDoc } from 'firebase/firestore'
   import { onMount } from 'svelte'
 
-  let loading = true
+  let loading = $state(true)
 
-  let studentsOptions: { name: string }[] = []
-  export let selectedStudent = ''
-  export let selectedStudentUid = ''
-  export let preloadedStudents: { uid: string; name: string }[] = []
-  const nameToUid: Record<string, string> = {}
+  let studentsOptions: { name: string }[] = $state([])
+  interface Props {
+    selectedStudent?: string
+    selectedStudentUid?: string
+    preloadedStudents?: { uid: string; name: string }[]
+  }
+
+  let {
+    selectedStudent = $bindable(''),
+    selectedStudentUid = $bindable(''),
+    preloadedStudents = [],
+  }: Props = $props()
+  const nameToUid: Record<string, string> = $state({})
 
   const initializeFromPreloadedData = () => {
     studentsOptions = preloadedStudents.map((student) => ({
@@ -52,19 +60,23 @@
     }
   }
 
-  $: if (selectedStudent) {
-    const selectedStudentRegistration = studentsOptions.find(
-      (option) => option.name === selectedStudent,
-    )
-    if (selectedStudentRegistration) {
-      selectedStudentUid = nameToUid[selectedStudentRegistration.name]
-      selectedStudentId.set(selectedStudentUid)
+  $effect(() => {
+    if (selectedStudent) {
+      const selectedStudentRegistration = studentsOptions.find(
+        (option) => option.name === selectedStudent,
+      )
+      if (selectedStudentRegistration) {
+        selectedStudentUid = nameToUid[selectedStudentRegistration.name]
+        selectedStudentIdState.current = selectedStudentUid
+      }
     }
-  }
+  })
 
-  $: if (preloadedStudents.length > 0) {
-    initializeFromPreloadedData()
-  }
+  $effect(() => {
+    if (preloadedStudents.length > 0) {
+      initializeFromPreloadedData()
+    }
+  })
 
   onMount(() => {
     // If we have preloaded data, use it immediately

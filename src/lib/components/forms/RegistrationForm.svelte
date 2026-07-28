@@ -29,24 +29,30 @@
   import FormSelect from '../FormSelect.svelte'
   import FormCheckbox from '../FormCheckbox.svelte'
 
-  export let childUid: string = ''
-
-  export let semesterDates: Data.SemesterDates = {
-    classesEnd: '',
-    classesStart: '',
-    newInstructorAppsDue: '',
-    returningInstructorAppsDue: '',
-    instructorOrientation: '',
-    newInstructorAppsOpen: '',
-    returningInstructorAppsOpen: '',
-    studentOrientation: '',
-    registrationsDue: '',
-    parentOrientation: '',
-    registrationsOpen: '',
+  interface Props {
+    childUid?: string
+    semesterDates?: Data.SemesterDates
   }
 
-  let loading = true
-  let saving = false
+  let {
+    childUid = '',
+    semesterDates = {
+      classesEnd: '',
+      classesStart: '',
+      newInstructorAppsDue: '',
+      returningInstructorAppsDue: '',
+      instructorOrientation: '',
+      newInstructorAppsOpen: '',
+      returningInstructorAppsOpen: '',
+      studentOrientation: '',
+      registrationsDue: '',
+      parentOrientation: '',
+      registrationsOpen: '',
+    },
+  }: Props = $props()
+
+  let loading = $state(true)
+  let saving = $state(false)
   let showValidation = false
   let dbValues: Data.Registration
 
@@ -99,15 +105,75 @@
     },
   }
 
-  let values: Data.Registration = cloneDeep(emptyValues)
+  let values: Data.Registration = $state(cloneDeep(emptyValues))
 
   const schema = registrationSchema
 
+  function toFormValues(v: Data.Registration) {
+    return {
+      personal: {
+        studentFirstName: v.personal?.studentFirstName || '',
+        studentLastName: v.personal?.studentLastName || '',
+        parentFirstName: v.personal?.parentFirstName || '',
+        parentLastName: v.personal?.parentLastName || '',
+        email: v.personal?.email || '',
+        secondaryEmail: v.personal?.secondaryEmail || '',
+        phoneNumber: v.personal?.phoneNumber || '',
+        dateOfBirth: v.personal?.dateOfBirth || '',
+        gender: v.personal?.gender || '',
+        race: v.personal?.race || [],
+        frlp: v.personal?.frlp || '',
+        parentEducation: v.personal?.parentEducation || '',
+      },
+      academic: {
+        school: v.academic?.school || '',
+        grade: v.academic?.grade || '',
+      },
+      program: {
+        csCourse: v.program?.csCourse || '',
+        mathCourse: v.program?.mathCourse || '',
+        engineeringCourse: v.program?.engineeringCourse || '',
+        scienceCourse: v.program?.scienceCourse || '',
+        inPerson:
+          v.program?.inPerson !== undefined ? v.program.inPerson : false,
+        reason: v.program?.reason || '',
+      },
+      inPerson: {
+        allergies: v.inPerson?.allergies || '',
+        parentPickup: v.inPerson?.parentPickup || '',
+      },
+      agreements: {
+        mediaRelease:
+          v.agreements?.mediaRelease !== undefined
+            ? v.agreements.mediaRelease
+            : false,
+        bypassAgeLimits:
+          v.agreements?.bypassAgeLimits !== undefined
+            ? v.agreements.bypassAgeLimits
+            : false,
+        entireProgram:
+          v.agreements?.entireProgram !== undefined
+            ? v.agreements.entireProgram
+            : false,
+        timeCommitment:
+          v.agreements?.timeCommitment !== undefined
+            ? v.agreements.timeCommitment
+            : false,
+        submitting:
+          v.agreements?.submitting !== undefined
+            ? v.agreements.submitting
+            : false,
+      },
+    }
+  }
+
+  // svelte-ignore state_referenced_locally
   const formResult = superForm(
-    defaults(cloneDeep(emptyValues) as any, zod(schema as any) as any) as any,
+    defaults(toFormValues(values) as any, zod(schema as any) as any) as any,
     {
       SPA: true,
       validators: zod(schema as any) as any,
+      resetForm: false,
       dataType: 'json',
       async onUpdate({ form: formVal }) {
         if (!formVal.valid) return
@@ -294,9 +360,11 @@
     // Rely on the reactive statement below to run on initial mount
   })
 
-  $: if (childUid) {
-    initializeForm()
-  }
+  $effect(() => {
+    if (childUid) {
+      initializeForm()
+    }
+  })
 
   onDestroy(() => {
     clearInterval(saveInterval)
@@ -382,63 +450,9 @@
   }
 
   // React to loaded/saved values changing
-  $: if (values) {
-    $form.personal = {
-      studentFirstName: values.personal?.studentFirstName || '',
-      studentLastName: values.personal?.studentLastName || '',
-      parentFirstName: values.personal?.parentFirstName || '',
-      parentLastName: values.personal?.parentLastName || '',
-      email: values.personal?.email || '',
-      secondaryEmail: values.personal?.secondaryEmail || '',
-      phoneNumber: values.personal?.phoneNumber || '',
-      dateOfBirth: values.personal?.dateOfBirth || '',
-      gender: values.personal?.gender || '',
-      race: values.personal?.race || [],
-      frlp: values.personal?.frlp || '',
-      parentEducation: values.personal?.parentEducation || '',
-    }
-    $form.academic = {
-      school: values.academic?.school || '',
-      grade: values.academic?.grade || '',
-    }
-    $form.program = {
-      csCourse: values.program?.csCourse || '',
-      mathCourse: values.program?.mathCourse || '',
-      engineeringCourse: values.program?.engineeringCourse || '',
-      scienceCourse: values.program?.scienceCourse || '',
-      inPerson:
-        values.program?.inPerson !== undefined
-          ? values.program.inPerson
-          : false,
-      reason: values.program?.reason || '',
-    }
-    $form.inPerson = {
-      allergies: values.inPerson?.allergies || '',
-      parentPickup: values.inPerson?.parentPickup || '',
-    }
-    $form.agreements = {
-      mediaRelease:
-        values.agreements?.mediaRelease !== undefined
-          ? values.agreements.mediaRelease
-          : false,
-      bypassAgeLimits:
-        values.agreements?.bypassAgeLimits !== undefined
-          ? values.agreements.bypassAgeLimits
-          : false,
-      entireProgram:
-        values.agreements?.entireProgram !== undefined
-          ? values.agreements.entireProgram
-          : false,
-      timeCommitment:
-        values.agreements?.timeCommitment !== undefined
-          ? values.agreements.timeCommitment
-          : false,
-      submitting:
-        values.agreements?.submitting !== undefined
-          ? values.agreements.submitting
-          : false,
-    }
-  }
+  $effect(() => {
+    form.set(toFormValues(values))
+  })
 
   function handleUnload(e: BeforeUnloadEvent) {
     const currentValues = {
@@ -472,7 +486,7 @@
   }
 </script>
 
-<svelte:window on:beforeunload={handleUnload} />
+<svelte:window onbeforeunload={handleUnload} />
 
 {#if new Date() < new Date(semesterDates.registrationsOpen)}
   <Card class="mb-6 max-w-2xl border-red-200 bg-red-50">
@@ -650,7 +664,7 @@
               >Race / ethnicity (check all that apply)</span
             >
             <div class="grid grid-cols-2 gap-2">
-              {#each raceJson as race}
+              {#each raceJson as race (race.name)}
                 <div class="flex items-center">
                   <input
                     type="checkbox"
@@ -768,7 +782,7 @@
         <div class="mt-8 grid grid-cols-2 gap-3">
           <button
             type="button"
-            on:click={() => handleSave()}
+            onclick={() => handleSave()}
             class="rounded-md bg-gray-100 px-4 py-2 text-gray-900 shadow-xs transition-colors duration-300 hover:bg-gray-200 disabled:bg-gray-200 disabled:text-gray-500"
           >
             Save draft

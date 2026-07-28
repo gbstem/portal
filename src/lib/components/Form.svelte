@@ -1,21 +1,24 @@
 <script lang="ts">
   import { cn } from '$lib/utils'
-  import { createEventDispatcher } from 'svelte'
 
-  export let className: string
-  export { className as class }
+  interface Props {
+    class: string
+    onSubmit?: (data: SubmitData) => void
+    children?: import('svelte').Snippet
+    [key: string]: any
+  }
 
-  const dispatch = createEventDispatcher<{
-    submit: SubmitData
-  }>()
-  let self: HTMLFormElement
+  let { class: className, onSubmit, children, ...rest }: Props = $props()
+
+  let formEl: HTMLFormElement | undefined = $state()
 
   function handleSubmit(e: SubmitEvent) {
+    if (!formEl) return
     const state = [
-      ...Array.from(self.querySelectorAll('input')),
-      ...Array.from(self.querySelectorAll('textarea')),
+      ...Array.from(formEl.querySelectorAll('input')),
+      ...Array.from(formEl.querySelectorAll('textarea')),
     ].find((el) => !el.checkValidity())
-    dispatch('submit', {
+    onSubmit?.({
       event: e,
       error: state === undefined ? null : state.validationMessage,
     })
@@ -25,9 +28,12 @@
 <form
   class={cn('w-full', className)}
   novalidate
-  bind:this={self}
-  on:submit|preventDefault={handleSubmit}
-  {...$$restProps}
+  bind:this={formEl}
+  onsubmit={(e) => {
+    e.preventDefault()
+    handleSubmit(e)
+  }}
+  {...rest}
 >
-  <slot />
+  {@render children?.()}
 </form>

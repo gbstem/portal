@@ -1,73 +1,87 @@
 <script lang="ts">
   import { browser } from '$app/environment'
-  import { dialog } from '$lib/stores'
+  import { dialogState } from '$lib/stores.svelte'
   import { clickOutside, cn, trapFocus } from '$lib/utils'
   import { uniqueId } from 'lodash-es'
-  import { createEventDispatcher, onDestroy } from 'svelte'
+  import { onDestroy } from 'svelte'
   import { fade } from 'svelte/transition'
 
   type Size = 'min' | 'full'
 
-  const dispatch = createEventDispatcher()
-  export let size: Size = 'min'
-  export let disabled = false
-  let openState = false
-  export { openState as initial }
   const id = uniqueId('dialog-')
-  export let alert = false
-  let bodyLocked = false
-  $: if (browser) {
-    if (openState) {
-      dialog.set(id)
-      document.body.style.overflowY = 'hidden'
-      bodyLocked = true
-    } else if ($dialog === id) {
-      dialog.set(null)
-      document.body.style.overflowY = 'auto'
-      bodyLocked = false
-    }
+  interface Props {
+    size?: Size
+    disabled?: boolean
+    open?: boolean
+    alert?: boolean
+    onCancel?: () => void
+    title?: import('svelte').Snippet
+    description?: import('svelte').Snippet
   }
+
+  let {
+    size = 'min',
+    disabled = false,
+    open = $bindable(false),
+    alert = false,
+    onCancel,
+    title,
+    description,
+  }: Props = $props()
+  let bodyLocked = $state(false)
+  $effect(() => {
+    if (browser) {
+      if (open) {
+        dialogState.current = id
+        document.body.style.overflowY = 'hidden'
+        bodyLocked = true
+      } else if (dialogState.current === id) {
+        dialogState.current = null
+        document.body.style.overflowY = 'auto'
+        bodyLocked = false
+      }
+    }
+  })
 
   onDestroy(() => {
     if (browser) {
-      if ($dialog === id) {
-        dialog.set(null)
+      if (dialogState.current === id) {
+        dialogState.current = null
       }
       if (bodyLocked) {
         document.body.style.overflowY = 'auto'
       }
     }
   })
-  export function open() {
+
+  // `open` is bindable, so a parent can flip it directly (open = true or
+  // open = false after a successful save, etc). onCancel only fires when
+  // the DIALOG itself dismisses via its own chrome (X button, Escape,
+  // outside click) - a parent-initiated `open = false` intentionally
+  // skips it, since the parent already knows why it closed.
+  function handleCancel() {
     if (!disabled) {
-      openState = true
-      dispatch('open', true)
-    }
-  }
-  export function close() {
-    if (!disabled) {
-      openState = false
-      dispatch('close', true)
-    }
-  }
-  export function cancel() {
-    if (!disabled) {
-      openState = false
-      dispatch('cancel', true)
+      open = false
+      onCancel?.()
     }
   }
   function handleEscape(e: KeyboardEvent) {
-    if (openState && !disabled) {
+    if (open && !disabled) {
       if (e.code === 'Escape') {
-        cancel()
+        handleCancel()
       }
     }
   }
 </script>
 
-<svelte:body on:keydown|stopPropagation={handleEscape} />
+<svelte:body
+  onkeydown={(e) => {
+    e.stopPropagation()
+    handleEscape(e)
+  }}
+/>
 
-{#if openState}
+{#if open}
   <div
     class="fixed inset-0 z-50 h-screen w-screen bg-black opacity-40"
     transition:fade={{ duration: 200 }}
@@ -81,23 +95,23 @@
     >
       <div
         class={cn(
-          'p-4 sm:p-8 bg-white grid gap-3 sm:gap-6 w-full rounded-lg relative',
-          size === 'full' && 'min-h-full h-fit',
+          'relative grid w-full gap-3 rounded-lg bg-white p-4 sm:gap-6 sm:p-8',
+          size === 'full' && 'h-fit min-h-full',
           size === 'min' && 'max-w-2xl',
         )}
         role="dialog"
         use:trapFocus
         use:clickOutside
-        on:outclick={() => {
+        onoutclick={() => {
           if (!alert) {
-            cancel()
+            handleCancel()
           }
         }}
       >
         <button
           type="button"
           class="absolute top-2 right-2 z-50 cursor-pointer rounded-full border border-gray-200 bg-white p-1.5 text-gray-500 shadow-sm transition-colors hover:bg-gray-100 hover:text-gray-700 focus:outline-none disabled:opacity-50 sm:top-4 sm:right-4"
-          on:click={cancel}
+          onclick={handleCancel}
           {disabled}
           aria-label="Close dialog"
         >
@@ -118,9 +132,9 @@
         <h1
           class="rounded-md bg-gray-200 px-4 py-3 pr-12 text-xl font-bold uppercase"
         >
-          <slot name="title" />
+          {@render title?.()}
         </h1>
-        <slot name="description" />
+        {@render description?.()}
       </div>
     </div>
   </div>

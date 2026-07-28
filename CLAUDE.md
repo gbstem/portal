@@ -17,9 +17,11 @@ Portal and admin share the **same Firestore database and Firebase project** and 
 - `locals.user` is populated in `src/hooks.server.ts` via `adminAuth.verifySessionCookie`; only `student`/`instructor` custom-claim roles are accepted — other roles are redirected to `admin.gbstem.org`.
 - **New protected page → put it under `src/routes/(signedIn)/(emailVerified)/<name>/+page.svelte`.** Don't add manual auth checks; the layout hierarchy already gates it.
 
-## Written in Svelte 4 idiom, despite the Svelte 5 dependency
+## Svelte 5 runes, callback props, snippets
 
-`package.json` pins `svelte@^5`, but the codebase uses **zero runes** (`$state`/`$derived`/`$effect`/`$props`) anywhere. Match the existing style: `export let prop`, top-level `$:` reactive statements, and `svelte/store` (`writable`, see `src/lib/stores.ts`) for shared state. Don't introduce runes in new components.
+`package.json` pins `svelte@^5` and the codebase is written in runes mode: `$props()`/`$state`/`$derived`/`$bindable` for component state, `$effect` for side effects (never for syncing state that is also read in the same effect — see below). Component "events" are plain callback props (`onclick`, `onSubmit`, `onCancel`, ...), not `createEventDispatcher`/`on:*`. Use snippets (`{#snippet ...}` / `children: Snippet`) instead of `<slot />`. Shared cross-component state lives in rune-backed `.svelte.ts` modules (see `src/lib/stores.svelte.ts`), not `svelte/store` — the one deliberate exception is `src/lib/client/firebase.ts`'s `user` store, which stays a `svelte/store` on purpose because module-level `$state` would leak between requests during SSR. Navigation/page info comes from `$app/state` (`page`, `navigating`), not the deprecated `$app/stores`; note `navigating` is always truthy there — check `navigating.to`/`navigating.type`, not `if (navigating)`.
+
+When a value is derived from other reactive state, use `$derived`/`$derived.by` — don't reach for `$effect` to "copy" one piece of state into another; that's the guard-variable-hack shape this codebase spent real effort removing.
 
 ## Forms: SPA Superforms writing straight to Firestore
 

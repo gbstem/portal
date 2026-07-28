@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { navigating, page } from '$app/stores'
+  import { navigating, page } from '$app/state'
   import { db, user } from '$lib/client/firebase'
   import { decisionsCollection } from '$lib/data/collections'
   import { cn } from '$lib/utils'
@@ -10,13 +10,13 @@
   import Brand from './Brand.svelte'
   import ProfileMenu from './ProfileMenu.svelte'
 
-  $: userRole = $user?.profile?.role
-  let shadow = false
-  let open = false
-  let showAdditionalPages = false
+  let userRole = $derived($user?.profile?.role)
+  let shadow = $state(false)
+  let open = $state(false)
+  let showAdditionalPages = $state(false)
 
   // Reactive statement to update the forms page name based on user role
-  $: pages = [
+  let pages = $derived([
     { name: 'Dashboard', href: '/dashboard' },
     { name: userRole === 'student' ? 'Register' : 'Apply', href: '/apply' },
     { name: 'Classes', href: '/classes' },
@@ -29,15 +29,17 @@
           },
         ]
       : []),
-  ]
+  ])
 
   // Only fetch document when user is loaded, has a uid, and is an instructor
-  $: if ($user?.object?.uid && userRole === 'instructor') {
+  $effect(() => {
+    const uid = $user?.object?.uid
+    if (!uid || userRole !== 'instructor') return
+    let cancelled = false
     ;(async () => {
       try {
-        const document = await getDoc(
-          doc(db, decisionsCollection, $user.object.uid),
-        )
+        const document = await getDoc(doc(db, decisionsCollection, uid))
+        if (cancelled) return
         if (document.exists() && document.data().type === 'accepted') {
           showAdditionalPages = true
         }
@@ -45,27 +47,30 @@
         console.error('Error fetching document:', error)
       }
     })()
-  }
+    return () => {
+      cancelled = true
+    }
+  })
 
   onMount(() => {
     updateShadow()
-    return navigating.subscribe((navigating) => {
-      if (navigating) {
-        open = false
-      }
-    })
   })
-  $: pathname = $page.url.pathname
+  $effect(() => {
+    if (navigating.to) {
+      open = false
+    }
+  })
+  let pathname = $derived(page.url.pathname)
 
   function updateShadow() {
     shadow = window.scrollY !== 0
   }
 </script>
 
-<svelte:window on:scroll={updateShadow} />
+<svelte:window onscroll={updateShadow} />
 <nav
   class={cn(
-    'px-4 md:px-6 lg:px-8 fixed left-0 top-0 z-40 flex h-20 w-full items-center justify-between border-b bg-white/70 backdrop-blur-md transition-all duration-300 gap-2 md:gap-4 lg:gap-6',
+    'fixed top-0 left-0 z-40 flex h-20 w-full items-center justify-between gap-2 border-b bg-white/70 px-4 backdrop-blur-md transition-all duration-300 md:gap-4 md:px-6 lg:gap-6 lg:px-8',
     shadow && !open ? 'shadow-b border-gray-200' : 'border-white',
   )}
   style="backdrop-filter: blur(12px);"
@@ -76,10 +81,10 @@
       <div
         class="no-scrollbar hidden min-w-0 flex-1 items-center justify-start gap-0.5 overflow-x-auto px-2 py-1 sm:flex md:gap-1 lg:justify-center lg:gap-1.5 xl:gap-2"
       >
-        {#each pages as page}
+        {#each pages as page (page.href)}
           <a
             class={cn(
-              'relative rounded-full px-1.5 py-1 text-[11px] md:px-2 md:py-1.5 md:text-xs lg:px-2.5 lg:py-2 lg:text-sm xl:px-4 xl:text-base font-medium transition-colors duration-200 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-400 text-center leading-tight flex items-center justify-center min-h-10 max-w-30 shrink-0',
+              'relative flex min-h-10 max-w-30 shrink-0 items-center justify-center rounded-full px-1.5 py-1 text-center text-[11px] leading-tight font-medium transition-colors duration-200 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-400 md:px-2 md:py-1.5 md:text-xs lg:px-2.5 lg:py-2 lg:text-sm xl:px-4 xl:text-base',
               pathname === page.href
                 ? 'bg-blue-100 text-blue-700 shadow-xs'
                 : 'hover:bg-gray-100 hover:text-blue-600',
@@ -106,7 +111,7 @@
         type="button"
         aria-label={open ? 'Close menu' : 'Open menu'}
         aria-expanded={open}
-        on:click={() => {
+        onclick={() => {
           open = !open
         }}
       >
@@ -155,7 +160,7 @@
     style="backdrop-filter: blur(12px);"
   >
     {#if $user?.object?.emailVerified}
-      {#each pages as page}
+      {#each pages as page (page.href)}
         <a
           class={cn(
             'rounded-full px-3 py-2 font-medium transition-colors duration-200 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-400',

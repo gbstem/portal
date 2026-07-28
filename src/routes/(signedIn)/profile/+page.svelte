@@ -16,10 +16,15 @@
   import DialogActions from '$lib/components/DialogActions.svelte'
   import Link from '$lib/components/Link.svelte'
 
-  export let data: PageData
+  interface Props {
+    data: PageData
+  }
 
-  let dialogEl: Dialog
-  let disabled = false
+  let { data }: Props = $props()
+
+  // svelte-ignore state_referenced_locally
+  let showVerifyDialog = $state(!data.user.emailVerified)
+  let disabled = $state(false)
 
   async function handleVerificationEmail() {
     if ($user) {
@@ -51,27 +56,31 @@
   <title>Profile</title>
 </svelte:head>
 
-<Dialog bind:this={dialogEl} initial={!data.user.emailVerified} size="min">
-  <svelte:fragment slot="title">Please verify your email</svelte:fragment>
-  <div slot="description" class="space-y-4">
-    <p>
-      Your email is not verified. Please check your inbox and spam folder for
-      the verification email. If you want to use another email, please change
-      your email through the profile. Once you've verified your email, click the
-      button below.
-    </p>
+<Dialog bind:open={showVerifyDialog} size="min">
+  {#snippet title()}
+    Please verify your email
+  {/snippet}
+  {#snippet description()}
+    <div class="space-y-4">
+      <p>
+        Your email is not verified. Please check your inbox and spam folder for
+        the verification email. If you want to use another email, please change
+        your email through the profile. Once you've verified your email, click
+        the button below.
+      </p>
 
-    <DialogActions>
-      <Button
-        color="blue"
-        on:click={() => {
-          location.reload()
-          setTimeout(() => (window.location.href = '/dashboard'), 100)
-        }}>Go to dashboard</Button
-      >
-      <Button on:click={dialogEl.cancel}>Close</Button>
-    </DialogActions>
-  </div>
+      <DialogActions>
+        <Button
+          color="blue"
+          onclick={() => {
+            location.reload()
+            setTimeout(() => (window.location.href = '/dashboard'), 100)
+          }}>Go to dashboard</Button
+        >
+        <Button onclick={() => (showVerifyDialog = false)}>Close</Button>
+      </DialogActions>
+    </div>
+  {/snippet}
 </Dialog>
 
 <h1 class="mb-4 text-5xl font-bold md:text-6xl">Profile</h1>
@@ -102,7 +111,7 @@
           your account. Can't find the email? <button
             class="inline-block border-b border-black text-black transition-colors duration-300 hover:border-gray-600 hover:text-gray-600 disabled:border-gray-600 disabled:text-gray-600"
             type="button"
-            on:click={handleVerificationEmail}
+            onclick={handleVerificationEmail}
             {disabled}>Send it again.</button
           >
         </div>
@@ -122,7 +131,7 @@
             class="text-black transition-colors duration-300 hover:text-gray-700"
             type="button"
             aria-label="Copy User ID"
-            on:click={() => {
+            onclick={() => {
               if ($user) {
                 writeToClipboard($user.profile.id)
               }

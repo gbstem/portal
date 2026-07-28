@@ -23,25 +23,31 @@
   import FormCheckbox from '../FormCheckbox.svelte'
   import FormTextarea from '../FormTextarea.svelte'
 
-  export let semesterDates: Data.SemesterDates = {
-    classesEnd: '',
-    classesStart: '',
-    newInstructorAppsDue: '',
-    returningInstructorAppsDue: '',
-    instructorOrientation: '',
-    newInstructorAppsOpen: '',
-    returningInstructorAppsOpen: '',
-    studentOrientation: '',
-    registrationsDue: '',
-    parentOrientation: '',
-    registrationsOpen: '',
+  interface Props {
+    semesterDates?: Data.SemesterDates
   }
 
-  let saving = false
+  let {
+    semesterDates = {
+      classesEnd: '',
+      classesStart: '',
+      newInstructorAppsDue: '',
+      returningInstructorAppsDue: '',
+      instructorOrientation: '',
+      newInstructorAppsOpen: '',
+      returningInstructorAppsOpen: '',
+      studentOrientation: '',
+      registrationsDue: '',
+      parentOrientation: '',
+      registrationsOpen: '',
+    },
+  }: Props = $props()
+
+  let saving = $state(false)
   let showValidation = false
   let dbValues: Data.Application
 
-  let values: Data.Application = {
+  let values: Data.Application = $state({
     personal: {
       email: '',
       firstName: '',
@@ -84,60 +90,62 @@
       created: serverTimestamp() as Timestamp,
       updated: serverTimestamp() as Timestamp,
     },
-  }
-
-  const defaultValues: Data.Application = {
-    personal: {
-      email: '',
-      firstName: '',
-      lastName: '',
-      gender: '',
-      race: [],
-      phoneNumber: '',
-      dateOfBirth: '',
-    },
-    academic: {
-      school: '',
-      graduationYear: '',
-    },
-    program: {
-      courses: [],
-      preferences: '',
-      timeSlots: '',
-      notAvailable: '',
-      inPerson: false,
-      reason: '',
-    },
-    essay: {
-      taughtBefore: false,
-      academicBackground: '',
-      teachingScenario: '',
-      why: '',
-    },
-    agreements: {
-      entireProgram: false,
-      timeCommitment: false,
-      submitting: false,
-    },
-    meta: {
-      id: '',
-      uid: '',
-      submitted: false,
-      interview: false,
-    },
-    timestamps: {
-      created: null as any,
-      updated: null as any,
-    },
-  }
+  })
 
   const schema = applicationSchema
 
+  function toFormValues(v: Data.Application) {
+    return {
+      personal: {
+        phoneNumber: v.personal?.phoneNumber || '',
+        dateOfBirth: v.personal?.dateOfBirth || '',
+        gender: v.personal?.gender || '',
+        race: v.personal?.race || [],
+      },
+      academic: {
+        school: v.academic?.school || '',
+        graduationYear: v.academic?.graduationYear || new Date().getFullYear(),
+      },
+      program: {
+        courses: v.program?.courses || [],
+        preferences: v.program?.preferences || '',
+        timeSlots: v.program?.timeSlots || '',
+        notAvailable: v.program?.notAvailable || '',
+        inPerson:
+          v.program?.inPerson !== undefined ? v.program.inPerson : false,
+        reason: v.program?.reason || '',
+      },
+      essay: {
+        taughtBefore:
+          v.essay?.taughtBefore !== undefined ? v.essay.taughtBefore : false,
+        academicBackground: v.essay?.academicBackground || '',
+        teachingScenario: v.essay?.teachingScenario || '',
+        why: v.essay?.why || '',
+      },
+      agreements: {
+        entireProgram:
+          v.agreements?.entireProgram !== undefined
+            ? v.agreements.entireProgram
+            : false,
+        timeCommitment:
+          v.agreements?.timeCommitment !== undefined
+            ? v.agreements.timeCommitment
+            : false,
+        submitting:
+          v.agreements?.submitting !== undefined
+            ? v.agreements.submitting
+            : false,
+      },
+    }
+  }
+
+  // svelte-ignore state_referenced_locally
   const formResult = superForm(
-    defaults(cloneDeep(defaultValues) as any, zod(schema as any) as any) as any,
+    defaults(toFormValues(values) as any, zod(schema as any) as any) as any,
     {
       SPA: true,
       validators: zod(schema as any) as any,
+      resetForm: false,
       dataType: 'json',
       async onUpdate({ form: formVal }) {
         if (!formVal.valid) return
@@ -341,53 +349,9 @@
   }
 
   // React to loaded/saved values changing
-  $: if (values) {
-    $form.personal = {
-      phoneNumber: values.personal?.phoneNumber || '',
-      dateOfBirth: values.personal?.dateOfBirth || '',
-      gender: values.personal?.gender || '',
-      race: values.personal?.race || [],
-    }
-    $form.academic = {
-      school: values.academic?.school || '',
-      graduationYear:
-        values.academic?.graduationYear || new Date().getFullYear(),
-    }
-    $form.program = {
-      courses: values.program?.courses || [],
-      preferences: values.program?.preferences || '',
-      timeSlots: values.program?.timeSlots || '',
-      notAvailable: values.program?.notAvailable || '',
-      inPerson:
-        values.program?.inPerson !== undefined
-          ? values.program.inPerson
-          : false,
-      reason: values.program?.reason || '',
-    }
-    $form.essay = {
-      taughtBefore:
-        values.essay?.taughtBefore !== undefined
-          ? values.essay.taughtBefore
-          : false,
-      academicBackground: values.essay?.academicBackground || '',
-      teachingScenario: values.essay?.teachingScenario || '',
-      why: values.essay?.why || '',
-    }
-    $form.agreements = {
-      entireProgram:
-        values.agreements?.entireProgram !== undefined
-          ? values.agreements.entireProgram
-          : false,
-      timeCommitment:
-        values.agreements?.timeCommitment !== undefined
-          ? values.agreements.timeCommitment
-          : false,
-      submitting:
-        values.agreements?.submitting !== undefined
-          ? values.agreements.submitting
-          : false,
-    }
-  }
+  $effect(() => {
+    form.set(toFormValues(values))
+  })
 
   function handleUnload(e: BeforeUnloadEvent) {
     // Construct values comparison object
@@ -422,7 +386,7 @@
   }
 </script>
 
-<svelte:window on:beforeunload={handleUnload} />
+<svelte:window onbeforeunload={handleUnload} />
 
 <form use:enhance class="max-w-2xl">
   {#if new Date() >= new Date(semesterDates.newInstructorAppsDue)}
@@ -513,7 +477,7 @@
           >Race / ethnicity (check all that apply)</span
         >
         <div class="grid grid-cols-2 gap-2">
-          {#each raceJson as race}
+          {#each raceJson as race (race.name)}
             <div class="flex items-center">
               <input
                 type="checkbox"
@@ -565,7 +529,7 @@
           all that apply. Course descriptions are on our website.</span
         >
         <div class="mt-2 grid grid-cols-2 gap-2">
-          {#each coursesJson as course}
+          {#each coursesJson as course (course.name)}
             <div class="flex items-center">
               <input
                 type="checkbox"
@@ -725,7 +689,7 @@
       {:else}
         <button
           type="button"
-          on:click={() => handleSave()}
+          onclick={() => handleSave()}
           class="rounded-md bg-gray-100 px-4 py-2 text-gray-900 shadow-xs transition-colors duration-300 hover:bg-gray-200 disabled:bg-gray-200 disabled:text-gray-500"
         >
           Save draft

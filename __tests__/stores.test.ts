@@ -42,13 +42,11 @@ jest.mock(
 )
 
 import { get } from 'svelte/store'
-import { alert, dialog, selectedStudentId } from '../src/lib/stores'
+import { alert } from '../src/lib/stores'
 
 describe('stores', () => {
   beforeEach(() => {
     alert.clear()
-    dialog.set(null)
-    selectedStudentId.set('')
   })
 
   describe('alert store', () => {
@@ -99,22 +97,6 @@ describe('stores', () => {
         message: '',
         timestamp: null,
       })
-    })
-  })
-
-  describe('dialog store', () => {
-    it('is a writable store', () => {
-      expect(get(dialog)).toBeNull()
-      dialog.set('test-dialog')
-      expect(get(dialog)).toBe('test-dialog')
-    })
-  })
-
-  describe('selectedStudentId store', () => {
-    it('is a writable store', () => {
-      expect(get(selectedStudentId)).toBe('')
-      selectedStudentId.set('student-123')
-      expect(get(selectedStudentId)).toBe('student-123')
     })
   })
 })

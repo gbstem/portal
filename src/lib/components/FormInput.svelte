@@ -2,17 +2,31 @@
   import { Field, Control, Label, FieldErrors } from 'formsnap'
   import { cn } from '$lib/utils'
 
-  let className = ''
-  export { className as class }
+  interface Props {
+    class?: string
+    form: any
+    name: string
+    label?: string
+    required?: boolean | undefined
+    type?: string
+    placeholder?: string
+    value: any
+    inputName?: string
+    [key: string]: any
+  }
 
-  export let form: any
-  export let name: string
-  export let label: string = ''
-  export let required: boolean | undefined = undefined
-  export let type = 'text'
-  export let placeholder = ''
-  export let value: any
-  export let inputName: string = ''
+  let {
+    class: className = '',
+    form,
+    name,
+    label = '',
+    required = undefined,
+    type = 'text',
+    placeholder = '',
+    value = $bindable(),
+    inputName = '',
+    ...rest
+  }: Props = $props()
 
   /**
    * Helper function to dynamically retrieve constraint values (e.g. min, max, minlength, maxlength, pattern, required)
@@ -34,9 +48,8 @@
     return current || {}
   }
 
-  const constraintsStore = form.constraints
-  $: fieldConstraints = getConstraint($constraintsStore, name)
-  $: isRequired = required ?? fieldConstraints?.required ?? false
+  let fieldConstraints = $derived(getConstraint(form?.constraints, name))
+  let isRequired = $derived(required ?? fieldConstraints?.required ?? false)
 </script>
 
 <Field {form} {name}>
@@ -55,18 +68,18 @@
           {type}
           {placeholder}
           required={isRequired}
-          min={$$restProps.min ?? fieldConstraints?.min}
-          max={$$restProps.max ?? fieldConstraints?.max}
-          minlength={$$restProps.minlength ?? fieldConstraints?.minlength}
-          maxlength={$$restProps.maxlength ?? fieldConstraints?.maxlength}
-          pattern={$$restProps.pattern ?? fieldConstraints?.pattern}
-          step={$$restProps.step ?? fieldConstraints?.step}
+          min={rest.min ?? fieldConstraints?.min}
+          max={rest.max ?? fieldConstraints?.max}
+          minlength={rest.minlength ?? fieldConstraints?.minlength}
+          maxlength={rest.maxlength ?? fieldConstraints?.maxlength}
+          pattern={rest.pattern ?? fieldConstraints?.pattern}
+          step={rest.step ?? fieldConstraints?.step}
           bind:value
           class={cn(
             'mt-1 block h-12 w-full appearance-none rounded-md border border-gray-400 px-3 transition-colors placeholder:text-gray-500 focus:border-gray-600 focus:outline-hidden disabled:bg-white disabled:text-gray-400',
             className,
           )}
-          {...$$restProps}
+          {...rest}
         />
       </div>
     {/snippet}
