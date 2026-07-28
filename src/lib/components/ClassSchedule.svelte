@@ -112,6 +112,7 @@
   function checkStatuses() {
     let { classStatuses, feedbackCompleted, meetingTimes } = values
 
+    const originalStatuses = [...classStatuses]
     classStatuses = classStatuses.concat(
       Array(meetingTimes.length - classStatuses.length).fill(
         ClassStatus.ClassInFuture,
@@ -139,11 +140,16 @@
       }
     }
 
-    classStatuses = classStatuses.map(updateStatuses)
+    const updatedStatuses = classStatuses.map(updateStatuses)
+    const hasChanged =
+      updatedStatuses.length !== originalStatuses.length ||
+      updatedStatuses.some((st, i) => st !== originalStatuses[i])
 
-    updateDoc(doc(db, classesCollection, classId), {
-      classStatuses: classStatuses,
-    })
+    if (hasChanged) {
+      updateDoc(doc(db, classesCollection, classId), {
+        classStatuses: updatedStatuses,
+      }).catch((err) => console.warn('Failed to update classStatuses:', err))
+    }
   }
 
   async function updateMeetingTimes(

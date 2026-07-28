@@ -248,6 +248,7 @@
     )
     await updateDoc(registrationDocRef, {
       classes: arrayUnion(classId),
+      enrolled: true,
     })
       .then(() => {
         alert.trigger('success', 'Enrolled in class!')
@@ -315,7 +316,12 @@
     await updateDoc(registrationDocRef, {
       classes: arrayRemove(classId),
     })
-      .then(() => {
+      .then(async () => {
+        const regSnap = await getDoc(registrationDocRef)
+        const remainingClasses = (regSnap.data()?.classes || []) as string[]
+        await updateDoc(registrationDocRef, {
+          enrolled: remainingClasses.length > 0,
+        })
         alert.trigger('success', 'Unenrolled from class!')
         showClassDetailsDialog = false
       })
