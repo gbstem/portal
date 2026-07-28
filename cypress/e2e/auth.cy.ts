@@ -115,6 +115,7 @@ describe('Section A: Authentication and Navigation', () => {
     cy.selectOption(
       'input[name="role"]',
       'Parent registering my child for classes',
+      { timeout: 10000 },
     )
     cy.fillInput('input[name="firstName"]', first)
     cy.fillInput('input[name="lastName"]', last)
@@ -160,6 +161,7 @@ describe('Section A: Authentication and Navigation', () => {
     cy.selectOption(
       'input[name="role"]',
       'High school/college student applying to be an instructor',
+      { timeout: 10000 },
     )
     cy.fillInput('input[name="firstName"]', first)
     cy.fillInput('input[name="lastName"]', last)

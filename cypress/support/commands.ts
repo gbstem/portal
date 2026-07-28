@@ -102,11 +102,14 @@ Cypress.Commands.add('signOutViaUi', () => {
   cy.get('input[type="email"]').should('be.visible')
 })
 
-Cypress.Commands.add('selectOption', (selector: string, text: string) => {
-  cy.get(selector).click({ force: true })
-  cy.wait(300)
-  cy.contains('button', text).click({ force: true })
-})
+Cypress.Commands.add(
+  'selectOption',
+  (selector: string, text: string, options?: Partial<Cypress.Timeoutable>) => {
+    cy.get(selector, options).click({ force: true })
+    cy.wait(300)
+    cy.contains('button', text, options).click({ force: true })
+  },
+)
 
 Cypress.Commands.add('parseCopiedEmails', (clipboardText: string) => {
   const emails = clipboardText.split(',').map((e: string) => e.trim())

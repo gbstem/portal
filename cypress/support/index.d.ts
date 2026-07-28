@@ -10,7 +10,11 @@ declare namespace Cypress {
     ): Chainable<any>
     signOutViaUi(): Chainable<any>
     fillInput(selector: string, text: string): Chainable<any>
-    selectOption(selector: string, text: string): Chainable<any>
+    selectOption(
+      selector: string,
+      text: string,
+      options?: Partial<Cypress.Timeoutable>,
+    ): Chainable<any>
     parseCopiedEmails(clipboardText: string): Chainable<string[]>
     getLatestOobLink(
       email: string,

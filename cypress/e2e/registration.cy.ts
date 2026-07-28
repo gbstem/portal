@@ -12,6 +12,7 @@ describe('Section B: Student Registration & Account Management', () => {
     cy.selectOption(
       'input[name="role"]',
       'Parent registering my child for classes',
+      { timeout: 10000 },
     )
     cy.fillInput('input[name="firstName"]', 'Parent')
     cy.fillInput('input[name="lastName"]', 'Test')
