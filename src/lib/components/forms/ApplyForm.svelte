@@ -1,27 +1,26 @@
 <script lang="ts">
-  import {
-    doc,
-    getDoc,
-    serverTimestamp,
-    setDoc,
-    Timestamp,
-  } from 'firebase/firestore'
   import { db, user } from '$lib/client/firebase'
-  import { alert } from '$lib/stores'
-  import type { FirebaseError } from 'firebase/app'
   import Card from '$lib/components/Card.svelte'
   import { coursesJson, gendersJson, raceJson, reasonsJson } from '$lib/data'
   import { applicationsCollection, withSemester } from '$lib/data/collections'
-  import { superForm, defaults } from 'sveltekit-superforms'
-  import { zod } from 'sveltekit-superforms/adapters'
-  import { applicationSchema } from './schemas'
+  import {
+    buildApplyApiPayload,
+    createEmptyApplication,
+    normalizeApplicationData,
+    toApplyFormValues as toFormValues,
+  } from '$lib/helpers/applyForm'
+  import { alert } from '$lib/stores'
+  import type { FirebaseError } from 'firebase/app'
+  import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore'
   import { cloneDeep, isEqual } from 'lodash-es'
   import { onDestroy, onMount } from 'svelte'
-  import type { ApplicationRequestBody } from '../../../routes/api/application/+server'
+  import { defaults, superForm } from 'sveltekit-superforms'
+  import { zod } from 'sveltekit-superforms/adapters'
+  import FormCheckbox from '../FormCheckbox.svelte'
   import FormInput from '../FormInput.svelte'
   import FormSelect from '../FormSelect.svelte'
-  import FormCheckbox from '../FormCheckbox.svelte'
   import FormTextarea from '../FormTextarea.svelte'
+  import { applicationSchema } from './schemas'
 
   interface Props {
     semesterDates?: Data.SemesterDates
@@ -47,97 +46,9 @@
   let showValidation = false
   let dbValues: Data.Application
 
-  let values: Data.Application = $state({
-    personal: {
-      email: '',
-      firstName: '',
-      lastName: '',
-      gender: '',
-      race: [],
-      phoneNumber: '',
-      dateOfBirth: '',
-    },
-    academic: {
-      school: '',
-      graduationYear: '',
-    },
-    program: {
-      courses: [],
-      preferences: '',
-      timeSlots: '',
-      notAvailable: '',
-      inPerson: false,
-      reason: '',
-    },
-    essay: {
-      taughtBefore: false,
-      academicBackground: '',
-      teachingScenario: '',
-      why: '',
-    },
-    agreements: {
-      entireProgram: false,
-      timeCommitment: false,
-      submitting: false,
-    },
-    meta: {
-      id: '',
-      uid: '',
-      submitted: false,
-      interview: false,
-    },
-    timestamps: {
-      created: serverTimestamp() as Timestamp,
-      updated: serverTimestamp() as Timestamp,
-    },
-  })
+  let values: Data.Application = $state(createEmptyApplication())
 
   const schema = applicationSchema
-
-  function toFormValues(v: Data.Application) {
-    return {
-      personal: {
-        phoneNumber: v.personal?.phoneNumber || '',
-        dateOfBirth: v.personal?.dateOfBirth || '',
-        gender: v.personal?.gender || '',
-        race: v.personal?.race || [],
-      },
-      academic: {
-        school: v.academic?.school || '',
-        graduationYear: v.academic?.graduationYear || new Date().getFullYear(),
-      },
-      program: {
-        courses: v.program?.courses || [],
-        preferences: v.program?.preferences || '',
-        timeSlots: v.program?.timeSlots || '',
-        notAvailable: v.program?.notAvailable || '',
-        inPerson:
-          v.program?.inPerson !== undefined ? v.program.inPerson : false,
-        reason: v.program?.reason || '',
-      },
-      essay: {
-        taughtBefore:
-          v.essay?.taughtBefore !== undefined ? v.essay.taughtBefore : false,
-        academicBackground: v.essay?.academicBackground || '',
-        teachingScenario: v.essay?.teachingScenario || '',
-        why: v.essay?.why || '',
-      },
-      agreements: {
-        entireProgram:
-          v.agreements?.entireProgram !== undefined
-            ? v.agreements.entireProgram
-            : false,
-        timeCommitment:
-          v.agreements?.timeCommitment !== undefined
-            ? v.agreements.timeCommitment
-            : false,
-        submitting:
-          v.agreements?.submitting !== undefined
-            ? v.agreements.submitting
-            : false,
-      },
-    }
-  }
 
   // svelte-ignore state_referenced_locally
   const formResult = superForm(
@@ -191,9 +102,9 @@
               getDoc(
                 doc(db, applicationsCollection, frozenUser.object.uid),
               ).then((applicationDoc) => {
-                const payload: ApplicationRequestBody = {
-                  firstName: frozenUser.profile.firstName,
-                }
+                const payload = buildApplyApiPayload(
+                  frozenUser.profile.firstName,
+                )
                 fetch('/api/application', {
                   method: 'POST',
                   headers: {
@@ -256,17 +167,15 @@
                   values.personal.firstName !== user.profile.firstName ||
                   values.personal.lastName !== user.profile.lastName)
               ) {
-                values.personal.email = user.object.email as string
-                values.personal.firstName = user.profile.firstName
-                values.personal.lastName = user.profile.lastName
+                values = normalizeApplicationData(
+                  values,
+                  user.object,
+                  user.profile,
+                )
                 handleSave()
               }
             } else {
-              values.meta.uid = user.object.uid
-              values.meta.id = user.profile.id
-              values.personal.email = user.object.email as string
-              values.personal.firstName = user.profile.firstName
-              values.personal.lastName = user.profile.lastName
+              values = normalizeApplicationData(null, user.object, user.profile)
               handleSave()
             }
             if (!values.meta.submitted) {

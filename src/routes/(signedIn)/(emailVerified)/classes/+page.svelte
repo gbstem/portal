@@ -30,20 +30,13 @@
   import { fade } from 'svelte/transition'
   import type { EnrollRequestBody } from '../../../api/enroll/+server'
 
-  type ClassInfo = {
-    id: string
-    className: string
-    classDays: string[]
-    classTimes: string[]
-    course: string
-    instructorFirstName: string
-    instructorLastName: string
-    instructorEmail: string
-    spotsRemaining: number
-    meetingLink: string
-    gradeRecommendation: string
-    online: boolean
-  }
+  import {
+    buildPortalEnrollApiPayload,
+    isGradeEligible,
+    parseClassInfoDoc,
+    sortClassesBySpotsRemaining,
+    type ClassInfo,
+  } from '$lib/helpers/classesPage'
 
   let classes: ClassInfo[] = $state([])
   let loading = $state(true)
@@ -66,26 +59,6 @@
 
   // Preload student data for the StudentSelect component
   let preloadedStudents: { uid: string; name: string }[] = []
-
-  const courseToMinGrade: Record<string, number> = {
-    'Environmental Science A': 5,
-    'Environmental Science B': 5,
-    'Python 1': 3,
-    'Web Development': 5,
-    'Python 2': 5,
-    'Mathematics 2a': 1,
-    'Mathematics 2b': 1,
-    'Mathematics 3a': 3,
-    'Mathematics 3b': 3,
-    'Mathematics 4a': 5,
-    'Mathematics 4b': 5,
-    'Mathematics 5a': 6,
-    'Mathematics 5b': 6,
-    'Engineering 1': 2,
-    'Engineering 2': 4,
-    'Engineering 3': 5,
-    'Lego Robotics Competition': 5,
-  }
 
   let isStudent = $state(true)
 
@@ -122,36 +95,10 @@
       }
       const classesCollectionRef = collection(db, classesCollection)
       const querySnapshot = await getDocs(classesCollectionRef)
-      classes = querySnapshot.docs.map((doc) => {
-        const data = doc.data()
-        let classInfo: ClassInfo = {
-          id: doc.id,
-          className: data.className,
-          classDays: [],
-          classTimes: [],
-          course: data.course,
-          instructorFirstName: data.instructorFirstName,
-          instructorLastName: data.instructorLastName,
-          instructorEmail: data.instructorEmail,
-          spotsRemaining: data.students
-            ? data.classCap - data.students.length
-            : data.classCap,
-          meetingLink: data.meetingLink,
-          gradeRecommendation: data.gradeRecommendation,
-          online: data.online,
-        }
-        // Assuming there are a fixed number of class days and times
-        for (let i = 1; i <= 2; i++) {
-          // Adjust this loop if there are more days and times
-          if (data[`classDay${i}`] && data[`classTime${i}`]) {
-            classInfo.classDays.push(data[`classDay${i}`])
-            classInfo.classTimes.push(data[`classTime${i}`])
-          }
-        }
-        return classInfo
-      })
-      // sort classes so that classes with most spots remaining are at the top
-      classes.sort((a, b) => b.spotsRemaining - a.spotsRemaining)
+      const rawClasses = querySnapshot.docs.map((doc) =>
+        parseClassInfoDoc(doc.id, doc.data()),
+      )
+      classes = sortClassesBySpotsRemaining(rawClasses)
 
       if (user && isStudent) {
         if (user.object.email) userEmail = user.object.email
@@ -217,19 +164,16 @@
     )
     const ageBypassEnabled = ageLimitsDoc.data()?.agreements.bypassAgeLimits
 
-    if (!ageBypassEnabled) {
-      if (
-        dialogClassDetails &&
-        Object.keys(courseToMinGrade).includes(dialogClassDetails.course) &&
-        (studentUidToGrade[selectedStudentUid] == 'K' ||
-          parseInt(studentUidToGrade[selectedStudentUid], 10) <
-            courseToMinGrade[dialogClassDetails.course ?? ''])
-      ) {
+    if (dialogClassDetails) {
+      const eligibility = isGradeEligible(
+        dialogClassDetails.course,
+        studentUidToGrade[selectedStudentUid],
+        Boolean(ageBypassEnabled),
+      )
+      if (!eligibility.eligible) {
         alert.trigger(
           'error',
-          `Students must be in grade ${
-            courseToMinGrade[dialogClassDetails.course ?? '']
-          } or higher to enroll in this class!`,
+          `Students must be in grade ${eligibility.requiredGrade} or higher to enroll in this class!`,
         )
         return
       }
@@ -253,17 +197,11 @@
       .then(() => {
         alert.trigger('success', 'Enrolled in class!')
         if (!dialogClassDetails) return
-        const payload: EnrollRequestBody = {
-          firstName: userName,
-          instructor: dialogClassDetails.instructorFirstName,
-          instructorEmail: dialogClassDetails.instructorEmail,
-          classTimes: dialogClassDetails.classTimes,
-          classDays: dialogClassDetails.classDays,
-          course: dialogClassDetails.course,
-          meetingLink: dialogClassDetails.meetingLink,
-          online: dialogClassDetails.online,
-          studentName: uidToName[selectedStudentUid],
-        }
+        const payload = buildPortalEnrollApiPayload(
+          userName,
+          dialogClassDetails,
+          uidToName[selectedStudentUid],
+        )
         fetch('/api/enroll', {
           method: 'POST',
           headers: {

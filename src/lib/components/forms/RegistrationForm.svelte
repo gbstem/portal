@@ -1,33 +1,37 @@
 <script lang="ts">
-  import type { RegistrationRequestBody } from '../../../routes/api/registration/+server'
+  import { db, user } from '$lib/client/firebase'
+  import Card from '$lib/components/Card.svelte'
   import {
-    doc,
-    getDoc,
-    setDoc,
-    serverTimestamp,
-    Timestamp,
-    deleteDoc,
-  } from 'firebase/firestore'
-  import {
-    gendersJson,
     frlpJson,
+    gendersJson,
+    gradesJson,
     parentEducationJson,
     raceJson,
-    gradesJson,
   } from '$lib/data'
-  import { alert } from '$lib/stores'
-  import { onDestroy, onMount } from 'svelte'
-  import Card from '$lib/components/Card.svelte'
-  import { db, user } from '$lib/client/firebase'
-  import { cloneDeep, isEqual } from 'lodash-es'
   import { registrationsCollection, withSemester } from '$lib/data/collections'
-  import { superForm, defaults } from 'sveltekit-superforms'
-  import { zod } from 'sveltekit-superforms/adapters'
-  import { registrationSchema } from './schemas'
+  import {
+    buildRegistrationApiPayload,
+    createEmptyRegistration,
+    normalizeRegistrationData,
+    toRegistrationFormValues as toFormValues,
+  } from '$lib/helpers/registrationForm'
+  import { alert } from '$lib/stores'
   import type { FirebaseError } from 'firebase/app'
+  import {
+    deleteDoc,
+    doc,
+    getDoc,
+    serverTimestamp,
+    setDoc,
+  } from 'firebase/firestore'
+  import { cloneDeep, isEqual } from 'lodash-es'
+  import { onDestroy, onMount } from 'svelte'
+  import { defaults, superForm } from 'sveltekit-superforms'
+  import { zod } from 'sveltekit-superforms/adapters'
+  import FormCheckbox from '../FormCheckbox.svelte'
   import FormInput from '../FormInput.svelte'
   import FormSelect from '../FormSelect.svelte'
-  import FormCheckbox from '../FormCheckbox.svelte'
+  import { registrationSchema } from './schemas'
 
   interface Props {
     childUid?: string
@@ -56,116 +60,11 @@
   let showValidation = false
   let dbValues: Data.Registration
 
-  const emptyValues: Data.Registration = {
-    personal: {
-      email: '',
-      studentFirstName: '',
-      studentLastName: '',
-      parentFirstName: '',
-      parentLastName: '',
-      gender: '',
-      race: [],
-      phoneNumber: '',
-      dateOfBirth: '',
-      frlp: '',
-      parentEducation: '',
-      secondaryEmail: '',
-    },
-    academic: {
-      school: '',
-      grade: '',
-    },
-    program: {
-      csCourse: '',
-      mathCourse: '',
-      engineeringCourse: '',
-      scienceCourse: '',
-      inPerson: false,
-      reason: '',
-    },
-    inPerson: {
-      allergies: '',
-      parentPickup: '',
-    },
-    agreements: {
-      bypassAgeLimits: false,
-      entireProgram: false,
-      timeCommitment: false,
-      mediaRelease: false,
-      submitting: false,
-    },
-    meta: {
-      id: '',
-      uid: '',
-      submitted: false,
-    },
-    timestamps: {
-      created: serverTimestamp() as Timestamp,
-      updated: serverTimestamp() as Timestamp,
-    },
-  }
+  const emptyValues: Data.Registration = createEmptyRegistration()
 
   let values: Data.Registration = $state(cloneDeep(emptyValues))
 
   const schema = registrationSchema
-
-  function toFormValues(v: Data.Registration) {
-    return {
-      personal: {
-        studentFirstName: v.personal?.studentFirstName || '',
-        studentLastName: v.personal?.studentLastName || '',
-        parentFirstName: v.personal?.parentFirstName || '',
-        parentLastName: v.personal?.parentLastName || '',
-        email: v.personal?.email || '',
-        secondaryEmail: v.personal?.secondaryEmail || '',
-        phoneNumber: v.personal?.phoneNumber || '',
-        dateOfBirth: v.personal?.dateOfBirth || '',
-        gender: v.personal?.gender || '',
-        race: v.personal?.race || [],
-        frlp: v.personal?.frlp || '',
-        parentEducation: v.personal?.parentEducation || '',
-      },
-      academic: {
-        school: v.academic?.school || '',
-        grade: v.academic?.grade || '',
-      },
-      program: {
-        csCourse: v.program?.csCourse || '',
-        mathCourse: v.program?.mathCourse || '',
-        engineeringCourse: v.program?.engineeringCourse || '',
-        scienceCourse: v.program?.scienceCourse || '',
-        inPerson:
-          v.program?.inPerson !== undefined ? v.program.inPerson : false,
-        reason: v.program?.reason || '',
-      },
-      inPerson: {
-        allergies: v.inPerson?.allergies || '',
-        parentPickup: v.inPerson?.parentPickup || '',
-      },
-      agreements: {
-        mediaRelease:
-          v.agreements?.mediaRelease !== undefined
-            ? v.agreements.mediaRelease
-            : false,
-        bypassAgeLimits:
-          v.agreements?.bypassAgeLimits !== undefined
-            ? v.agreements.bypassAgeLimits
-            : false,
-        entireProgram:
-          v.agreements?.entireProgram !== undefined
-            ? v.agreements.entireProgram
-            : false,
-        timeCommitment:
-          v.agreements?.timeCommitment !== undefined
-            ? v.agreements.timeCommitment
-            : false,
-        submitting:
-          v.agreements?.submitting !== undefined
-            ? v.agreements.submitting
-            : false,
-      },
-    }
-  }
 
   // svelte-ignore state_referenced_locally
   const formResult = superForm(
@@ -218,12 +117,12 @@
             .then(() => {
               getDoc(doc(db, registrationsCollection, childUid)).then(
                 (applicationDoc) => {
-                  const payload: RegistrationRequestBody = {
-                    firstName: frozenUser.profile.firstName,
-                    studentName: formVal.data.personal.studentFirstName,
-                    parentOrientationDate: semesterDates.parentOrientation,
-                    secondaryEmail: formVal.data.personal.secondaryEmail,
-                  }
+                  const payload = buildRegistrationApiPayload(
+                    frozenUser.profile.firstName,
+                    formVal.data.personal.studentFirstName,
+                    semesterDates.parentOrientation,
+                    formVal.data.personal.secondaryEmail,
+                  )
                   fetch('/api/registration', {
                     method: 'POST',
                     headers: {
@@ -273,39 +172,7 @@
   let unsubscribeUser: (() => void) | undefined = undefined
 
   function safeSetValues(data: any) {
-    if (!data) {
-      values = cloneDeep(emptyValues)
-      dbValues = cloneDeep(emptyValues)
-      return
-    }
-    values = {
-      ...cloneDeep(emptyValues),
-      ...cloneDeep(data),
-      personal: {
-        ...cloneDeep(emptyValues.personal),
-        ...(data.personal ? cloneDeep(data.personal) : {}),
-      },
-      academic: {
-        ...cloneDeep(emptyValues.academic),
-        ...(data.academic ? cloneDeep(data.academic) : {}),
-      },
-      program: {
-        ...cloneDeep(emptyValues.program),
-        ...(data.program ? cloneDeep(data.program) : {}),
-      },
-      inPerson: {
-        ...cloneDeep(emptyValues.inPerson),
-        ...(data.inPerson ? cloneDeep(data.inPerson) : {}),
-      },
-      agreements: {
-        ...cloneDeep(emptyValues.agreements),
-        ...(data.agreements ? cloneDeep(data.agreements) : {}),
-      },
-      meta: {
-        ...cloneDeep(emptyValues.meta),
-        ...(data.meta ? cloneDeep(data.meta) : {}),
-      },
-    }
+    values = normalizeRegistrationData(data)
     dbValues = cloneDeep(values)
   }
 

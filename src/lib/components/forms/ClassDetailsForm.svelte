@@ -1,7 +1,15 @@
 <script lang="ts">
   import { db, user } from '$lib/client/firebase'
+  import { otherInstructorEmailsSchema } from '$lib/components/forms/schemas'
   import { coursesJson, daysOfWeekJson } from '$lib/data'
   import { classesCollection, withSemester } from '$lib/data/collections'
+  import {
+    generateNewClassId,
+    getDefaultClassValues,
+    getMeetingDates,
+    normalizeOtherInstructorEmails,
+    toFormValues,
+  } from '$lib/helpers/classDetailsForm'
   import { alert } from '$lib/stores'
   import {
     cn,
@@ -13,7 +21,6 @@
   import { defaults, superForm } from 'sveltekit-superforms'
   import { zod } from 'sveltekit-superforms/adapters'
   import { z } from 'zod'
-  import { otherInstructorEmailsSchema } from '$lib/components/forms/schemas'
   import Button from '../Button.svelte'
   import Card from '../Card.svelte'
   import Dialog from '../Dialog.svelte'
@@ -40,27 +47,7 @@
   let isCreatingNewClass = $state(false)
   let isCreatingLink = $state(false)
 
-  let values: Data.Class = $state({
-    classDay1: '',
-    classTime1: '',
-    classDay2: '',
-    classTime2: '',
-    meetingLink: '',
-    gradeRecommendation: '',
-    course: '',
-    submitting: false,
-    meetingTimes: [],
-    completedClassDates: [],
-    feedbackCompleted: [],
-    classStatuses: [],
-    instructorFirstName: '',
-    instructorLastName: '',
-    instructorEmail: '',
-    otherInstructorEmails: '',
-    classCap: 7,
-    online: true,
-    students: [],
-  })
+  let values: Data.Class = $state(getDefaultClassValues())
 
   let createClassSchedule = $state(true)
 
@@ -103,22 +90,6 @@
     submitting: z.boolean().default(false),
   })
 
-  function toFormValues(v: Data.Class) {
-    return {
-      course: v.course || '',
-      gradeRecommendation: v.gradeRecommendation || '',
-      classCap: v.classCap || 7,
-      meetingLink: v.meetingLink || '',
-      classDay1: (v.classDay1 as any) || '',
-      classTime1: v.classTime1 || '',
-      classDay2: (v.classDay2 as any) || '',
-      classTime2: v.classTime2 || '',
-      online: v.online !== undefined ? v.online : true,
-      otherInstructorEmails: v.otherInstructorEmails || '',
-      submitting: v.submitting || false,
-    }
-  }
-
   // svelte-ignore state_referenced_locally
   const formResult = superForm(
     defaults(toFormValues(values) as any, zod(schema as any) as any) as any,
@@ -141,15 +112,9 @@
               ...formVal.data,
             }
 
-            if (newValues.otherInstructorEmails) {
-              newValues.otherInstructorEmails = newValues.otherInstructorEmails
-                .split(/[\s,]+/)
-                .map((email: string) => email.trim().toLowerCase())
-                .filter((email: string) => email.length > 0)
-                .join(', ')
-            } else {
-              newValues.otherInstructorEmails = ''
-            }
+            newValues.otherInstructorEmails = normalizeOtherInstructorEmails(
+              newValues.otherInstructorEmails,
+            )
 
             if (createClassSchedule) {
               const meetingTimes = getMeetingDates(
@@ -178,18 +143,9 @@
             }
 
             // Determine class ID for new classes
-            let classId = selectedClassId
-            if (!classId) {
-              const existingNumbers = availableClassIds
-                .filter((id) => id.startsWith(frozenUser.object.uid + '-'))
-                .map((id) => parseInt(id.split('-')[1]))
-                .filter((n) => !isNaN(n))
-              const classNumber =
-                existingNumbers.length > 0
-                  ? (Math.max(...existingNumbers) + 1).toString()
-                  : '1'
-              classId = `${frozenUser.object.uid}-${classNumber}`
-            }
+            const classId =
+              selectedClassId ||
+              generateNewClassId(availableClassIds, frozenUser.object.uid)
 
             await setDoc(
               doc(db, classesCollection, classId),
@@ -240,66 +196,11 @@
 
   function createNewClass() {
     selectedClassId = ''
-    values = {
-      classDay1: '',
-      classTime1: '',
-      classDay2: '',
-      classTime2: '',
-      meetingLink: '',
-      gradeRecommendation: '',
-      course: '',
-      submitting: false,
-      meetingTimes: [],
-      completedClassDates: [],
-      feedbackCompleted: [],
-      classStatuses: [],
-      instructorFirstName: '',
-      instructorLastName: '',
-      instructorEmail: '',
-      otherInstructorEmails: '',
-      classCap: 7,
-      online: true,
-      students: [],
-    }
+    values = getDefaultClassValues()
     submitted = false
     disabled = false
     createClassSchedule = true
     isCreatingNewClass = true
-  }
-
-  function getMeetingDates(
-    classDay1: string,
-    classDay2: string,
-    classTime1: string,
-    classTime2: string,
-    startDate: Date,
-    endDate: Date,
-  ): Date[] {
-    const meetingDates = []
-    const dayMap: Record<string, number> = {
-      Sunday: 0,
-      Monday: 1,
-      Tuesday: 2,
-      Wednesday: 3,
-      Thursday: 4,
-      Friday: 5,
-      Saturday: 6,
-    }
-
-    let currentDate = new Date(startDate.getTime())
-    while (currentDate <= endDate) {
-      if (currentDate.getDay() === dayMap[classDay1]) {
-        let meetingTime = parseTime(classTime1, currentDate)
-        meetingDates.push(new Date(meetingTime))
-      }
-      if (currentDate.getDay() === dayMap[classDay2]) {
-        let meetingTime = parseTime(classTime2, currentDate)
-        meetingDates.push(new Date(meetingTime))
-      }
-      currentDate.setDate(currentDate.getDate() + 1)
-    }
-
-    return meetingDates
   }
 
   let instructorClasses: { [classId: string]: Data.Class } = $state({})

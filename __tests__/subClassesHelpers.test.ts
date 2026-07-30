@@ -1,0 +1,96 @@
+import type {} from '../src/data.d.ts'
+import {
+  parseSubRequestDocs,
+  filterCheckedOffSubClasses,
+  buildSubstituteApiPayload,
+  parseSubStudentDoc,
+} from '$lib/helpers/subClasses'
+import { SubRequestStatus } from '$lib/components/helpers/SubRequestStatus'
+
+describe('SubClasses Helpers', () => {
+  describe('parseSubRequestDocs', () => {
+    test('categorizes substitute request documents properly', () => {
+      const docs = [
+        {
+          id: 'user123---1',
+          subRequestStatus: SubRequestStatus.SubstituteNeeded,
+          course: 'Python 1',
+        },
+        {
+          id: 'other456---2',
+          subRequestStatus: SubRequestStatus.SubstituteFound,
+          subInstructorId: 'user123',
+          course: 'Scratch',
+        },
+      ]
+
+      const result = parseSubRequestDocs(docs, 'user123')
+      expect(result.userSubRequests.length).toBe(1)
+      expect(result.classesMissingSubs.length).toBe(1)
+      expect(result.userSubClasses.length).toBe(1)
+    })
+  })
+
+  describe('filterCheckedOffSubClasses', () => {
+    test('filters out nulls and extracts sub request objects', () => {
+      const mockReq = { id: 'req-1', course: 'Math' } as Data.SubRequest
+      const checkedOff = [null, [mockReq], null]
+
+      const filtered = filterCheckedOffSubClasses(checkedOff)
+      expect(filtered).toEqual([mockReq])
+    })
+  })
+
+  describe('buildSubstituteApiPayload', () => {
+    test('builds API request payload for substitute signup', () => {
+      const subReq = {
+        course: 'Python 1',
+        classNumber: 3,
+        dateOfClass: { seconds: 1779900600 },
+        originalInstructorEmail: 'orig@example.com',
+      } as unknown as Data.SubRequest
+
+      const payload = buildSubstituteApiPayload(
+        'Jane',
+        'sub@example.com',
+        subReq,
+      )
+      expect(payload.firstName).toBe('Jane')
+      expect(payload.subInstructorEmail).toBe('sub@example.com')
+      expect(payload.course).toBe('Python 1')
+      expect(payload.classNumber).toBe(3)
+    })
+  })
+
+  describe('parseSubStudentDoc', () => {
+    test('extracts student profile details safely', () => {
+      const raw = {
+        personal: {
+          studentFirstName: 'Timmy',
+          studentLastName: 'Turner',
+          email: 'timmy@example.com',
+          secondaryEmail: 'parent@example.com',
+          phoneNumber: '555-0000',
+        },
+        academic: {
+          grade: 5,
+          school: 'Dimmsdale Elementary',
+        },
+      }
+
+      const student = parseSubStudentDoc(raw)
+      expect(student).toEqual({
+        name: 'Timmy Turner',
+        email: 'timmy@example.com',
+        secondaryEmail: 'parent@example.com',
+        phone: '555-0000',
+        grade: 5,
+        school: 'Dimmsdale Elementary',
+      })
+    })
+
+    test('returns null when input is null or missing personal section', () => {
+      expect(parseSubStudentDoc(null)).toBeNull()
+    })
+  })
+})

@@ -7,6 +7,13 @@
     classesCollection,
     registrationsCollection,
   } from '$lib/data/collections'
+  import {
+    buildSubRequestPayload,
+    computeMeetingTimeChanges,
+    computeUpdatedClassStatuses,
+    findNextClassDateIndex,
+    transformStudentDocData,
+  } from '$lib/helpers/classSchedule'
   import { alert } from '$lib/stores'
   import {
     classTodayHeld,
@@ -14,7 +21,6 @@
     copyToClipboard,
     formatDateString,
     getInstructorClasses,
-    isClassUpcoming,
     normalizeCapitals,
     toLocalISOString,
   } from '$lib/utils'
@@ -31,9 +37,7 @@
   import ClassDetailsForm from './forms/ClassDetailsForm.svelte'
   import InstructorFeedbackForm from './forms/InstructorFeedbackForm.svelte'
   import { ClassStatus } from './helpers/ClassStatus'
-  import { SubRequestStatus } from './helpers/SubRequestStatus'
   import { generateCurriculumLink } from './helpers/curriculumLink'
-  import generateMeetingTimeChangeEmail from './helpers/generateMeetingTimeChangeEmail'
   import sendClassReminder from './helpers/sendClassReminder'
   import type Student from './types/Student'
 
@@ -60,7 +64,7 @@
     completedClassDates: [],
   })
 
-  //index of the next class date from the list of meeting times
+  // index of the next class date from the list of meeting times
   let nextClassIndex = $state(-1)
   let classId = $state('')
   let instructorClasses: { [classId: string]: Data.ClassDetails } = $state({})
@@ -79,6 +83,7 @@
   let subRequestDate: string = $state('')
   let subRequestClassNumber: number = $state(0)
   let subRequestNotes: string = $state('')
+
   /**
    * Iterates through each student UID to get student info
    * @param studentUids
@@ -92,16 +97,9 @@
       )
       getDoc(studentDocRef).then((studentDoc) => {
         if (studentDoc.exists()) {
-          const data = studentDoc.data()
-          if (data) {
-            studentList.push({
-              name: `${data.personal.studentFirstName} ${data.personal.studentLastName}`,
-              email: data.personal.email,
-              secondaryEmail: data.personal.secondaryEmail,
-              phone: data.personal.phoneNumber,
-              grade: data.academic.grade,
-              school: data.academic.school,
-            })
+          const student = transformStudentDocData(studentDoc.data())
+          if (student) {
+            studentList.push(student)
           }
           studentList = [...studentList]
         }
@@ -110,40 +108,11 @@
   }
 
   function checkStatuses() {
-    let { classStatuses, feedbackCompleted, meetingTimes } = values
-
-    const originalStatuses = [...classStatuses]
-    classStatuses = classStatuses.concat(
-      Array(meetingTimes.length - classStatuses.length).fill(
-        ClassStatus.ClassInFuture,
-      ),
+    const { updatedStatuses, hasChanged } = computeUpdatedClassStatuses(
+      values.classStatuses,
+      values.feedbackCompleted,
+      values.meetingTimes,
     )
-
-    const updateStatuses = (classStatus: string, index: number) => {
-      if (
-        new Date() > meetingTimes[index] &&
-        classStatus !== ClassStatus.EverythingComplete &&
-        classStatus !== ClassStatus.FeedbackIncomplete
-      ) {
-        return feedbackCompleted[index]
-          ? ClassStatus.EverythingComplete
-          : ClassStatus.ClassNotHeld
-      } else if (isClassUpcoming(meetingTimes[index])) {
-        return ClassStatus.ClassUpcomingSoon
-      } else if (
-        classStatus === ClassStatus.FeedbackIncomplete &&
-        feedbackCompleted[index]
-      ) {
-        return ClassStatus.EverythingComplete
-      } else {
-        return classStatus
-      }
-    }
-
-    const updatedStatuses = classStatuses.map(updateStatuses)
-    const hasChanged =
-      updatedStatuses.length !== originalStatuses.length ||
-      updatedStatuses.some((st, i) => st !== originalStatuses[i])
 
     if (hasChanged) {
       updateDoc(doc(db, classesCollection, classId), {
@@ -179,63 +148,24 @@
 
   function saveChanges(): void {
     editMode = false
-    emailHtmlContent = generateMeetingTimeChangeEmail(
+    const changes = computeMeetingTimeChanges(
       originalMeetingTimes,
       editedMeetingTimes,
+      values.feedbackCompleted,
+      values.classStatuses,
     )
+
+    emailHtmlContent = changes.emailHtmlContent
     showEmailDialog = emailHtmlContent !== ''
-    // sort the meeting times
-    editedMeetingTimes.sort((a, b) => {
-      const dateA = new Date(a)
-      const dateB = new Date(b)
-      return dateA.getTime() - dateB.getTime()
-    })
-    // remove duplicates from the meeting times
-    editedMeetingTimes = editedMeetingTimes.filter(
-      (time, index) => editedMeetingTimes.indexOf(time) === index,
-    )
-
-    // Find the removed and added classes
-    let removed: number[] = []
-    originalMeetingTimes.map((x, index) => {
-      if (!editedMeetingTimes.includes(x)) removed.push(index)
-    })
-
-    let added: number[] = []
-    editedMeetingTimes.map((x, index) => {
-      if (!originalMeetingTimes.includes(x)) added.push(index)
-    })
-
-    let { feedbackCompleted, classStatuses } = values
-
-    let newFeedback = [...feedbackCompleted]
-    let newClassStatuses = [...classStatuses]
-
-    // Update the feedback and classStatuses arrays based on deleted/added times
-    removed.forEach((index) => {
-      newFeedback.splice(index, 1)
-      newClassStatuses.splice(index, 1)
-    })
-    added.forEach((index) => {
-      newFeedback = [
-        ...newFeedback.slice(0, index),
-        false,
-        ...newFeedback.slice(index),
-      ]
-      newClassStatuses = [
-        ...newClassStatuses.slice(0, index),
-        ClassStatus.ClassInFuture,
-        ...newClassStatuses.slice(index),
-      ]
-    })
+    editedMeetingTimes = changes.sortedEditedTimes
 
     originalMeetingTimes = [...editedMeetingTimes]
     values.meetingTimes = editedMeetingTimes.map(
       (time: string) => new Date(time),
     )
-    feedbackCompleted = newFeedback
-    classStatuses = newClassStatuses
-    updateMeetingTimes(feedbackCompleted, classStatuses)
+    values.feedbackCompleted = changes.newFeedback
+    values.classStatuses = changes.newClassStatuses
+    updateMeetingTimes(values.feedbackCompleted, values.classStatuses)
   }
 
   /**
@@ -243,33 +173,7 @@
    * @returns The index of the next class date
    */
   function findNextClassDate() {
-    const todayDates = values.meetingTimes.filter(
-      (schedule) =>
-        new Date(schedule).toDateString() === new Date().toDateString(),
-    )
-    if (todayDates.length === 1) {
-      return values.meetingTimes.findIndex(
-        (schedule) =>
-          new Date(schedule).toDateString() === new Date().toDateString(),
-      )
-    } else if (todayDates.length > 1) {
-      const futureTodayClasses = todayDates.filter(
-        (classDate) => new Date(classDate).getHours() >= new Date().getHours(),
-      )
-      return futureTodayClasses.length > 0
-        ? values.meetingTimes.findIndex(
-            (date) =>
-              new Date(date).toDateString() === new Date().toDateString() &&
-              date.getHours() >= new Date().getHours(),
-          )
-        : values.meetingTimes.findIndex(
-            (schedule) => new Date(schedule) > new Date(),
-          )
-    } else {
-      return values.meetingTimes.findIndex(
-        (schedule) => new Date(schedule) > new Date(),
-      )
-    }
+    return findNextClassDateIndex(values.meetingTimes)
   }
 
   /**
@@ -320,19 +224,15 @@
   }
 
   function sendSubRequest() {
-    const subRequest: Data.SubRequest = {
-      classNumber: subRequestClassNumber,
-      dateOfClass: new Date(subRequestDate),
-      id: classId,
-      notes: subRequestNotes,
+    const subRequest = buildSubRequestPayload({
+      classId,
+      subRequestClassNumber,
+      subRequestDate,
+      subRequestNotes,
       course: values.course,
-      originalInstructorEmail: values.instructorEmail,
-      subInstructorFirstName: '',
-      subInstructorEmail: '',
-      subInstructorId: '',
-      subRequestStatus: SubRequestStatus.SubstituteNeeded,
-      link: values.meetingLink,
-    }
+      instructorEmail: values.instructorEmail,
+      meetingLink: values.meetingLink,
+    })
 
     setDoc(
       doc(db, 'subRequests', classId + '---' + subRequestClassNumber),

@@ -1,35 +1,41 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
+  import { enhance } from '$app/forms'
   import { db, user } from '$lib/client/firebase'
-  import {
-    collection,
-    doc,
-    DocumentReference,
-    getDoc,
-    getDocs,
-    query,
-    updateDoc,
-    setDoc,
-    deleteDoc,
-  } from 'firebase/firestore'
   import {
     classesCollection,
     registrationsCollection,
     substituteRequestsCollection,
   } from '$lib/data/collections'
-  import { SubRequestStatus } from './helpers/SubRequestStatus'
-  import { classTodayHeld, formatDate, timestampToDate } from '$lib/utils'
-  import Button from './Button.svelte'
-  import { enhance } from '$app/forms'
+  import {
+    buildSubstituteApiPayload,
+    filterCheckedOffSubClasses,
+    parseSubRequestDocs,
+    parseSubStudentDoc,
+  } from '$lib/helpers/subClasses'
   import { alert } from '$lib/stores'
+  import { formatDate, timestampToDate } from '$lib/utils'
+  import {
+    collection,
+    deleteDoc,
+    doc,
+    DocumentReference,
+    getDoc,
+    getDocs,
+    query,
+    setDoc,
+    updateDoc,
+  } from 'firebase/firestore'
+  import { onMount } from 'svelte'
+  import Button from './Button.svelte'
+  import Card from './Card.svelte'
+  import Dialog from './Dialog.svelte'
+  import Input from './Input.svelte'
+  import InstructorFeedbackForm from './forms/InstructorFeedbackForm.svelte'
   import { ClassStatus } from './helpers/ClassStatus'
+  import { SubRequestStatus } from './helpers/SubRequestStatus'
+  import { curriculums } from './helpers/curriculum'
   import sendClassReminder from './helpers/sendClassReminder'
   import type Student from './types/Student'
-  import Dialog from './Dialog.svelte'
-  import InstructorFeedbackForm from './forms/InstructorFeedbackForm.svelte'
-  import Card from './Card.svelte'
-  import Input from './Input.svelte'
-  import { curriculums } from './helpers/curriculum'
 
   interface Props {
     subInstructor: boolean
@@ -88,35 +94,15 @@
 
   async function getData(userId: string) {
     const q = query(collection(db, substituteRequestsCollection))
-    let userSubClasses: Data.SubRequest[] = []
-    let userSubRequests: Data.SubRequest[] = []
     const querySnapshot = await getDocs(q)
-    querySnapshot.forEach((doc) => {
-      const classInfo = doc.data() as Data.SubRequest
-      if (doc.id.includes(userId)) {
-        userSubRequests.push({
-          ...classInfo,
-          id: doc.id,
-        } as Data.SubRequest)
-      }
-      if (classInfo.subRequestStatus === SubRequestStatus.SubstituteNeeded) {
-        classesCheckedOff.push(null)
-        classesMissingSubs.push({
-          ...classInfo,
-          id: doc.id,
-        } as Data.SubRequest)
-      } else if (
-        (classInfo.subRequestStatus === SubRequestStatus.SubstituteFound ||
-          classInfo.subRequestStatus ===
-            SubRequestStatus.SubstituteFeedbackNeeded) &&
-        classInfo.subInstructorId === userId
-      ) {
-        userSubClasses.push({
-          ...classInfo,
-          id: doc.id,
-        } as Data.SubRequest)
-      }
-    })
+    const {
+      userSubRequests,
+      classesMissingSubs: missing,
+      userSubClasses,
+    } = parseSubRequestDocs(querySnapshot.docs, userId)
+
+    classesMissingSubs = missing
+    classesCheckedOff = new Array(missing.length).fill(null)
     subRequestsFromUser = userSubRequests
     stringSubRequestDates = userSubRequests.map((subRequest) =>
       timestampToDate(subRequest.dateOfClass).toString(),
@@ -187,9 +173,7 @@
   }
 
   function handleSubmit() {
-    const classesToSub = classesCheckedOff
-      .filter((classCheckedOff: any) => classCheckedOff !== null)
-      .map((classCheckedOff: any) => classCheckedOff[0])
+    const classesToSub = filterCheckedOffSubClasses(classesCheckedOff)
     classesToSub.map((classToSub: Data.SubRequest) => {
       const classToSubDoc = doc(db, substituteRequestsCollection, classToSub.id)
       updateDoc(classToSubDoc, {
@@ -202,19 +186,17 @@
           (classMissingSub) => classMissingSub.id !== classToSub.id,
         )
         userSubClassesList.push(classToSub)
+        const payload = buildSubstituteApiPayload(
+          currentUser.profile.firstName,
+          currentUser.object.email || '',
+          classToSub,
+        )
         fetch('api/substitute', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            firstName: currentUser.profile.firstName,
-            subInstructorEmail: currentUser.object.email,
-            course: classToSub.course,
-            classNumber: classToSub.classNumber,
-            date: formatDate(timestampToDate(classToSub.dateOfClass)),
-            originalInstructorEmail: classToSub.originalInstructorEmail,
-          }),
+          body: JSON.stringify(payload),
         }).then((response) => {
           if (response.ok) {
             alert.trigger('success', 'Signup successful!')
@@ -243,16 +225,8 @@
       )
       const studentDoc = await getDoc(studentDocRef)
       if (studentDoc.exists()) {
-        const data = studentDoc.data()
-        if (data) {
-          const student: Student = {
-            name: `${data.personal.studentFirstName} ${data.personal.studentLastName}`,
-            email: data.personal.email,
-            secondaryEmail: data.personal.secondaryEmail,
-            phone: data.personal.phoneNumber,
-            grade: data.academic.grade,
-            school: data.academic.school,
-          }
+        const student = parseSubStudentDoc(studentDoc.data())
+        if (student) {
           studentList.push(student)
         }
       }
