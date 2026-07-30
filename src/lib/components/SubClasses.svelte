@@ -29,7 +29,6 @@
   let currentUser: Data.User.Store
   let classesMissingSubs: Data.SubRequest[] = $state([])
   let userSubClassesList: Data.SubRequest[] = $state([])
-  let loading = true
   let classesCheckedOff: any[] = $state([])
   let updating = $state(false)
   let subRequestsFromUser: Data.SubRequest[] = $state([])
@@ -66,7 +65,6 @@
     return user.subscribe(async (user) => {
       if (user) {
         currentUser = user
-        loading = false
         classesMissingSubs = await getData(user.object.uid)
       }
     })
