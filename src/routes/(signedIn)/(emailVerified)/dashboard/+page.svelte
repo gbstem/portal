@@ -48,7 +48,7 @@
     if (userObj) {
       isStudent = userObj.profile.role === 'student'
 
-      const loadDataPromise = (async () => {
+      ;(async () => {
         try {
           if (userObj.profile.role === 'instructor') {
             data.application.status = null
