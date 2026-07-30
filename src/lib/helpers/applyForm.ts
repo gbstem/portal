@@ -1,43 +1,32 @@
 import type {} from '../../data.d.ts'
 import { cloneDeep } from 'lodash-es'
 import type { ApplicationRequestBody } from '../../routes/api/application/+server'
+import { getApplyFormDefaults } from '../components/forms/schemas'
 
 /**
  * Returns clean default empty Data.Application state.
  */
 export function createEmptyApplication(): Data.Application {
+  const defaults = getApplyFormDefaults()
   return {
     personal: {
       email: '',
       firstName: '',
       lastName: '',
-      gender: '',
-      race: [],
-      phoneNumber: '',
-      dateOfBirth: '',
+      ...defaults.personal,
     },
     academic: {
-      school: '',
+      ...defaults.academic,
       graduationYear: '',
     },
     program: {
-      courses: [],
-      preferences: '',
-      timeSlots: '',
-      notAvailable: '',
-      inPerson: false,
-      reason: '',
+      ...defaults.program,
     },
     essay: {
-      taughtBefore: false,
-      academicBackground: '',
-      teachingScenario: '',
-      why: '',
+      ...defaults.essay,
     },
     agreements: {
-      entireProgram: false,
-      timeCommitment: false,
-      submitting: false,
+      ...defaults.agreements,
     },
     meta: {
       id: '',

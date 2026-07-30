@@ -176,3 +176,123 @@ export const passwordSchema = z
     PASSWORD_MAX_LENGTH,
     `Password must be at most ${PASSWORD_MAX_LENGTH} characters`,
   )
+
+export const interviewSlotSchema = z.object({
+  date: z.string().min(1, 'Date and time is required'),
+  meetingLink: z.string().min(1, 'Meeting link is required'),
+  interviewerName: z.string().min(1, 'Interviewer name is required'),
+  interviewerEmail: z.string().email('Invalid interviewer email address'),
+  intervieweeFirstName: z.string().optional().default(''),
+  intervieweeLastName: z.string().optional().default(''),
+  intervieweeEmail: z.string().optional().default(''),
+  intervieweeId: z.string().optional().default(''),
+  interviewSlotStatus: z
+    .enum(['available', 'pending', 'confirmed', 'completed', 'canceled'])
+    .default('available'),
+})
+
+export function getClassDetailsFormDefaults() {
+  return {
+    course: '',
+    gradeRecommendation: '',
+    classCap: 15,
+    meetingLink: '',
+    classDay1: 'Monday' as const,
+    classTime1: '',
+    classDay2: '',
+    classTime2: '',
+    online: true,
+  }
+}
+
+export function getApplyFormDefaults() {
+  return {
+    personal: {
+      phoneNumber: '',
+      dateOfBirth: '',
+      gender: '',
+      race: [],
+    },
+    academic: {
+      school: '',
+      graduationYear: new Date().getFullYear(),
+    },
+    program: {
+      courses: [],
+      preferences: '',
+      timeSlots: '',
+      notAvailable: '',
+      inPerson: false,
+      reason: '',
+    },
+    essay: {
+      taughtBefore: false,
+      academicBackground: '',
+      teachingScenario: '',
+      why: '',
+    },
+    agreements: {
+      entireProgram: false,
+      timeCommitment: false,
+      submitting: false,
+    },
+  }
+}
+
+export function getRegistrationFormDefaults() {
+  return {
+    personal: {
+      studentFirstName: '',
+      studentLastName: '',
+      email: '',
+      secondaryEmail: '',
+      phoneNumber: '',
+      dateOfBirth: '',
+      gender: '',
+      frlp: '',
+      parentEducation: '',
+      race: [],
+    },
+    academic: {
+      school: '',
+      grade: '',
+    },
+    program: {
+      csCourse: '',
+      mathCourse: '',
+      engineeringCourse: '',
+      scienceCourse: '',
+      inPerson: false,
+      reason: '',
+    },
+    inPerson: {
+      allergies: '',
+      parentPickup: '',
+    },
+    agreements: {
+      mediaRelease: false,
+      bypassAgeLimits: false,
+      entireProgram: false,
+      timeCommitment: false,
+      submitting: false,
+    },
+  }
+}
+
+export function getInterviewSlotDefaults(
+  interviewerName = '',
+  interviewerEmail = '',
+) {
+  return {
+    id: '',
+    date: '',
+    interviewerName,
+    interviewerEmail,
+    intervieweeFirstName: '',
+    intervieweeLastName: '',
+    intervieweeEmail: '',
+    intervieweeId: '',
+    meetingLink: '',
+    interviewSlotStatus: 'available' as const,
+  }
+}

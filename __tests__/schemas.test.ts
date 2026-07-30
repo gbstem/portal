@@ -4,6 +4,11 @@ import {
   applicationSchema,
   registrationSchema,
   passwordSchema,
+  interviewSlotSchema,
+  getClassDetailsFormDefaults,
+  getApplyFormDefaults,
+  getRegistrationFormDefaults,
+  getInterviewSlotDefaults,
 } from '../src/lib/components/forms/schemas'
 
 describe('Zod Validation Schemas', () => {
@@ -442,6 +447,65 @@ describe('Zod Validation Schemas', () => {
           'Password must be at most 64 characters',
         )
       }
+    })
+  })
+
+  describe('interviewSlotSchema', () => {
+    it('passes for a valid interview slot', () => {
+      const result = interviewSlotSchema.safeParse({
+        date: '2026-08-01T15:00:00.000Z',
+        meetingLink: 'https://zoom.us/j/999888777',
+        interviewerName: 'Jane Doe',
+        interviewerEmail: 'jane@example.com',
+      })
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.data.interviewSlotStatus).toBe('available')
+      }
+    })
+
+    it('denies missing required fields', () => {
+      const result = interviewSlotSchema.safeParse({
+        date: '',
+        meetingLink: '',
+        interviewerName: '',
+        interviewerEmail: 'invalid-email',
+      })
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.error.issues.length).toBeGreaterThanOrEqual(3)
+      }
+    })
+  })
+
+  describe('Form Defaults Factories', () => {
+    it('returns valid initial defaults for ClassDetailsForm', () => {
+      const defaults = getClassDetailsFormDefaults()
+      expect(defaults.course).toBe('')
+      expect(defaults.classCap).toBe(15)
+      expect(defaults.online).toBe(true)
+    })
+
+    it('returns valid initial defaults for ApplyForm', () => {
+      const defaults = getApplyFormDefaults()
+      expect(defaults.personal.race).toEqual([])
+      expect(defaults.academic.graduationYear).toBeGreaterThan(2020)
+    })
+
+    it('returns valid initial defaults for RegistrationForm', () => {
+      const defaults = getRegistrationFormDefaults()
+      expect(defaults.personal.studentFirstName).toBe('')
+      expect(defaults.agreements.mediaRelease).toBe(false)
+    })
+
+    it('returns valid initial defaults for InterviewSlot', () => {
+      const defaults = getInterviewSlotDefaults(
+        'Interviewer Name',
+        'interviewer@example.com',
+      )
+      expect(defaults.interviewerName).toBe('Interviewer Name')
+      expect(defaults.interviewerEmail).toBe('interviewer@example.com')
+      expect(defaults.interviewSlotStatus).toBe('available')
     })
   })
 })

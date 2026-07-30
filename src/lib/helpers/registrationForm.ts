@@ -1,48 +1,30 @@
 import type {} from '../../data.d.ts'
 import { cloneDeep } from 'lodash-es'
 import type { RegistrationRequestBody } from '../../routes/api/registration/+server'
+import { getRegistrationFormDefaults } from '../components/forms/schemas'
 
 /**
  * Returns default empty Data.Registration structure.
  */
 export function createEmptyRegistration(): Data.Registration {
+  const defaults = getRegistrationFormDefaults()
   return {
     personal: {
-      email: '',
-      studentFirstName: '',
-      studentLastName: '',
+      ...defaults.personal,
       parentFirstName: '',
       parentLastName: '',
-      gender: '',
-      race: [],
-      phoneNumber: '',
-      dateOfBirth: '',
-      frlp: '',
-      parentEducation: '',
-      secondaryEmail: '',
     },
     academic: {
-      school: '',
-      grade: '',
+      ...defaults.academic,
     },
     program: {
-      csCourse: '',
-      mathCourse: '',
-      engineeringCourse: '',
-      scienceCourse: '',
-      inPerson: false,
-      reason: '',
+      ...defaults.program,
     },
     inPerson: {
-      allergies: '',
-      parentPickup: '',
+      ...defaults.inPerson,
     },
     agreements: {
-      bypassAgeLimits: false,
-      entireProgram: false,
-      timeCommitment: false,
-      mediaRelease: false,
-      submitting: false,
+      ...defaults.agreements,
     },
     meta: {
       id: '',
