@@ -42,7 +42,6 @@
   }: Props = $props()
 
   let saving = $state(false)
-  let showValidation = false
   let dbValues: Data.Application
 
   let values: Data.Application = $state(createEmptyApplication())
@@ -61,7 +60,6 @@
         if (!formVal.valid) return
         if ($user) {
           const frozenUser = $user
-          showValidation = false
           const updatedValues = {
             ...values,
             personal: {
@@ -121,7 +119,6 @@
         }
       },
       onError({ result }) {
-        showValidation = true
         if (result.type === 'error') {
           alert.trigger('error', result.error.message)
         }
@@ -172,7 +169,6 @@
 
   function handleSave() {
     if (values.meta.submitted || saving) return
-    showValidation = false
     saving = true
     return new Promise<void>((resolve, reject) => {
       if ($user) {

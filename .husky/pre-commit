@@ -13,6 +13,9 @@ fi
 echo "🔍 Running npm run lint..."
 npm run lint || { echo "❌ Linting failed. Please fix errors before committing."; exit 1; }
 
+echo "🔍 Running npm run check..."
+npm run check || { echo "❌ Check failed. Please fix errors before committing."; exit 1; }
+
 echo "🧪 Running npm run test..."
 npm run test || { echo "❌ Tests failed. Please fix them before committing."; exit 1; }
 

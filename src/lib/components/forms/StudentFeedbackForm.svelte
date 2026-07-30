@@ -94,7 +94,7 @@
     },
   )
 
-  const { form, enhance, delayed, reset, errors, submitting } = formResult
+  const { form, enhance, reset, errors, submitting } = formResult
 
   async function fetchCourseList(classIds: string[]) {
     try {

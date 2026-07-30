@@ -254,7 +254,6 @@ describe('sendClassReminder', () => {
     sendClassReminder({
       studentList: [{ name: 'john doe', email: 'john@test.com' }] as any,
       instructorName: 'test instructor',
-      instructorEmail: 'inst@test.com',
       otherInstructorEmails: '',
       className: 'Math',
       nextMeetingTime: 'Monday at 2:00 PM',
@@ -282,7 +281,6 @@ describe('sendClassReminder', () => {
       studentName: 'john doe',
       studentEmail: 'john@test.com',
       instructorName: 'test instructor',
-      instructorEmail: 'inst@test.com',
       otherInstructorEmails: '',
       className: 'Math',
       nextMeetingTime: 'Monday at 2:00 PM',

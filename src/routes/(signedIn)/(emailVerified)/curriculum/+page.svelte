@@ -1,5 +1,4 @@
 <script lang="ts">
-  import Link from '$lib/components/Link.svelte'
   import PageLayout from '$lib/components/PageLayout.svelte'
   import Card from '$lib/components/Card.svelte'
   import Button from '$lib/components/Button.svelte'

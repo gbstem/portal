@@ -135,7 +135,7 @@
     },
   )
 
-  const { form, enhance, delayed, submitting } = formResult
+  const { form, enhance, submitting } = formResult
 
   user.subscribe(async (user) => {
     if (user) {

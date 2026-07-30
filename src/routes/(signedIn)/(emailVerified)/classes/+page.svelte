@@ -28,7 +28,6 @@
   } from 'firebase/firestore'
   import { onMount } from 'svelte'
   import { fade } from 'svelte/transition'
-  import type { EnrollRequestBody } from '../../../api/enroll/+server'
 
   import {
     buildPortalEnrollApiPayload,
@@ -43,7 +42,6 @@
   let showClassDetailsDialog = $state(false)
   let dialogClassDetails: ClassInfo | null = $state(null)
   let selectedStudentUid = $state('')
-  let userEmail = ''
   let userName = ''
 
   let classFilter = $state('')
@@ -101,7 +99,6 @@
       classes = sortClassesBySpotsRemaining(rawClasses)
 
       if (user && isStudent) {
-        if (user.object.email) userEmail = user.object.email
         if (user.object.displayName) {
           userName = user.profile.firstName
           await determineStudentEnrollment(user)
@@ -182,6 +179,7 @@
     await updateDoc(classDocRef, {
       students: arrayUnion(selectedStudentUid),
     }).catch((error) => {
+      console.error('Class enrollment error:', error)
       alert.trigger('error', 'Error enrolling in class!')
     })
 
@@ -225,6 +223,7 @@
         )
       })
       .catch((error) => {
+        console.error('Registration enrollment error:', error)
         alert.trigger('error', 'Error enrolling in class!')
       })
   }
@@ -243,6 +242,7 @@
     await updateDoc(classDocRef, {
       students: arrayRemove(selectedStudentUid),
     }).catch((error) => {
+      console.error('Class unenrollment error:', error)
       alert.trigger('error', 'Error unenrolling from class!')
     })
 
@@ -264,6 +264,7 @@
         showClassDetailsDialog = false
       })
       .catch((error) => {
+        console.error('Registration unenrollment error:', error)
         alert.trigger('error', 'Error unenrolling from class!')
       })
   }
@@ -549,7 +550,7 @@
     <div class="grid gap-6 md:grid-cols-2" transition:fade={{ duration: 500 }}>
       {#each classes as classInfo (classInfo.id)}
         {#if classFilter == '' || classFilter == 'all' || classFilter == classInfo.course}
-          {#if !onlyShowEnrolled || Object.entries(studentUidToClassIds).some( ([studentUid, classIds]) => classIds.includes(classInfo.id) )}
+          {#if !onlyShowEnrolled || Object.entries(studentUidToClassIds).some( ([, classIds]) => classIds.includes(classInfo.id) )}
             <Card
               class="group relative overflow-hidden rounded-xl border border-gray-200 bg-white p-6 shadow-xs transition-all duration-200 hover:border-gray-300 hover:shadow-lg"
             >
@@ -693,7 +694,7 @@
               </div>
 
               <!-- Enrolled Students Section -->
-              {#if Object.entries(studentUidToClassIds).some( ([studentUid, classIds]) => classIds.includes(classInfo.id) )}
+              {#if Object.entries(studentUidToClassIds).some( ([, classIds]) => classIds.includes(classInfo.id) )}
                 <div
                   class="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3"
                 >

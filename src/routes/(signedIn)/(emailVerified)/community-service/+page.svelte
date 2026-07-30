@@ -3,15 +3,11 @@
   import { db, user } from '$lib/client/firebase'
   import Button from '$lib/components/Button.svelte'
   import Card from '$lib/components/Card.svelte'
-  import InterviewForm from '$lib/components/forms/InterviewForm.svelte'
   import { ClassStatus } from '$lib/components/helpers/ClassStatus'
   import { SubRequestStatus } from '$lib/components/helpers/SubRequestStatus'
-  import {
-    classesCollection,
-    substituteRequestsCollection,
-  } from '$lib/data/collections'
+  import { substituteRequestsCollection } from '$lib/data/collections'
   import { timestampToDate, getInstructorClasses } from '$lib/utils'
-  import { collection, doc, getDoc, getDocs, query } from 'firebase/firestore'
+  import { collection, getDocs, query } from 'firebase/firestore'
   import { alert } from '$lib/stores'
 
   let numHours = $state(0)
@@ -34,7 +30,7 @@
       let courses: string[] = []
       let totalRegHours = 0
 
-      Object.entries(userClasses).forEach(([classId, data]) => {
+      Object.entries(userClasses).forEach(([, data]) => {
         const classHours = data.classStatuses.filter(
           (classStatus) =>
             classStatus === ClassStatus.EverythingComplete ||

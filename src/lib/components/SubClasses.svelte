@@ -15,7 +15,6 @@
   import { SubRequestStatus } from './helpers/SubRequestStatus'
   import { curriculums } from './helpers/curriculum'
   import sendClassReminder from './helpers/sendClassReminder'
-  import type Student from './types/Student'
 
   interface Props {
     subInstructor: boolean
@@ -162,25 +161,14 @@
     })
   }
 
-  function getStudentList(studentUids: string[]): Promise<Student[]> {
-    return classService.fetchStudentList(studentUids)
-  }
-
   async function sendReminder(subRequest: Data.SubRequest) {
-    let {
-      course,
-      subInstructorEmail,
-      subInstructorFirstName,
-      dateOfClass,
-      id,
-    } = subRequest
+    let { course, subInstructorFirstName, dateOfClass, id } = subRequest
     try {
       const studentList = await classService.fetchStudentListForClass(id)
       sendClassReminder({
         studentList: studentList,
         className: course,
         instructorName: subInstructorFirstName,
-        instructorEmail: subInstructorEmail,
         nextMeetingTime: formatDate(timestampToDate(dateOfClass)),
         otherInstructorEmails: '',
       })

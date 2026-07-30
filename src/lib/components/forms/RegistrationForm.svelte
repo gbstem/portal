@@ -50,7 +50,6 @@
 
   let loading = $state(true)
   let saving = $state(false)
-  let showValidation = false
   let dbValues: Data.Registration
 
   const emptyValues: Data.Registration = createEmptyRegistration()
@@ -71,7 +70,6 @@
         if (!formVal.valid) return
         if ($user) {
           const frozenUser = $user
-          showValidation = false
           const updatedValues = {
             ...values,
             personal: {
@@ -135,7 +133,6 @@
         }
       },
       onError({ result }) {
-        showValidation = true
         if (result.type === 'error') {
           alert.trigger('error', result.error.message)
         }
@@ -217,6 +214,13 @@
     }
   })
 
+  // TODO: no button in this template calls handleDelete (delete draft
+  // registration) - found via a noUnusedLocals cleanup pass. Unclear whether
+  // this is a removed feature or missed wiring; registrationService.deleteRegistration
+  // itself is fine and tested, only this call site is orphaned. Left in place
+  // pending a decision from the site owner rather than deleted by a consultant's guess.
+  // @ts-expect-error - intentionally unused pending the decision above; remove this
+  // suppression (and the TODO) once handleDelete is either wired up or deleted.
   function handleDelete() {
     if ($user) {
       if (confirm('Are you sure you want to delete this draft?')) {
@@ -235,7 +239,6 @@
 
   function handleSave() {
     if (loading || saving || $submitting) return Promise.resolve()
-    showValidation = false
     saving = true
     return new Promise<void>((resolve, reject) => {
       if ($user) {

@@ -5,7 +5,6 @@
   import Link from '$lib/components/Link.svelte'
   import Button from '../Button.svelte'
   import FormInput from '../FormInput.svelte'
-  import { cn } from '$lib/utils'
   import { superForm, defaults } from 'sveltekit-superforms'
   import { zod } from 'sveltekit-superforms/adapters'
   import { z } from 'zod'

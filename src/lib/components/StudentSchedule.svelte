@@ -2,18 +2,16 @@
   import { db } from '$lib/client/firebase'
   import { doc, getDoc } from 'firebase/firestore'
   import Button from './Button.svelte'
-  import { formatDate, formatDateString, timestampToDate } from '$lib/utils'
+  import { formatDate, timestampToDate } from '$lib/utils'
   import {
     classesCollection,
     registrationsCollection,
   } from '$lib/data/collections'
-  import { getContext, onMount } from 'svelte'
   import { selectedStudentIdState } from '$lib/stores.svelte'
 
   type ClassDate = { course: string; meetingTime: Date; link: string }
   let classes: ClassDate[] = $state([])
   let nextClass: ClassDate | null = $state(null)
-  let listView: boolean = false
   let selectedStudentUid = $derived(selectedStudentIdState.current)
   let selectedStudentName = $state('')
 

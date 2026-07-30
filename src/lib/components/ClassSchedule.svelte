@@ -476,7 +476,6 @@
                             values.instructorFirstName +
                             ' ' +
                             values.instructorLastName,
-                          instructorEmail: values.instructorEmail,
                           otherInstructorEmails: values.otherInstructorEmails,
                           className: values.course,
                           nextMeetingTime:
@@ -561,7 +560,6 @@
             sendClassReminder({
               studentList,
               instructorName: values.instructorFirstName,
-              instructorEmail: values.instructorEmail,
               otherInstructorEmails: values.otherInstructorEmails,
               className: values.course,
               nextMeetingTime:

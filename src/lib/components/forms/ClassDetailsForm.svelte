@@ -43,7 +43,6 @@
 
   let disabled = $state(false)
   let showValidation = $state(false)
-  let submitted = false
   let isCreatingNewClass = $state(false)
   let isCreatingLink = $state(false)
 
@@ -159,7 +158,6 @@
             )
 
             disabled = true
-            submitted = true
             alert.trigger(
               'success',
               `Class details saved! You can join class by clicking the Join Class button above!`,
@@ -186,9 +184,6 @@
   function selectClass(classId: string) {
     selectedClassId = classId
     values = instructorClasses[classId]
-    if (values.course !== '') {
-      submitted = true
-    }
     disabled = true
     createClassSchedule = false
     isCreatingNewClass = false
@@ -197,7 +192,6 @@
   function createNewClass() {
     selectedClassId = ''
     values = getDefaultClassValues()
-    submitted = false
     disabled = false
     createClassSchedule = true
     isCreatingNewClass = true
@@ -221,21 +215,12 @@
         if (availableClassIds.length > 0) {
           selectedClassId = availableClassIds[0]
           values = instructorClasses[selectedClassId]
-          if (values.course !== '') {
-            submitted = true
-          }
           disabled = true
           createClassSchedule = false
         }
       }
     })
   })
-
-  function parseTime(time: string, date: Date): Date {
-    const [hours, minutes] = time.split(':').map((str) => parseInt(str, 10))
-    date.setHours(hours, minutes, 0, 0)
-    return date
-  }
 
   function formatIntlDate(date: Date) {
     var month = '' + (date.getMonth() + 1)
