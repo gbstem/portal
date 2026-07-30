@@ -58,6 +58,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
     return json({ message: 'Email sent successfully.' })
   } catch (err) {
-    throw handleApiError(err)
+    throw handleApiError('/api/substitute', err)
   }
 }

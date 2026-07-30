@@ -14,9 +14,12 @@ export function verifyAuthenticated(locals: App.Locals) {
 
 /**
  * Translates caught exceptions into SvelteKit HttpErrors.
+ * Logs the error server-side with the API route context.
  * If the exception is already a SvelteKit error, it is rethrown as-is.
  */
-export function handleApiError(err: unknown): never {
+export function handleApiError(route: string, err: unknown): never {
+  console.error(`[API ${route} Error]:`, err)
+
   if (isHttpError(err)) {
     throw err
   }
