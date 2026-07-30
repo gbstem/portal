@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { db, user } from '$lib/client/firebase'
+  import { user } from '$lib/client/firebase'
   import { otherInstructorEmailsSchema } from '$lib/components/forms/schemas'
   import { coursesJson, daysOfWeekJson } from '$lib/data'
-  import { classesCollection, withSemester } from '$lib/data/collections'
+  import { withSemester } from '$lib/data/collections'
   import {
     generateNewClassId,
     getDefaultClassValues,
@@ -10,13 +10,13 @@
     normalizeOtherInstructorEmails,
     toFormValues,
   } from '$lib/helpers/classDetailsForm'
+  import { classService } from '$lib/services/classService'
   import { alert } from '$lib/stores'
   import {
     cn,
     getInstructorClasses,
     updateInstructorClassMappings,
   } from '$lib/utils'
-  import { doc, setDoc } from 'firebase/firestore'
   import { onMount, untrack } from 'svelte'
   import { defaults, superForm } from 'sveltekit-superforms'
   import { zod } from 'sveltekit-superforms/adapters'
@@ -147,8 +147,8 @@
               selectedClassId ||
               generateNewClassId(availableClassIds, frozenUser.object.uid)
 
-            await setDoc(
-              doc(db, classesCollection, classId),
+            await classService.saveClassDetails(
+              classId,
               withSemester(newValues),
             )
 

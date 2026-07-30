@@ -296,3 +296,27 @@ export function getInterviewSlotDefaults(
     interviewSlotStatus: 'available' as const,
   }
 }
+
+export function getClassDataDefaults() {
+  return {
+    id: '',
+    course: '',
+    instructorFirstName: '',
+    instructorLastName: '',
+    instructorEmail: '',
+    otherInstructorEmails: '',
+    classDay1: '',
+    classTime1: '',
+    classDay2: '',
+    classTime2: '',
+    meetingLink: '',
+    gradeRecommendation: '',
+    meetingTimes: [],
+    completedClassDates: [],
+    feedbackCompleted: [],
+    classStatuses: [],
+    classCap: 0,
+    students: [],
+    online: true,
+  }
+}

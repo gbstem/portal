@@ -1,17 +1,16 @@
 <script lang="ts">
-  import { db, user } from '$lib/client/firebase'
+  import { user } from '$lib/client/firebase'
   import Card from '$lib/components/Card.svelte'
   import { coursesJson, gendersJson, raceJson, reasonsJson } from '$lib/data'
-  import { applicationsCollection, withSemester } from '$lib/data/collections'
   import {
-    buildApplyApiPayload,
     createEmptyApplication,
     normalizeApplicationData,
     toApplyFormValues as toFormValues,
   } from '$lib/helpers/applyForm'
+  import { applicationService } from '$lib/services/applicationService'
   import { alert } from '$lib/stores'
   import type { FirebaseError } from 'firebase/app'
-  import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore'
+  import { serverTimestamp } from 'firebase/firestore'
   import { cloneDeep, isEqual } from 'lodash-es'
   import { onDestroy, onMount } from 'svelte'
   import { defaults, superForm } from 'sveltekit-superforms'
@@ -94,44 +93,26 @@
               updated: serverTimestamp(),
             },
           }
-          setDoc(
-            doc(db, applicationsCollection, frozenUser.object.uid),
-            withSemester(updatedValues),
-          )
-            .then(() => {
-              getDoc(
-                doc(db, applicationsCollection, frozenUser.object.uid),
-              ).then((applicationDoc) => {
-                const payload = buildApplyApiPayload(
-                  frozenUser.profile.firstName,
-                )
-                fetch('/api/application', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify(payload),
-                }).then(async (res) => {
-                  if (!res.ok) {
-                    const { message } = await res.json()
-                    console.error('Application request server error:', message)
-                  }
-                  const applicationData =
-                    applicationDoc.data() as Data.Application
-                  clearInterval(saveInterval)
-                  saveInterval = undefined
-                  values = cloneDeep(applicationData)
-                  dbValues = cloneDeep(applicationData)
-                  window.scrollTo({
-                    top: 0,
-                    behavior: 'smooth',
-                  })
-                  alert.trigger(
-                    'success',
-                    'Your application has been submitted!',
-                  )
+          applicationService
+            .saveUserApplication(frozenUser.object.uid, updatedValues)
+            .then(async () => {
+              const freshApp = await applicationService.fetchUserApplication(
+                frozenUser.object.uid,
+              )
+              await applicationService.submitApplicationApi(
+                frozenUser.profile.firstName,
+              )
+              if (freshApp) {
+                clearInterval(saveInterval)
+                saveInterval = undefined
+                values = cloneDeep(freshApp)
+                dbValues = cloneDeep(freshApp)
+                window.scrollTo({
+                  top: 0,
+                  behavior: 'smooth',
                 })
-              })
+                alert.trigger('success', 'Your application has been submitted!')
+              }
             })
             .catch((err: FirebaseError) => {
               console.error('Apply form submit error:', err)
@@ -152,41 +133,34 @@
 
   let saveInterval: number | undefined = undefined
   onMount(() => {
-    return user.subscribe((user) => {
+    return user.subscribe(async (user) => {
       if (user) {
-        getDoc(doc(db, applicationsCollection, user.object.uid)).then(
-          (applicationDoc) => {
-            const applicationExists = applicationDoc.exists()
-            if (applicationExists) {
-              const applicationData = applicationDoc.data() as Data.Application
-              values = cloneDeep(applicationData)
-              dbValues = cloneDeep(applicationData)
-              if (
-                !values.meta.submitted &&
-                (values.personal.email !== user.object.email ||
-                  values.personal.firstName !== user.profile.firstName ||
-                  values.personal.lastName !== user.profile.lastName)
-              ) {
-                values = normalizeApplicationData(
-                  values,
-                  user.object,
-                  user.profile,
-                )
-                handleSave()
-              }
-            } else {
-              values = normalizeApplicationData(null, user.object, user.profile)
-              handleSave()
-            }
-            if (!values.meta.submitted) {
-              if (saveInterval === undefined) {
-                saveInterval = window.setInterval(() => {
-                  handleSave()
-                }, 300000)
-              }
-            }
-          },
+        const applicationData = await applicationService.fetchUserApplication(
+          user.object.uid,
         )
+        if (applicationData) {
+          values = cloneDeep(applicationData)
+          dbValues = cloneDeep(applicationData)
+          if (
+            !values.meta.submitted &&
+            (values.personal.email !== user.object.email ||
+              values.personal.firstName !== user.profile.firstName ||
+              values.personal.lastName !== user.profile.lastName)
+          ) {
+            values = normalizeApplicationData(values, user.object, user.profile)
+            handleSave()
+          }
+        } else {
+          values = normalizeApplicationData(null, user.object, user.profile)
+          handleSave()
+        }
+        if (!values.meta.submitted) {
+          if (saveInterval === undefined) {
+            saveInterval = window.setInterval(() => {
+              handleSave()
+            }, 300000)
+          }
+        }
       }
     })
   })
@@ -230,22 +204,20 @@
             updated: serverTimestamp(),
           },
         }
-        setDoc(
-          doc(db, applicationsCollection, frozenUser.object.uid),
-          withSemester(updatedValues),
-        )
-          .then(() => {
-            getDoc(doc(db, applicationsCollection, frozenUser.object.uid)).then(
-              (applicationDoc) => {
-                const applicationData =
-                  applicationDoc.data() as Data.Application
-                values = cloneDeep(applicationData)
-                dbValues = cloneDeep(applicationData)
-                saving = false
-                alert.trigger('success', 'Your application was saved.')
-                resolve()
-              },
-            )
+        applicationService
+          .saveUserApplication(frozenUser.object.uid, updatedValues)
+          .then(async () => {
+            const applicationData =
+              await applicationService.fetchUserApplication(
+                frozenUser.object.uid,
+              )
+            if (applicationData) {
+              values = cloneDeep(applicationData)
+              dbValues = cloneDeep(applicationData)
+            }
+            saving = false
+            alert.trigger('success', 'Your progress was saved.')
+            resolve()
           })
           .catch((err) => {
             saving = false

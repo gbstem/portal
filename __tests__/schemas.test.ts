@@ -1,14 +1,15 @@
 import {
-  classSchema,
-  tokenSchema,
   applicationSchema,
-  registrationSchema,
-  passwordSchema,
-  interviewSlotSchema,
-  getClassDetailsFormDefaults,
+  classSchema,
   getApplyFormDefaults,
-  getRegistrationFormDefaults,
+  getClassDataDefaults,
+  getClassDetailsFormDefaults,
   getInterviewSlotDefaults,
+  getRegistrationFormDefaults,
+  interviewSlotSchema,
+  passwordSchema,
+  registrationSchema,
+  tokenSchema,
 } from '../src/lib/components/forms/schemas'
 
 describe('Zod Validation Schemas', () => {
@@ -506,6 +507,13 @@ describe('Zod Validation Schemas', () => {
       expect(defaults.interviewerName).toBe('Interviewer Name')
       expect(defaults.interviewerEmail).toBe('interviewer@example.com')
       expect(defaults.interviewSlotStatus).toBe('available')
+    })
+
+    it('returns valid initial defaults for ClassData', () => {
+      const defaults = getClassDataDefaults()
+      expect(defaults.course).toBe('')
+      expect(defaults.students).toEqual([])
+      expect(defaults.online).toBe(true)
     })
   })
 })

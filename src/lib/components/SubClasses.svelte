@@ -1,37 +1,17 @@
 <script lang="ts">
   import { enhance } from '$app/forms'
-  import { db, user } from '$lib/client/firebase'
-  import {
-    classesCollection,
-    registrationsCollection,
-    substituteRequestsCollection,
-  } from '$lib/data/collections'
-  import {
-    buildSubstituteApiPayload,
-    filterCheckedOffSubClasses,
-    parseSubRequestDocs,
-    parseSubStudentDoc,
-  } from '$lib/helpers/subClasses'
+  import { user } from '$lib/client/firebase'
+  import { filterCheckedOffSubClasses } from '$lib/helpers/subClasses'
+  import { classService } from '$lib/services/classService'
+  import { substituteService } from '$lib/services/substituteService'
   import { alert } from '$lib/stores'
   import { formatDate, timestampToDate } from '$lib/utils'
-  import {
-    collection,
-    deleteDoc,
-    doc,
-    DocumentReference,
-    getDoc,
-    getDocs,
-    query,
-    setDoc,
-    updateDoc,
-  } from 'firebase/firestore'
   import { onMount } from 'svelte'
   import Button from './Button.svelte'
   import Card from './Card.svelte'
   import Dialog from './Dialog.svelte'
   import Input from './Input.svelte'
   import InstructorFeedbackForm from './forms/InstructorFeedbackForm.svelte'
-  import { ClassStatus } from './helpers/ClassStatus'
   import { SubRequestStatus } from './helpers/SubRequestStatus'
   import { curriculums } from './helpers/curriculum'
   import sendClassReminder from './helpers/sendClassReminder'
@@ -93,13 +73,11 @@
   })
 
   async function getData(userId: string) {
-    const q = query(collection(db, substituteRequestsCollection))
-    const querySnapshot = await getDocs(q)
     const {
       userSubRequests,
       classesMissingSubs: missing,
       userSubClasses,
-    } = parseSubRequestDocs(querySnapshot.docs, userId)
+    } = await substituteService.fetchUserSubRequests(userId)
 
     classesMissingSubs = missing
     classesCheckedOff = new Array(missing.length).fill(null)
@@ -121,22 +99,17 @@
     }
     const editingSubRequest = subRequestsFromUser[i]
     editingSubRequest.dateOfClass = new Date(stringSubRequestDates[i])
-    setDoc(
-      doc(
-        db,
-        'subRequests',
-        currentUser.object.uid + '---' + editingSubRequest.classNumber,
-      ),
-      editingSubRequest,
-    )
-      .then((res) => {
+    substituteService
+      .saveSubRequest(
+        currentUser.object.uid,
+        editingSubRequest,
+        originalSubClassNumbers[i],
+      )
+      .then(() => {
         alert.trigger('success', 'Sub request updated!')
-        if (editingSubRequest.classNumber !== originalSubClassNumbers[i]) {
-          deleteSubRequest(originalSubClassNumbers[i], false)
-        }
         getData(currentUser.object.uid)
       })
-      .catch((err) => {
+      .catch(() => {
         alert.trigger(
           'error',
           'Failed to update sub request, please try again.',
@@ -149,13 +122,8 @@
       check === false ||
       confirm('Are you sure you want to delete this sub request?')
     ) {
-      deleteDoc(
-        doc(
-          db,
-          substituteRequestsCollection,
-          currentUser.object.uid + '---' + classNumber,
-        ),
-      )
+      substituteService
+        .deleteSubRequest(currentUser.object.uid, classNumber)
         .then(() => {
           alert.trigger(
             'success',
@@ -175,67 +143,32 @@
   function handleSubmit() {
     const classesToSub = filterCheckedOffSubClasses(classesCheckedOff)
     classesToSub.map((classToSub: Data.SubRequest) => {
-      const classToSubDoc = doc(db, substituteRequestsCollection, classToSub.id)
-      updateDoc(classToSubDoc, {
-        subRequestStatus: SubRequestStatus.SubstituteFound,
-        subInstructorId: currentUser.object.uid,
-        subInstructorFirstName: currentUser.profile.firstName,
-        subInstructorEmail: currentUser.object.email,
-      }).then(() => {
-        classesMissingSubs = classesMissingSubs.filter(
-          (classMissingSub) => classMissingSub.id !== classToSub.id,
-        )
-        userSubClassesList.push(classToSub)
-        const payload = buildSubstituteApiPayload(
-          currentUser.profile.firstName,
-          currentUser.object.email || '',
-          classToSub,
-        )
-        fetch('api/substitute', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
-        }).then((response) => {
-          if (response.ok) {
-            alert.trigger('success', 'Signup successful!')
-            setTimeout(() => {
-              window.location.reload()
-            }, 1000)
-          } else {
-            alert.trigger(
-              'error',
-              'Error signing up to substitute, please try again.',
-            )
-          }
+      substituteService
+        .claimSubstituteSlot(classToSub, currentUser)
+        .then(() => {
+          classesMissingSubs = classesMissingSubs.filter(
+            (classMissingSub) => classMissingSub.id !== classToSub.id,
+          )
+          userSubClassesList.push(classToSub)
+          alert.trigger('success', 'Signup successful!')
+          setTimeout(() => {
+            window.location.reload()
+          }, 1000)
         })
-      })
+        .catch(() => {
+          alert.trigger(
+            'error',
+            'Error signing up to substitute, please try again.',
+          )
+        })
     })
   }
 
   function getStudentList(studentUids: string[]): Promise<Student[]> {
-    let studentList: Student[] = []
-
-    const studentPromises = studentUids.map(async (studentUid) => {
-      const studentDocRef: DocumentReference = doc(
-        db,
-        registrationsCollection,
-        studentUid,
-      )
-      const studentDoc = await getDoc(studentDocRef)
-      if (studentDoc.exists()) {
-        const student = parseSubStudentDoc(studentDoc.data())
-        if (student) {
-          studentList.push(student)
-        }
-      }
-    })
-
-    return Promise.all(studentPromises).then(() => studentList)
+    return classService.fetchStudentList(studentUids)
   }
 
-  function sendReminder(subRequest: Data.SubRequest) {
+  async function sendReminder(subRequest: Data.SubRequest) {
     let {
       course,
       subInstructorEmail,
@@ -243,10 +176,8 @@
       dateOfClass,
       id,
     } = subRequest
-    getDoc(doc(db, classesCollection, id)).then(async (document) => {
-      const values = (await document.data()) as Data.Class
-      let { students } = values
-      const studentList = await getStudentList(students)
+    try {
+      const studentList = await classService.fetchStudentListForClass(id)
       sendClassReminder({
         studentList: studentList,
         className: course,
@@ -255,37 +186,32 @@
         nextMeetingTime: formatDate(timestampToDate(dateOfClass)),
         otherInstructorEmails: '',
       })
-    })
+    } catch (err) {
+      console.error('Failed to send reminder:', err)
+    }
   }
 
-  function recordClass(subRequest: Data.SubRequest) {
+  async function recordClass(subRequest: Data.SubRequest) {
     let { classNumber, dateOfClass, id } = subRequest
-    getDoc(doc(db, classesCollection, id.split('---')[0])).then((document) => {
-      const values = document.data() as Data.Class
-      let {
-        meetingLink,
-        classStatuses,
-        completedClassDates,
-        feedbackCompleted,
-      } = values
+    const classId = id.split('---')[0]
+    try {
+      const classValues = await classService.fetchClassDetails(classId)
+      if (!classValues) return
       const confirmHoldClass = confirm(
-        `Please confirm you are holding class now. Confirming will redirect you to ${meetingLink}`,
+        `Please confirm you are holding class now. Confirming will redirect you to ${classValues.meetingLink}`,
       )
       if (confirmHoldClass) {
-        classStatuses[classNumber - 1] = ClassStatus.FeedbackIncomplete
-        completedClassDates.push(dateOfClass)
-        const classDoc = doc(db, classesCollection, id.split('---')[0])
-        updateDoc(classDoc, {
-          completedClassDates: completedClassDates,
-          classStatuses: classStatuses,
-        }).then(() => {
-          updateDoc(doc(db, substituteRequestsCollection, id), {
-            subRequestStatus: SubRequestStatus.SubstituteFeedbackNeeded,
-          })
-        })
-        window.open(meetingLink)
+        await substituteService.recordSubstituteClassSession(
+          id,
+          classId,
+          classNumber,
+          dateOfClass,
+        )
+        window.open(classValues.meetingLink)
       }
-    })
+    } catch (err) {
+      console.error('Failed to record class session:', err)
+    }
   }
 </script>
 

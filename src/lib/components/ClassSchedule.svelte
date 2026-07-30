@@ -1,19 +1,14 @@
 <script lang="ts">
-  import { db, user } from '$lib/client/firebase'
+  import { user } from '$lib/client/firebase'
   import Button from '$lib/components/Button.svelte'
   import Dialog from '$lib/components/Dialog.svelte'
   import DialogActions from '$lib/components/DialogActions.svelte'
   import {
-    classesCollection,
-    registrationsCollection,
-  } from '$lib/data/collections'
-  import {
-    buildSubRequestPayload,
     computeMeetingTimeChanges,
     computeUpdatedClassStatuses,
     findNextClassDateIndex,
-    transformStudentDocData,
   } from '$lib/helpers/classSchedule'
+  import { classService } from '$lib/services/classService'
   import { alert } from '$lib/stores'
   import {
     classTodayHeld,
@@ -24,13 +19,6 @@
     normalizeCapitals,
     toLocalISOString,
   } from '$lib/utils'
-  import {
-    doc,
-    DocumentReference,
-    getDoc,
-    setDoc,
-    updateDoc,
-  } from 'firebase/firestore'
   import { onMount } from 'svelte'
   import Card from './Card.svelte'
   import Input from './Input.svelte'
@@ -88,23 +76,13 @@
    * Iterates through each student UID to get student info
    * @param studentUids
    */
-  const getStudentList = (studentUids: string[]) => {
-    studentUids.forEach((studentUid) => {
-      const studentDocRef: DocumentReference = doc(
-        db,
-        registrationsCollection,
-        studentUid,
-      )
-      getDoc(studentDocRef).then((studentDoc) => {
-        if (studentDoc.exists()) {
-          const student = transformStudentDocData(studentDoc.data())
-          if (student) {
-            studentList.push(student)
-          }
-          studentList = [...studentList]
-        }
-      })
-    })
+  const getStudentList = async (studentUids: string[]) => {
+    try {
+      const fetchedStudents = await classService.fetchStudentList(studentUids)
+      studentList = fetchedStudents
+    } catch (err) {
+      console.error('Failed to load student list:', err)
+    }
   }
 
   function checkStatuses() {
@@ -115,9 +93,9 @@
     )
 
     if (hasChanged) {
-      updateDoc(doc(db, classesCollection, classId), {
-        classStatuses: updatedStatuses,
-      }).catch((err) => console.warn('Failed to update classStatuses:', err))
+      classService
+        .updateClassStatuses(classId, updatedStatuses)
+        .catch((err) => console.warn('Failed to update classStatuses:', err))
     }
   }
 
@@ -126,24 +104,32 @@
     newClassStatuses: string[],
   ): Promise<void> {
     const meetingTimesDate = editedMeetingTimes.map((time) => new Date(time))
-    await updateDoc(doc(db, classesCollection, classId), {
-      meetingTimes: meetingTimesDate,
-      feedbackCompleted: newFeedback,
-      classStatuses: newClassStatuses,
-    }).then(() => {
-      nextClassIndex = findNextClassDate()
-      alert.trigger('success', 'Meeting times updated!')
-    })
+    await classService
+      .updateMeetingTimes(
+        classId,
+        meetingTimesDate,
+        newFeedback,
+        newClassStatuses,
+      )
+      .then(() => {
+        nextClassIndex = findNextClassDate()
+        alert.trigger('success', 'Meeting times updated!')
+      })
   }
 
   function cancelChanges(): void {
     editMode = false
     editedMeetingTimes = [...originalMeetingTimes]
-    updateDoc(doc(db, classesCollection, classId), {
-      meetingTimes: values.meetingTimes,
-    }).then(() => {
-      alert.trigger('success', 'Changes cancelled!')
-    })
+    classService
+      .updateMeetingTimes(
+        classId,
+        values.meetingTimes,
+        values.feedbackCompleted,
+        values.classStatuses,
+      )
+      .then(() => {
+        alert.trigger('success', 'Changes cancelled!')
+      })
   }
 
   function saveChanges(): void {
@@ -214,37 +200,34 @@
         )
         return
       } else {
-        updateDoc(doc(db, classesCollection, classId), {
-          completedClassDates: completedClassDates,
-          classStatuses: classStatuses,
-        })
+        await classService.recordClassSession(
+          classId,
+          completedClassDates,
+          classStatuses,
+        )
       }
       window.open(meetingLink)
     }
   }
 
   function sendSubRequest() {
-    const subRequest = buildSubRequestPayload({
-      classId,
-      subRequestClassNumber,
-      subRequestDate,
-      subRequestNotes,
-      course: values.course,
-      instructorEmail: values.instructorEmail,
-      meetingLink: values.meetingLink,
-    })
-
-    setDoc(
-      doc(db, 'subRequests', classId + '---' + subRequestClassNumber),
-      subRequest,
-    )
-      .then((res) => {
+    classService
+      .submitSubRequest(
+        classId,
+        subRequestClassNumber,
+        subRequestDate,
+        subRequestNotes,
+        values.course,
+        values.instructorEmail,
+        values.meetingLink,
+      )
+      .then(() => {
         alert.trigger('success', 'Sub request sent!')
         window.setTimeout(() => {
           location.reload()
         }, 1000)
       })
-      .catch((err) => {
+      .catch(() => {
         alert.trigger('error', 'Failed to send sub request, please try again.')
       })
   }

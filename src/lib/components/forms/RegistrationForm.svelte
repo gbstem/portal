@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { db, user } from '$lib/client/firebase'
+  import { user } from '$lib/client/firebase'
   import Card from '$lib/components/Card.svelte'
   import {
     frlpJson,
@@ -8,22 +8,15 @@
     parentEducationJson,
     raceJson,
   } from '$lib/data'
-  import { registrationsCollection, withSemester } from '$lib/data/collections'
   import {
-    buildRegistrationApiPayload,
     createEmptyRegistration,
     normalizeRegistrationData,
     toRegistrationFormValues as toFormValues,
   } from '$lib/helpers/registrationForm'
+  import { registrationService } from '$lib/services/registrationService'
   import { alert } from '$lib/stores'
   import type { FirebaseError } from 'firebase/app'
-  import {
-    deleteDoc,
-    doc,
-    getDoc,
-    serverTimestamp,
-    setDoc,
-  } from 'firebase/firestore'
+  import { serverTimestamp } from 'firebase/firestore'
   import { cloneDeep, isEqual } from 'lodash-es'
   import { onDestroy, onMount } from 'svelte'
   import { defaults, superForm } from 'sveltekit-superforms'
@@ -110,46 +103,30 @@
               updated: serverTimestamp(),
             },
           }
-          setDoc(
-            doc(db, registrationsCollection, childUid),
-            withSemester(updatedValues),
-          )
-            .then(() => {
-              getDoc(doc(db, registrationsCollection, childUid)).then(
-                (applicationDoc) => {
-                  const payload = buildRegistrationApiPayload(
-                    frozenUser.profile.firstName,
-                    formVal.data.personal.studentFirstName,
-                    semesterDates.parentOrientation,
-                    formVal.data.personal.secondaryEmail,
-                  )
-                  fetch('/api/registration', {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(payload),
-                  }).then(async (res) => {
-                    if (!res.ok) {
-                      const { message } = await res.json()
-                      console.error('Registration API error:', message)
-                    }
-                    const applicationData =
-                      applicationDoc.data() as Data.Registration
-                    clearInterval(saveInterval)
-                    saveInterval = undefined
-                    safeSetValues(applicationData)
-                    window.scrollTo({
-                      top: 0,
-                      behavior: 'smooth',
-                    })
-                    alert.trigger(
-                      'success',
-                      'Your student account has been created!',
-                    )
-                  })
-                },
-              )
+          registrationService
+            .saveRegistration(childUid, updatedValues)
+            .then(async () => {
+              const freshReg =
+                await registrationService.fetchRegistration(childUid)
+              if (freshReg) {
+                await registrationService.submitRegistrationApi(
+                  frozenUser.profile.firstName,
+                  formVal.data.personal.studentFirstName,
+                  semesterDates.parentOrientation,
+                  formVal.data.personal.secondaryEmail,
+                )
+                clearInterval(saveInterval)
+                saveInterval = undefined
+                safeSetValues(freshReg)
+                window.scrollTo({
+                  top: 0,
+                  behavior: 'smooth',
+                })
+                alert.trigger(
+                  'success',
+                  'Your student account has been created!',
+                )
+              }
             })
             .catch((err: FirebaseError) => {
               console.error('Registration submit error:', err)
@@ -182,43 +159,41 @@
       unsubscribeUser = undefined
     }
     loading = true
-    unsubscribeUser = user.subscribe((user) => {
+    unsubscribeUser = user.subscribe(async (user) => {
       if (user) {
-        getDoc(doc(db, registrationsCollection, childUid)).then(
-          (applicationDoc) => {
-            const applicationExists = applicationDoc.exists()
-            if (applicationExists) {
-              const applicationData = applicationDoc.data() as Data.Registration
-              safeSetValues(applicationData)
-              if (
-                !values.meta.submitted &&
-                (values.personal.parentFirstName !== user.profile.firstName ||
-                  values.personal.parentLastName !== user.profile.lastName)
-              ) {
-                values.personal.email = user.object.email as string
-                values.personal.parentFirstName = user.profile.firstName
-                values.personal.parentLastName = user.profile.lastName
-                handleSave()
-              }
-            } else {
-              values = cloneDeep(emptyValues)
-              values.meta.uid = childUid
-              values.meta.id = user.profile.id
-              values.personal.email = user.object.email as string
-              values.personal.parentFirstName = user.profile.firstName
-              values.personal.parentLastName = user.profile.lastName
+        const applicationData =
+          await registrationService.fetchRegistration(childUid)
+        if (applicationData) {
+          safeSetValues(applicationData)
+          if (
+            !values.meta.submitted &&
+            (values.personal.parentFirstName !== user.profile.firstName ||
+              values.personal.parentLastName !== user.profile.lastName ||
+              values.personal.email !== user.object.email)
+          ) {
+            values.personal.parentFirstName = user.profile.firstName
+            values.personal.parentLastName = user.profile.lastName
+            values.personal.email = user.object.email ?? ''
+            handleSave()
+          }
+        } else {
+          values = createEmptyRegistration()
+          values.meta.uid = childUid
+          values.meta.id = user.profile.id
+          values.personal.parentFirstName = user.profile.firstName
+          values.personal.parentLastName = user.profile.lastName
+          values.personal.email = user.object.email ?? ''
+          dbValues = cloneDeep(values)
+          handleSave()
+        }
+        loading = false
+        if (new Date() > new Date(semesterDates.registrationsOpen)) {
+          if (saveInterval === undefined) {
+            saveInterval = window.setInterval(() => {
               handleSave()
-            }
-            loading = false
-            if (new Date() > new Date(semesterDates.registrationsOpen)) {
-              if (saveInterval === undefined) {
-                saveInterval = window.setInterval(() => {
-                  handleSave()
-                }, 300000)
-              }
-            }
-          },
-        )
+            }, 300000)
+          }
+        }
       }
     })
   }
@@ -245,7 +220,8 @@
   function handleDelete() {
     if ($user) {
       if (confirm('Are you sure you want to delete this draft?')) {
-        deleteDoc(doc(db, registrationsCollection, childUid))
+        registrationService
+          .deleteRegistration(childUid)
           .then(() => {
             alert.trigger('success', 'Draft was successfully deleted.')
             location.reload()
@@ -258,7 +234,7 @@
   }
 
   function handleSave() {
-    if (loading || saving || $submitting) return
+    if (loading || saving || $submitting) return Promise.resolve()
     showValidation = false
     saving = true
     return new Promise<void>((resolve, reject) => {
@@ -290,21 +266,17 @@
             updated: serverTimestamp(),
           },
         }
-        setDoc(
-          doc(db, registrationsCollection, childUid),
-          withSemester(updatedValues),
-        )
-          .then(() => {
-            getDoc(doc(db, registrationsCollection, childUid)).then(
-              (applicationDoc) => {
-                const applicationData =
-                  applicationDoc.data() as Data.Registration
-                safeSetValues(applicationData)
-                saving = false
-                alert.trigger('success', 'Your progress was saved.')
-                resolve()
-              },
-            )
+        registrationService
+          .saveRegistration(childUid, updatedValues)
+          .then(async () => {
+            const applicationData =
+              await registrationService.fetchRegistration(childUid)
+            if (applicationData) {
+              safeSetValues(applicationData)
+            }
+            saving = false
+            alert.trigger('success', 'Your progress was saved.')
+            resolve()
           })
           .catch((err) => {
             saving = false
@@ -312,6 +284,9 @@
             alert.trigger('error', err.code, true)
             reject()
           })
+      } else {
+        saving = false
+        resolve()
       }
     })
   }
