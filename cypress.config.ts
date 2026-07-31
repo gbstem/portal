@@ -1,10 +1,10 @@
 import { defineConfig } from 'cypress'
 import installLogsPrinter from 'cypress-terminal-report/src/installLogsPrinter'
-import fs from 'fs'
-import path from 'path'
-import { initializeApp, getApps } from 'firebase-admin/app'
+import { getApps, initializeApp } from 'firebase-admin/app'
 import { getAuth } from 'firebase-admin/auth'
 import { getFirestore } from 'firebase-admin/firestore'
+import fs from 'fs'
+import path from 'path'
 import { fileURLToPath } from 'url'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -63,6 +63,9 @@ export default defineConfig({
     baseUrl: 'http://localhost:5173',
     // Don't allow using the deprecated, insecure Cypress environment setup.
     allowCypressEnv: false,
+    scrollBehavior: 'center',
+    viewportWidth: 1920,
+    viewportHeight: 1080,
     setupNodeEvents(on, config) {
       installLogsPrinter(on, {
         printLogsToConsole: 'onFail',
