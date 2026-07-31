@@ -51,7 +51,7 @@ For local development and testing, you can use the **Firebase Emulator Suite** t
 
 Since the Firebase services are shared across both the `admin` and `portal` projects, you only need to start the emulator once. Follow the official [Firebase Emulator Suite: Connect and Prototype](https://firebase.google.com/docs/emulator-suite/connect_and_prototype?database=Firestore) guide to set up and run the emulators on your local machine.
 
-Then, in the [admin project](https://github.com/gbstem/admin), run `npm run seed` to seed the database with a demo admin user and a demo signup token as described in the `admin` project's [README.md](https://github.com/gbstem/admin/blob/main/README.md).
+Then, in the [admin project](https://github.com/gbstem/admin), run `yarn seed` to seed the database with a demo admin user and a demo signup token as described in the `admin` project's [README.md](https://github.com/gbstem/admin/blob/main/README.md).
 
 > [!WARNING]
 > By default, the Firestore emulator runs in-memory. This means all seeded data and modifications are lost whenever you restart the emulator. If you want to persist the database state across restarts, start the emulator with the `--import` and `--export-on-exit` flags:
@@ -66,31 +66,31 @@ Then, in the [admin project](https://github.com/gbstem/admin), run `npm run seed
 
 ```bash
 # install dependencies
-npm install
+yarn install
 
 # run the development server
-npm run dev
+yarn dev
 
 # start the development server and open in browser
-npm start
+yarn start
 
 # preview the production build locally
-npm run preview
+yarn preview
 
 # automatically format code
-npm run format
+yarn format
 
 # check for type errors
-npm run check
+yarn run check
 
 # check for type errors and watch for changes
-npm run check:watch
+yarn run check:watch
 
 # check for style and lint issues
-npm run lint
+yarn lint
 
 # run unit tests
-npm test
+yarn test
 
 # run E2E integration tests (Cypress)
 npx cypress run
@@ -100,8 +100,8 @@ npx cypress run
 
 To run the E2E Cypress integration tests:
 
-1. Ensure the Firebase emulators are running from the parallel `admin` repository via `npm run emulators`.
-2. Start the local portal development server (`npm run dev`).
+1. Ensure the Firebase emulators are running from the parallel `admin` repository via `yarn emulators`.
+2. Start the local portal development server (`yarn dev`).
 3. Run the Cypress suite using:
 
    ```bash
@@ -109,9 +109,9 @@ To run the E2E Cypress integration tests:
    ```
 
 > [!NOTE]
-> **Parallel Checkout Requirement**: The Cypress test runner automatically runs the database seed script prior to test execution. This requires the `admin` repository to be checked out in a parallel directory (`../admin`) relative to the `portal` directory so the test runner can invoke `npm run --prefix ../admin seed`.
+> **Parallel Checkout Requirement**: The Cypress test runner automatically runs the database seed script prior to test execution. This requires the `admin` repository to be checked out in a parallel directory (`../admin`) relative to the `portal` directory so the test runner can invoke `yarn --cwd ../admin seed`.
 
-Open [http://localhost:5173](http://localhost:5173) with your browser to see the result for `npm run dev` or `npm start`. You can start editing any page or component, and when running in development mode, your changes will be reflected in the browser automatically.
+Open [http://localhost:5173](http://localhost:5173) with your browser to see the result for `yarn dev` or `yarn start`. You can start editing any page or component, and when running in development mode, your changes will be reflected in the browser automatically.
 
 ## Code Organization: Helpers, Services, and Where New Code Should Go
 
@@ -185,21 +185,21 @@ ncu -t minor -u firebase firebase-admin typescript "@types/node" zod
 ncu --peer --reject firebase,firebase-admin,typescript,"@types/node",zod -u
 
 # Install the updated packages and update package-lock.json
-npm install
+yarn install
 
 # Run unit tests to verify no breaking changes were introduced
-npm test
+yarn test
 
 # Run type checks
-npm run check
+yarn run check
 
 # Run lint checks to ensure code style consistency
-npm run lint
+yarn lint
 
 # Go to http://localhost:5173 and do manual visual checks and tests
 
 # Build the project for production to verify compatibility and compile-time checks
-npm run build
+yarn build
 ```
 
 After verifying that the tests, linting, and build pass successfully, commit and submit both `package.json` and `package-lock.json` to the repository.

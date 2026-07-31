@@ -3,7 +3,7 @@
   "version": "2.0.0",
   "private": true,
   "scripts": {
-    "start": "npm run dev -- --open",
+    "start": "yarn dev -- --open",
     "dev": "vite dev",
     "build": "vite build",
     "preview": "vite preview",
@@ -14,7 +14,7 @@
     "format": "prettier --write --plugin prettier-plugin-svelte --plugin prettier-plugin-tailwindcss .",
     "test": "jest",
     "cypress": "cypress run",
-    "deploy": "npm run build && firebase deploy",
+    "deploy": "yarn build && firebase deploy",
     "emulators": "firebase emulators:start --log-verbosity=quiet",
     "prepare": "husky || true"
   },
@@ -24,6 +24,7 @@
     "@sveltejs/kit": "^2.70.1",
     "@sveltejs/vite-plugin-svelte": "^7.2.0",
     "@tailwindcss/vite": "^4.3.3",
+    "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^7.0.0",
     "@types/jest": "^30.0.0",
     "@types/lodash-es": "^4.17.12",

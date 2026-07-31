@@ -31,5 +31,5 @@ before(() => {
 
   // Restore the emulator database to the seed state to ensure tests are deterministic.
   // This assumes the admin repository is checked out in a parallel directory.
-  cy.exec('npm run --prefix ../admin seed', { timeout: 120000 })
+  cy.exec('yarn --cwd ../admin seed', { timeout: 120000 })
 })

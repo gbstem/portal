@@ -22,7 +22,7 @@ Follow these steps to establish a clean, predictable, local testing environment.
 1. Start the Firebase Emulator suite from the `admin` repository (not `portal`):
 
    ```bash
-   npm run emulators
+   yarn emulators
    ```
 
 ### C. Seed Local Emulator Database
@@ -30,7 +30,7 @@ Follow these steps to establish a clean, predictable, local testing environment.
 1. Populate the emulators with mock seed data by running the `admin` repository seed script:
 
    ```bash
-   npm run seed
+   yarn seed
    ```
 
 ### D. Run the Development Server
@@ -38,7 +38,7 @@ Follow these steps to establish a clean, predictable, local testing environment.
 1. Start the SvelteKit local server for the `portal`:
 
    ```bash
-   npm run dev
+   yarn dev
    ```
 
    _Verify that the portal is running at <http://localhost:5173> (or its assigned port) and you can log in._
