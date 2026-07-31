@@ -18,7 +18,7 @@ jobs:
     name: Lint, format, type-check, unit tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v4
         with:
@@ -55,12 +55,12 @@ jobs:
       # cypress/support/e2e.ts and README's Cypress section), so a sibling
       # checkout of admin is required here too.
       - name: Check out portal
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: portal
 
       - name: Check out admin (shared Firebase project + seed data)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: gbstem/admin
           path: admin
