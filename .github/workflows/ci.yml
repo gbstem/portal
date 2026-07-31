@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Lint, format, type-check, unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: yarn
+
+      - run: yarn install --frozen-lockfile
+
+      - name: Format check
+        run: yarn format:check
+
+      - name: Lint
+        run: yarn lint
+
+      - name: Type check
+        run: yarn run check
+
+      - name: Unit tests
+        run: yarn test
+
+  e2e:
+    name: Cypress e2e
+    needs: checks
+    runs-on: ubuntu-latest
+    env:
+      FIRESTORE_EMULATOR_HOST: 127.0.0.1:8080
+      FIREBASE_AUTH_EMULATOR_HOST: 127.0.0.1:9099
+      STORAGE_EMULATOR_HOST: 127.0.0.1:9199
+      FIREBASE_PROJECT_ID: demo-gbstem
+      PUBLIC_FIREBASE_PROJECT_ID: demo-gbstem
+    steps:
+      # Portal and admin share the same Firebase project. Portal's e2e suite
+      # reseeds the shared emulator via `yarn --cwd ../admin seed` (see
+      # cypress/support/e2e.ts and README's Cypress section), so a sibling
+      # checkout of admin is required here too.
+      - name: Check out portal
+        uses: actions/checkout@v4
+        with:
+          path: portal
+
+      - name: Check out admin (shared Firebase project + seed data)
+        uses: actions/checkout@v4
+        with:
+          repository: gbstem/admin
+          path: admin
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: yarn
+          cache-dependency-path: |
+            portal/yarn.lock
+            admin/yarn.lock
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Install dependencies
+        run: |
+          yarn --cwd portal install --frozen-lockfile
+          yarn --cwd admin install --frozen-lockfile
+
+      - name: Set up env files
+        run: |
+          cp portal/.env.example portal/.env.local
+          cp admin/.env.example admin/.env.local
+
+      - name: Start dev server + run Cypress against admin's Firebase emulators
+        working-directory: admin
+        run: |
+          firebase emulators:exec --project demo-gbstem \
+            'yarn --cwd ../portal dev & npx wait-on http://localhost:5173 --timeout 60000 && yarn --cwd ../portal cypress'
