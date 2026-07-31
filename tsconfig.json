@@ -12,7 +12,39 @@
     "verbatimModuleSyntax": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "rootDir": "."
+    "rootDir": ".",
+    // With moduleResolution "bundler" (set by the base config below),
+    // TypeScript doesn't reliably auto-acquire ambient ("global") types from
+    // node_modules/@types for packages that are never explicitly imported -
+    // Jest's globals (describe/it/expect/jest/...) and Node's globals
+    // (process, Buffer/...) are exactly that case, so they must be listed
+    // here explicitly or __tests__/*.ts reports "Cannot find name 'describe'"
+    // even though `npm test` runs fine.
+    "types": ["jest", "node"]
   },
+  // SvelteKit's generated .svelte-kit/tsconfig.json only "include"s src/,
+  // test/, and tests/ - since specifying "include" here fully replaces
+  // (rather than merges with) the base config's list, this repeats that
+  // list verbatim and adds __tests__/**, the directory our Jest suite
+  // actually lives in, so `npm run check` (svelte-check) covers it too.
+  "include": [
+    ".svelte-kit/ambient.d.ts",
+    ".svelte-kit/env.d.ts",
+    ".svelte-kit/non-ambient.d.ts",
+    ".svelte-kit/types/**/$types.d.ts",
+    "vite.config.js",
+    "vite.config.ts",
+    "src/**/*.js",
+    "src/**/*.ts",
+    "src/**/*.svelte",
+    "test/**/*.js",
+    "test/**/*.ts",
+    "test/**/*.svelte",
+    "tests/**/*.js",
+    "tests/**/*.ts",
+    "tests/**/*.svelte",
+    "__tests__/**/*.js",
+    "__tests__/**/*.ts"
+  ],
   "exclude": ["node_modules", "cypress", "cypress.config.ts"]
 }

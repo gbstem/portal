@@ -72,7 +72,7 @@ const mockAuth = {
 }
 jest.mock('firebase/auth', () => ({
   getAuth: jest.fn(() => mockAuth),
-  onAuthStateChanged: jest.fn((authObj: any, callback: any) => {
+  onAuthStateChanged: jest.fn((_authObj: any, callback: any) => {
     authStateChangedCallback = callback
     return jest.fn() // unsubscribe
   }),
