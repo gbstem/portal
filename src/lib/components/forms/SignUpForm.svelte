@@ -2,15 +2,14 @@
   import type { ActionRequestBody } from '../../../routes/api/action/+server'
   import { goto } from '$app/navigation'
   import Brand from '$lib/components/Brand.svelte'
+  import { userService } from '$lib/services/userService'
   import { alert } from '$lib/stores'
-  import { doc, getDoc, setDoc } from 'firebase/firestore'
-  import { customAlphabet } from 'nanoid'
   import {
     createUserWithEmailAndPassword,
     deleteUser,
     updateProfile,
   } from 'firebase/auth'
-  import { auth, db } from '$lib/client/firebase'
+  import { auth } from '$lib/client/firebase'
   import Link from '../Link.svelte'
   import Button from '../Button.svelte'
   import Loading from '../Loading.svelte'
@@ -34,12 +33,6 @@
       message: 'Passwords do not match.',
       path: ['confirmPassword'],
     })
-
-  function generateId() {
-    const alphabet = '0123456789'
-    const nanoid = customAlphabet(alphabet, 7)
-    return nanoid()
-  }
 
   const formResult = superForm(
     defaults(
@@ -75,23 +68,7 @@
           })
 
           // attempt to generate id
-          let id = generateId()
-          for (let i = 0; i < 5; ++i) {
-            try {
-              const res = await getDoc(doc(db, 'ids', id))
-              if (res.exists()) {
-                id = generateId()
-                if (i == 4) {
-                  id = ''
-                }
-              } else {
-                break
-              }
-            } catch (err) {
-              console.error('[SignUpForm] Error checking ID uniqueness:', err)
-              id = ''
-            }
-          }
+          const id = await userService.generateUniqueId()
 
           if (id === '') {
             alert.trigger(
@@ -109,17 +86,18 @@
             return
           }
 
-          await setDoc(doc(db, 'ids', id), {})
-          await setDoc(doc(db, 'users', createdUser.uid), {
+          const role: 'instructor' | 'student' =
+            formVal.data.role ===
+            'High school/college student applying to be an instructor'
+              ? 'instructor'
+              : 'student'
+          await userService.createUserRecord(
+            createdUser.uid,
             id,
-            role:
-              formVal.data.role ===
-              'High school/college student applying to be an instructor'
-                ? 'instructor'
-                : 'student',
+            role,
             firstName,
             lastName,
-          })
+          )
 
           const idToken = await createdUser.getIdToken()
           const authRes = await fetch('/api/auth', {

@@ -1,13 +1,12 @@
 <script lang="ts">
   import type { CommunityServiceRequestBody } from '../../../api/communityService/+server'
-  import { db, user } from '$lib/client/firebase'
+  import { user } from '$lib/client/firebase'
   import Button from '$lib/components/Button.svelte'
   import Card from '$lib/components/Card.svelte'
   import { ClassStatus } from '$lib/components/helpers/ClassStatus'
-  import { SubRequestStatus } from '$lib/components/helpers/SubRequestStatus'
-  import { substituteRequestsCollection } from '$lib/data/collections'
-  import { timestampToDate, getInstructorClasses } from '$lib/utils'
-  import { collection, getDocs, query } from 'firebase/firestore'
+  import { classService } from '$lib/services/classService'
+  import { substituteService } from '$lib/services/substituteService'
+  import { timestampToDate } from '$lib/utils'
   import { alert } from '$lib/stores'
 
   let numHours = $state(0)
@@ -21,8 +20,8 @@
   user.subscribe(async (user) => {
     if (user) {
       currentUser = user
-      // Get all classes for this instructor using helper function
-      const userClasses = await getInstructorClasses(
+      // Get all classes for this instructor using the DAL
+      const userClasses = await classService.fetchInstructorClasses(
         user.object.uid,
         user.object.email || '',
       )
@@ -56,18 +55,10 @@
       }
 
       // Then get substitute hours
-      const q = query(collection(db, substituteRequestsCollection))
-      const subDocs = await getDocs(q)
-      subDocs.forEach((doc) => {
-        const data = doc.data() as Data.SubRequest
-        if (
-          data.subInstructorId === user.object.uid &&
-          data.subRequestStatus === SubRequestStatus.NoSubstituteNeeded
-        ) {
-          numHours = numHours + 1
-          numSubHours = numSubHours + 1
-        }
-      })
+      const completedSubClasses =
+        await substituteService.countCompletedSubClasses(user.object.uid)
+      numHours = numHours + completedSubClasses
+      numSubHours = numSubHours + completedSubClasses
     }
   })
 

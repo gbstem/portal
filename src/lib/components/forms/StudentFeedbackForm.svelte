@@ -1,15 +1,10 @@
 <script lang="ts">
-  import { db, user } from '$lib/client/firebase'
-  import {
-    classesCollection,
-    registrationsCollection,
-    studentFeedbackCollection,
-    withSemester,
-  } from '$lib/data/collections'
+  import { user } from '$lib/client/firebase'
+  import { classService } from '$lib/services/classService'
+  import { registrationService } from '$lib/services/registrationService'
   import { alert } from '$lib/stores'
   import { selectedStudentIdState } from '$lib/stores.svelte'
   import { cn } from '$lib/utils'
-  import { doc, getDoc, setDoc } from 'firebase/firestore'
   import { defaults, superForm } from 'sveltekit-superforms'
   import { zod } from 'sveltekit-superforms/adapters'
   import { z } from 'zod'
@@ -70,14 +65,8 @@
         }
 
         if ($user) {
-          setDoc(
-            doc(
-              db,
-              studentFeedbackCollection,
-              `${formVal.data.classId}-${Date.now()}`,
-            ),
-            withSemester(submissionValues),
-          )
+          classService
+            .submitStudentFeedback(formVal.data.classId, submissionValues)
             .then(() => {
               alert.trigger('success', 'Class Feedback saved!')
               reset()
@@ -98,24 +87,12 @@
 
   async function fetchCourseList(classIds: string[]) {
     try {
-      const coursePromises = classIds.map((classId) =>
-        getDoc(doc(db, classesCollection, classId)),
-      )
-      const courseDocs = await Promise.all(coursePromises)
-      selectedStudentCourses = courseDocs
-        .map((doc) => {
-          if (doc.exists() && doc.data()) {
-            return {
-              classId: doc.id,
-              course: doc.data().course,
-              instructor:
-                doc.data().instructorFirstName +
-                ' ' +
-                doc.data().instructorLastName,
-            }
-          }
-        })
-        .filter(Boolean)
+      const courseDocs = await classService.fetchClassesByIds(classIds)
+      selectedStudentCourses = courseDocs.map((data) => ({
+        classId: data.id,
+        course: data.course,
+        instructor: data.instructorFirstName + ' ' + data.instructorLastName,
+      }))
     } catch (err) {
       console.error('[StudentFeedbackForm] Error fetching course list:', err)
     }
@@ -125,15 +102,14 @@
     const currentUid = selectedStudentUid
     if (!currentUid) return
     let cancelled = false
-    getDoc(doc(db, registrationsCollection, currentUid))
-      .then((docSnapshot) => {
+    registrationService
+      .fetchRegistration(currentUid)
+      .then((data) => {
         if (cancelled) return
-        if (docSnapshot.exists()) {
+        if (data) {
           studentName =
-            docSnapshot.data().personal.studentFirstName +
-            ' ' +
-            docSnapshot.data().personal.studentLastName
-          const classIds = docSnapshot.data().classes || []
+            data.personal.studentFirstName + ' ' + data.personal.studentLastName
+          const classIds = data.classes || []
           fetchCourseList(classIds)
         }
       })

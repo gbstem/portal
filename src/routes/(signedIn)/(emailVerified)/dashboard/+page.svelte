@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { db, user } from '$lib/client/firebase'
+  import { user } from '$lib/client/firebase'
   import Button from '$lib/components/Button.svelte'
   import Card from '$lib/components/Card.svelte'
   import ClassSchedule from '$lib/components/ClassSchedule.svelte'
@@ -9,14 +9,9 @@
   import ClassDetailsForm from '$lib/components/forms/ClassDetailsForm.svelte'
   import InterviewForm from '$lib/components/forms/InterviewForm.svelte'
   import StudentFeedbackForm from '$lib/components/forms/StudentFeedbackForm.svelte'
-  import {
-    applicationsCollection,
-    decisionsCollection,
-    maxChildrenPerAccount,
-    registrationsCollection,
-    semesterDates,
-  } from '$lib/data/collections'
-  import { doc, getDoc } from 'firebase/firestore'
+  import { semesterDates } from '$lib/data/collections'
+  import { applicationService } from '$lib/services/applicationService'
+  import { registrationService } from '$lib/services/registrationService'
 
   type ApplicationStatus =
     | 'accepted'
@@ -52,44 +47,19 @@
         try {
           if (userObj.profile.role === 'instructor') {
             data.application.status = null
-
-            const [applicationDoc, decisionDoc] = await Promise.all([
-              getDoc(doc(db, applicationsCollection, userObj.object.uid)),
-              getDoc(doc(db, decisionsCollection, userObj.object.uid)),
-            ])
-
-            if (applicationDoc.exists()) {
-              const applicationData = applicationDoc.data() as Data.Application
-              if (applicationData.meta.submitted) {
-                data.application.status = 'submitted'
-                if (decisionDoc.exists()) {
-                  data.application.status = decisionDoc.data()
-                    .type as Data.Decision
-                }
-              }
-            }
+            data.application.status =
+              await applicationService.fetchApplicationDashboardStatus(
+                userObj.object.uid,
+              )
             data = data
           } else {
-            const registrationPromises = []
-            for (let i = 1; i <= maxChildrenPerAccount; ++i) {
-              registrationPromises.push(
-                getDoc(
-                  doc(
-                    db,
-                    registrationsCollection,
-                    `${userObj.object.uid}-${i}`,
-                  ),
-                ),
-              )
-            }
-            const snapshots = await Promise.all(registrationPromises)
+            const slots = await registrationService.fetchChildRegistrationSlots(
+              userObj.object.uid,
+            )
 
-            numSubmitted = 0
-            snapshots.forEach((snapshot) => {
-              if (snapshot.exists() && snapshot.data()?.meta?.submitted) {
-                numSubmitted += 1
-              }
-            })
+            numSubmitted = slots.filter(
+              (slot) => slot.exists && slot.data?.meta?.submitted,
+            ).length
           }
         } catch (err) {
           console.error('Error fetching dashboard data:', err)

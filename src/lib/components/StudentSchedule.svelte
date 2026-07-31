@@ -1,12 +1,8 @@
 <script lang="ts">
-  import { db } from '$lib/client/firebase'
-  import { doc, getDoc } from 'firebase/firestore'
   import Button from './Button.svelte'
   import { formatDate, timestampToDate } from '$lib/utils'
-  import {
-    classesCollection,
-    registrationsCollection,
-  } from '$lib/data/collections'
+  import { classService } from '$lib/services/classService'
+  import { registrationService } from '$lib/services/registrationService'
   import { selectedStudentIdState } from '$lib/stores.svelte'
 
   type ClassDate = { course: string; meetingTime: Date; link: string }
@@ -16,23 +12,17 @@
   let selectedStudentName = $state('')
 
   async function fetchClassSchedules(classIds: string[]) {
-    const schedulesPromises = classIds.map((classId) =>
-      getDoc(doc(db, classesCollection, classId)),
-    )
-    let fetchedClasses: ClassDate[] = []
-    const schedulesDocs = await Promise.all(schedulesPromises)
-    for (const docSnapshot of schedulesDocs) {
-      if (docSnapshot.exists()) {
-        const data = docSnapshot.data() as Data.Class
-        data.meetingTimes.forEach((date) => {
-          fetchedClasses.push({
-            course: data.course,
-            meetingTime: timestampToDate(date),
-            link: data.meetingLink,
-          })
+    const fetchedClasses: ClassDate[] = []
+    const classesData = await classService.fetchClassesByIds(classIds)
+    classesData.forEach((data) => {
+      data.meetingTimes.forEach((date) => {
+        fetchedClasses.push({
+          course: data.course,
+          meetingTime: timestampToDate(date),
+          link: data.meetingLink,
         })
-      }
-    }
+      })
+    })
     return fetchedClasses
   }
 
@@ -42,12 +32,9 @@
     let cancelled = false
     ;(async () => {
       try {
-        const docSnapshot = await getDoc(
-          doc(db, registrationsCollection, currentUid),
-        )
+        const data = await registrationService.fetchRegistration(currentUid)
         if (cancelled) return
-        if (docSnapshot.exists()) {
-          const data = docSnapshot.data()
+        if (data) {
           const classIds = data.classes || []
           selectedStudentName = data.personal.studentFirstName
           classes = await fetchClassSchedules(classIds)

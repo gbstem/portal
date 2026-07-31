@@ -1,3 +1,4 @@
+import { maxChildrenPerAccount } from '$lib/data/collections'
 import { registrationService } from '$lib/services/registrationService'
 import * as firestore from 'firebase/firestore'
 import type {} from '../src/data.d.ts'
@@ -46,6 +47,51 @@ describe('registrationService (Data Access Layer)', () => {
 
       await registrationService.saveRegistration('reg-1', mockData)
       expect(firestore.setDoc).toHaveBeenCalled()
+    })
+  })
+
+  describe('fetchChildRegistrationSlots', () => {
+    it('fetches all child slots in parallel, reporting existence and data per slot', async () => {
+      const getDocMock = firestore.getDoc as jest.Mock
+      for (let i = 0; i < maxChildrenPerAccount; i++) {
+        if (i === 0) {
+          getDocMock.mockResolvedValueOnce({
+            exists: () => true,
+            data: () => ({ personal: { studentFirstName: 'Timmy' } }),
+          })
+        } else {
+          getDocMock.mockResolvedValueOnce({ exists: () => false })
+        }
+      }
+
+      const slots =
+        await registrationService.fetchChildRegistrationSlots('parent-1')
+
+      expect(slots).toHaveLength(maxChildrenPerAccount)
+      expect(slots[0]).toEqual({
+        uid: 'parent-1-1',
+        exists: true,
+        data: { personal: { studentFirstName: 'Timmy' } },
+      })
+      expect(slots[1]).toEqual({
+        uid: 'parent-1-2',
+        exists: false,
+        data: null,
+      })
+      expect(firestore.getDoc).toHaveBeenCalledTimes(maxChildrenPerAccount)
+    })
+
+    it('propagates errors from getDoc', async () => {
+      ;(firestore.getDoc as jest.Mock).mockRejectedValueOnce(
+        new Error('permission-denied'),
+      )
+      ;(firestore.getDoc as jest.Mock).mockResolvedValue({
+        exists: () => false,
+      })
+
+      await expect(
+        registrationService.fetchChildRegistrationSlots('parent-1'),
+      ).rejects.toThrow('permission-denied')
     })
   })
 

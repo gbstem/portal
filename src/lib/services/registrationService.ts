@@ -1,7 +1,17 @@
 import { db } from '$lib/client/firebase'
-import { registrationsCollection, withSemester } from '$lib/data/collections'
+import {
+  maxChildrenPerAccount,
+  registrationsCollection,
+  withSemester,
+} from '$lib/data/collections'
 import { buildRegistrationApiPayload } from '$lib/helpers/registrationForm'
 import { deleteDoc, doc, getDoc, setDoc } from 'firebase/firestore'
+
+export interface ChildRegistrationSlot {
+  uid: string
+  exists: boolean
+  data: Data.Registration | null
+}
 
 /**
  * Service providing Data Access Layer for student registrations.
@@ -30,6 +40,29 @@ export const registrationService = {
   ): Promise<void> {
     const docRef = doc(db, registrationsCollection, studentUid)
     await setDoc(docRef, withSemester(registrationData))
+  },
+
+  /**
+   * Fetches all `maxChildrenPerAccount` possible child registration slots
+   * (`{parentUid}-1`, `{parentUid}-2`, ...) for a parent account in parallel.
+   * Each slot reports whether a document exists at that uid and its data if so -
+   * callers decide whether to stop at the first gap or filter by submission status.
+   */
+  async fetchChildRegistrationSlots(
+    parentUid: string,
+  ): Promise<ChildRegistrationSlot[]> {
+    const slotUids = Array.from(
+      { length: maxChildrenPerAccount },
+      (_, i) => `${parentUid}-${i + 1}`,
+    )
+    const snaps = await Promise.all(
+      slotUids.map((uid) => getDoc(doc(db, registrationsCollection, uid))),
+    )
+    return snaps.map((snap, i) => ({
+      uid: slotUids[i],
+      exists: snap.exists(),
+      data: snap.exists() ? (snap.data() as Data.Registration) : null,
+    }))
   },
 
   /**

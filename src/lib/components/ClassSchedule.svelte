@@ -15,7 +15,6 @@
     copyEmails,
     copyToClipboard,
     formatDateString,
-    getInstructorClasses,
     normalizeCapitals,
     toLocalISOString,
   } from '$lib/utils'
@@ -258,8 +257,8 @@
   onMount(() => {
     return user.subscribe(async (user) => {
       if (user) {
-        // Get all classes for this instructor using helper function
-        const userClasses = await getInstructorClasses(
+        // Get all classes for this instructor using the DAL
+        const userClasses = await classService.fetchInstructorClasses(
           user.object.uid,
           user.object.email || '',
         )

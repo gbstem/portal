@@ -1,5 +1,9 @@
 import { db } from '$lib/client/firebase'
-import { applicationsCollection, withSemester } from '$lib/data/collections'
+import {
+  applicationsCollection,
+  decisionsCollection,
+  withSemester,
+} from '$lib/data/collections'
 import { buildApplyApiPayload } from '$lib/helpers/applyForm'
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 
@@ -30,6 +34,38 @@ export const applicationService = {
   ): Promise<void> {
     const docRef = doc(db, applicationsCollection, userUid)
     await setDoc(docRef, withSemester(applicationData))
+  },
+
+  /**
+   * Fetches the decision document's `type` for a given user UID, or null if
+   * no decision has been recorded yet.
+   */
+  async fetchDecisionType(userUid: string): Promise<Data.Decision | null> {
+    const docRef = doc(db, decisionsCollection, userUid)
+    const snap = await getDoc(docRef)
+    if (snap.exists()) {
+      return snap.data().type as Data.Decision
+    }
+    return null
+  },
+
+  /**
+   * Fetches an instructor's combined application/decision status for dashboard display:
+   * null if no application exists, 'submitted' if submitted with no decision yet,
+   * or the decision type once one has been recorded.
+   */
+  async fetchApplicationDashboardStatus(
+    userUid: string,
+  ): Promise<Data.Decision | 'submitted' | null> {
+    const [application, decision] = await Promise.all([
+      this.fetchUserApplication(userUid),
+      this.fetchDecisionType(userUid),
+    ])
+
+    if (!application?.meta.submitted) {
+      return null
+    }
+    return decision ?? 'submitted'
   },
 
   /**

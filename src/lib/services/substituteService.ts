@@ -35,6 +35,26 @@ export const substituteService = {
   },
 
   /**
+   * Counts substitute requests this user fully completed (including feedback)
+   * as the substitute instructor - used for community service hour tallies.
+   */
+  async countCompletedSubClasses(userId: string): Promise<number> {
+    const q = query(collection(db, substituteRequestsCollection))
+    const querySnapshot = await getDocs(q)
+    let count = 0
+    querySnapshot.forEach((docSnap) => {
+      const data = docSnap.data() as Data.SubRequest
+      if (
+        data.subInstructorId === userId &&
+        data.subRequestStatus === SubRequestStatus.NoSubstituteNeeded
+      ) {
+        count += 1
+      }
+    })
+    return count
+  },
+
+  /**
    * Creates or updates a substitute request doc.
    */
   async saveSubRequest(

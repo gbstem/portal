@@ -15,13 +15,6 @@ jest.mock('firebase/firestore', () => {
     }
   }
   return {
-    doc: jest.fn(),
-    getDoc: jest.fn(),
-    getDocs: jest.fn(),
-    collection: jest.fn(),
-    setDoc: jest.fn(),
-    updateDoc: jest.fn(),
-    arrayUnion: jest.fn((...val) => val),
     Timestamp: MockTimestamp,
   }
 })
@@ -30,14 +23,6 @@ jest.mock('$lib/stores', () => ({
   alert: {
     trigger: jest.fn(),
   },
-}))
-
-jest.mock('$lib/client/firebase', () => ({
-  db: {},
-}))
-
-jest.mock('$lib/data/collections', () => ({
-  classesCollection: 'classes',
 }))
 
 import { alert } from '$lib/stores'
@@ -54,14 +39,12 @@ import {
   formatDateString,
   formatDateStringLocal,
   formatTime24to12,
-  getInstructorClasses,
   htmlToPlainText,
   isClassUpcoming,
   normalizeCapitals,
   timestampToDate,
   toLocalISOString,
   trapFocus,
-  updateInstructorClassMappings,
 } from '../src/lib/utils'
 
 describe('utils', () => {
@@ -399,94 +382,6 @@ describe('utils', () => {
         'error',
         'Failed to copy emails to clipboard!',
       )
-    })
-  })
-
-  describe('Firestore queries', () => {
-    beforeEach(() => {
-      jest.clearAllMocks()
-    })
-
-    describe('getInstructorClasses', () => {
-      it('returns co-taught and owned classes mapped correctly with converted timestamps', async () => {
-        const mockClass1 = { meetingTimes: [{ seconds: 123456 }] }
-        const mockClass2 = { completedClassDates: [{ seconds: 789012 }] }
-
-        const { getDoc, getDocs } = require('firebase/firestore')
-
-        getDoc
-          .mockResolvedValueOnce({
-            exists: () => true,
-            data: () => ({ classIds: ['class1'] }),
-          }) // instructorClassesDoc
-          .mockResolvedValueOnce({
-            exists: () => true,
-            data: () => mockClass1,
-          }) // classDoc for class1
-          .mockResolvedValueOnce({
-            exists: () => true,
-            data: () => mockClass2,
-          }) // classDoc for class2 (owned)
-
-        getDocs.mockResolvedValueOnce({
-          forEach: (callback: any) => {
-            callback({ id: 'instructorUID-class2' })
-          },
-        })
-
-        const classes = await getInstructorClasses(
-          'instructorUID',
-          'email@test.com',
-        )
-        expect(classes).toEqual({
-          class1: { meetingTimes: [new Date(123456000)] },
-          'instructorUID-class2': {
-            completedClassDates: [new Date(789012000)],
-          },
-        })
-      })
-
-      it('returns empty dictionary if doc fetch throws error', async () => {
-        const consoleErrorSpy = jest
-          .spyOn(console, 'error')
-          .mockImplementation(() => {})
-        const { getDoc } = require('firebase/firestore')
-        getDoc.mockRejectedValueOnce(new Error('Firestore error'))
-
-        const classes = await getInstructorClasses(
-          'instructorUID',
-          'email@test.com',
-        )
-        expect(classes).toEqual({})
-        expect(consoleErrorSpy).toHaveBeenCalled()
-        consoleErrorSpy.mockRestore()
-      })
-    })
-
-    describe('updateInstructorClassMappings', () => {
-      it('updates main instructor and co-instructors class lists using updateDoc', async () => {
-        const { updateDoc } = require('firebase/firestore')
-        updateDoc.mockResolvedValue(undefined)
-
-        await updateInstructorClassMappings(
-          'class123',
-          'main@test.com',
-          'co1@test.com, co2@test.com',
-        )
-
-        expect(updateDoc).toHaveBeenCalledTimes(3)
-      })
-
-      it('falls back to setDoc if updateDoc fails', async () => {
-        const { updateDoc, setDoc } = require('firebase/firestore')
-        updateDoc.mockRejectedValue(new Error('document does not exist'))
-        setDoc.mockResolvedValue(undefined)
-
-        await updateInstructorClassMappings('class123', 'main@test.com', '')
-
-        expect(updateDoc).toHaveBeenCalledTimes(1)
-        expect(setDoc).toHaveBeenCalledTimes(1)
-      })
     })
   })
 

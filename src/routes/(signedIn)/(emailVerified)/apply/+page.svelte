@@ -1,17 +1,13 @@
 <script lang="ts">
-  import { db, user } from '$lib/client/firebase'
+  import { user } from '$lib/client/firebase'
   import Button from '$lib/components/Button.svelte'
   import Card from '$lib/components/Card.svelte'
   import ApplyForm from '$lib/components/forms/ApplyForm.svelte'
   import RegistrationForm from '$lib/components/forms/RegistrationForm.svelte'
   import Select from '$lib/components/Select.svelte'
-  import {
-    maxChildrenPerAccount,
-    registrationsCollection,
-    semesterDates,
-  } from '$lib/data/collections'
+  import { maxChildrenPerAccount, semesterDates } from '$lib/data/collections'
+  import { registrationService } from '$lib/services/registrationService'
   import { alert } from '$lib/stores'
-  import { doc, getDoc } from 'firebase/firestore'
   import { onMount } from 'svelte'
 
   // if this is a registration, iterate through the user's uid and check if uid-1, uid-2, etc. exists
@@ -26,22 +22,17 @@
 
   const fetchData = async (user: Data.User.Store) => {
     uid = user.object.uid
-    for (let i = 1; i <= maxChildrenPerAccount; ++i) {
-      const docRef = await getDoc(
-        doc(db, registrationsCollection, `${uid}-${i}`),
-      )
-      if (docRef.exists()) {
-        const name =
-          `${docRef.data().personal.studentFirstName} ${
-            docRef.data().personal.studentLastName
-          }`.trim() || `Child ${i}`
-        options.push({
-          name,
-        })
-        nameToUid[name] = `${uid}-${i}`
-      } else {
-        break
-      }
+    const slots = await registrationService.fetchChildRegistrationSlots(uid)
+    for (let i = 0; i < slots.length; ++i) {
+      const slot = slots[i]
+      if (!slot.exists || !slot.data) break
+      const name =
+        `${slot.data.personal.studentFirstName} ${slot.data.personal.studentLastName}`.trim() ||
+        `Child ${i + 1}`
+      options.push({
+        name,
+      })
+      nameToUid[name] = slot.uid
     }
     if (options.length === 0) {
       options.push({

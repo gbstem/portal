@@ -1,13 +1,9 @@
 <script lang="ts">
-  import { db, user } from '$lib/client/firebase'
+  import { user } from '$lib/client/firebase'
   import Loading from '$lib/components/Loading.svelte'
   import Select from '$lib/components/Select.svelte'
-  import {
-    maxChildrenPerAccount,
-    registrationsCollection,
-  } from '$lib/data/collections'
+  import { registrationService } from '$lib/services/registrationService'
   import { selectedStudentIdState } from '$lib/stores.svelte'
-  import { doc, getDoc } from 'firebase/firestore'
   import { onMount } from 'svelte'
 
   let loading = $state(true)
@@ -43,21 +39,18 @@
 
   const fetchData = async (user: Data.User.Store) => {
     const uid = user.object.uid
-    for (let i = 1; i <= maxChildrenPerAccount; ++i) {
-      const docRef = await getDoc(
-        doc(db, registrationsCollection, `${uid}-${i}`),
-      )
-      if (docRef.exists() && docRef.data()?.meta.submitted) {
+    const slots = await registrationService.fetchChildRegistrationSlots(uid)
+    slots.forEach((slot, index) => {
+      if (slot.exists && slot.data?.meta.submitted) {
         const name =
-          `${docRef.data().personal.studentFirstName} ${
-            docRef.data().personal.studentLastName
-          }`.trim() || `Child ${i}`
+          `${slot.data.personal.studentFirstName} ${slot.data.personal.studentLastName}`.trim() ||
+          `Child ${index + 1}`
         studentsOptions.push({
           name,
         })
-        nameToUid[name] = `${uid}-${i}`
+        nameToUid[name] = slot.uid
       }
-    }
+    })
   }
 
   $effect(() => {

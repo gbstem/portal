@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { db, user } from '$lib/client/firebase'
+  import { user } from '$lib/client/firebase'
   import Button from '$lib/components/Button.svelte'
   import Card from '$lib/components/Card.svelte'
   import Dialog from '$lib/components/Dialog.svelte'
@@ -9,31 +9,17 @@
   import Select from '$lib/components/Select.svelte'
   import StudentSelect from '$lib/components/StudentSelect.svelte'
   import { coursesJson } from '$lib/data'
-  import {
-    classesCollection,
-    maxChildrenPerAccount,
-    registrationsCollection,
-    semesterDates,
-  } from '$lib/data/collections'
+  import { semesterDates } from '$lib/data/collections'
+  import { classService } from '$lib/services/classService'
+  import { registrationService } from '$lib/services/registrationService'
   import { alert } from '$lib/stores'
   import { formatClassTimes } from '$lib/utils'
-  import {
-    arrayRemove,
-    arrayUnion,
-    collection,
-    doc,
-    getDoc,
-    getDocs,
-    updateDoc,
-  } from 'firebase/firestore'
   import { onMount } from 'svelte'
   import { fade } from 'svelte/transition'
 
   import {
     buildPortalEnrollApiPayload,
     isGradeEligible,
-    parseClassInfoDoc,
-    sortClassesBySpotsRemaining,
     type ClassInfo,
   } from '$lib/helpers/classesPage'
 
@@ -62,20 +48,17 @@
 
   const determineStudentEnrollment = async (user: Data.User.Store) => {
     const uid = user.object.uid
-    for (let i = 1; i <= maxChildrenPerAccount; ++i) {
-      const docRef = await getDoc(
-        doc(db, registrationsCollection, `${uid}-${i}`),
-      )
-      if (docRef.exists() && docRef.data()?.meta.submitted) {
-        const studentUid = `${uid}-${i}`
-        const studentClassIds = docRef.data()?.classes ?? []
+    const slots = await registrationService.fetchChildRegistrationSlots(uid)
+    slots.forEach((slot, index) => {
+      if (slot.exists && slot.data?.meta.submitted) {
+        const studentUid = slot.uid
+        const studentClassIds = slot.data.classes ?? []
         studentUidToClassIds[studentUid] = studentClassIds
         const name =
-          `${docRef.data().personal.studentFirstName} ${
-            docRef.data().personal.studentLastName
-          }`.trim() || `Child ${i}`
+          `${slot.data.personal.studentFirstName} ${slot.data.personal.studentLastName}`.trim() ||
+          `Child ${index + 1}`
         uidToName[studentUid] = name
-        studentUidToGrade[studentUid] = docRef.data()?.academic.grade ?? ''
+        studentUidToGrade[studentUid] = slot.data.academic.grade ?? ''
 
         // Add to preloaded students for StudentSelect component
         preloadedStudents.push({
@@ -83,7 +66,7 @@
           name: name,
         })
       }
-    }
+    })
   }
 
   const getData = () => {
@@ -91,12 +74,7 @@
       if (user?.profile.role === 'instructor') {
         isStudent = false
       }
-      const classesCollectionRef = collection(db, classesCollection)
-      const querySnapshot = await getDocs(classesCollectionRef)
-      const rawClasses = querySnapshot.docs.map((doc) =>
-        parseClassInfoDoc(doc.id, doc.data()),
-      )
-      classes = sortClassesBySpotsRemaining(rawClasses)
+      classes = await classService.fetchAllClassesInfo()
 
       if (user && isStudent) {
         if (user.object.displayName) {
@@ -137,12 +115,10 @@
       alert.trigger('error', 'Please select a child!')
       return
     }
-    const classDocRef = doc(db, classesCollection, classId)
     // get updated number of students in the class
-    const classDoc = await getDoc(classDocRef)
-    const classData = classDoc.data()
-    const numStudents = classData?.students?.length ?? 0
-    if (numStudents >= classData?.classCap) {
+    const { numStudents, classCap } =
+      await classService.fetchClassCapacityInfo(classId)
+    if (numStudents >= classCap) {
       alert.trigger('error', 'Class is full!')
       return
     }
@@ -156,16 +132,14 @@
       return
     }
 
-    const ageLimitsDoc = await getDoc(
-      doc(db, registrationsCollection, selectedStudentUid),
-    )
-    const ageBypassEnabled = ageLimitsDoc.data()?.agreements.bypassAgeLimits
+    const ageBypassEnabled =
+      await classService.fetchBypassAgeLimits(selectedStudentUid)
 
     if (dialogClassDetails) {
       const eligibility = isGradeEligible(
         dialogClassDetails.course,
         studentUidToGrade[selectedStudentUid],
-        Boolean(ageBypassEnabled),
+        ageBypassEnabled,
       )
       if (!eligibility.eligible) {
         alert.trigger(
@@ -176,22 +150,15 @@
       }
     }
 
-    await updateDoc(classDocRef, {
-      students: arrayUnion(selectedStudentUid),
-    }).catch((error) => {
-      console.error('Class enrollment error:', error)
-      alert.trigger('error', 'Error enrolling in class!')
-    })
+    await classService
+      .enrollStudentInClass(classId, selectedStudentUid)
+      .catch((error) => {
+        console.error('Class enrollment error:', error)
+        alert.trigger('error', 'Error enrolling in class!')
+      })
 
-    const registrationDocRef = doc(
-      db,
-      registrationsCollection,
-      selectedStudentUid,
-    )
-    await updateDoc(registrationDocRef, {
-      classes: arrayUnion(classId),
-      enrolled: true,
-    })
+    await classService
+      .confirmStudentClassEnrollment(selectedStudentUid, classId)
       .then(() => {
         alert.trigger('success', 'Enrolled in class!')
         if (!dialogClassDetails) return
@@ -238,28 +205,16 @@
   }
 
   async function unenrollFromClass(classId: string): Promise<void> {
-    const classDocRef = doc(db, classesCollection, classId)
-    await updateDoc(classDocRef, {
-      students: arrayRemove(selectedStudentUid),
-    }).catch((error) => {
-      console.error('Class unenrollment error:', error)
-      alert.trigger('error', 'Error unenrolling from class!')
-    })
+    await classService
+      .unenrollStudentFromClass(classId, selectedStudentUid)
+      .catch((error) => {
+        console.error('Class unenrollment error:', error)
+        alert.trigger('error', 'Error unenrolling from class!')
+      })
 
-    const registrationDocRef = doc(
-      db,
-      registrationsCollection,
-      selectedStudentUid,
-    )
-    await updateDoc(registrationDocRef, {
-      classes: arrayRemove(classId),
-    })
-      .then(async () => {
-        const regSnap = await getDoc(registrationDocRef)
-        const remainingClasses = (regSnap.data()?.classes || []) as string[]
-        await updateDoc(registrationDocRef, {
-          enrolled: remainingClasses.length > 0,
-        })
+    await classService
+      .confirmStudentClassUnenrollment(selectedStudentUid, classId)
+      .then(() => {
         alert.trigger('success', 'Unenrolled from class!')
         showClassDetailsDialog = false
       })

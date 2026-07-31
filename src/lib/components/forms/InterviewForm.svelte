@@ -1,25 +1,10 @@
 <script lang="ts">
-  import { db, user } from '$lib/client/firebase'
-  import {
-    applicationsCollection,
-    interviewCollection,
-  } from '$lib/data/collections'
+  import { user } from '$lib/client/firebase'
+  import { interviewService } from '$lib/services/interviewService'
   import { alert } from '$lib/stores'
-  import { formatDateLocal, timestampToDate } from '$lib/utils'
   import { cn } from '$lib/utils'
   import { dev } from '$app/environment'
-  import {
-    collection,
-    doc,
-    getDoc,
-    getDocs,
-    query,
-    setDoc,
-    updateDoc,
-  } from 'firebase/firestore'
   import { onMount } from 'svelte'
-  import type { InterviewRequestBody } from '../../../routes/api/interview/+server'
-  import type { SlotRequestRequestBody } from '../../../routes/api/slotRequest/+server'
   import Link from '../Link.svelte'
   import Loading from '../Loading.svelte'
   import Button from '../Button.svelte'
@@ -62,11 +47,11 @@
         if (!slot) return
 
         try {
-          // get the doc for the interview again to confirm that it is still available
-          const docRef = doc(db, interviewCollection, slot.id)
-          const docSnap = await getDoc(docRef)
-          // check that interviewSlotStatus is still available
-          if (docSnap.data()?.interviewSlotStatus !== 'available') {
+          // Confirm the slot is still available (guards against a race with another applicant)
+          const isAvailable = await interviewService.confirmSlotAvailable(
+            slot.id,
+          )
+          if (!isAvailable) {
             alert.trigger(
               'error',
               'The interview slot you selected is no longer available. Please select another slot.',
@@ -78,44 +63,7 @@
           scheduledInterview = slot
           scheduled = true
 
-          // update application to indicate interview scheduled
-          await updateDoc(
-            doc(db, applicationsCollection, currentUser.object.uid),
-            {
-              'meta.interview': true,
-            },
-          )
-
-          await updateDoc(doc(db, interviewCollection, slot.id), {
-            interviewSlotStatus: slot.interviewSlotStatus,
-            intervieweeFirstName: currentUser.profile.firstName,
-            intervieweeLastName: currentUser.profile.lastName,
-            intervieweeEmail: currentUser.object.email,
-            intervieweeId: currentUser.object.uid,
-          })
-
-          const payload: InterviewRequestBody = {
-            email: slot.interviewerEmail,
-            date: slot.date,
-            link: slot.meetingLink,
-            interviewer: slot.interviewerName,
-            firstName: currentUser.profile.firstName,
-          }
-
-          const res = await fetch('/api/interview', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(payload),
-          })
-          if (!res.ok) {
-            const { message } = await res.json().catch(() => ({}))
-            console.error(
-              '[InterviewForm] Email notification send error:',
-              message || 'Unknown error',
-            )
-          }
+          await interviewService.bookInterviewSlot(slot, currentUser)
           window.scrollTo({
             top: 0,
             behavior: 'smooth',
@@ -157,35 +105,7 @@
         }
 
         try {
-          await setDoc(
-            doc(
-              db,
-              'interviewTimeRequests',
-              currentUser.object.uid + '-' + dateToAdd,
-            ),
-            {
-              firstName: currentUser.profile.firstName,
-              lastName: currentUser.profile.lastName,
-              email: currentUser.object.email,
-              date: new Date(dateToAdd),
-            },
-          )
-          const payload: SlotRequestRequestBody = {
-            firstName: currentUser.profile.firstName,
-            intervieweeEmail: currentUser.object.email || '',
-            timeSlot: formatDateLocal(new Date(dateToAdd)),
-          }
-          const res = await fetch('/api/slotRequest', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(payload),
-          })
-          if (!res.ok) {
-            const { message } = await res.json()
-            console.error('Interview slot request failed:', message)
-          }
+          await interviewService.requestInterviewSlot(dateToAdd, currentUser)
           window.scrollTo({
             top: 0,
             behavior: 'smooth',
@@ -231,47 +151,15 @@
   })
 
   async function getData() {
-    const q = query(collection(db, interviewCollection))
-    const querySnapshot = await getDocs(q)
-    querySnapshot.forEach((doc) => {
-      const interviewInfo = doc.data()
-      if (
-        interviewInfo['intervieweeId'] === currentUser.object.uid &&
-        timestampToDate(interviewInfo['date']) >
-          new Date(semesterDates.returningInstructorAppsOpen)
-      ) {
-        scheduledInterview = {
-          ...interviewInfo,
-          id: doc.id,
-          date: formatDateLocal(new Date(interviewInfo['date'].seconds * 1000)),
-          interviewSlotStatus:
-            new Date(interviewInfo['date'].seconds * 1000) < new Date()
-              ? 'completed'
-              : interviewInfo['interviewSlotStatus'],
-        } as Data.InterviewSlot
-        scheduled = true
-      } else {
-        const interviewDate = new Date(interviewInfo['date'].seconds * 1000)
-        const inFourHours = new Date(new Date().getTime() + 4 * 60 * 60 * 1000)
-        if (
-          interviewInfo['interviewSlotStatus'] === 'available' &&
-          interviewDate > inFourHours &&
-          (interviewDate < new Date(semesterDates.instructorOrientation) || dev)
-        ) {
-          valuesJson.push({
-            ...interviewInfo,
-            id: doc.id,
-            date: formatDateLocal(
-              new Date(interviewInfo['date'].seconds * 1000),
-            ),
-          } as Data.InterviewSlot)
-        }
-      }
-    })
-    // Sort by date
-    valuesJson.sort((a, b) => {
-      return new Date(a.date).getTime() - new Date(b.date).getTime()
-    })
+    const result = await interviewService.fetchInterviewData(
+      currentUser.object.uid,
+      semesterDates,
+    )
+    if (result.scheduledInterview) {
+      scheduledInterview = result.scheduledInterview
+      scheduled = true
+    }
+    valuesJson = result.availableSlots
     return valuesJson
   }
 </script>

@@ -1,9 +1,8 @@
 <script lang="ts">
   import { navigating, page } from '$app/state'
-  import { db, user } from '$lib/client/firebase'
-  import { decisionsCollection } from '$lib/data/collections'
+  import { user } from '$lib/client/firebase'
+  import { applicationService } from '$lib/services/applicationService'
   import { cn } from '$lib/utils'
-  import { doc, getDoc } from 'firebase/firestore'
   import { onMount } from 'svelte'
   import { cubicInOut } from 'svelte/easing'
   import { fade } from 'svelte/transition'
@@ -38,9 +37,9 @@
     let cancelled = false
     ;(async () => {
       try {
-        const document = await getDoc(doc(db, decisionsCollection, uid))
+        const decisionType = await applicationService.fetchDecisionType(uid)
         if (cancelled) return
-        if (document.exists() && document.data().type === 'accepted') {
+        if (decisionType === 'accepted') {
           showAdditionalPages = true
         }
       } catch (error) {

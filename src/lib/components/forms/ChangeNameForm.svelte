@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { db, user } from '$lib/client/firebase'
+  import { user } from '$lib/client/firebase'
+  import { userService } from '$lib/services/userService'
   import { alert } from '$lib/stores'
   import { updateProfile } from 'firebase/auth'
-  import { doc, updateDoc } from 'firebase/firestore'
   import { onMount } from 'svelte'
   import { defaults, superForm } from 'sveltekit-superforms'
   import { zod } from 'sveltekit-superforms/adapters'
@@ -30,10 +30,11 @@
           const firstName = formVal.data.firstName.trim()
           const lastName = formVal.data.lastName.trim()
           try {
-            await updateDoc(doc(db, 'users', frozenUser.object.uid), {
+            await userService.updateUserName(
+              frozenUser.object.uid,
               firstName,
               lastName,
-            })
+            )
             await updateProfile(frozenUser.object, {
               displayName: `${firstName} ${lastName}`,
             })

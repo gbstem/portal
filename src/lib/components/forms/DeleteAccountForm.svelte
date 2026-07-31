@@ -1,17 +1,13 @@
 <script lang="ts">
-  import { db, storage, user } from '$lib/client/firebase'
+  import { storage, user } from '$lib/client/firebase'
   import Dialog from '$lib/components/Dialog.svelte'
-  import {
-    applicationsCollection,
-    decisionsCollection,
-  } from '$lib/data/collections'
+  import { userService } from '$lib/services/userService'
   import { alert } from '$lib/stores'
   import {
     EmailAuthProvider,
     deleteUser,
     reauthenticateWithCredential,
   } from 'firebase/auth'
-  import { deleteDoc, doc } from 'firebase/firestore'
   import { deleteObject, ref } from 'firebase/storage'
   import { defaults, superForm } from 'sveltekit-superforms'
   import { zod } from 'sveltekit-superforms/adapters'
@@ -48,19 +44,11 @@
               storage,
               `resumes/${frozenUser.object.uid}.pdf`,
             )
-            await Promise.all(
-              [
-                deleteObject(resumeRef),
-                deleteDoc(
-                  doc(db, applicationsCollection, frozenUser.object.uid),
-                ),
-                deleteDoc(doc(db, decisionsCollection, frozenUser.object.uid)),
-              ].map((p) => p.catch((e) => e)),
-            )
             await Promise.all([
-              deleteDoc(doc(db, 'ids', id)),
-              deleteDoc(doc(db, 'users', frozenUser.object.uid)),
+              deleteObject(resumeRef).catch((e) => e),
+              userService.deleteApplicationRecords(frozenUser.object.uid),
             ])
+            await userService.deleteAccountRecords(frozenUser.object.uid, id)
             await deleteUser(frozenUser.object)
             alert.trigger('success', 'Account was successfully deleted.')
             window.setTimeout(() => {

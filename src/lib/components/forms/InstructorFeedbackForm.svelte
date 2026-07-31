@@ -1,15 +1,8 @@
 <script lang="ts">
-  import { db, user } from '$lib/client/firebase'
-  import {
-    classesCollection,
-    instructorFeedbackCollection,
-    registrationsCollection,
-    substituteRequestsCollection,
-    withSemester,
-  } from '$lib/data/collections'
+  import { user } from '$lib/client/firebase'
+  import { classService } from '$lib/services/classService'
   import { alert } from '$lib/stores'
   import { cn } from '$lib/utils'
-  import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
   import { untrack } from 'svelte'
   import { defaults, superForm } from 'sveltekit-superforms'
   import { zod } from 'sveltekit-superforms/adapters'
@@ -19,7 +12,6 @@
   import FormCheckbox from '../FormCheckbox.svelte'
   import FormInput from '../FormInput.svelte'
   import { ClassStatus } from '../helpers/ClassStatus'
-  import { SubRequestStatus } from '../helpers/SubRequestStatus'
 
   interface Props {
     classBeingSubbed: Data.SubRequest | undefined
@@ -103,20 +95,13 @@
             ClassStatus.EverythingComplete
 
           try {
-            await setDoc(
-              doc(db, instructorFeedbackCollection, `${id}-${Date.now()}`),
-              withSemester(submissionValues),
+            await classService.submitInstructorFeedback(
+              id,
+              submissionValues,
+              feedbackCompletedArray,
+              classStatusesArray,
+              classBeingSubbed?.id,
             )
-            await updateDoc(doc(db, classesCollection, id), {
-              feedbackCompleted: feedbackCompletedArray,
-              classStatuses: classStatusesArray,
-            })
-            if (classBeingSubbed !== undefined) {
-              await updateDoc(
-                doc(db, substituteRequestsCollection, classBeingSubbed.id),
-                { subRequestStatus: SubRequestStatus.NoSubstituteNeeded },
-              )
-            }
             alert.trigger('success', 'Class Feedback saved!')
             setTimeout(() => location.reload(), 1000)
           } catch (error: any) {
@@ -158,25 +143,13 @@
       classBeingSubbed === undefined
         ? classId || currentUser.object.uid
         : classBeingSubbed.id.split('---')[0]
-    const document = await getDoc(doc(db, classesCollection, id))
-    if (document.exists()) {
-      const data = document.data() as Data.Class
+    const data = await classService.fetchClassDetails(id)
+    if (data) {
       const { students, feedbackCompleted, classStatuses } = data
-      const uids = students
       feedbackCompletedArray = feedbackCompleted
       classStatusesArray = classStatuses
-      const classListPromises = uids.map(async (uid: string) => {
-        try {
-          const userDoc = await getDoc(doc(db, registrationsCollection, uid))
-          const userData = userDoc.data()?.personal
-          return `${userData['studentFirstName']} ${userData['studentLastName']}`
-        } catch (error) {
-          console.error('Error fetching student data:', error)
-          return 'Error'
-        }
-      })
       try {
-        const list = await Promise.all(classListPromises)
+        const list = await classService.fetchStudentNames(students)
         classList = list
         const initialAttendance: Record<string, { present: boolean }> = {}
         classList.forEach((student: string) => {

@@ -48,6 +48,91 @@ describe('applicationService (Data Access Layer)', () => {
     })
   })
 
+  describe('fetchDecisionType', () => {
+    it('returns the decision type if a decision doc exists', async () => {
+      ;(firestore.getDoc as jest.Mock).mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({ type: 'accepted' }),
+      })
+
+      const decision = await applicationService.fetchDecisionType('uid-1')
+      expect(decision).toBe('accepted')
+    })
+
+    it('returns null if no decision doc exists', async () => {
+      ;(firestore.getDoc as jest.Mock).mockResolvedValueOnce({
+        exists: () => false,
+      })
+
+      const decision = await applicationService.fetchDecisionType('uid-1')
+      expect(decision).toBeNull()
+    })
+
+    it('propagates errors from getDoc', async () => {
+      ;(firestore.getDoc as jest.Mock).mockRejectedValueOnce(
+        new Error('permission-denied'),
+      )
+
+      await expect(
+        applicationService.fetchDecisionType('uid-1'),
+      ).rejects.toThrow('permission-denied')
+    })
+  })
+
+  describe('fetchApplicationDashboardStatus', () => {
+    it('returns null when no application exists', async () => {
+      ;(firestore.getDoc as jest.Mock)
+        .mockResolvedValueOnce({ exists: () => false })
+        .mockResolvedValueOnce({ exists: () => false })
+
+      const status =
+        await applicationService.fetchApplicationDashboardStatus('uid-1')
+      expect(status).toBeNull()
+    })
+
+    it('returns null when the application exists but was not submitted', async () => {
+      ;(firestore.getDoc as jest.Mock)
+        .mockResolvedValueOnce({
+          exists: () => true,
+          data: () => ({ meta: { submitted: false } }),
+        })
+        .mockResolvedValueOnce({ exists: () => false })
+
+      const status =
+        await applicationService.fetchApplicationDashboardStatus('uid-1')
+      expect(status).toBeNull()
+    })
+
+    it("returns 'submitted' when submitted but no decision recorded yet", async () => {
+      ;(firestore.getDoc as jest.Mock)
+        .mockResolvedValueOnce({
+          exists: () => true,
+          data: () => ({ meta: { submitted: true } }),
+        })
+        .mockResolvedValueOnce({ exists: () => false })
+
+      const status =
+        await applicationService.fetchApplicationDashboardStatus('uid-1')
+      expect(status).toBe('submitted')
+    })
+
+    it('returns the decision type once a decision has been recorded', async () => {
+      ;(firestore.getDoc as jest.Mock)
+        .mockResolvedValueOnce({
+          exists: () => true,
+          data: () => ({ meta: { submitted: true } }),
+        })
+        .mockResolvedValueOnce({
+          exists: () => true,
+          data: () => ({ type: 'waitlisted' }),
+        })
+
+      const status =
+        await applicationService.fetchApplicationDashboardStatus('uid-1')
+      expect(status).toBe('waitlisted')
+    })
+  })
+
   describe('submitApplicationApi', () => {
     it('triggers POST request to /api/application endpoint', async () => {
       ;(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true })

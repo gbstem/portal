@@ -175,6 +175,8 @@ declare global {
         created: Timestamp
         updated: Timestamp
       }
+      classes?: string[]
+      enrolled?: boolean
     }
 
     type Class = {

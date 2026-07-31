@@ -12,11 +12,7 @@
   } from '$lib/helpers/classDetailsForm'
   import { classService } from '$lib/services/classService'
   import { alert } from '$lib/stores'
-  import {
-    cn,
-    getInstructorClasses,
-    updateInstructorClassMappings,
-  } from '$lib/utils'
+  import { cn } from '$lib/utils'
   import { onMount, untrack } from 'svelte'
   import { defaults, superForm } from 'sveltekit-superforms'
   import { zod } from 'sveltekit-superforms/adapters'
@@ -151,7 +147,7 @@
               withSemester(newValues),
             )
 
-            await updateInstructorClassMappings(
+            await classService.updateInstructorClassMappings(
               classId,
               frozenUser.object.email || '',
               newValues.otherInstructorEmails,
@@ -204,7 +200,7 @@
   onMount(() => {
     return user.subscribe(async (user) => {
       if (user) {
-        const userClasses = await getInstructorClasses(
+        const userClasses = await classService.fetchInstructorClasses(
           user.object.uid,
           user.object.email || '',
         )
