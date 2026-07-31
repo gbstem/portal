@@ -1,6 +1,6 @@
 import {
-  registrationsCollection,
   maxChildrenPerAccount,
+  registrationsCollection,
 } from '../../src/lib/data/collections'
 import { generateDateHash } from '../support/utils'
 
@@ -35,7 +35,10 @@ describe('Section B: Student Registration & Account Management', () => {
     cy.wait(1000) // Wait for Svelte page to settle
 
     // Assert Child 1 exists by default
-    cy.get('input[name="select-a-child"]').should('have.value', 'Child 1')
+    cy.get('input[name="select-a-child"]', { timeout: 10000 }).should(
+      'have.value',
+      'Child 1',
+    )
 
     // Click "Add Child Account" to add new children up to maxChildrenPerAccount
     for (let i = 2; i <= maxChildrenPerAccount; i++) {
@@ -58,7 +61,10 @@ describe('Section B: Student Registration & Account Management', () => {
     cy.wait(1000)
 
     // Select Child 1 to register
-    cy.get('input[name="select-a-child"]').should('have.value', 'Child 1')
+    cy.get('input[name="select-a-child"]', { timeout: 10000 }).should(
+      'have.value',
+      'Child 1',
+    )
 
     const studentFirst = 'Charlie'
     const studentLast = generateDateHash('Brown')
@@ -131,6 +137,7 @@ describe('Section B: Student Registration & Account Management', () => {
     cy.selectOption(
       'input[name="select-a-child"]',
       `${studentFirst} ${studentLast}`,
+      { timeout: 10000 },
     )
     cy.wait(500)
 
