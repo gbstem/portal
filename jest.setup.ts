@@ -1,3 +1,8 @@
+// Pin to Eastern time so the formatDateLocal/formatDateStringLocal tests
+// (which assert against Eastern-time output) pass regardless of the machine's
+// own local timezone - contributors and CI runners aren't all in America/New_York.
+process.env.TZ = 'America/New_York'
+
 import '@testing-library/jest-dom'
 import { jest, beforeAll, afterAll } from '@jest/globals'
 
