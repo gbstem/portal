@@ -25,7 +25,10 @@ jobs:
           node-version: '24'
           cache: yarn
 
-      - run: yarn install --frozen-lockfile
+      - name: Enable Corepack
+        run: corepack enable
+
+      - run: yarn install --immutable
 
       - name: Set up env file
         run: cp .env.example .env.local
@@ -86,8 +89,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          yarn --cwd portal install --frozen-lockfile
-          yarn --cwd admin install --frozen-lockfile
+          yarn --cwd portal install --immutable
+          yarn --cwd admin install --immutable
 
       - name: Set up env files
         run: |

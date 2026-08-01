@@ -166,7 +166,9 @@ For detailed, step-by-step instructions on updating the semester suffix and copy
 
 It is important to periodically update the project's dependencies to address security vulnerabilities, receive bug fixes, improve performance, and keep up with the latest features. Since this project is maintained by a rotating group of students, regular updates prevent the codebase from falling behind or becoming incompatible with modern deployment platforms.
 
-We use the [npm-check-updates (ncu)](https://github.com/raineorshine/npm-check-updates) tool to check for and apply updates. Refer to the [installation instructions](https://github.com/raineorshine/npm-check-updates#installation) to install it.
+While GitHub Dependabot handles minor and patch dependency updates automatically, we still need to manually run `ncu` to catch major updates that Dependabot misses. Check `npx depcheck` occasionally to catch any missing dependencies. While doing this, also check for the latest yarn berry v4 package manager release and update `packageManager` at the bottom of `package.json` to use that instead.
+
+For those manual updates, we use the [npm-check-updates (ncu)](https://github.com/raineorshine/npm-check-updates) tool to check for and apply updates. Refer to the [installation instructions](https://github.com/raineorshine/npm-check-updates#installation) to install it.
 
 Once `ncu` is installed, follow this sequence of commands to update dependencies:
 

@@ -77,5 +77,23 @@
     "unrs-resolver": true,
     "cypress": true,
     "esbuild": true
-  }
+  },
+  "dependenciesMeta": {
+    "@firebase/util": {
+      "built": true
+    },
+    "cypress": {
+      "built": true
+    },
+    "esbuild": {
+      "built": true
+    },
+    "protobufjs": {
+      "built": true
+    },
+    "unrs-resolver": {
+      "built": true
+    }
+  },
+  "packageManager": "yarn@4.17.1"
 }
