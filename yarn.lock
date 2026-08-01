@@ -5453,11 +5453,6 @@ nanoid@^3.3.16:
   resolved "https://registry.yarnpkg.com/nanoid/-/nanoid-3.3.16.tgz#a04d8ec4b1f10009d2d533947aefe4293737816c"
   integrity sha512-bzlKTyNJ7+LdGIIwy8ijFpIqEQIvafahV7eYykJ8Cvh42EdJeODoJ6gUJXpQJvej1BddH8OqTXZNE/KfbWAu8Q==
 
-nanoid@^6.0.0:
-  version "6.0.0"
-  resolved "https://registry.yarnpkg.com/nanoid/-/nanoid-6.0.0.tgz#8a07398e87773c6a97d158921cad826a9c344eab"
-  integrity sha512-mkUH+rPkwU2qPadJ0oJZOjeZ5Mxn8Q1UhevwkTRWNuUZzyia3h4rhzK39hxaHTk0o2OxB8W2SQ6A8k23ZDi1pQ==
-
 napi-postinstall@^0.3.4:
   version "0.3.4"
   resolved "https://registry.yarnpkg.com/napi-postinstall/-/napi-postinstall-0.3.4.tgz#7af256d6588b5f8e952b9190965d6b019653bbb9"

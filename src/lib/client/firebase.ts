@@ -91,10 +91,16 @@ function userStore() {
             localStorage.setItem('emailVerified', 'false')
           }
           getDoc(doc(db, 'users', userObject.uid)).then(async (res) => {
-            const userProfile = res.data()
+            // The `users` document holds no identifier of its own; the uid is
+            // patched in here so consumers can read `profile.uid` without
+            // carrying the auth object alongside the profile. Spreading last
+            // also keeps `profile.uid` defined when the document is missing.
             set({
               object: userObject,
-              profile: userProfile as Data.User.Profile,
+              profile: {
+                ...res.data(),
+                uid: userObject.uid,
+              } as Data.User.Profile,
             })
           })
         } else {

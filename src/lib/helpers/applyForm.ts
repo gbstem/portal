@@ -29,7 +29,6 @@ export function createEmptyApplication(): Data.Application {
       ...defaults.agreements,
     },
     meta: {
-      id: '',
       uid: '',
       submitted: false,
       interview: false,
@@ -97,14 +96,12 @@ export function normalizeApplicationData(
   userProfile?: {
     firstName?: string | null
     lastName?: string | null
-    id?: string | null
   },
 ): Data.Application {
   const empty = createEmptyApplication()
   const base = data ? { ...cloneDeep(empty), ...cloneDeep(data) } : empty
 
   if (userObj?.uid) base.meta.uid = userObj.uid
-  if (userProfile?.id) base.meta.id = userProfile.id
   if (userObj?.email) base.personal.email = userObj.email
   if (userProfile?.firstName) base.personal.firstName = userProfile.firstName
   if (userProfile?.lastName) base.personal.lastName = userProfile.lastName

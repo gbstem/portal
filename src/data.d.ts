@@ -26,9 +26,11 @@ declare global {
         role: Role
       }
       type Profile = {
+        // Patched in at read time by `$lib/client/firebase`'s user store; the
+        // `users` document itself is keyed by uid and stores no identifier.
+        uid: string
         firstName: string
         lastName: string
-        id: string
         role: Role
       }
       type Store = {
@@ -117,7 +119,6 @@ declare global {
         submitting: boolean
       }
       meta: {
-        id: string
         uid: string
         submitted: boolean
         interview: boolean
@@ -167,7 +168,6 @@ declare global {
         parentPickup: string
       }
       meta: {
-        id: string
         uid: string
         submitted: boolean
       }

@@ -16,12 +16,14 @@ describe('ApplyForm Helpers', () => {
 
     test('normalizeApplicationData fills user identity information when provided', () => {
       const userObj = { email: 'test@example.com', uid: 'uid123' }
-      const userProfile = { firstName: 'Jane', lastName: 'Doe', id: 'prof1' }
+      const userProfile = { firstName: 'Jane', lastName: 'Doe' }
 
       const app = normalizeApplicationData(null, userObj, userProfile)
       expect(app.personal.email).toBe('test@example.com')
       expect(app.personal.firstName).toBe('Jane')
       expect(app.meta.uid).toBe('uid123')
+      // The uid is the only identifier stamped on an application.
+      expect(app.meta).not.toHaveProperty('id')
     })
   })
 

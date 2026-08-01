@@ -122,7 +122,7 @@
         <Field class="pr-9">
           <div class="relative h-6 overflow-x-auto">
             <div class="absolute top-0 left-0 whitespace-nowrap">
-              {`id: ${$user ? $user.profile?.id : ''}`}
+              {`id: ${$user ? $user.profile?.uid : ''}`}
             </div>
           </div>
         </Field>
@@ -133,7 +133,7 @@
             aria-label="Copy User ID"
             onclick={() => {
               if ($user) {
-                writeToClipboard($user.profile.id)
+                writeToClipboard($user.profile.uid)
               }
             }}
           >

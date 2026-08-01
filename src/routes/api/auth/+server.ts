@@ -10,7 +10,8 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
   // Validate that the user role is appropriate for this site
   const userRecord = await adminAuth.getUser(decodedIdToken.uid)
   let role = userRecord.customClaims?.role
-  if (!role) {
+  const claimMissing = !role
+  if (claimMissing) {
     const userDoc = await adminDb
       .collection('users')
       .doc(decodedIdToken.uid)
@@ -26,6 +27,14 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
       ? role.charAt(0).toUpperCase() + role.slice(1)
       : 'User'
     throw error(403, `${roleName}s must sign in on the admin site.`)
+  }
+
+  // Signup writes the `users` document but can't set custom claims from the
+  // client SDK, so back-fill them here. Doing it before minting the session
+  // cookie is what lets `hooks.server.ts` simply trust the claims: every
+  // session cookie in existence was issued after this ran.
+  if (claimMissing) {
+    await adminAuth.setCustomUserClaims(decodedIdToken.uid, { role })
   }
 
   if (new Date().getTime() / 1000 - decodedIdToken.auth_time < 5 * 60) {

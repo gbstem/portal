@@ -39,7 +39,6 @@
                 formVal.data.password,
               ),
             )
-            const id = frozenUser.profile.id
             const resumeRef = ref(
               storage,
               `resumes/${frozenUser.object.uid}.pdf`,
@@ -48,7 +47,7 @@
               deleteObject(resumeRef).catch((e) => e),
               userService.deleteApplicationRecords(frozenUser.object.uid),
             ])
-            await userService.deleteAccountRecords(frozenUser.object.uid, id)
+            await userService.deleteAccountRecords(frozenUser.object.uid)
             await deleteUser(frozenUser.object)
             alert.trigger('success', 'Account was successfully deleted.')
             window.setTimeout(() => {

@@ -4,12 +4,7 @@
   import Brand from '$lib/components/Brand.svelte'
   import { userService } from '$lib/services/userService'
   import { alert } from '$lib/stores'
-  import {
-    createUserWithEmailAndPassword,
-    deleteUser,
-    updateProfile,
-  } from 'firebase/auth'
-  import { auth } from '$lib/client/firebase'
+  import type { User } from 'firebase/auth'
   import Link from '../Link.svelte'
   import Button from '../Button.svelte'
   import Loading from '../Loading.svelte'
@@ -34,6 +29,48 @@
       path: ['confirmPassword'],
     })
 
+  /**
+   * Exchanges the new account's ID token for a session cookie. Throws if the
+   * exchange fails, so the caller's rollback tears the account back down.
+   */
+  async function syncSession(createdUser: User): Promise<void> {
+    const idToken = await createdUser.getIdToken()
+    const res = await fetch('/api/auth', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ idToken }),
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.message || 'Session synchronization failed')
+    }
+  }
+
+  /**
+   * Sends the verification email. Deliberately non-fatal — a mail hiccup must
+   * not roll back an otherwise good account; the user can resend from
+   * `/profile`.
+   */
+  async function sendVerificationEmail(email: string): Promise<void> {
+    const payload: ActionRequestBody = { type: 'verifyEmail', email }
+    const res = await fetch('/api/action', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      console.error(
+        '[SignUpForm] Email verification send error:',
+        data.message || 'Unknown error',
+      )
+    }
+  }
+
   const formResult = superForm(
     defaults(
       {
@@ -53,90 +90,28 @@
         if (!formVal.valid) return
         const firstName = formVal.data.firstName.trim()
         const lastName = formVal.data.lastName.trim()
+        const role: 'instructor' | 'student' =
+          formVal.data.role ===
+          'High school/college student applying to be an instructor'
+            ? 'instructor'
+            : 'student'
 
-        let createdUser: any = null
+        let createdUser: User | null = null
         try {
-          const credential = await createUserWithEmailAndPassword(
-            auth,
-            formVal.data.email,
-            formVal.data.password,
-          )
-          createdUser = credential.user
-
-          await updateProfile(createdUser, {
-            displayName: `${firstName} ${lastName}`,
-          })
-
-          // attempt to generate id
-          const id = await userService.generateUniqueId()
-
-          if (id === '') {
-            alert.trigger(
-              'error',
-              'ID could not be generated. Please contact support.',
-            )
-            try {
-              await deleteUser(createdUser)
-            } catch (delErr) {
-              console.error(
-                '[SignUpForm] Error deleting rollbacked user:',
-                delErr,
-              )
-            }
-            return
-          }
-
-          const role: 'instructor' | 'student' =
-            formVal.data.role ===
-            'High school/college student applying to be an instructor'
-              ? 'instructor'
-              : 'student'
-          await userService.createUserRecord(
-            createdUser.uid,
-            id,
-            role,
+          createdUser = await userService.createUser({
+            email: formVal.data.email,
+            password: formVal.data.password,
             firstName,
             lastName,
-          )
-
-          const idToken = await createdUser.getIdToken()
-          const authRes = await fetch('/api/auth', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ idToken }),
+            role,
           })
-
-          if (!authRes.ok) {
-            const authData = await authRes.json().catch(() => ({}))
-            throw new Error(
-              authData.message || 'Session synchronization failed',
-            )
-          }
-
-          const payload: ActionRequestBody = {
-            type: 'verifyEmail',
-            email: formVal.data.email,
-          }
-          const actionRes = await fetch('/api/action', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(payload),
-          })
-
-          if (!actionRes.ok) {
-            const actionData = await actionRes.json().catch(() => ({}))
-            console.error(
-              '[SignUpForm] Email verification send error:',
-              actionData.message || 'Unknown error',
-            )
-          }
-
+          await syncSession(createdUser)
+          await sendVerificationEmail(formVal.data.email)
           await goto('/profile')
         } catch (err: any) {
+          if (createdUser) {
+            await userService.rollbackNewUser(createdUser)
+          }
           console.error('[SignUpForm] Registration error:', err)
           const isFirebaseError =
             err.code && typeof err.code === 'string' && err.code.includes('/')

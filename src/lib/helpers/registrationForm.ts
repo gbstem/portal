@@ -27,7 +27,6 @@ export function createEmptyRegistration(): Data.Registration {
       ...defaults.agreements,
     },
     meta: {
-      id: '',
       uid: '',
       submitted: false,
     },

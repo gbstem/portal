@@ -1,4 +1,5 @@
 import { userService } from '$lib/services/userService'
+import * as auth from 'firebase/auth'
 import * as firestore from 'firebase/firestore'
 import type {} from '../src/data.d.ts'
 
@@ -10,109 +11,141 @@ jest.mock('firebase/firestore', () => ({
   deleteDoc: jest.fn(),
 }))
 
-// nanoid ships as pure ESM, which ts-jest can't transform out of
-// node_modules by default - stub it with a deterministic-but-unique
-// generator so retry-loop tests can distinguish successive ids.
-let nanoidCallCount = 0
-jest.mock('nanoid', () => ({
-  customAlphabet: () => () => `${1000000 + nanoidCallCount++}`,
+jest.mock('firebase/auth', () => ({
+  createUserWithEmailAndPassword: jest.fn(),
+  deleteUser: jest.fn(),
+  updateProfile: jest.fn(),
 }))
+
+const newUser = { uid: 'uid-1' } as any
+
+// `$lib/client/firebase`'s `db`/`auth` handles are undefined under the mocked
+// SDK, so assert on the path segments rather than the handle itself.
+function expectDocPaths(...paths: Array<[string, string]>) {
+  expect(
+    (firestore.doc as jest.Mock).mock.calls.map(([, ...rest]) => rest),
+  ).toEqual(paths)
+}
+
+const signUpValues = {
+  email: 'timmy@example.com',
+  password: 'hunter2',
+  firstName: 'Timmy',
+  lastName: 'Turner',
+  role: 'instructor' as const,
+}
 
 describe('userService (Data Access Layer)', () => {
   beforeEach(() => {
     jest.clearAllMocks()
   })
 
-  describe('generateUniqueId', () => {
-    it('returns the first generated id when it is not already taken', async () => {
-      ;(firestore.getDoc as jest.Mock).mockResolvedValueOnce({
-        exists: () => false,
+  describe('createUser', () => {
+    beforeEach(() => {
+      ;(auth.createUserWithEmailAndPassword as jest.Mock).mockResolvedValue({
+        user: newUser,
       })
-
-      const id = await userService.generateUniqueId()
-      expect(id).toMatch(/^\d{7}$/)
-      expect(firestore.getDoc).toHaveBeenCalledTimes(1)
-    })
-
-    it('retries generating a new id when the first is already taken', async () => {
-      ;(firestore.getDoc as jest.Mock)
-        .mockResolvedValueOnce({ exists: () => true })
-        .mockResolvedValueOnce({ exists: () => false })
-
-      const id = await userService.generateUniqueId()
-      expect(id).toMatch(/^\d{7}$/)
-      expect(firestore.getDoc).toHaveBeenCalledTimes(2)
-    })
-
-    it('gives up and returns an empty string after 5 taken attempts', async () => {
-      ;(firestore.getDoc as jest.Mock).mockResolvedValue({
-        exists: () => true,
-      })
-
-      const id = await userService.generateUniqueId()
-      expect(id).toBe('')
-      expect(firestore.getDoc).toHaveBeenCalledTimes(5)
-    })
-
-    it('sets id to empty string on a lookup error but keeps looping through remaining attempts', async () => {
-      ;(firestore.getDoc as jest.Mock)
-        .mockRejectedValueOnce(new Error('permission-denied'))
-        .mockResolvedValueOnce({ exists: () => false })
-      const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
-
-      const id = await userService.generateUniqueId()
-
-      // The second attempt checks the now-empty id string, finds it doesn't
-      // exist, and breaks out with id still '' - matching the original
-      // SignUpForm loop's behavior (no early return from the catch branch).
-      expect(id).toBe('')
-      expect(firestore.getDoc).toHaveBeenCalledTimes(2)
-      expect(errorSpy).toHaveBeenCalledWith(
-        '[userService] Error checking ID uniqueness:',
-        expect.any(Error),
-      )
-      errorSpy.mockRestore()
-    })
-  })
-
-  describe('createUserRecord', () => {
-    it('creates the ids reservation and users profile documents', async () => {
+      ;(auth.updateProfile as jest.Mock).mockResolvedValue(undefined)
       ;(firestore.setDoc as jest.Mock).mockResolvedValue(undefined)
+    })
 
-      await userService.createUserRecord(
-        'uid-1',
-        '1234567',
-        'instructor',
-        'Timmy',
-        'Turner',
-      )
+    it('creates the auth user, sets the display name, and writes the profile', async () => {
+      const user = await userService.createUser(signUpValues)
 
-      expect(firestore.setDoc).toHaveBeenCalledTimes(2)
-      const [, idPayload] = (firestore.setDoc as jest.Mock).mock.calls[0]
-      expect(idPayload).toEqual({})
-      const [, userPayload] = (firestore.setDoc as jest.Mock).mock.calls[1]
-      expect(userPayload).toEqual({
-        id: '1234567',
+      expect(user).toBe(newUser)
+      const [, email, password] = (
+        auth.createUserWithEmailAndPassword as jest.Mock
+      ).mock.calls[0]
+      expect([email, password]).toEqual(['timmy@example.com', 'hunter2'])
+      expect(auth.updateProfile).toHaveBeenCalledWith(newUser, {
+        displayName: 'Timmy Turner',
+      })
+      expectDocPaths(['users', 'uid-1'])
+    })
+
+    it('writes only role and name to the profile - no second identifier', async () => {
+      await userService.createUser(signUpValues)
+
+      expect(firestore.setDoc).toHaveBeenCalledTimes(1)
+      const [, payload] = (firestore.setDoc as jest.Mock).mock.calls[0]
+      expect(payload).toEqual({
         role: 'instructor',
         firstName: 'Timmy',
         lastName: 'Turner',
       })
     })
 
-    it('propagates errors from setDoc', async () => {
+    it('propagates auth failures without writing a profile document', async () => {
+      ;(auth.createUserWithEmailAndPassword as jest.Mock).mockRejectedValueOnce(
+        new Error('auth/email-already-in-use'),
+      )
+
+      await expect(userService.createUser(signUpValues)).rejects.toThrow(
+        'auth/email-already-in-use',
+      )
+      expect(firestore.setDoc).not.toHaveBeenCalled()
+    })
+
+    it('propagates setDoc failures so the caller can roll back', async () => {
       ;(firestore.setDoc as jest.Mock).mockRejectedValueOnce(
         new Error('permission-denied'),
       )
 
+      await expect(userService.createUser(signUpValues)).rejects.toThrow(
+        'permission-denied',
+      )
+    })
+  })
+
+  describe('rollbackNewUser', () => {
+    it('deletes the profile document and then the auth user', async () => {
+      ;(firestore.deleteDoc as jest.Mock).mockResolvedValue(undefined)
+      ;(auth.deleteUser as jest.Mock).mockResolvedValue(undefined)
+
+      await userService.rollbackNewUser(newUser)
+
+      expectDocPaths(['users', 'uid-1'])
+      expect(firestore.deleteDoc).toHaveBeenCalledTimes(1)
+      expect(auth.deleteUser).toHaveBeenCalledWith(newUser)
+    })
+
+    it('still deletes the auth user when the profile delete fails', async () => {
+      const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
+      ;(firestore.deleteDoc as jest.Mock).mockRejectedValueOnce(
+        new Error('permission-denied'),
+      )
+      ;(auth.deleteUser as jest.Mock).mockResolvedValue(undefined)
+
       await expect(
-        userService.createUserRecord(
-          'uid-1',
-          '1234567',
-          'student',
-          'Timmy',
-          'Turner',
-        ),
-      ).rejects.toThrow('permission-denied')
+        userService.rollbackNewUser(newUser),
+      ).resolves.toBeUndefined()
+
+      expect(auth.deleteUser).toHaveBeenCalledWith(newUser)
+      expect(errorSpy).toHaveBeenCalledWith(
+        '[userService] Error rolling back user record:',
+        expect.any(Error),
+      )
+      errorSpy.mockRestore()
+    })
+
+    it('never rejects, so it cannot mask the error that triggered it', async () => {
+      const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
+      ;(firestore.deleteDoc as jest.Mock).mockRejectedValue(
+        new Error('permission-denied'),
+      )
+      ;(auth.deleteUser as jest.Mock).mockRejectedValue(
+        new Error('auth/requires-recent-login'),
+      )
+
+      await expect(
+        userService.rollbackNewUser(newUser),
+      ).resolves.toBeUndefined()
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        '[userService] Error rolling back auth user:',
+        expect.any(Error),
+      )
+      errorSpy.mockRestore()
     })
   })
 
@@ -160,12 +193,13 @@ describe('userService (Data Access Layer)', () => {
   })
 
   describe('deleteAccountRecords', () => {
-    it('deletes the ids and users documents', async () => {
+    it('deletes only the users document', async () => {
       ;(firestore.deleteDoc as jest.Mock).mockResolvedValue(undefined)
 
-      await userService.deleteAccountRecords('uid-1', '1234567')
+      await userService.deleteAccountRecords('uid-1')
 
-      expect(firestore.deleteDoc).toHaveBeenCalledTimes(2)
+      expect(firestore.deleteDoc).toHaveBeenCalledTimes(1)
+      expectDocPaths(['users', 'uid-1'])
     })
 
     it('propagates errors rather than swallowing them', async () => {
@@ -173,9 +207,9 @@ describe('userService (Data Access Layer)', () => {
         new Error('permission-denied'),
       )
 
-      await expect(
-        userService.deleteAccountRecords('uid-1', '1234567'),
-      ).rejects.toThrow('permission-denied')
+      await expect(userService.deleteAccountRecords('uid-1')).rejects.toThrow(
+        'permission-denied',
+      )
     })
   })
 })

@@ -176,7 +176,6 @@
         } else {
           values = createEmptyRegistration()
           values.meta.uid = childUid
-          values.meta.id = user.profile.id
           values.personal.parentFirstName = user.profile.firstName
           values.personal.parentLastName = user.profile.lastName
           values.personal.email = user.object.email ?? ''

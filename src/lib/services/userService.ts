@@ -1,60 +1,64 @@
-import { db } from '$lib/client/firebase'
+import { auth, db } from '$lib/client/firebase'
 import {
   applicationsCollection,
   decisionsCollection,
 } from '$lib/data/collections'
-import { deleteDoc, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
-import { customAlphabet } from 'nanoid'
-
-function generateId(): string {
-  const alphabet = '0123456789'
-  const nanoid = customAlphabet(alphabet, 7)
-  return nanoid()
-}
+import {
+  createUserWithEmailAndPassword,
+  deleteUser,
+  updateProfile,
+  type User,
+} from 'firebase/auth'
+import { deleteDoc, doc, setDoc, updateDoc } from 'firebase/firestore'
 
 /**
  * Service providing Data Access Layer for user account records.
+ *
+ * A user's identity is their Firebase Auth `uid`; there is no second
+ * identifier. `$lib/client/firebase`'s user store patches the `uid` into the
+ * profile at read time, so callers never have to carry it alongside the
+ * profile.
  */
 export const userService = {
   /**
-   * Generates a short numeric ID and confirms it's not already taken,
-   * retrying up to 5 times. Returns an empty string if a unique ID couldn't
-   * be confirmed (either exhausted retries or a lookup error).
+   * Creates an account end-to-end: the Auth user, its display name, and the
+   * `users` profile document. Throws on any failure — callers are responsible
+   * for calling `rollbackNewUser` from their error handler, since a failure
+   * further downstream (session sync, say) should tear the account down too.
    */
-  async generateUniqueId(): Promise<string> {
-    let id = generateId()
-    for (let i = 0; i < 5; ++i) {
-      try {
-        const res = await getDoc(doc(db, 'ids', id))
-        if (res.exists()) {
-          id = generateId()
-          if (i === 4) {
-            id = ''
-          }
-        } else {
-          break
-        }
-      } catch (err) {
-        console.error('[userService] Error checking ID uniqueness:', err)
-        id = ''
-      }
-    }
-    return id
+  async createUser(profile: {
+    email: string
+    password: string
+    firstName: string
+    lastName: string
+    role: 'instructor' | 'student'
+  }): Promise<User> {
+    const { firstName, lastName, role } = profile
+    const { user } = await createUserWithEmailAndPassword(
+      auth,
+      profile.email,
+      profile.password,
+    )
+    await updateProfile(user, { displayName: `${firstName} ${lastName}` })
+    await setDoc(doc(db, 'users', user.uid), { role, firstName, lastName })
+    return user
   },
 
   /**
-   * Creates the `ids` reservation and `users` profile documents for a newly
-   * signed-up account.
+   * Best-effort teardown of a half-created account. Never throws: it runs from
+   * an error handler and must not mask the error that triggered it.
    */
-  async createUserRecord(
-    uid: string,
-    id: string,
-    role: 'instructor' | 'student',
-    firstName: string,
-    lastName: string,
-  ): Promise<void> {
-    await setDoc(doc(db, 'ids', id), {})
-    await setDoc(doc(db, 'users', uid), { id, role, firstName, lastName })
+  async rollbackNewUser(user: User): Promise<void> {
+    try {
+      await deleteDoc(doc(db, 'users', user.uid))
+    } catch (err) {
+      console.error('[userService] Error rolling back user record:', err)
+    }
+    try {
+      await deleteUser(user)
+    } catch (err) {
+      console.error('[userService] Error rolling back auth user:', err)
+    }
   },
 
   /**
@@ -82,13 +86,10 @@ export const userService = {
   },
 
   /**
-   * Deletes a user's `ids` reservation and `users` profile documents.
-   * Failures here propagate, since these are the account records proper.
+   * Deletes a user's `users` profile document. Failures here propagate, since
+   * this is the account record proper.
    */
-  async deleteAccountRecords(uid: string, id: string): Promise<void> {
-    await Promise.all([
-      deleteDoc(doc(db, 'ids', id)),
-      deleteDoc(doc(db, 'users', uid)),
-    ])
+  async deleteAccountRecords(uid: string): Promise<void> {
+    await deleteDoc(doc(db, 'users', uid))
   },
 }

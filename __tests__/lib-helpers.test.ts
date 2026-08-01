@@ -159,6 +159,7 @@ jest.mock('$lib/stores', () => ({
 
 // Import dependencies to test
 import { alert } from '$lib/stores'
+import { getDoc } from 'firebase/firestore'
 import { user } from '../src/lib/client/firebase'
 import { curriculums } from '../src/lib/components/helpers/curriculum'
 import { generateCurriculumLink } from '../src/lib/components/helpers/curriculumLink'
@@ -349,10 +350,35 @@ describe('client firebase user store', () => {
 
     await new Promise(process.nextTick)
 
+    // The `users` document stores no identifier of its own; the store patches
+    // the auth uid in so consumers can read `profile.uid`.
     expect(storeSet).toEqual({
       object: mockUserObj,
-      profile: { role: 'student' },
+      profile: { role: 'student', uid: 'user123' },
     })
+
+    unsub()
+  })
+
+  it('still exposes profile.uid when the users document is missing', async () => {
+    ;(getDoc as jest.Mock).mockResolvedValueOnce({
+      exists: () => false,
+      data: () => undefined,
+    })
+
+    const unsub = user.subscribe((val) => {
+      storeSet = val
+    })
+
+    authStateChangedCallback({
+      uid: 'user456',
+      email: 'nodoc@test.com',
+      emailVerified: true,
+    })
+
+    await new Promise(process.nextTick)
+
+    expect(storeSet.profile).toEqual({ uid: 'user456' })
 
     unsub()
   })
