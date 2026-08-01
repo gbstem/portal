@@ -34,6 +34,37 @@ describe('applicationService (Data Access Layer)', () => {
       const app = await applicationService.fetchUserApplication('uid-1')
       expect(app).toBeNull()
     })
+
+    it('recovers from a transient transport failure', async () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {})
+      const mockData = { personal: { email: 'app@example.com' } }
+      // ApplyForm creates the draft application from this read's result, so a
+      // dropped stream here used to mean the application was never created.
+      ;(firestore.getDoc as jest.Mock)
+        .mockRejectedValueOnce(
+          Object.assign(new Error('unavailable'), { code: 'unavailable' }),
+        )
+        .mockResolvedValueOnce({ exists: () => true, data: () => mockData })
+
+      const app = await applicationService.fetchUserApplication('uid-1')
+
+      expect(app).toEqual(mockData)
+      expect(firestore.getDoc).toHaveBeenCalledTimes(2)
+      warnSpy.mockRestore()
+    })
+
+    it('propagates a non-transient error without retrying', async () => {
+      ;(firestore.getDoc as jest.Mock).mockRejectedValueOnce(
+        Object.assign(new Error('permission-denied'), {
+          code: 'permission-denied',
+        }),
+      )
+
+      await expect(
+        applicationService.fetchUserApplication('uid-1'),
+      ).rejects.toThrow('permission-denied')
+      expect(firestore.getDoc).toHaveBeenCalledTimes(1)
+    })
   })
 
   describe('saveUserApplication', () => {

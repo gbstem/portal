@@ -5,6 +5,7 @@ import {
   withSemester,
 } from '$lib/data/collections'
 import { buildApplyApiPayload } from '$lib/helpers/applyForm'
+import { retryTransient } from '$lib/services/retry'
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 
 /**
@@ -18,7 +19,12 @@ export const applicationService = {
     userUid: string,
   ): Promise<Data.Application | null> {
     const docRef = doc(db, applicationsCollection, userUid)
-    const snap = await getDoc(docRef)
+    // Retried on transport blips: ApplyForm creates the draft application from
+    // this read's result, so a single dropped stream would otherwise mean the
+    // instructor's application is silently never created.
+    const snap = await retryTransient(() => getDoc(docRef), {
+      label: `application ${userUid}`,
+    })
     if (snap.exists()) {
       return snap.data() as Data.Application
     }

@@ -71,18 +71,29 @@
 
   const getData = () => {
     return user.subscribe(async (user) => {
-      if (user?.profile.role === 'instructor') {
-        isStudent = false
-      }
-      classes = await classService.fetchAllClassesInfo()
-
-      if (user && isStudent) {
-        if (user.object.displayName) {
-          userName = user.profile.firstName
-          await determineStudentEnrollment(user)
+      // `loading` is cleared in `finally` so a failed read leaves the page in an
+      // error state the user can act on rather than a spinner that never stops.
+      try {
+        if (user?.profile.role === 'instructor') {
+          isStudent = false
         }
+        classes = await classService.fetchAllClassesInfo()
+
+        if (user && isStudent) {
+          if (user.object.displayName) {
+            userName = user.profile.firstName
+            await determineStudentEnrollment(user)
+          }
+        }
+      } catch (err) {
+        console.error('[classes] Failed to load class data:', err)
+        alert.trigger(
+          'error',
+          'Could not load classes. Please reload the page to try again.',
+        )
+      } finally {
+        loading = false
       }
-      loading = false
     })
   }
 

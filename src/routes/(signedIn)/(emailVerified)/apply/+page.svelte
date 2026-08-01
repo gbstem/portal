@@ -18,31 +18,46 @@
   const nameToUid: Record<string, string> = $state({})
   let value = $state('')
   let ready = $state(false)
+  let loadError = $state(false)
   let uid = ''
 
   const fetchData = async (user: Data.User.Store) => {
     uid = user.object.uid
-    const slots = await registrationService.fetchChildRegistrationSlots(uid)
-    for (let i = 0; i < slots.length; ++i) {
-      const slot = slots[i]
-      if (!slot.exists || !slot.data) break
-      const name =
-        `${slot.data.personal.studentFirstName} ${slot.data.personal.studentLastName}`.trim() ||
-        `Child ${i + 1}`
-      options.push({
-        name,
-      })
-      nameToUid[name] = slot.uid
+    loadError = false
+    try {
+      const slots = await registrationService.fetchChildRegistrationSlots(uid)
+      // Built into a local array and assigned at the end so a retry replaces
+      // the list rather than appending a duplicate set of children to it.
+      const nextOptions: { name: string }[] = []
+      for (let i = 0; i < slots.length; ++i) {
+        const slot = slots[i]
+        if (!slot.exists || !slot.data) break
+        const name =
+          `${slot.data.personal.studentFirstName} ${slot.data.personal.studentLastName}`.trim() ||
+          `Child ${i + 1}`
+        nextOptions.push({
+          name,
+        })
+        nameToUid[name] = slot.uid
+      }
+      if (nextOptions.length === 0) {
+        nextOptions.push({
+          name: `Child 1`,
+        })
+        nameToUid[`Child 1`] = `${uid}-1`
+      }
+      options = nextOptions
+      // set the selected student to the first student
+      value = options[0].name
+      ready = true
+    } catch (err) {
+      console.error('[apply] Failed to load child registrations:', err)
+      loadError = true
+      alert.trigger(
+        'error',
+        'Could not load your existing accounts. Please try again.',
+      )
     }
-    if (options.length === 0) {
-      options.push({
-        name: `Child 1`,
-      })
-      nameToUid[`Child 1`] = `${uid}-1`
-    }
-    // set the selected student to the first student
-    value = options[0].name
-    ready = true
   }
 
   const addChild = () => {
@@ -86,7 +101,24 @@
   <h1 class="mb-4 text-5xl font-bold md:text-6xl">Student Account Creation</h1>
   <div class="mx-auto flex max-w-6xl flex-col items-center px-2 py-8 md:px-8">
     <div class="w-full">
-      {#if ready}
+      {#if loadError}
+        <Card class="mx-auto w-fit text-center">
+          <div class="space-y-3">
+            <div class="font-bold">Couldn't load your existing accounts</div>
+            <div class="text-sm">
+              This is usually a temporary connection problem. Nothing has been
+              lost — try again.
+            </div>
+            <Button
+              color="blue"
+              type="button"
+              onclick={() => {
+                if ($user) fetchData($user)
+              }}>Try again</Button
+            >
+          </div>
+        </Card>
+      {:else if ready}
         <div class="font-bold">Your Existing Accounts</div>
         <div class="grid gap-1 sm:grid-cols-3 sm:gap-3">
           <div class="sm:col-span-2">
@@ -109,7 +141,7 @@
           </div>
         </div>
       {/if}
-      {#if nameToUid[value]}
+      {#if !loadError && nameToUid[value]}
         <!-- <div class="rounded-lg bg-red-100 p-4 mt-8 w-full text-center"> This form is not available yet. Student account creation for this semester will open on {semesterDates.newInstructorAppsOpen}!</div> -->
         <Card class="mx-auto mt-4 w-fit">
           <RegistrationForm childUid={nameToUid[value]} {semesterDates} />

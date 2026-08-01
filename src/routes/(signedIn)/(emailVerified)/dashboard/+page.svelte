@@ -12,6 +12,7 @@
   import { semesterDates } from '$lib/data/collections'
   import { applicationService } from '$lib/services/applicationService'
   import { registrationService } from '$lib/services/registrationService'
+  import { alert } from '$lib/stores'
 
   type ApplicationStatus =
     | 'accepted'
@@ -63,6 +64,10 @@
           }
         } catch (err) {
           console.error('Error fetching dashboard data:', err)
+          alert.trigger(
+            'error',
+            'Could not load your dashboard. Please reload the page to try again.',
+          )
         } finally {
           loading = false
         }

@@ -7,6 +7,7 @@
   import { onMount } from 'svelte'
 
   let loading = $state(true)
+  let loadError = $state(false)
 
   let studentsOptions: { name: string }[] = $state([])
   interface Props {
@@ -79,14 +80,22 @@
       // Fall back to original logic if no preloaded data
       return user.subscribe(async (userData) => {
         if (userData) {
-          if (userData && userData.profile.role === 'student') {
-            await fetchData(userData)
+          try {
+            if (userData.profile.role === 'student') {
+              await fetchData(userData)
+            }
+            // set the selected student to the first student
+            if (studentsOptions.length > 0) {
+              selectedStudent = studentsOptions[0].name
+            }
+          } catch (err) {
+            console.error('[StudentSelect] Failed to load students:', err)
+            loadError = true
+          } finally {
+            // Always cleared, so a failed read shows the error below instead of
+            // spinning forever or claiming the parent has no students.
+            loading = false
           }
-          // set the selected student to the first student
-          if (studentsOptions.length > 0) {
-            selectedStudent = studentsOptions[0].name
-          }
-          loading = false
         }
       })
     }
@@ -107,6 +116,10 @@
   >
   {#if loading}
     <Loading />
+  {:else if loadError}
+    <div class="text-sm text-red-700">
+      Couldn't load your students. Please reload the page.
+    </div>
   {:else if studentsOptions.length === 1}
     <div
       class="rounded-sm bg-blue-50 px-4 py-2 text-center font-semibold text-blue-900"

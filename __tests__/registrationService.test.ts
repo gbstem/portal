@@ -3,6 +3,11 @@ import { registrationService } from '$lib/services/registrationService'
 import * as firestore from 'firebase/firestore'
 import type {} from '../src/data.d.ts'
 
+/** A Firestore-shaped error, which is what `retryTransient` keys off of. */
+function firestoreError(code: string) {
+  return Object.assign(new Error(code), { code })
+}
+
 jest.mock('firebase/firestore', () => ({
   doc: jest.fn(() => ({})),
   getDoc: jest.fn(),
@@ -92,6 +97,24 @@ describe('registrationService (Data Access Layer)', () => {
       await expect(
         registrationService.fetchChildRegistrationSlots('parent-1'),
       ).rejects.toThrow('permission-denied')
+    })
+
+    it('recovers from a transient transport failure on one slot', async () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {})
+      // A dropped WebChannel stream surfaces as `unavailable`. It used to
+      // reject the whole call and leave /apply stuck on a blank page.
+      ;(firestore.getDoc as jest.Mock)
+        .mockRejectedValueOnce(firestoreError('unavailable'))
+        .mockResolvedValue({ exists: () => false })
+
+      const slots =
+        await registrationService.fetchChildRegistrationSlots('parent-1')
+
+      expect(slots).toHaveLength(maxChildrenPerAccount)
+      expect(slots.every((slot) => slot.exists === false)).toBe(true)
+      // One extra read: the failed slot retried, the others succeeded first try.
+      expect(firestore.getDoc).toHaveBeenCalledTimes(maxChildrenPerAccount + 1)
+      warnSpy.mockRestore()
     })
   })
 

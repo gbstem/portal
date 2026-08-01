@@ -5,6 +5,7 @@ import {
   withSemester,
 } from '$lib/data/collections'
 import { buildRegistrationApiPayload } from '$lib/helpers/registrationForm'
+import { retryTransient } from '$lib/services/retry'
 import { deleteDoc, doc, getDoc, setDoc } from 'firebase/firestore'
 
 export interface ChildRegistrationSlot {
@@ -47,6 +48,10 @@ export const registrationService = {
    * (`{parentUid}-1`, `{parentUid}-2`, ...) for a parent account in parallel.
    * Each slot reports whether a document exists at that uid and its data if so -
    * callers decide whether to stop at the first gap or filter by submission status.
+   *
+   * Slots are read independently and each retries transient failures on its own,
+   * so one flaky read doesn't cost a re-read of the others - and doesn't reject
+   * the caller, which is what used to leave pages stuck on a blank loading state.
    */
   async fetchChildRegistrationSlots(
     parentUid: string,
@@ -56,7 +61,11 @@ export const registrationService = {
       (_, i) => `${parentUid}-${i + 1}`,
     )
     const snaps = await Promise.all(
-      slotUids.map((uid) => getDoc(doc(db, registrationsCollection, uid))),
+      slotUids.map((uid) =>
+        retryTransient(() => getDoc(doc(db, registrationsCollection, uid)), {
+          label: `registration slot ${uid}`,
+        }),
+      ),
     )
     return snaps.map((snap, i) => ({
       uid: slotUids[i],

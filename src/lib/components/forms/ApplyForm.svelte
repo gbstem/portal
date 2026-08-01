@@ -132,31 +132,45 @@
   onMount(() => {
     return user.subscribe(async (user) => {
       if (user) {
-        const applicationData = await applicationService.fetchUserApplication(
-          user.object.uid,
-        )
-        if (applicationData) {
-          values = cloneDeep(applicationData)
-          dbValues = cloneDeep(applicationData)
-          if (
-            !values.meta.submitted &&
-            (values.personal.email !== user.object.email ||
-              values.personal.firstName !== user.profile.firstName ||
-              values.personal.lastName !== user.profile.lastName)
-          ) {
-            values = normalizeApplicationData(values, user.object, user.profile)
+        try {
+          const applicationData = await applicationService.fetchUserApplication(
+            user.object.uid,
+          )
+          if (applicationData) {
+            values = cloneDeep(applicationData)
+            dbValues = cloneDeep(applicationData)
+            if (
+              !values.meta.submitted &&
+              (values.personal.email !== user.object.email ||
+                values.personal.firstName !== user.profile.firstName ||
+                values.personal.lastName !== user.profile.lastName)
+            ) {
+              values = normalizeApplicationData(
+                values,
+                user.object,
+                user.profile,
+              )
+              handleSave()
+            }
+          } else {
+            values = normalizeApplicationData(null, user.object, user.profile)
             handleSave()
           }
-        } else {
-          values = normalizeApplicationData(null, user.object, user.profile)
-          handleSave()
-        }
-        if (!values.meta.submitted) {
-          if (saveInterval === undefined) {
-            saveInterval = window.setInterval(() => {
-              handleSave()
-            }, 300000)
+          if (!values.meta.submitted) {
+            if (saveInterval === undefined) {
+              saveInterval = window.setInterval(() => {
+                handleSave()
+              }, 300000)
+            }
           }
+        } catch (err) {
+          // Without this the form would sit showing empty defaults that were
+          // never persisted, and the periodic autosave would never start.
+          console.error('[ApplyForm] Failed to load application:', err)
+          alert.trigger(
+            'error',
+            'Could not load your application. Please reload the page to try again.',
+          )
         }
       }
     })
