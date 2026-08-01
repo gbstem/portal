@@ -67,7 +67,7 @@ jobs:
       PUBLIC_FIREBASE_PROJECT_ID: demo-gbstem
     steps:
       # Portal and admin share the same Firebase project. Portal's e2e suite
-      # reseeds the shared emulator via `yarn --cwd ../admin seed` (see
+      # reseeds the shared emulator via `cd ../admin && yarn seed` (see
       # cypress/support/e2e.ts and README's Cypress section), so a sibling
       # checkout of admin is required here too.
       - name: Check out portal
@@ -119,10 +119,23 @@ jobs:
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
 
-      - name: Install dependencies
-        run: |
-          yarn --cwd portal install --immutable
-          yarn --cwd admin install --immutable
+      # Every `yarn` invocation must run from a directory whose package.json
+      # carries the "packageManager" pin. `yarn --cwd portal ...` does NOT:
+      # Corepack resolves the Yarn version from the *current* directory, and the
+      # workspace root here holds only the two checkouts and no package.json.
+      # Corepack therefore fell back to its bundled default of Yarn 1.22.22 and
+      # ran a Yarn 1 install, which silently rewrote both yarn.lock files into
+      # v1 format (and ignored --immutable). The next step, running from admin/
+      # where the pin does apply, then got Yarn 4 and failed on the v1 lockfile
+      # with "portal@workspace:. doesn't seem to be present in your lockfile".
+      # Use working-directory here, and `cd` inside the emulator script below.
+      - name: Install portal dependencies
+        working-directory: portal
+        run: yarn install --immutable
+
+      - name: Install admin dependencies
+        working-directory: admin
+        run: yarn install --immutable
 
       - name: Set up env files
         run: |
@@ -133,4 +146,4 @@ jobs:
         working-directory: admin
         run: |
           firebase emulators:exec --project demo-gbstem \
-            'yarn --cwd ../portal dev & npx wait-on http://localhost:5173 --timeout 60000 && yarn --cwd ../portal cypress'
+            '(cd ../portal && yarn dev) & npx wait-on http://localhost:5173 --timeout 60000 && (cd ../portal && yarn cypress)'
