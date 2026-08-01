@@ -30,18 +30,31 @@
           const firstName = formVal.data.firstName.trim()
           const lastName = formVal.data.lastName.trim()
           try {
+            // `users/{uid}` is canonical - it's what every read site uses - so
+            // it goes first. If the derived displayName sync fails afterwards
+            // the rename has still taken effect, and reporting outright
+            // failure would tell the user the opposite of what happened.
             await userService.updateUserName(
               frozenUser.object.uid,
               firstName,
               lastName,
             )
+          } catch (err: any) {
+            console.error('Error updating name: ', err)
+            alert.trigger('error', 'Failed to update name.')
+            return
+          }
+          try {
             await updateProfile(frozenUser.object, {
               displayName: `${firstName} ${lastName}`,
             })
             alert.trigger('success', 'Name successfully updated.')
           } catch (err: any) {
-            console.error('Error updating name: ', err)
-            alert.trigger('error', 'Failed to update name.')
+            console.error('Error syncing display name: ', err)
+            alert.trigger(
+              'error',
+              'Name updated, but the display name failed to sync. Try again.',
+            )
           }
         }
       },

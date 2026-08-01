@@ -80,10 +80,11 @@
         classes = await classService.fetchAllClassesInfo()
 
         if (user && isStudent) {
-          if (user.object.displayName) {
-            userName = user.profile.firstName
-            await determineStudentEnrollment(user)
-          }
+          // Enrollment loading used to be gated on `object.displayName` being
+          // truthy, standing in for "the profile is loaded". A parent whose
+          // displayName was blank silently got no children and no error.
+          userName = user.profile.firstName ?? ''
+          await determineStudentEnrollment(user)
         }
       } catch (err) {
         console.error('[classes] Failed to load class data:', err)
