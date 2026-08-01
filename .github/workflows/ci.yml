@@ -20,13 +20,23 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # Corepack must own the `yarn` shim before setup-node's `cache: yarn`
+      # probe runs: the probe calls `yarn --version`, and the runner's global
+      # Yarn 1.22 refuses to run in a repo pinning "packageManager": "yarn@4.x".
+      # setup-node has no pre-cache hook, so it runs twice -- once to put Node
+      # on PATH, then again once Corepack is active and the probe detects Berry.
+      # The second call re-uses the Node from the first, so it costs ~a second.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      - name: Enable Corepack
+        run: corepack enable
+
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: yarn
-
-      - name: Enable Corepack
-        run: corepack enable
 
       - run: yarn install --immutable
 
@@ -71,13 +81,35 @@ jobs:
           repository: gbstem/admin
           path: admin
 
+      # This job checks out two repos side by side, so there is no single
+      # project root for setup-node's `cache: yarn` probe to look at -- it runs
+      # at the workspace root, which has no package.json and no packageManager
+      # field. Rather than fight that, cache the Berry store explicitly. Both
+      # repos pin Yarn 4 and leave enableGlobalCache at its Yarn 4 default of
+      # true, so they share one directory (~/.yarn/berry/cache) and a single
+      # cache entry covers both installs below.
+      #
+      # This job also had no `corepack enable` step at all, which would have
+      # failed both installs against the runner's global Yarn 1.22 regardless
+      # of the cache probe.
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
-          cache: yarn
-          cache-dependency-path: |
-            portal/yarn.lock
-            admin/yarn.lock
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Locate the shared Yarn Berry cache
+        id: yarn-cache
+        working-directory: portal
+        run: echo "dir=$(yarn config get cacheFolder)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Yarn cache
+        uses: actions/cache@v5
+        with:
+          path: ${{ steps.yarn-cache.outputs.dir }}
+          key: yarn-berry-${{ runner.os }}-${{ hashFiles('portal/yarn.lock', 'admin/yarn.lock') }}
+          restore-keys: yarn-berry-${{ runner.os }}-
 
       - uses: actions/setup-java@v5
         with:
