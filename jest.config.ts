@@ -6,7 +6,8 @@ const config: Config = {
     // Rune-backed shared-state modules (src/lib/stores.svelte.ts) need the
     // Svelte compiler, not just TS transpilation - matched before the
     // general `.tsx?$` pattern below, which would otherwise also match.
-    '\\.svelte\\.ts$': '<rootDir>/jest-transform-svelte-module.cjs',
+    '\\.svelte$': '<rootDir>/jest-transform-svelte-module.cjs',
+    '\\.svelte\\.(test\\.)?ts$': '<rootDir>/jest-transform-svelte-module.cjs',
     '^.+\\.tsx?$': ['ts-jest', {}],
     // The compiled output above imports Svelte's runtime straight from
     // `svelte/internal/client`, which ships as raw ESM (as does its own

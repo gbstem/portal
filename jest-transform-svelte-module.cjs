@@ -7,10 +7,25 @@
 // two steps for Jest, then down-levels the compiled ESM output to
 // CommonJS so Jest's CJS-based module runtime can execute it.
 const ts = require('typescript')
-const { compileModule } = require('svelte/compiler')
+const { compile, compileModule } = require('svelte/compiler')
 
 module.exports = {
   process(sourceText, sourcePath) {
+    if (sourcePath.endsWith('.svelte')) {
+      const compiled = compile(sourceText, {
+        filename: sourcePath,
+        generate: 'client',
+      })
+      const code = ts.transpileModule(compiled.js.code, {
+        compilerOptions: {
+          module: ts.ModuleKind.CommonJS,
+          target: ts.ScriptTarget.ES2022,
+        },
+        fileName: sourcePath,
+      }).outputText
+      return { code }
+    }
+
     const stripped = ts.transpileModule(sourceText, {
       compilerOptions: {
         module: ts.ModuleKind.ESNext,
