@@ -9,8 +9,10 @@
   import { onMount } from 'svelte'
   import Button from './Button.svelte'
   import Card from './Card.svelte'
+  import DateTimeInput from './DateTimeInput.svelte'
   import Dialog from './Dialog.svelte'
-  import Input from './Input.svelte'
+  import NumberInput from './NumberInput.svelte'
+  import TextInput from './TextInput.svelte'
   import InstructorFeedbackForm from './forms/InstructorFeedbackForm.svelte'
   import { SubRequestStatus } from './helpers/SubRequestStatus'
   import { curriculums } from './helpers/curriculum'
@@ -339,20 +341,17 @@
                 {/snippet}
                 {#snippet description()}
                   <div>
-                    <Input
-                      type="number"
+                    <NumberInput
                       class="rounded-sm border p-1"
                       bind:value={subRequestsFromUser[i].classNumber}
                       label="Please confirm the class number ."
                     />
-                    <Input
-                      type="datetime-local"
+                    <DateTimeInput
                       class="rounded-sm border p-1"
                       bind:value={stringSubRequestDates[i]}
                       label="Please confirm the date and time of the class you would like to request a sub for."
                     />
-                    <Input
-                      type="text"
+                    <TextInput
                       class="rounded-sm border p-1"
                       bind:value={subRequestsFromUser[i].notes}
                       label="Please describe what topic/lesson the substitute class will cover, and any helpful notes for the substitute instructor."

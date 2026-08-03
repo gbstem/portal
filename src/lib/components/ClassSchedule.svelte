@@ -20,7 +20,9 @@
   } from '$lib/utils'
   import { onMount } from 'svelte'
   import Card from './Card.svelte'
-  import Input from './Input.svelte'
+  import DateTimeInput from './DateTimeInput.svelte'
+  import NumberInput from './NumberInput.svelte'
+  import TextInput from './TextInput.svelte'
   import ClassDetailsForm from './forms/ClassDetailsForm.svelte'
   import InstructorFeedbackForm from './forms/InstructorFeedbackForm.svelte'
   import { ClassStatus } from './helpers/ClassStatus'
@@ -604,8 +606,7 @@
               Please enter the date and time of the class you would like to add.
             </p>
 
-            <Input
-              type="datetime-local"
+            <DateTimeInput
               class="rounded-sm border p-1"
               bind:value={classToBeAdded}
             />
@@ -755,8 +756,7 @@
         </div>
         <div class="flex flex-wrap items-center gap-2">
           {#if editMode}
-            <Input
-              type="datetime-local"
+            <DateTimeInput
               class={{ container: 'mt-0', input: 'h-10 rounded-sm border p-1' }}
               bind:value={editedMeetingTimes[classNumber]}
             />
@@ -826,20 +826,17 @@
     {/snippet}
     {#snippet description()}
       <div class="space-y-4">
-        <Input
-          type="number"
+        <NumberInput
           class="rounded-sm border p-1"
           bind:value={subRequestClassNumber}
           label="Please confirm the class number ."
         />
-        <Input
-          type="datetime-local"
+        <DateTimeInput
           class="rounded-sm border p-1"
           bind:value={subRequestDate}
           label="Please confirm the date and time of the class you would like to request a sub for."
         />
-        <Input
-          type="text"
+        <TextInput
           class="rounded-sm border p-1"
           bind:value={subRequestNotes}
           label="Please describe what topic/lesson the substitute class will cover, and any helpful notes for the substitute instructor."

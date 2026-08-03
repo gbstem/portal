@@ -5,6 +5,16 @@ import { jest, beforeAll, afterAll } from '@jest/globals'
 const originalConsoleLog = console.log
 let consoleLogSpy: any
 
+// Route handlers intentionally log via console.error/warn before re-throwing
+// or falling back (e.g. "[API ... Error]:", SendGrid failures, auth
+// backfill warnings) - that's how a real user would see it in prod logs,
+// but it's noise in test output: it makes `yarn test` look like something
+// is broken to someone new to the codebase even when every test passes.
+// Jest's own PASS/FAIL reporting is the actual signal, so mute both
+// globally rather than chasing every message prefix.
+let consoleErrorSpy: any
+let consoleWarnSpy: any
+
 beforeAll(() => {
   consoleLogSpy = jest
     .spyOn(console, 'log')
@@ -14,11 +24,19 @@ beforeAll(() => {
       }
       originalConsoleLog(message, ...args)
     })
+  consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
+  consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {})
 })
 
 afterAll(() => {
   if (consoleLogSpy) {
     consoleLogSpy.mockRestore()
+  }
+  if (consoleErrorSpy) {
+    consoleErrorSpy.mockRestore()
+  }
+  if (consoleWarnSpy) {
+    consoleWarnSpy.mockRestore()
   }
 })
 
@@ -157,3 +175,66 @@ jest.mock('firebase-admin/firestore', () => ({
     arrayUnion: jest.fn((...val: any[]) => val),
   },
 }))
+
+// Global mock for @sveltejs/kit
+// `error`/`redirect` THROW rather than return, matching the real package -
+// code must write `throw error(...)`/`throw redirect(...)` exactly as it
+// would against the real @sveltejs/kit, since relying on these to return a
+// value instead of throwing masks real behavior (see hooks.server.ts, which
+// had a bug where a non-thrown redirect() was silently swallowed by a
+// surrounding try/catch under the old, non-throwing version of this mock).
+jest.mock(
+  '@sveltejs/kit',
+  () => {
+    class HttpError extends Error {
+      status: number
+      body: any
+      constructor(status: number, message: any) {
+        super(
+          typeof message === 'string' ? message : message?.message || 'Error',
+        )
+        this.status = status
+        this.body = typeof message === 'string' ? { message } : message
+      }
+    }
+    class Redirect {
+      status: number
+      location: string
+      constructor(status: number, location: string) {
+        this.status = status
+        this.location = location
+      }
+    }
+    return {
+      error: (status: number, message: any): never => {
+        throw new HttpError(status, message)
+      },
+      isHttpError: (err: any): boolean => err instanceof HttpError,
+      redirect: (status: number, location: string): never => {
+        throw new Redirect(status, location)
+      },
+      isRedirect: (err: any): boolean => err instanceof Redirect,
+      json: (body: any, init?: any) => ({
+        body,
+        init,
+        __isSvelteKitJson: true,
+      }),
+      fail: (status: number, data: any) => ({
+        status,
+        data,
+        __isSvelteKitFail: true,
+      }),
+    }
+  },
+  { virtual: true },
+)
+
+if (typeof Element !== 'undefined' && !Element.prototype.animate) {
+  Element.prototype.animate = function () {
+    return {
+      finished: Promise.resolve(),
+      cancel: () => {},
+      onfinish: null,
+    } as any
+  }
+}

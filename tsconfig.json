@@ -19,8 +19,13 @@
     // Jest's globals (describe/it/expect/jest/...) and Node's globals
     // (process, Buffer/...) are exactly that case, so they must be listed
     // here explicitly or __tests__/*.ts reports "Cannot find name 'describe'"
-    // even though `yarn test` runs fine.
-    "types": ["jest", "node"]
+    // even though `yarn test` runs fine. @testing-library/jest-dom is the
+    // same situation one level deeper: it's imported for side effects (to
+    // register expect(...).toBeInTheDocument() etc.) only from jest.setup.ts,
+    // which lives outside every glob in "include" below, so the TS program
+    // never sees that import and never picks up the ambient Matchers
+    // augmentation unless it's listed here too.
+    "types": ["jest", "node", "@testing-library/jest-dom"]
   },
   // SvelteKit's generated .svelte-kit/tsconfig.json only "include"s src/,
   // test/, and tests/ - since specifying "include" here fully replaces

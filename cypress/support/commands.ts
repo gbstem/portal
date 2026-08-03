@@ -7,14 +7,8 @@ Cypress.Commands.add('fillInput', (selector: string, text: string) => {
     .focus()
     .clear()
     .type(text, { delay: 20 })
-  cy.get(selector).then(($el) => {
-    if ($el.val() !== text) {
-      cy.get(selector)
-        .clear()
-        .type(text, { delay: 50 })
-        .should('have.value', text)
-    }
-  })
+  // We had buggy inputs in the past, verify the value actually stuck.
+  cy.get(selector).should('have.value', text)
 })
 
 Cypress.Commands.add('loadSignupPage', () => {
