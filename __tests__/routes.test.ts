@@ -1,8 +1,22 @@
+// This jsdom test environment has no real `Response`/`fetch` globals, so
+// anything constructing a raw `new Response(...)` (rather than going
+// through the mocked @sveltejs/kit `json()` helper below) needs one. This
+// used to only stash `body`/`init` with no `.status`/`.headers`/`.json()`,
+// which is enough to satisfy `instanceof Response` but not enough to
+// actually assert on a route's response - tokenPOST/OPTIONS's tests need
+// the real thing.
 ;(global as any).Response = class MockResponse {
-  constructor(
-    public body: any,
-    public init: any,
-  ) {}
+  body: any
+  status: number
+  headers: Map<string, string>
+  constructor(body: any, init: any = {}) {
+    this.body = body
+    this.status = init.status ?? 200
+    this.headers = new Map(Object.entries(init.headers ?? {}))
+  }
+  async json() {
+    return JSON.parse(this.body)
+  }
 }
 
 // Mock Svelte Store reset
@@ -173,7 +187,22 @@ import { POST as registrationPOST } from '../src/routes/api/registration/+server
 import { POST as remindStudentsPOST } from '../src/routes/api/remindStudents/+server'
 import { POST as slotRequestPOST } from '../src/routes/api/slotRequest/+server'
 import { POST as substitutePOST } from '../src/routes/api/substitute/+server'
-import { POST as tokenPOST } from '../src/routes/api/token/+server'
+import {
+  OPTIONS as tokenOPTIONS,
+  POST as tokenPOST,
+} from '../src/routes/api/token/+server'
+import MailService from '@sendgrid/mail'
+
+// Shared helper for exercising the `catch (mailError)` branch that every
+// authenticated POST /api/* route has around its `sendEmail(...)` call -
+// none of the route tests below covered it before. `MailService.send` is
+// swapped for a rejecting mock just for the duration of `fn`, then restored.
+async function withRejectedSend(fn: () => Promise<void>) {
+  ;(MailService.send as jest.Mock).mockRejectedValueOnce(
+    new Error('SendGrid down'),
+  )
+  await fn()
+}
 
 describe('hooks.server.ts handle', () => {
   let event: any
@@ -278,6 +307,111 @@ describe('API routes POST endpoints', () => {
     expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
   })
 
+  it('actionPOST changeEmail successfully', async () => {
+    mockRequest.json.mockResolvedValue({
+      type: 'changeEmail',
+      newEmail: 'new@test.com',
+      firstName: 'Student',
+    })
+    const res = await actionPOST({
+      request: mockRequest as any,
+      locals: { user: { email: 'old@test.com' } },
+    } as any)
+    expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
+    expect(mockAdminAuth.generateVerifyAndChangeEmailLink).toHaveBeenCalledWith(
+      'old@test.com',
+      'new@test.com',
+    )
+  })
+
+  it('actionPOST changeEmail fails without a newEmail', async () => {
+    mockRequest.json.mockResolvedValue({ type: 'changeEmail' })
+    await expect(
+      actionPOST({
+        request: mockRequest as any,
+        locals: { user: { email: 'old@test.com' } },
+      } as any),
+    ).rejects.toEqual(
+      expect.objectContaining({
+        status: 400,
+        message: 'Invalid request body.',
+      }),
+    )
+  })
+
+  it('actionPOST resetPassword successfully', async () => {
+    mockRequest.json.mockResolvedValue({
+      type: 'resetPassword',
+      email: 'test@test.com',
+    })
+    const res = await actionPOST({
+      request: mockRequest as any,
+      locals: {},
+    } as any)
+    expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
+    expect(mockAdminAuth.generatePasswordResetLink).toHaveBeenCalledWith(
+      'test@test.com',
+    )
+  })
+
+  it('actionPOST resetPassword fails without an email', async () => {
+    mockRequest.json.mockResolvedValue({ type: 'resetPassword' })
+    await expect(
+      actionPOST({ request: mockRequest as any, locals: {} } as any),
+    ).rejects.toEqual(
+      expect.objectContaining({
+        status: 400,
+        message: 'Email is required for password reset.',
+      }),
+    )
+  })
+
+  it('actionPOST fails for an unrecognized action type', async () => {
+    mockRequest.json.mockResolvedValue({ type: 'notARealType' })
+    await expect(
+      actionPOST({ request: mockRequest as any, locals: {} } as any),
+    ).rejects.toEqual(
+      expect.objectContaining({ status: 400, message: 'Invalid action type.' }),
+    )
+  })
+
+  it('actionPOST returns a 500 json response when sending the email fails', async () => {
+    mockRequest.json.mockResolvedValue({
+      type: 'verifyEmail',
+      email: 'test@test.com',
+    })
+    ;(MailService.send as jest.Mock).mockRejectedValueOnce(
+      new Error('SendGrid down'),
+    )
+
+    const res = await actionPOST({
+      request: mockRequest as any,
+      locals: { user: { email: 'test@test.com' } },
+    } as any)
+
+    expect(res).toEqual(
+      expect.objectContaining({
+        body: { error: 'Failed to send email. Please try again later.' },
+        init: { status: 500 },
+      }),
+    )
+  })
+
+  it('actionPOST propagates the auth error when the user is not signed in', async () => {
+    mockRequest.json.mockResolvedValue({
+      type: 'verifyEmail',
+      email: 'test@test.com',
+    })
+    await expect(
+      actionPOST({ request: mockRequest as any, locals: {} } as any),
+    ).rejects.toEqual(
+      expect.objectContaining({
+        status: 401,
+        __isSvelteKitError: true,
+      }),
+    )
+  })
+
   it('applicationPOST successfully', async () => {
     mockRequest.json.mockResolvedValue({ firstName: 'Student' })
     const res = await applicationPOST({
@@ -285,6 +419,31 @@ describe('API routes POST endpoints', () => {
       locals: { user: { email: 'test@test.com' } },
     } as any)
     expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
+  })
+
+  it('applicationPOST returns a 500 json response when sending the email fails', async () => {
+    await withRejectedSend(async () => {
+      mockRequest.json.mockResolvedValue({ firstName: 'Student' })
+      const res = await applicationPOST({
+        request: mockRequest as any,
+        locals: { user: { email: 'test@test.com' } },
+      } as any)
+      expect(res).toEqual(
+        expect.objectContaining({
+          body: { error: 'Failed to send email. Please try again later.' },
+          init: { status: 500 },
+        }),
+      )
+    })
+  })
+
+  it('applicationPOST propagates the auth error when the user is not signed in', async () => {
+    mockRequest.json.mockResolvedValue({ firstName: 'Student' })
+    await expect(
+      applicationPOST({ request: mockRequest as any, locals: {} } as any),
+    ).rejects.toEqual(
+      expect.objectContaining({ status: 401, __isSvelteKitError: true }),
+    )
   })
 
   it('authPOST POST and DELETE successfully', async () => {
@@ -357,6 +516,84 @@ describe('API routes POST endpoints', () => {
     )
   })
 
+  it('authPOST backfills the role from the users doc when the custom claim is missing', async () => {
+    mockRequest.json.mockResolvedValue({ idToken: 'idToken123' })
+    mockAdminAuth.verifyIdToken.mockResolvedValue({
+      uid: 'uid123',
+      auth_time: new Date().getTime() / 1000 - 10,
+    })
+    mockAdminAuth.getUser.mockResolvedValue({ uid: 'uid123', customClaims: {} })
+    mockAdminAuth.createSessionCookie.mockResolvedValue('sessionCookieVal')
+    const usersDoc = mockDoc('uid123')
+    usersDoc.get = jest.fn().mockResolvedValue({
+      exists: true,
+      data: () => ({ role: 'instructor' }),
+    })
+    mockAdminDb.collection.mockImplementation((name: string) =>
+      name === 'users'
+        ? ({ doc: () => usersDoc } as any)
+        : (mockCollection as any),
+    )
+
+    const res = await authPOST({
+      request: mockRequest,
+      cookies: mockCookies,
+    } as any)
+
+    expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
+    expect(mockAdminAuth.setCustomUserClaims).toHaveBeenCalledWith('uid123', {
+      role: 'instructor',
+    })
+    mockAdminDb.collection.mockReturnValue(mockCollection)
+  })
+
+  it('authPOST fails when no role can be determined at all', async () => {
+    mockRequest.json.mockResolvedValue({ idToken: 'idToken123' })
+    mockAdminAuth.verifyIdToken.mockResolvedValue({
+      uid: 'uid123',
+      auth_time: new Date().getTime() / 1000 - 10,
+    })
+    mockAdminAuth.getUser.mockResolvedValue({ uid: 'uid123', customClaims: {} })
+    const usersDoc = mockDoc('uid123')
+    usersDoc.get = jest.fn().mockResolvedValue({ exists: false })
+    mockAdminDb.collection.mockImplementation((name: string) =>
+      name === 'users'
+        ? ({ doc: () => usersDoc } as any)
+        : (mockCollection as any),
+    )
+
+    await expect(
+      authPOST({ request: mockRequest, cookies: mockCookies } as any),
+    ).rejects.toEqual(
+      expect.objectContaining({
+        status: 403,
+        message: 'Users must sign in on the admin site.',
+      }),
+    )
+    mockAdminDb.collection.mockReturnValue(mockCollection)
+  })
+
+  it('authPOST fails when the sign-in is not recent enough', async () => {
+    mockRequest.json.mockResolvedValue({ idToken: 'idToken123' })
+    mockAdminAuth.verifyIdToken.mockResolvedValue({
+      uid: 'uid123',
+      auth_time: new Date().getTime() / 1000 - 10 * 60,
+    })
+    mockAdminAuth.getUser.mockResolvedValue({
+      uid: 'uid123',
+      customClaims: { role: 'student' },
+    })
+
+    await expect(
+      authPOST({ request: mockRequest, cookies: mockCookies } as any),
+    ).rejects.toEqual(
+      expect.objectContaining({
+        status: 401,
+        message: 'Recent sign in required.',
+      }),
+    )
+  })
+
   it('communityServicePOST successfully', async () => {
     mockRequest.json.mockResolvedValue({ name: 'Student' })
     const res = await communityServicePOST({
@@ -364,6 +601,31 @@ describe('API routes POST endpoints', () => {
       locals: { user: { email: 'test@test.com' } },
     } as any)
     expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
+  })
+
+  it('communityServicePOST returns a 500 json response when sending the email fails', async () => {
+    await withRejectedSend(async () => {
+      mockRequest.json.mockResolvedValue({ name: 'Student' })
+      const res = await communityServicePOST({
+        request: mockRequest as any,
+        locals: { user: { email: 'test@test.com' } },
+      } as any)
+      expect(res).toEqual(
+        expect.objectContaining({
+          body: { error: 'Failed to send email. Please try again later.' },
+          init: { status: 500 },
+        }),
+      )
+    })
+  })
+
+  it('communityServicePOST propagates the auth error when the user is not signed in', async () => {
+    mockRequest.json.mockResolvedValue({ name: 'Student' })
+    await expect(
+      communityServicePOST({ request: mockRequest as any, locals: {} } as any),
+    ).rejects.toEqual(
+      expect.objectContaining({ status: 401, __isSvelteKitError: true }),
+    )
   })
 
   it('enrollPOST successfully', async () => {
@@ -385,6 +647,51 @@ describe('API routes POST endpoints', () => {
     expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
   })
 
+  it('enrollPOST returns a 500 json response when sending the email fails', async () => {
+    await withRejectedSend(async () => {
+      mockRequest.json.mockResolvedValue({
+        email: 'student@test.com',
+        firstName: 'Student',
+        instructor: 'Instructor',
+        instructorEmail: 'inst@test.com',
+        classTimes: ['14:00', '16:00'],
+        classDays: ['Monday', 'Wednesday'],
+        course: 'Math',
+        studentName: 'StudentFull',
+        online: true,
+      })
+      const res = await enrollPOST({
+        request: mockRequest as any,
+        locals: { user: { email: 'test@test.com' } },
+      } as any)
+      expect(res).toEqual(
+        expect.objectContaining({
+          body: { error: 'Failed to send email. Please try again later.' },
+          init: { status: 500 },
+        }),
+      )
+    })
+  })
+
+  it('enrollPOST propagates the auth error when the user is not signed in', async () => {
+    mockRequest.json.mockResolvedValue({
+      email: 'student@test.com',
+      firstName: 'Student',
+      instructor: 'Instructor',
+      instructorEmail: 'inst@test.com',
+      classTimes: ['14:00', '16:00'],
+      classDays: ['Monday', 'Wednesday'],
+      course: 'Math',
+      studentName: 'StudentFull',
+      online: true,
+    })
+    await expect(
+      enrollPOST({ request: mockRequest as any, locals: {} } as any),
+    ).rejects.toEqual(
+      expect.objectContaining({ status: 401, __isSvelteKitError: true }),
+    )
+  })
+
   it('interviewPOST successfully', async () => {
     mockRequest.json.mockResolvedValue({ name: 'Student' })
     const res = await interviewPOST({
@@ -394,6 +701,31 @@ describe('API routes POST endpoints', () => {
     expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
   })
 
+  it('interviewPOST returns a 500 json response when sending the email fails', async () => {
+    await withRejectedSend(async () => {
+      mockRequest.json.mockResolvedValue({ name: 'Student' })
+      const res = await interviewPOST({
+        request: mockRequest as any,
+        locals: { user: { email: 'test@test.com' } },
+      } as any)
+      expect(res).toEqual(
+        expect.objectContaining({
+          body: { error: 'Failed to send email. Please try again later.' },
+          init: { status: 500 },
+        }),
+      )
+    })
+  })
+
+  it('interviewPOST propagates the auth error when the user is not signed in', async () => {
+    mockRequest.json.mockResolvedValue({ name: 'Student' })
+    await expect(
+      interviewPOST({ request: mockRequest as any, locals: {} } as any),
+    ).rejects.toEqual(
+      expect.objectContaining({ status: 401, __isSvelteKitError: true }),
+    )
+  })
+
   it('registrationPOST successfully', async () => {
     mockRequest.json.mockResolvedValue({ name: 'Student' })
     const res = await registrationPOST({
@@ -401,6 +733,31 @@ describe('API routes POST endpoints', () => {
       locals: { user: { email: 'test@test.com' } },
     } as any)
     expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
+  })
+
+  it('registrationPOST returns a 500 json response when sending the email fails', async () => {
+    await withRejectedSend(async () => {
+      mockRequest.json.mockResolvedValue({ name: 'Student' })
+      const res = await registrationPOST({
+        request: mockRequest as any,
+        locals: { user: { email: 'test@test.com' } },
+      } as any)
+      expect(res).toEqual(
+        expect.objectContaining({
+          body: { error: 'Failed to send email. Please try again later.' },
+          init: { status: 500 },
+        }),
+      )
+    })
+  })
+
+  it('registrationPOST propagates the auth error when the user is not signed in', async () => {
+    mockRequest.json.mockResolvedValue({ name: 'Student' })
+    await expect(
+      registrationPOST({ request: mockRequest as any, locals: {} } as any),
+    ).rejects.toEqual(
+      expect.objectContaining({ status: 401, __isSvelteKitError: true }),
+    )
   })
 
   it('remindStudentsPOST successfully', async () => {
@@ -420,6 +777,47 @@ describe('API routes POST endpoints', () => {
     expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
   })
 
+  it('remindStudentsPOST returns a 500 json response when sending the email fails', async () => {
+    await withRejectedSend(async () => {
+      mockRequest.json.mockResolvedValue({
+        name: 'Student',
+        email: 'student@test.com',
+        instructorName: 'Instructor',
+        instructorEmail: 'inst@test.com',
+        otherInstructorEmails: '',
+        class: 'Math',
+        classTime: 'Monday at 2:00 PM',
+      })
+      const res = await remindStudentsPOST({
+        request: mockRequest as any,
+        locals: { user: { email: 'test@test.com' } },
+      } as any)
+      expect(res).toEqual(
+        expect.objectContaining({
+          body: { error: 'Failed to send email. Please try again later.' },
+          init: { status: 500 },
+        }),
+      )
+    })
+  })
+
+  it('remindStudentsPOST propagates the auth error when the user is not signed in', async () => {
+    mockRequest.json.mockResolvedValue({
+      name: 'Student',
+      email: 'student@test.com',
+      instructorName: 'Instructor',
+      instructorEmail: 'inst@test.com',
+      otherInstructorEmails: '',
+      class: 'Math',
+      classTime: 'Monday at 2:00 PM',
+    })
+    await expect(
+      remindStudentsPOST({ request: mockRequest as any, locals: {} } as any),
+    ).rejects.toEqual(
+      expect.objectContaining({ status: 401, __isSvelteKitError: true }),
+    )
+  })
+
   it('slotRequestPOST successfully', async () => {
     mockRequest.json.mockResolvedValue({ name: 'Student' })
     const res = await slotRequestPOST({
@@ -427,6 +825,31 @@ describe('API routes POST endpoints', () => {
       locals: { user: { email: 'test@test.com' } },
     } as any)
     expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
+  })
+
+  it('slotRequestPOST returns a 500 json response when sending the email fails', async () => {
+    await withRejectedSend(async () => {
+      mockRequest.json.mockResolvedValue({ name: 'Student' })
+      const res = await slotRequestPOST({
+        request: mockRequest as any,
+        locals: { user: { email: 'test@test.com' } },
+      } as any)
+      expect(res).toEqual(
+        expect.objectContaining({
+          body: { error: 'Failed to send email. Please try again later.' },
+          init: { status: 500 },
+        }),
+      )
+    })
+  })
+
+  it('slotRequestPOST propagates the auth error when the user is not signed in', async () => {
+    mockRequest.json.mockResolvedValue({ name: 'Student' })
+    await expect(
+      slotRequestPOST({ request: mockRequest as any, locals: {} } as any),
+    ).rejects.toEqual(
+      expect.objectContaining({ status: 401, __isSvelteKitError: true }),
+    )
   })
 
   it('substitutePOST successfully', async () => {
@@ -438,12 +861,75 @@ describe('API routes POST endpoints', () => {
     expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
   })
 
-  it('tokenPOST successfully', async () => {
+  it('substitutePOST returns a 500 json response when sending the email fails', async () => {
+    await withRejectedSend(async () => {
+      mockRequest.json.mockResolvedValue({ name: 'Student' })
+      const res = await substitutePOST({
+        request: mockRequest as any,
+        locals: { user: { email: 'test@test.com' } },
+      } as any)
+      expect(res).toEqual(
+        expect.objectContaining({
+          body: { error: 'Failed to send email. Please try again later.' },
+          init: { status: 500 },
+        }),
+      )
+    })
+  })
+
+  it('substitutePOST propagates the auth error when the user is not signed in', async () => {
     mockRequest.json.mockResolvedValue({ name: 'Student' })
-    const res = await tokenPOST({
-      request: mockRequest as any,
-      locals: { user: { email: 'test@test.com' } },
-    } as any)
-    expect(res).toBeInstanceOf(Response)
+    await expect(
+      substitutePOST({ request: mockRequest as any, locals: {} } as any),
+    ).rejects.toEqual(
+      expect.objectContaining({ status: 401, __isSvelteKitError: true }),
+    )
+  })
+
+  // `fetch` isn't defined at all in this jsdom test environment, so without
+  // mocking it, POST always threw inside its own try block and this test
+  // was unknowingly exercising the *catch* branch under a "successfully"
+  // name - `toBeInstanceOf(Response)` passes either way since both branches
+  // return a Response. Mock fetch so success and failure are distinguishable.
+  describe('tokenPOST/OPTIONS', () => {
+    const originalFetch = (global as any).fetch
+
+    afterEach(() => {
+      ;(global as any).fetch = originalFetch
+    })
+
+    it('tokenPOST returns the OAuth token response on success', async () => {
+      ;(global as any).fetch = jest.fn().mockResolvedValue({
+        json: jest.fn().mockResolvedValue({ access_token: 'abc123' }),
+      })
+
+      const res = await tokenPOST({} as any)
+
+      expect(res).toBeInstanceOf(Response)
+      expect(res.status).toBe(200)
+      expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*')
+      await expect(res.json()).resolves.toEqual({ access_token: 'abc123' })
+    })
+
+    it('tokenPOST returns a 500 response when the token request fails', async () => {
+      ;(global as any).fetch = jest
+        .fn()
+        .mockRejectedValue(new Error('network down'))
+
+      const res = await tokenPOST({} as any)
+
+      expect(res).toBeInstanceOf(Response)
+      expect(res.status).toBe(500)
+    })
+
+    it('tokenOPTIONS returns 200 with CORS headers', async () => {
+      const res = await tokenOPTIONS({} as any)
+
+      expect(res).toBeInstanceOf(Response)
+      expect(res.status).toBe(200)
+      expect(res.headers.get('Access-Control-Allow-Methods')).toBe(
+        'POST, GET, OPTIONS',
+      )
+    })
   })
 })

@@ -3,7 +3,7 @@ import { redirect, type Handle, type HandleServerError } from '@sveltejs/kit'
 
 export const handle = (async ({ event, resolve }) => {
   const sessionCookie = event.cookies.get('__session')
-  let topRedirect
+  let shouldRedirectToAdmin = false
   try {
     if (sessionCookie) {
       const decodedClaims = await adminAuth.verifySessionCookie(
@@ -25,7 +25,7 @@ export const handle = (async ({ event, resolve }) => {
         }
       } else if (role) {
         event.locals.user = null
-        topRedirect = redirect(301, 'https://admin.gbstem.org')
+        shouldRedirectToAdmin = true
       } else {
         event.locals.user = null
       }
@@ -35,8 +35,12 @@ export const handle = (async ({ event, resolve }) => {
   } catch (err: any) {
     event.locals.user = null
   }
-  if (topRedirect !== undefined) {
-    throw topRedirect
+  // `redirect()` throws immediately, so it must be called outside the try
+  // block above - otherwise the throw is caught by the surrounding
+  // catch(err), which just resets locals.user and silently drops the
+  // redirect instead of letting it propagate.
+  if (shouldRedirectToAdmin) {
+    throw redirect(301, 'https://admin.gbstem.org')
   }
   return resolve(event)
 }) satisfies Handle

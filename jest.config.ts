@@ -28,7 +28,7 @@ const config: Config = {
   testPathIgnorePatterns: ['/node_modules/'],
   collectCoverage: false,
   collectCoverageFrom: [
-    'src/**/*.{js,jsx,ts,tsx}',
+    'src/**/*.{js,jsx,ts,tsx,svelte}',
     '!**/*.d.ts',
     '!**/node_modules/**',
   ],
