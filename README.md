@@ -40,7 +40,7 @@ Before running the development server, you must configure your local environment
    cp .env.example .env.local
    ```
 
-2. Open `.env.local` and adjust the placeholder values with your actual service credentials, preferably development credentials if available.
+2. For general development, step 1 gives you everything you need. For special cases where you need access to production resources, you may edit `.env.local` to adjust the placeholder values with the actual service credentials.
 
 > [!WARNING]
 > **Never commit your `.env.local` file or actual secrets to GitHub.** This file is configured to be ignored by Git to prevent exposing sensitive API keys and credentials. For details on how `.env` files work and how to avoid exposing credentials, read the [dotenv environment secrets guide](https://github.com/motdotla/dotenv#should-i-commit-my-env-file) and [GitHub's guide on ignoring files](https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files).
@@ -212,6 +212,7 @@ Below is an alphabetical list of the top-level directories and significant confi
 
 ### Directories
 
+- **`.github/`**: Contains GitHub configuration for GitHub, including our Dependabot configuration for automating minor and patch package updates, and our Continuous Integration (CI) test workflows.
 - **`.husky/`**: Configuration for Husky, managing Git hooks like pre-commit formatting and linting.
 - **`.svelte-kit/`**: Automatically generated directory containing SvelteKit configuration, generated routes, and typings.
 - **`__tests__/`**: Contains all of our Jest unit tests (such as utility tests and form validation schema scenario tests).
