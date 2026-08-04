@@ -28,23 +28,23 @@
     "track": "cs"
   },
   {
-    "name": "Mathematics 1b",
+    "name": "Mathematics 1a",
     "track": "math"
   },
   {
-    "name": "Mathematics 2b",
+    "name": "Mathematics 2a",
     "track": "math"
   },
   {
-    "name": "Mathematics 3b",
+    "name": "Mathematics 3a",
     "track": "math"
   },
   {
-    "name": "Mathematics 4b",
+    "name": "Mathematics 4a",
     "track": "math"
   },
   {
-    "name": "Mathematics 5b",
+    "name": "Mathematics 5a",
     "track": "math"
   },
   {
@@ -64,11 +64,11 @@
     "track": "engineering"
   },
   {
-    "name": "Environmental Science B",
+    "name": "Environmental Science A",
     "track": "science"
   },
   {
-    "name": "Physics B",
+    "name": "Physics A",
     "track": "science"
   }
 ]

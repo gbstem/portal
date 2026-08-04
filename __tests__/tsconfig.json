@@ -6,7 +6,11 @@
       "$lib": ["../src/lib"],
       "$lib/*": ["../src/lib/*"]
     },
-    "rootDir": ".."
+    "rootDir": "..",
+    "verbatimModuleSyntax": false,
+    "moduleResolution": "node",
+    "module": "CommonJS",
+    "ignoreDeprecations": "6.0"
   },
   "include": ["**/*"]
 }

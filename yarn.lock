@@ -2371,7 +2371,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@sveltejs/kit@npm:^2.70.1":
+"@sveltejs/kit@npm:^2.70.2":
   version: 2.70.2
   resolution: "@sveltejs/kit@npm:2.70.2"
   dependencies:
@@ -7879,7 +7879,7 @@ __metadata:
     "@eslint/js": "npm:^10.0.1"
     "@sendgrid/mail": "npm:^8.1.6"
     "@sveltejs/adapter-vercel": "npm:^6.3.4"
-    "@sveltejs/kit": "npm:^2.70.1"
+    "@sveltejs/kit": "npm:^2.70.2"
     "@sveltejs/vite-plugin-svelte": "npm:^7.2.0"
     "@tailwindcss/vite": "npm:^4.3.3"
     "@testing-library/dom": "npm:^10.4.1"

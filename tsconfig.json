@@ -11,6 +11,7 @@
     "strict": true,
     "verbatimModuleSyntax": true,
     "noUnusedLocals": true,
+    "moduleResolution": "bundler",
     "noUnusedParameters": true,
     "rootDir": ".",
     // With moduleResolution "bundler" (set by the base config below),

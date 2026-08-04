@@ -1,6 +1,6 @@
 import semesterDatesJson from './semesterDates.json'
 
-const suffix = 'Spring26'
+const suffix = 'Fall26'
 
 export const currentSemester = suffix
 

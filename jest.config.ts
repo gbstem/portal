@@ -8,16 +8,18 @@ const config: Config = {
     // general `.tsx?$` pattern below, which would otherwise also match.
     '\\.svelte$': '<rootDir>/jest-transform-svelte-module.cjs',
     '\\.svelte\\.(test\\.)?ts$': '<rootDir>/jest-transform-svelte-module.cjs',
-    '^.+\\.tsx?$': ['ts-jest', {}],
+    '^.+\\.tsx?$': ['ts-jest', { tsconfig: '<rootDir>/__tests__/tsconfig.json' }],
     // The compiled output above imports Svelte's runtime straight from
     // `svelte/internal/client`, which ships as raw ESM (as does its own
     // `esm-env` dependency) - down-level both so Jest's CJS loader can
     // read them (paired with transformIgnorePatterns below, since
     // node_modules is untransformed by default).
-    'node_modules/(svelte|esm-env|lodash-es)/.*\\.js$':
+    'node_modules[/\\\\](svelte|esm-env|lodash-es)[/\\\\].*\\.js$':
       '<rootDir>/jest-transform-esm-to-cjs.cjs',
   },
-  transformIgnorePatterns: ['/node_modules/(?!svelte/|esm-env/|lodash-es/)'],
+  transformIgnorePatterns: [
+    '[/\\\\]node_modules[/\\\\](?!(svelte|esm-env|lodash-es)[/\\\\])',
+  ],
   coverageProvider: 'v8',
   testEnvironment: 'jsdom',
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
