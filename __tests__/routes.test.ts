@@ -1,24 +1,3 @@
-// This jsdom test environment has no real `Response`/`fetch` globals, so
-// anything constructing a raw `new Response(...)` (rather than going
-// through the mocked @sveltejs/kit `json()` helper below) needs one. This
-// used to only stash `body`/`init` with no `.status`/`.headers`/`.json()`,
-// which is enough to satisfy `instanceof Response` but not enough to
-// actually assert on a route's response - tokenPOST/OPTIONS's tests need
-// the real thing.
-;(global as any).Response = class MockResponse {
-  body: any
-  status: number
-  headers: Map<string, string>
-  constructor(body: any, init: any = {}) {
-    this.body = body
-    this.status = init.status ?? 200
-    this.headers = new Map(Object.entries(init.headers ?? {}))
-  }
-  async json() {
-    return JSON.parse(this.body)
-  }
-}
-
 // Mock Svelte Store reset
 jest.mock(
   'svelte/store',
@@ -187,10 +166,7 @@ import { POST as registrationPOST } from '../src/routes/api/registration/+server
 import { POST as remindStudentsPOST } from '../src/routes/api/remindStudents/+server'
 import { POST as slotRequestPOST } from '../src/routes/api/slotRequest/+server'
 import { POST as substitutePOST } from '../src/routes/api/substitute/+server'
-import {
-  OPTIONS as tokenOPTIONS,
-  POST as tokenPOST,
-} from '../src/routes/api/token/+server'
+import { POST as tokenPOST } from '../src/routes/api/token/+server'
 import MailService from '@sendgrid/mail'
 
 // Shared helper for exercising the `catch (mailError)` branch that every
@@ -886,12 +862,7 @@ describe('API routes POST endpoints', () => {
     )
   })
 
-  // `fetch` isn't defined at all in this jsdom test environment, so without
-  // mocking it, POST always threw inside its own try block and this test
-  // was unknowingly exercising the *catch* branch under a "successfully"
-  // name - `toBeInstanceOf(Response)` passes either way since both branches
-  // return a Response. Mock fetch so success and failure are distinguishable.
-  describe('tokenPOST/OPTIONS', () => {
+  describe('tokenPOST', () => {
     const originalFetch = (global as any).fetch
 
     afterEach(() => {
@@ -903,32 +874,40 @@ describe('API routes POST endpoints', () => {
         json: jest.fn().mockResolvedValue({ access_token: 'abc123' }),
       })
 
-      const res = await tokenPOST({} as any)
+      const res = await tokenPOST({
+        locals: { user: { email: 'test@test.com' } },
+      } as any)
 
-      expect(res).toBeInstanceOf(Response)
-      expect(res.status).toBe(200)
-      expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*')
-      await expect(res.json()).resolves.toEqual({ access_token: 'abc123' })
+      expect(res).toEqual(
+        expect.objectContaining({
+          body: { access_token: 'abc123' },
+          __isSvelteKitJson: true,
+        }),
+      )
     })
 
-    it('tokenPOST returns a 500 response when the token request fails', async () => {
+    it('tokenPOST returns a 500 json response when the token request fails', async () => {
       ;(global as any).fetch = jest
         .fn()
         .mockRejectedValue(new Error('network down'))
 
-      const res = await tokenPOST({} as any)
+      const res = await tokenPOST({
+        locals: { user: { email: 'test@test.com' } },
+      } as any)
 
-      expect(res).toBeInstanceOf(Response)
-      expect(res.status).toBe(500)
+      expect(res).toEqual(
+        expect.objectContaining({
+          body: {
+            error: 'Failed to fetch access token. Please try again later.',
+          },
+          init: { status: 500 },
+        }),
+      )
     })
 
-    it('tokenOPTIONS returns 200 with CORS headers', async () => {
-      const res = await tokenOPTIONS({} as any)
-
-      expect(res).toBeInstanceOf(Response)
-      expect(res.status).toBe(200)
-      expect(res.headers.get('Access-Control-Allow-Methods')).toBe(
-        'POST, GET, OPTIONS',
+    it('tokenPOST propagates the auth error when the user is not signed in', async () => {
+      await expect(tokenPOST({ locals: {} } as any)).rejects.toEqual(
+        expect.objectContaining({ status: 401, __isSvelteKitError: true }),
       )
     })
   })
