@@ -12,6 +12,7 @@ describe('ApplyForm Helpers', () => {
       const app = createEmptyApplication()
       expect(app.personal.email).toBe('')
       expect(app.meta.submitted).toBe(false)
+      expect(app.meta.decided).toBe(false)
     })
 
     test('normalizeApplicationData fills user identity information when provided', () => {
@@ -24,6 +25,21 @@ describe('ApplyForm Helpers', () => {
       expect(app.meta.uid).toBe('uid123')
       // The uid is the only identifier stamped on an application.
       expect(app.meta).not.toHaveProperty('id')
+    })
+
+    test('normalizeApplicationData defaults meta.decided for a legacy doc missing the field', () => {
+      // A draft written before meta.decided existed has no such field at
+      // all - normalize should fill it in via the meta-specific deep merge,
+      // not silently drop it via the flat top-level spread.
+      const legacyDoc = {
+        personal: { email: 'legacy@example.com' },
+        meta: { uid: 'uid456', submitted: true },
+      }
+
+      const app = normalizeApplicationData(legacyDoc)
+      expect(app.meta.decided).toBe(false)
+      expect(app.meta.submitted).toBe(true)
+      expect(app.meta.uid).toBe('uid456')
     })
   })
 

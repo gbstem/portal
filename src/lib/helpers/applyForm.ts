@@ -32,6 +32,7 @@ export function createEmptyApplication(): Data.Application {
       uid: '',
       submitted: false,
       interview: false,
+      decided: false,
     },
     timestamps: {
       created: null as any,
@@ -99,7 +100,20 @@ export function normalizeApplicationData(
   },
 ): Data.Application {
   const empty = createEmptyApplication()
-  const base = data ? { ...cloneDeep(empty), ...cloneDeep(data) } : empty
+  const base = data
+    ? {
+        ...cloneDeep(empty),
+        ...cloneDeep(data),
+        // Deep-merge meta specifically so a document written before a new
+        // meta field existed (e.g. legacy drafts predating meta.decided)
+        // still gets that field's default instead of the whole meta object
+        // being overwritten wholesale by the flat spread above.
+        meta: {
+          ...cloneDeep(empty.meta),
+          ...(data.meta ? cloneDeep(data.meta) : {}),
+        },
+      }
+    : empty
 
   if (userObj?.uid) base.meta.uid = userObj.uid
   if (userObj?.email) base.personal.email = userObj.email
