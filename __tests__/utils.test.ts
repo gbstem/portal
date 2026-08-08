@@ -172,6 +172,16 @@ describe('utils', () => {
       const template = { data: { user: {} } }
       expect(addDataToHtmlTemplate(html, template)).toBe('Hello !')
     })
+
+    it('escapes HTML special characters to prevent injection', () => {
+      const html = 'Hello {{name}}!'
+      const template = {
+        data: { name: '<img src=x onerror=alert(1)>&"\'' },
+      }
+      expect(addDataToHtmlTemplate(html, template)).toBe(
+        'Hello &lt;img src=x onerror=alert(1)&gt;&amp;&quot;&#39;!',
+      )
+    })
   })
 
   describe('formatTime24to12', () => {

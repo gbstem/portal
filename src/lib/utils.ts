@@ -56,6 +56,15 @@ export function trapFocus(node: HTMLElement) {
   }
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 // replace html template with data
 export function addDataToHtmlTemplate(
   html: string,
@@ -71,7 +80,7 @@ export function addDataToHtmlTemplate(
         return ''
       }
     }
-    return String(value ?? '')
+    return escapeHtml(String(value ?? ''))
   })
   return htmlBody
 }
