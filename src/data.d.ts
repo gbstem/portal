@@ -122,6 +122,7 @@ declare global {
         uid: string
         submitted: boolean
         interview: boolean
+        decided: boolean
       }
       timestamps: {
         created: Timestamp
