@@ -1,3 +1,4 @@
+import semesterDates from '../../src/lib/data/semesterDates.json'
 import { generateDateHash } from '../support/utils'
 
 describe('Section C & E: Instructor Applications & Community Service', () => {
@@ -178,6 +179,13 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
   })
 
   it('Test Case 10b: Instructor Submit Attendance Feedback', () => {
+    // Set system clock to 1 day after instructor orientation date so ClassSchedule is rendered
+    const orientationDate = new Date(semesterDates.instructorOrientation)
+    const postOrientationDate = new Date(
+      orientationDate.getTime() + 24 * 60 * 60 * 1000,
+    )
+    cy.clock(postOrientationDate.getTime(), ['Date'])
+
     cy.signedInSession('instructor')
 
     cy.contains('button', 'Submit Feedback').click()
@@ -232,6 +240,13 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
   })
 
   it('Test Case 14: Edit Schedule and Add Class', () => {
+    // Set system clock to 1 day after instructor orientation date so ClassSchedule is rendered
+    const orientationDate = new Date(semesterDates.instructorOrientation)
+    const postOrientationDate = new Date(
+      orientationDate.getTime() + 24 * 60 * 60 * 1000,
+    )
+    cy.clock(postOrientationDate.getTime(), ['Date'])
+
     cy.signedInSession('instructor')
 
     // Edit Schedule & Delete Class Session
@@ -263,6 +278,13 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
   })
 
   it('Test Case 15: Request Sub', () => {
+    // Set system clock to 1 day after instructor orientation date so ClassSchedule is rendered
+    const orientationDate = new Date(semesterDates.instructorOrientation)
+    const postOrientationDate = new Date(
+      orientationDate.getTime() + 24 * 60 * 60 * 1000,
+    )
+    cy.clock(postOrientationDate.getTime(), ['Date'])
+
     cy.signedInSession('instructor')
 
     // Request Sub

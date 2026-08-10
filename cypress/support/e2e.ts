@@ -38,4 +38,5 @@ before(() => {
   // pins "packageManager" in its package.json -- cd'ing first reads the pin
   // from admin's own package.json and does not depend on where we started.
   cy.exec('cd ../admin && yarn seed', { timeout: 120000 })
+  cy.clearTestEmails()
 })
