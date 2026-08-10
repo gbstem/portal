@@ -51,9 +51,11 @@
   /**
    * Sends the verification email. Deliberately non-fatal — a mail hiccup must
    * not roll back an otherwise good account; the user can resend from
-   * `/profile`.
+   * `/profile`. Returns whether the send succeeded so the caller can tell the
+   * user, since a silent failure leaves them trusting an email that was never
+   * sent.
    */
-  async function sendVerificationEmail(email: string): Promise<void> {
+  async function sendVerificationEmail(email: string): Promise<boolean> {
     const payload: ActionRequestBody = { type: 'verifyEmail', email }
     const res = await fetch('/api/action', {
       method: 'POST',
@@ -68,7 +70,9 @@
         '[SignUpForm] Email verification send error:',
         data.message || 'Unknown error',
       )
+      return false
     }
+    return true
   }
 
   const formResult = superForm(
@@ -106,7 +110,13 @@
             role,
           })
           await syncSession(createdUser)
-          await sendVerificationEmail(formVal.data.email)
+          const emailSent = await sendVerificationEmail(formVal.data.email)
+          if (!emailSent) {
+            alert.trigger(
+              'error',
+              'Account created, but the verification email failed to send. You can request another from your profile page.',
+            )
+          }
           await goto('/profile')
         } catch (err: any) {
           if (createdUser) {
