@@ -1,3 +1,5 @@
+import semesterDates from '../../src/lib/data/semesterDates.json'
+
 describe('Section C: Student/Parent Dashboard Actions', () => {
   it('Test Case 11: Create or View A Student Account Navigation', () => {
     cy.signedInSession('student')
@@ -9,6 +11,13 @@ describe('Section C: Student/Parent Dashboard Actions', () => {
   })
 
   it('Test Case 12: Student Schedule & Join Class Zoom Link', () => {
+    // Set system date to 1 day after student orientation so student schedule is visible regardless of semester dates
+    const orientationDate = new Date(semesterDates.studentOrientation)
+    const postOrientationDate = new Date(
+      orientationDate.getTime() + 24 * 60 * 60 * 1000,
+    )
+    cy.clock(postOrientationDate.getTime(), ['Date'])
+
     cy.signedInSession('student')
 
     // Verify Student Schedule and Next Upcoming Class card exists

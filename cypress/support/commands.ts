@@ -116,22 +116,65 @@ Cypress.Commands.add(
     email: string,
     requestType: 'VERIFY_EMAIL' | 'PASSWORD_RESET' | 'VERIFY_AND_CHANGE_EMAIL',
   ) => {
-    return cy
-      .request(
-        'GET',
-        'http://127.0.0.1:9099/emulator/v1/projects/demo-gbstem/oobCodes',
+    return cy.request('GET', '/api/test/emails').then((response) => {
+      const sentEmails = response.body || []
+      const match = sentEmails
+        .filter((msg: any) => {
+          const toMatch = Array.isArray(msg.to)
+            ? msg.to.includes(email)
+            : msg.to === email
+          const subjectMatch =
+            (requestType === 'VERIFY_EMAIL' &&
+              msg.subject.includes('Verify Email')) ||
+            (requestType === 'PASSWORD_RESET' &&
+              msg.subject.includes('Reset Password')) ||
+            (requestType === 'VERIFY_AND_CHANGE_EMAIL' &&
+              msg.subject.includes('Change Email'))
+          return toMatch && subjectMatch
+        })
+        .pop()
+      expect(
+        match,
+        `Expected an email to be sent to ${email} for ${requestType}`,
+      ).to.not.equal(undefined)
+      const linkMatch = match.html.match(
+        /href=["'](https?:\/\/[^"']+\/action?[^"']+&amp;oobCode=[^"']+)["']/,
       )
-      .then((response) => {
-        const codes = response.body.oobCodes || []
-        const match = codes
-          .filter((c: any) => {
-            const emailMatch = c.email === email || c.newEmail === email
-            return emailMatch && c.requestType === requestType
-          })
-          .pop()
-        expect(match).to.not.equal(undefined)
-        return match.oobLink
-      })
+      expect(
+        linkMatch,
+        'Expected sent email body to contain an action link URL',
+      ).to.not.equal(null)
+      const rawLink = linkMatch[1]
+      const link = rawLink.replace(/&amp;/g, '&')
+      return link
+    })
+  },
+)
+
+Cypress.Commands.add('clearTestEmails', () => {
+  return cy.request('DELETE', '/api/test/emails')
+})
+
+Cypress.Commands.add(
+  'verifyEmailSent',
+  (email: string, subjectSubstring: string) => {
+    return cy.request('GET', '/api/test/emails').then((response) => {
+      const sentEmails = response.body || []
+      const match = sentEmails
+        .filter((msg: any) => {
+          const toMatch = Array.isArray(msg.to)
+            ? msg.to.includes(email)
+            : msg.to === email
+          const subjectMatch = msg.subject.includes(subjectSubstring)
+          return toMatch && subjectMatch
+        })
+        .pop()
+      expect(
+        match,
+        `Expected an email sent to ${email} with subject containing "${subjectSubstring}"`,
+      ).to.not.equal(undefined)
+      return match
+    })
   },
 )
 
@@ -174,7 +217,7 @@ Cypress.Commands.add('getFirebaseAuthToken', () => {
 
 Cypress.Commands.add(
   'getFirestoreUserId',
-  (authToken: string, email: string) => {
+  (_authToken: string, email: string) => {
     return cy.task('getFirestoreUserId', email).then((uid) => {
       if (!uid) {
         throw new Error(`Could not find user ID for email: ${email}`)

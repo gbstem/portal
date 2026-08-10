@@ -9,6 +9,27 @@ export interface EmailOptions {
   replyTo?: string
 }
 
+// Support for recording and retrieving emails in-memory for Cypress e2e
+// tests in environments where SendGrid is not configured, like CI.
+export interface SentEmail {
+  to: string[]
+  subject: string
+  html: string
+  cc?: string[]
+  replyTo?: string
+  timestamp: number
+}
+
+export const sentEmails: SentEmail[] = []
+
+export function getSentEmails(): SentEmail[] {
+  return sentEmails
+}
+
+export function clearSentEmails(): void {
+  sentEmails.length = 0
+}
+
 function parseEmails(emails: string | string[]): string[] {
   if (Array.isArray(emails)) {
     return emails.map((e) => e.trim()).filter(Boolean)
@@ -34,6 +55,19 @@ export async function sendEmail(options: EmailOptions): Promise<void> {
     SENDGRID_API_TOKEN ===
       'SG.abcdefghijklmnopqrstuvwxyz.1234567890abcdefghijklmnopqrstuvwxyz'
   ) {
+    const record: SentEmail = {
+      to: toEmails,
+      subject,
+      html,
+      timestamp: Date.now(),
+    }
+    if (cc) {
+      const ccEmails = parseEmails(cc)
+      if (ccEmails.length > 0) record.cc = ccEmails
+    }
+    if (replyTo) record.replyTo = replyTo
+    sentEmails.push(record)
+
     console.warn("SENDGRID_API_TOKEN isn't set. Email sends are simulated.")
     console.log(`Email sent to: ${toStr} | Subject: ${subject}`)
     return

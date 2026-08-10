@@ -1,5 +1,12 @@
+import semesterDates from '../../src/lib/data/semesterDates.json'
+
 describe('Section D: Class Roster and Details View', () => {
   it('Test Case 9: Student View Enrolled Classes, Filtering, and Toggle', () => {
+    // Set system clock to 1 day after registrationsDue date so class enrollment is open
+    const regDue = new Date(semesterDates.registrationsDue)
+    const postRegDueDate = new Date(regDue.getTime() + 24 * 60 * 60 * 1000)
+    cy.clock(postRegDueDate.getTime(), ['Date'])
+
     // Log in as student
     cy.signedInSession('student', { initialPage: '/classes' })
 
@@ -39,6 +46,11 @@ describe('Section D: Class Roster and Details View', () => {
   })
 
   it('Test Case 10: Instructor View Taught Classes', () => {
+    // Set system clock to 1 day after registrationsDue date so class list is visible
+    const regDue = new Date(semesterDates.registrationsDue)
+    const postRegDueDate = new Date(regDue.getTime() + 24 * 60 * 60 * 1000)
+    cy.clock(postRegDueDate.getTime(), ['Date'])
+
     // Log in as instructor
     cy.signedInSession('instructor', { initialPage: '/classes' })
 
