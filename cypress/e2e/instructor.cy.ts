@@ -17,7 +17,7 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
     cy.fillInput('input[name="confirmPassword"]', 'penguin')
     cy.get('button[type="submit"]').click()
 
-    // Handle email verification dialog
+    // Handle email verification (emulated email side-channel)
     cy.get('[role="dialog"]', { timeout: 10000 })
       .contains('button', 'Go to dashboard')
       .click()

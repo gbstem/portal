@@ -23,7 +23,7 @@ describe('Section F: Profile Customization & Account Management', () => {
     cy.fillInput('input[name="confirmPassword"]', initialPassword)
     cy.contains('button', 'Sign up').click()
 
-    // Handle verification dialog
+    // Handle email verification (emulated email side-channel)
     cy.get('[role="dialog"]').contains('button', 'Go to dashboard').click()
     cy.getLatestOobLink(initialEmail, 'VERIFY_EMAIL').then((link) => {
       cy.request(link)
@@ -68,7 +68,7 @@ describe('Section F: Profile Customization & Account Management', () => {
       })
     cy.waitForNotification('A verification email was sent.', 'bg-gray-200')
 
-    // Retrieve link and verify/confirm email change
+    // Handle email verification (emulated email side-channel)
     cy.getLatestOobLink(updatedEmail, 'VERIFY_AND_CHANGE_EMAIL').then(
       (link) => {
         cy.request(link)
@@ -127,6 +127,8 @@ describe('Section F: Profile Customization & Account Management', () => {
     cy.fillInput('input[name="password"]', password)
     cy.fillInput('input[name="confirmPassword"]', password)
     cy.contains('button', 'Sign up').click()
+
+    // Handle email verification (emulated email side-channel)
     cy.get('[role="dialog"]').contains('button', 'Go to dashboard').click()
     cy.getLatestOobLink(email, 'VERIFY_EMAIL').then((link) => {
       cy.request(link)

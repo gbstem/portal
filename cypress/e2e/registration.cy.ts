@@ -21,7 +21,7 @@ describe('Section B: Student Registration & Account Management', () => {
     cy.fillInput('input[name="confirmPassword"]', 'penguin')
     cy.get('button[type="submit"]').click()
 
-    // Handle email verification
+    // Handle email verification (emulated email side-channel)
     cy.get('[role="dialog"]').contains('button', 'Go to dashboard').click()
     cy.getLatestOobLink(email, 'VERIFY_EMAIL').then((link) => {
       cy.request(link)

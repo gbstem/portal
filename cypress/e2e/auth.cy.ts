@@ -134,7 +134,7 @@ describe('Section A: Authentication and Navigation', () => {
     cy.contains('a', 'Register').should('not.exist')
     cy.contains('a', 'Classes').should('not.exist')
 
-    // Simulate email verification via emulator oob link
+    // Verify email (emulated email side-channel)
     cy.getLatestOobLink(email, 'VERIFY_EMAIL').then((link) => {
       cy.request(link)
     })
@@ -180,7 +180,7 @@ describe('Section A: Authentication and Navigation', () => {
     cy.contains('a', 'Apply').should('not.exist')
     cy.contains('a', 'Classes').should('not.exist')
 
-    // Simulate email verification via emulator oob link
+    // Verify email (emulated email side-channel)
     cy.getLatestOobLink(email, 'VERIFY_EMAIL').then((link) => {
       cy.request(link)
     })
