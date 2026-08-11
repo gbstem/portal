@@ -162,6 +162,7 @@ describe('Section A: Authentication and Navigation', () => {
       // Revisit profile page and confirm email verification guard is bypassed
       cy.visit('/profile')
       cy.get('[role="dialog"]').should('not.exist')
+      cy.contains('Role: parent').should('be.visible')
 
       // Verify student navigation links are now visible
       cy.contains('a', 'Dashboard').should('be.visible')
@@ -229,6 +230,7 @@ describe('Section A: Authentication and Navigation', () => {
       // Revisit profile page and confirm email verification guard is bypassed
       cy.visit('/profile')
       cy.get('[role="dialog"]').should('not.exist')
+      cy.contains('Role: instructor').should('be.visible')
 
       // Verify instructor navigation links are now visible
       cy.contains('a', 'Dashboard').should('be.visible')

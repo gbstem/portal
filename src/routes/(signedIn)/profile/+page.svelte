@@ -144,6 +144,9 @@
           </button>
         </div>
       </div>
+      <Field>
+        {`Role: ${data.user.role === 'student' ? 'parent' : data.user.role}`}
+      </Field>
 
       <div class="flex justify-center">
         <Link href="/dashboard">
