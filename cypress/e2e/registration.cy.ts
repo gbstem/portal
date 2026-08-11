@@ -22,7 +22,8 @@ describe('Section B: Student Registration & Account Management', () => {
     cy.get('button[type="submit"]').click()
 
     // Handle email verification (emulated email side-channel)
-    cy.get('[role="dialog"]').contains('button', 'Go to dashboard').click()
+    cy.get('[role="dialog"]').contains('button', 'Close').click()
+    cy.get('[role="dialog"]').should('not.exist')
     cy.getLatestOobLink(email, 'VERIFY_EMAIL').then((link) => {
       cy.request(link)
     })
@@ -102,6 +103,12 @@ describe('Section B: Student Registration & Account Management', () => {
 
     // Assert successful submission toast
     cy.waitForNotification('Your student account has been created!')
+    cy.get('@parentEmail').then((parentEmail) => {
+      cy.verifyEmailSent(
+        parentEmail as unknown as string,
+        'Next steps for your gbSTEM registration',
+      )
+    })
 
     // Verify written data directly in the database emulator
     cy.get('@parentEmail').then((emailAddress: any) => {

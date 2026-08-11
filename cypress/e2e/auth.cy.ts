@@ -106,95 +106,139 @@ describe('Section A: Authentication and Navigation', () => {
     cy.get('input[type="email"]').should('have.value', '')
   })
 
-  it('Test Case 5a: Direct Sign Up as Student/Parent', () => {
-    const first = 'Charlie'
-    const last = generateDateHash('Brown')
-    const email = `${generateDateHash('charlie.brown')}@gmail.com`
+  ;[
+    { resend: false, label: 'Original Email' },
+    { resend: true, label: 'Resent Email' },
+  ].forEach(({ resend, label }) => {
+    it(`Test Case 5a: Direct Sign Up as Student/Parent (${label})`, () => {
+      const first = 'Charlie'
+      const last = generateDateHash(`Brown-${resend ? 'resend' : 'orig'}`)
+      const email = `${generateDateHash(`charlie.brown.${resend ? 'resend' : 'orig'}`)}@gmail.com`
 
-    cy.loadSignupPage()
-    cy.selectOption(
-      'input[name="role"]',
-      'Parent registering my child for classes',
-      { timeout: 10000 },
-    )
-    cy.fillInput('input[name="firstName"]', first)
-    cy.fillInput('input[name="lastName"]', last)
-    cy.fillInput('input[name="email"]', email)
-    cy.fillInput('input[name="password"]', 'penguin')
-    cy.fillInput('input[name="confirmPassword"]', 'penguin')
-    cy.get('button[type="submit"]').click()
+      cy.loadSignupPage()
+      cy.selectOption(
+        'input[name="role"]',
+        'Parent registering my child for classes',
+        { timeout: 10000 },
+      )
+      cy.fillInput('input[name="firstName"]', first)
+      cy.fillInput('input[name="lastName"]', last)
+      cy.fillInput('input[name="email"]', email)
+      cy.fillInput('input[name="password"]', 'penguin')
+      cy.fillInput('input[name="confirmPassword"]', 'penguin')
+      cy.get('button[type="submit"]').click()
 
-    // Expect a "please verify your email" dialog with a "Go to dashboard" link
-    cy.get('[role="dialog"]').should('exist')
+      // Expect a dialog to pop up asking the user to verify their email
+      cy.get('[role="dialog"]').should('exist')
+      cy.contains('Please verify your email').should('be.visible')
 
-    // Click Go to dashboard (which sends them to profile because email is unverified)
-    cy.get('[role="dialog"]').contains('button', 'Go to dashboard').click()
-    cy.url().should('include', '/profile')
-    cy.contains('a', 'Dashboard').should('not.exist')
-    cy.contains('a', 'Register').should('not.exist')
-    cy.contains('a', 'Classes').should('not.exist')
+      // Click Close (which sends them to profile because email is unverified)
+      cy.get('[role="dialog"]').contains('button', 'Close').click()
+      cy.get('[role="dialog"]', { timeout: 10000 }).should('not.exist')
+      cy.url().should('include', '/profile')
+      cy.contains('a', 'Dashboard').should('not.exist')
+      cy.contains('a', 'Register').should('not.exist')
+      cy.contains('a', 'Classes').should('not.exist')
 
-    // Verify email (emulated email side-channel)
-    cy.getLatestOobLink(email, 'VERIFY_EMAIL').then((link) => {
-      cy.request(link)
+      if (resend) {
+        // Verify original OOB link exists but don't click it
+        cy.getLatestOobLink(email, 'VERIFY_EMAIL').should('exist')
+        // Clear out the original verification email
+        cy.clearTestEmails()
+        // Click "Send it again" to get a second OOB link
+        cy.contains('button', 'Send it again.').click()
+        cy.waitForNotification('Verification email was sent.', 'bg-gray-200')
+        // Verify using the new OOB link
+        cy.getLatestOobLink(email, 'VERIFY_EMAIL').then((link) => {
+          cy.request(link)
+        })
+      } else {
+        // Verify email (emulated email side-channel using original link)
+        cy.getLatestOobLink(email, 'VERIFY_EMAIL').then((link) => {
+          cy.request(link)
+        })
+      }
+
+      // Revisit profile page and confirm email verification guard is bypassed
+      cy.visit('/profile')
+      cy.get('[role="dialog"]').should('not.exist')
+      cy.contains('Role: parent').should('be.visible')
+
+      // Verify student navigation links are now visible
+      cy.contains('a', 'Dashboard').should('be.visible')
+      cy.contains('a', 'Register').should('be.visible')
+      cy.contains('a', 'Classes').should('be.visible')
+
+      // Verify instructor navigation links are not visible
+      cy.contains('a', 'Apply').should('not.exist')
     })
-
-    // Revisit profile page and confirm email verification guard is bypassed
-    cy.visit('/profile')
-    cy.get('[role="dialog"]').should('not.exist')
-
-    // Verify student navigation links are now visible
-    cy.contains('a', 'Dashboard').should('be.visible')
-    cy.contains('a', 'Register').should('be.visible')
-    cy.contains('a', 'Classes').should('be.visible')
-
-    // Verify instructor navigation links are not visible
-    cy.contains('a', 'Apply').should('not.exist')
   })
 
-  it('Test Case 5b: Direct Sign Up as Instructor', () => {
-    const first = 'Jane'
-    const last = generateDateHash('Doe')
-    const email = `${generateDateHash('jane.doe')}@gmail.com`
+  ;[
+    { resend: false, label: 'Original Email' },
+    { resend: true, label: 'Resent Email' },
+  ].forEach(({ resend, label }) => {
+    it(`Test Case 5b: Direct Sign Up as Instructor (${label})`, () => {
+      const first = 'Jane'
+      const last = generateDateHash(`Doe-${resend ? 'resend' : 'orig'}`)
+      const email = `${generateDateHash(`jane.doe.${resend ? 'resend' : 'orig'}`)}@gmail.com`
 
-    cy.loadSignupPage()
-    cy.selectOption(
-      'input[name="role"]',
-      'High school/college student applying to be an instructor',
-      { timeout: 10000 },
-    )
-    cy.fillInput('input[name="firstName"]', first)
-    cy.fillInput('input[name="lastName"]', last)
-    cy.fillInput('input[name="email"]', email)
-    cy.fillInput('input[name="password"]', 'penguin')
-    cy.fillInput('input[name="confirmPassword"]', 'penguin')
-    cy.get('button[type="submit"]').click()
+      cy.loadSignupPage()
+      cy.selectOption(
+        'input[name="role"]',
+        'High school/college student applying to be an instructor',
+        { timeout: 10000 },
+      )
+      cy.fillInput('input[name="firstName"]', first)
+      cy.fillInput('input[name="lastName"]', last)
+      cy.fillInput('input[name="email"]', email)
+      cy.fillInput('input[name="password"]', 'penguin')
+      cy.fillInput('input[name="confirmPassword"]', 'penguin')
+      cy.get('button[type="submit"]').click()
 
-    // Expect a "please verify your email" dialog with a "Go to dashboard" link
-    cy.get('[role="dialog"]').should('exist')
+      // Expect a dialog to pop up asking the user to verify their email
+      cy.get('[role="dialog"]').should('exist')
+      cy.contains('Please verify your email').should('be.visible')
 
-    // Click Go to dashboard (which sends them to profile because email is unverified)
-    cy.get('[role="dialog"]').contains('button', 'Go to dashboard').click()
-    cy.url().should('include', '/profile')
-    cy.contains('a', 'Dashboard').should('not.exist')
-    cy.contains('a', 'Apply').should('not.exist')
-    cy.contains('a', 'Classes').should('not.exist')
+      // Click Close (which sends them to profile because email is unverified)
+      cy.get('[role="dialog"]').contains('button', 'Close').click()
+      cy.get('[role="dialog"]').should('not.exist')
+      cy.url().should('include', '/profile')
+      cy.contains('a', 'Dashboard').should('not.exist')
+      cy.contains('a', 'Apply').should('not.exist')
+      cy.contains('a', 'Classes').should('not.exist')
 
-    // Verify email (emulated email side-channel)
-    cy.getLatestOobLink(email, 'VERIFY_EMAIL').then((link) => {
-      cy.request(link)
+      if (resend) {
+        // Verify original OOB link exists but don't click it
+        cy.getLatestOobLink(email, 'VERIFY_EMAIL').should('exist')
+        // Clear out the original verification email
+        cy.clearTestEmails()
+        // Click "Send it again" to get a second OOB link
+        cy.contains('button', 'Send it again.').click()
+        cy.waitForNotification('Verification email was sent.', 'bg-gray-200')
+        // Verify using the new OOB link
+        cy.getLatestOobLink(email, 'VERIFY_EMAIL').then((link) => {
+          cy.request(link)
+        })
+      } else {
+        // Verify email (emulated email side-channel using original link)
+        cy.getLatestOobLink(email, 'VERIFY_EMAIL').then((link) => {
+          cy.request(link)
+        })
+      }
+
+      // Revisit profile page and confirm email verification guard is bypassed
+      cy.visit('/profile')
+      cy.get('[role="dialog"]').should('not.exist')
+      cy.contains('Role: instructor').should('be.visible')
+
+      // Verify instructor navigation links are now visible
+      cy.contains('a', 'Dashboard').should('be.visible')
+      cy.contains('a', 'Apply').should('be.visible')
+      cy.contains('a', 'Classes').should('be.visible')
+
+      // Verify student navigation links are not visible
+      cy.contains('a', 'Register').should('not.exist')
     })
-
-    // Revisit profile page and confirm email verification guard is bypassed
-    cy.visit('/profile')
-    cy.get('[role="dialog"]').should('not.exist')
-
-    // Verify instructor navigation links are now visible
-    cy.contains('a', 'Dashboard').should('be.visible')
-    cy.contains('a', 'Apply').should('be.visible')
-    cy.contains('a', 'Classes').should('be.visible')
-
-    // Verify student navigation links are not visible
-    cy.contains('a', 'Register').should('not.exist')
   })
 })

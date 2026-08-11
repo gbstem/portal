@@ -19,8 +19,9 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
 
     // Handle email verification (emulated email side-channel)
     cy.get('[role="dialog"]', { timeout: 10000 })
-      .contains('button', 'Go to dashboard')
+      .contains('button', 'Close')
       .click()
+    cy.get('[role="dialog"]').should('not.exist')
     cy.getLatestOobLink(email, 'VERIFY_EMAIL').then((link) => {
       cy.request(link)
     })
@@ -71,6 +72,7 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
 
     // Assert successful submission toast
     cy.waitForNotification('Your application has been submitted!')
+    cy.verifyEmailSent(email, 'Next steps for your gbSTEM application')
 
     // Reload the page
     cy.visit('/apply')
@@ -146,6 +148,10 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
       .contains('button', 'Submit')
       .click()
     cy.waitForNotification('Thank you for requesting a new timeslot!')
+    cy.verifyEmailSent(
+      'admin@gbstem.org',
+      'New Interview Timeslot Request From',
+    )
     cy.get('input[name="dateToAdd"]').should('not.exist')
     cy.contains('button', 'Request A Time').should('be.visible')
 
@@ -165,6 +171,10 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
           .contains('button', 'Submit')
           .click()
         cy.waitForNotification('Thank you for signing up for an interview!')
+        cy.verifyEmailSent(
+          'instructor-interview@gbstem.org',
+          'your interview with',
+        )
 
         cy.get('body')
           .contains(/Your interview will be on/)
@@ -213,6 +223,10 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
       .should('not.be.disabled')
       .click()
     cy.waitForNotification('Email sent successfully!')
+    cy.verifyEmailSent(
+      'instructor@gbstem.org',
+      'gbSTEM Community Service Hours Confirmation',
+    )
   })
 
   it('Test Case 13: Class Details Submission & Modifying Details', () => {
@@ -296,5 +310,18 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
     cy.contains('button', 'Confirm Request').click({ force: true })
     cy.waitForNotification('Sub request sent!')
     cy.get('[role="dialog"]').should('not.exist')
+
+    // Wait for window.location.reload() (which fires 1000ms after sub request) to finish
+    cy.wait(1500)
+
+    // Sign up to substitute a class session and verify confirmation email (/api/substitute)
+    cy.contains('h2', 'Sign Up To Substitute A Class')
+      .parent()
+      .within(() => {
+        cy.get('input[type="checkbox"]').first().check({ force: true })
+        cy.contains('button', 'Submit').click({ force: true })
+      })
+    cy.waitForNotification('Signup successful!')
+    cy.verifyEmailSent('instructor@gbstem.org', 'Class Substitute Confirmation')
   })
 })

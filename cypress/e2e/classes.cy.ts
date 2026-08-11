@@ -1,12 +1,14 @@
 import semesterDates from '../../src/lib/data/semesterDates.json'
 
 describe('Section D: Class Roster and Details View', () => {
-  it('Test Case 9: Student View Enrolled Classes, Filtering, and Toggle', () => {
-    // Set system clock to 1 day after registrationsDue date so class enrollment is open
+  beforeEach(() => {
+    // Set system clock to 1 day after registrationsDue date so class enrollment and schedule are visible
     const regDue = new Date(semesterDates.registrationsDue)
     const postRegDueDate = new Date(regDue.getTime() + 24 * 60 * 60 * 1000)
     cy.clock(postRegDueDate.getTime(), ['Date'])
+  })
 
+  it('Test Case 9: Student View Enrolled Classes, Filtering, and Toggle', () => {
     // Log in as student
     cy.signedInSession('student', { initialPage: '/classes' })
 
@@ -45,12 +47,33 @@ describe('Section D: Class Roster and Details View', () => {
     cy.get('body').should('contain', 'Mathematics 2a')
   })
 
-  it('Test Case 10: Instructor View Taught Classes', () => {
-    // Set system clock to 1 day after registrationsDue date so class list is visible
-    const regDue = new Date(semesterDates.registrationsDue)
-    const postRegDueDate = new Date(regDue.getTime() + 24 * 60 * 60 * 1000)
-    cy.clock(postRegDueDate.getTime(), ['Date'])
+  it('Test Case 9b: Student Enroll in a Class', () => {
+    // Log in as student
+    cy.signedInSession('student', { initialPage: '/classes' })
 
+    // Wait for class details and student enrollment data to load
+    cy.get('body').should('contain', 'Mathematics 2a')
+    cy.wait(500)
+
+    // Enroll in a class and verify enrollment confirmation email (/api/enroll)
+    cy.contains('h2', 'Mathematics 2a')
+      .closest('.group')
+      .contains('button', 'Add/Drop Class')
+      .click()
+    cy.get('[role="dialog"]').should('exist')
+    cy.get('[role="dialog"]')
+      .contains('button', 'Enroll Student')
+      .click({ force: true })
+    cy.waitForNotification('Thank you for enrolling!')
+    cy.get('[role="dialog"]').contains('button', 'Close').click({ force: true })
+    cy.get('[role="dialog"]').should('not.exist')
+    cy.verifyEmailSent(
+      'student@gbstem.org',
+      'Mathematics 2a class details for Demo Student One',
+    )
+  })
+
+  it('Test Case 10: Instructor View Taught Classes', () => {
     // Log in as instructor
     cy.signedInSession('instructor', { initialPage: '/classes' })
 
@@ -72,5 +95,21 @@ describe('Section D: Class Roster and Details View', () => {
     cy.wait(500)
     cy.get('body').should('contain', 'Python 1')
     cy.get('body').should('contain', 'Scratch 1')
+  })
+
+  it('Test Case 10b: Instructor Send Class Reminder to Students', () => {
+    // Log in as instructor
+    cy.signedInSession('instructor', { initialPage: '/dashboard' })
+
+    // Verify instructor class schedule is visible and wait for student list to populate
+    cy.contains('Next Upcoming Class:').should('be.visible')
+    cy.get('body').should('contain', 'Python 1')
+    cy.wait(1000)
+
+    // Send class reminder to students and verify email (/api/remindStudents)
+    cy.on('window:confirm', () => true)
+    cy.contains('button', 'Send Reminder').click({ force: true })
+    cy.waitForNotification('Reminder emails were sent!')
+    cy.verifyEmailSent('student@gbstem.org', 'gbSTEM Class Reminder')
   })
 })
