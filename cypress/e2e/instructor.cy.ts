@@ -19,8 +19,9 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
 
     // Handle email verification (emulated email side-channel)
     cy.get('[role="dialog"]', { timeout: 10000 })
-      .contains('button', 'Go to dashboard')
+      .contains('button', 'Close')
       .click()
+    cy.get('[role="dialog"]').should('not.exist')
     cy.getLatestOobLink(email, 'VERIFY_EMAIL').then((link) => {
       cy.request(link)
     })

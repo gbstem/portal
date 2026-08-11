@@ -22,7 +22,8 @@ describe('Section B: Student Registration & Account Management', () => {
     cy.get('button[type="submit"]').click()
 
     // Handle email verification (emulated email side-channel)
-    cy.get('[role="dialog"]').contains('button', 'Go to dashboard').click()
+    cy.get('[role="dialog"]').contains('button', 'Close').click()
+    cy.get('[role="dialog"]').should('not.exist')
     cy.getLatestOobLink(email, 'VERIFY_EMAIL').then((link) => {
       cy.request(link)
     })

@@ -1,20 +1,20 @@
 <script lang="ts">
-  import type { ActionRequestBody } from '../../api/action/+server'
+  import { user } from '$lib/client/firebase'
+  import Button from '$lib/components/Button.svelte'
+  import Card from '$lib/components/Card.svelte'
+  import Dialog from '$lib/components/Dialog.svelte'
+  import DialogActions from '$lib/components/DialogActions.svelte'
+  import Field from '$lib/components/Field.svelte'
   import ChangeEmailForm from '$lib/components/forms/ChangeEmailForm.svelte'
+  import ChangeNameForm from '$lib/components/forms/ChangeNameForm.svelte'
   import ChangePasswordForm from '$lib/components/forms/ChangePasswordForm.svelte'
   import DeleteAccountForm from '$lib/components/forms/DeleteAccountForm.svelte'
-  import { fade } from 'svelte/transition'
+  import Link from '$lib/components/Link.svelte'
   import { alert } from '$lib/stores'
   import { writeToClipboard } from '$lib/utils'
-  import ChangeNameForm from '$lib/components/forms/ChangeNameForm.svelte'
-  import Card from '$lib/components/Card.svelte'
+  import { fade } from 'svelte/transition'
+  import type { ActionRequestBody } from '../../api/action/+server'
   import type { PageData } from './$types'
-  import { user } from '$lib/client/firebase'
-  import Field from '$lib/components/Field.svelte'
-  import Dialog from '$lib/components/Dialog.svelte'
-  import Button from '$lib/components/Button.svelte'
-  import DialogActions from '$lib/components/DialogActions.svelte'
-  import Link from '$lib/components/Link.svelte'
 
   interface Props {
     data: PageData
@@ -70,13 +70,6 @@
       </p>
 
       <DialogActions>
-        <Button
-          color="blue"
-          onclick={() => {
-            location.reload()
-            setTimeout(() => (window.location.href = '/dashboard'), 100)
-          }}>Go to dashboard</Button
-        >
         <Button onclick={() => (showVerifyDialog = false)}>Close</Button>
       </DialogActions>
     </div>
