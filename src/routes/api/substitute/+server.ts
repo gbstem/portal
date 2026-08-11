@@ -1,5 +1,5 @@
 import { substituteClassEmailTemplate } from '$lib/data/emailTemplates/substituteClassEmailTemplate'
-import { verifyAuthenticated, handleApiError } from '$lib/server/apiHelpers'
+import { handleApiError, verifyAuthenticated } from '$lib/server/apiHelpers'
 import { sendEmail } from '$lib/server/email'
 import { addDataToHtmlTemplate } from '$lib/utils'
 import { json } from '@sveltejs/kit'
@@ -25,7 +25,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     const template = {
       name: 'interviewSlotRequest',
       data: {
-        subject: `Class Substitute Confirmation`,
+        subject: 'Class Substitute Confirmation',
         app: {
           firstName: body.firstName,
           course: body.course,

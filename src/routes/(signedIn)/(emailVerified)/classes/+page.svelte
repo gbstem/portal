@@ -103,7 +103,7 @@
   })
 
   const isEnrolled = (classId: string, studentUid: string): boolean => {
-    if (studentUid === '') {
+    if (!studentUid || !studentUidToClassIds[studentUid]) {
       return false
     }
     return studentUidToClassIds[studentUid].includes(classId)
@@ -136,7 +136,7 @@
     }
 
     // throw alert if student attempts to enroll in more than 2 classes
-    if (studentUidToClassIds[selectedStudentUid].length >= 2) {
+    if ((studentUidToClassIds[selectedStudentUid]?.length ?? 0) >= 2) {
       alert.trigger(
         'error',
         'Each student may only enroll in a maximum of 2 classes!',

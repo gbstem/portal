@@ -6,10 +6,6 @@
   import { selectedStudentIdState } from '$lib/stores.svelte'
   import { onMount } from 'svelte'
 
-  let loading = $state(true)
-  let loadError = $state(false)
-
-  let studentsOptions: { name: string }[] = $state([])
   interface Props {
     selectedStudent?: string
     selectedStudentUid?: string
@@ -21,84 +17,87 @@
     selectedStudentUid = $bindable(''),
     preloadedStudents = [],
   }: Props = $props()
-  const nameToUid: Record<string, string> = $state({})
 
-  const initializeFromPreloadedData = () => {
-    studentsOptions = preloadedStudents.map((student) => ({
+  let fetchedStudents = $state<{ uid: string; name: string }[]>([])
+  let fetchingLoading = $state(true)
+  let loadError = $state(false)
+
+  const studentsList = $derived(
+    preloadedStudents.length > 0 ? preloadedStudents : fetchedStudents,
+  )
+
+  const studentsOptions = $derived(
+    studentsList.map((student) => ({
       name: student.name,
-    }))
-    preloadedStudents.forEach((student) => {
-      nameToUid[student.name] = student.uid
-    })
+    })),
+  )
 
-    // Set the selected student to the first student if available
+  const nameToUid = $derived(
+    studentsList.reduce<Record<string, string>>((acc, student) => {
+      acc[student.name] = student.uid
+      return acc
+    }, {}),
+  )
+
+  const loading = $derived(
+    preloadedStudents.length > 0 ? false : fetchingLoading,
+  )
+
+  $effect(() => {
+    // Set the selected student to the first student if available and not already set
     if (studentsOptions.length > 0 && !selectedStudent) {
       selectedStudent = studentsOptions[0].name
     }
-    loading = false
-  }
+  })
+
+  $effect(() => {
+    if (selectedStudent && nameToUid[selectedStudent]) {
+      const targetUid = nameToUid[selectedStudent]
+      if (selectedStudentUid !== targetUid) {
+        selectedStudentUid = targetUid
+      }
+      selectedStudentIdState.current = targetUid
+    }
+  })
 
   const fetchData = async (user: Data.User.Store) => {
     const uid = user.object.uid
     const slots = await registrationService.fetchChildRegistrationSlots(uid)
+    const list: { uid: string; name: string }[] = []
     slots.forEach((slot, index) => {
       if (slot.exists && slot.data?.meta.submitted) {
         const name =
           `${slot.data.personal.studentFirstName} ${slot.data.personal.studentLastName}`.trim() ||
           `Child ${index + 1}`
-        studentsOptions.push({
+        list.push({
+          uid: slot.uid,
           name,
         })
-        nameToUid[name] = slot.uid
       }
     })
+    fetchedStudents = list
   }
 
-  $effect(() => {
-    if (selectedStudent) {
-      const selectedStudentRegistration = studentsOptions.find(
-        (option) => option.name === selectedStudent,
-      )
-      if (selectedStudentRegistration) {
-        selectedStudentUid = nameToUid[selectedStudentRegistration.name]
-        selectedStudentIdState.current = selectedStudentUid
-      }
-    }
-  })
-
-  $effect(() => {
-    if (preloadedStudents.length > 0) {
-      initializeFromPreloadedData()
-    }
-  })
-
   onMount(() => {
-    // If we have preloaded data, use it immediately
     if (preloadedStudents.length > 0) {
-      initializeFromPreloadedData()
-    } else {
-      // Fall back to original logic if no preloaded data
-      return user.subscribe(async (userData) => {
-        if (userData) {
-          try {
-            if (userData.profile.role === 'student') {
-              await fetchData(userData)
-            }
-            // set the selected student to the first student
-            if (studentsOptions.length > 0) {
-              selectedStudent = studentsOptions[0].name
-            }
-          } catch (err) {
-            console.error('[StudentSelect] Failed to load students:', err)
-            loadError = true
-          } finally {
-            // Always cleared, so a failed read shows the error below instead of
-            // spinning forever or claiming the parent has no students.
-            loading = false
-          }
-        }
-      })
+      fetchingLoading = false
+      return
     }
+
+    return user.subscribe(async (userData) => {
+      if (userData) {
+        try {
+          if (userData.profile.role === 'student') {
+            await fetchData(userData)
+          }
+        } catch (err) {
+          console.error('[StudentSelect] Failed to load students:', err)
+          loadError = true
+        } finally {
+          fetchingLoading = false
+        }
+      }
+    })
   })
 
   export const load = () => {

@@ -103,6 +103,12 @@ describe('Section B: Student Registration & Account Management', () => {
 
     // Assert successful submission toast
     cy.waitForNotification('Your student account has been created!')
+    cy.get('@parentEmail').then((parentEmail) => {
+      cy.verifyEmailSent(
+        parentEmail as unknown as string,
+        'Next steps for your gbSTEM registration',
+      )
+    })
 
     // Verify written data directly in the database emulator
     cy.get('@parentEmail').then((emailAddress: any) => {
