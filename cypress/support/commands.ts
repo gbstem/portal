@@ -99,8 +99,11 @@ Cypress.Commands.add('signOutViaUi', () => {
 Cypress.Commands.add(
   'selectOption',
   (selector: string, text: string, options?: Partial<Cypress.Timeoutable>) => {
+    // Select.svelte populates filteredOptions synchronously from options
+    // already in memory on focus/open (no debounce applies until the user
+    // types), so the option button is already renderable -- no need to wait
+    // before the retrying .contains() below finds and clicks it.
     cy.get(selector, options).click({ force: true })
-    cy.wait(300)
     cy.contains('button', text, options).click({ force: true })
   },
 )

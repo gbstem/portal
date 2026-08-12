@@ -32,7 +32,6 @@ describe('Section F: Profile Customization & Account Management', () => {
 
     // Visit profile
     cy.visit('/profile')
-    cy.wait(2000)
 
     // 2. Update Full Name
     cy.get('input[name="firstName"]').should('have.value', 'Profile')
@@ -49,7 +48,6 @@ describe('Section F: Profile Customization & Account Management', () => {
 
     // Verify persistence after reload
     cy.visit('/profile')
-    cy.wait(1000)
     cy.get('input[name="firstName"]').should('have.value', 'UpdatedFirst')
     cy.get('input[name="lastName"]').should('have.value', 'UpdatedLast')
 
@@ -78,8 +76,10 @@ describe('Section F: Profile Customization & Account Management', () => {
 
     // Reload and verify email field shows the updated email
     cy.visit('/profile')
-    cy.wait(2000)
-    cy.get('input[id="current-email"]').should('have.value', updatedEmail)
+    cy.get('input[id="current-email"]', { timeout: 8000 }).should(
+      'have.value',
+      updatedEmail,
+    )
 
     // 4. Change Password
     cy.fillInput('input[name="newPassword"]', newPassword)
@@ -138,6 +138,11 @@ describe('Section F: Profile Customization & Account Management', () => {
 
     // Visiting /apply as an instructor auto-creates a draft application doc.
     cy.visit('/apply')
+    // Empirically needed: without this, /apply rendered the student-facing
+    // "Student Account Creation" form instead of the instructor "Apply" form
+    // (verified via a real test run screenshot), meaning the instructor role
+    // claim set at signup hadn't yet propagated to this session -- so no
+    // draft application doc got created, and the exists-check below failed.
     cy.wait(2000)
 
     // getFirestoreUserId/checkFirestoreDocExists use the Admin SDK (cypress.config.ts task),

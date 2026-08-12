@@ -33,7 +33,6 @@ describe('Section B: Student Registration & Account Management', () => {
   it('Test Case 6: Parent Registration - Manage Multiple Children', () => {
     cy.visit('/apply')
     cy.get('h1').should('contain', 'Student Account Creation')
-    cy.wait(1000) // Wait for Svelte page to settle
 
     // Assert Child 1 exists by default
     cy.get('input[name="select-a-child"]', { timeout: 10000 }).should(
@@ -44,7 +43,6 @@ describe('Section B: Student Registration & Account Management', () => {
     // Click "Add Child Account" to add new children up to maxChildrenPerAccount
     for (let i = 2; i <= maxChildrenPerAccount; i++) {
       cy.contains('button', 'Add Child Account').click()
-      cy.wait(300)
       cy.get('input[name="select-a-child"]').should('have.value', `Child ${i}`)
     }
 
@@ -59,7 +57,6 @@ describe('Section B: Student Registration & Account Management', () => {
   it('Test Case 7: Complete and Submit a Registration Form', () => {
     cy.visit('/apply')
     cy.get('h1').should('contain', 'Student Account Creation')
-    cy.wait(1000)
 
     // Select Child 1 to register
     cy.get('input[name="select-a-child"]', { timeout: 10000 }).should(
@@ -146,7 +143,6 @@ describe('Section B: Student Registration & Account Management', () => {
       `${studentFirst} ${studentLast}`,
       { timeout: 10000 },
     )
-    cy.wait(500)
 
     // Verify submitted values persist (should display the submitted account card layout)
     cy.get('body').should(
