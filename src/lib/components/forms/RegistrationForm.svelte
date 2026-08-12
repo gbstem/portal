@@ -76,6 +76,9 @@
             personal: {
               ...values.personal,
               ...formVal.data.personal,
+              email: values.personal.email,
+              parentFirstName: values.personal.parentFirstName,
+              parentLastName: values.personal.parentLastName,
             },
             academic: {
               ...values.academic,
@@ -175,6 +178,7 @@
               values.personal.parentFirstName = user.profile.firstName
               values.personal.parentLastName = user.profile.lastName
               values.personal.email = user.object.email ?? ''
+              form.set(toFormValues(values))
               await handleSave()
             }
           } else {
@@ -184,6 +188,7 @@
             values.personal.parentLastName = user.profile.lastName
             values.personal.email = user.object.email ?? ''
             dbValues = cloneDeep(values)
+            form.set(toFormValues(values))
             await handleSave()
           }
           if (new Date() > new Date(semesterDates.registrationsOpen)) {
@@ -259,6 +264,9 @@
           personal: {
             ...values.personal,
             ...$form.personal,
+            email: values.personal.email,
+            parentFirstName: values.personal.parentFirstName,
+            parentLastName: values.personal.parentLastName,
           },
           academic: {
             ...values.academic,
