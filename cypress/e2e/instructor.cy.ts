@@ -28,16 +28,9 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
 
     cy.visit('/apply')
     cy.get('h1').should('contain', 'Apply')
-
-    // ApplyForm.svelte's onMount kicks off an async handleSave() that later
-    // reassigns the whole `values` object (ApplyForm.svelte:225), which resets
-    // bound form inputs -- the disabled check below only reflects the *saving*
-    // flag, which is still false both before that save starts and after it
-    // finishes, so it doesn't rule out typing landing mid-save. Verified via a
-    // real test run: without this wait, keystrokes into phoneNumber got
-    // scrambled (typed "5559876543" ended up as "55398").
-    cy.wait(2000)
-    cy.get('input[name="personal.phoneNumber"]').should('not.be.disabled')
+    cy.get('input[name="personal.phoneNumber"]')
+      .should('be.visible')
+      .and('not.be.disabled')
 
     // Fill application form details
     cy.fillInput('input[name="personal.phoneNumber"]', '5559876543')

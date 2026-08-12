@@ -9,11 +9,14 @@
   import { z } from 'zod'
   import Button from '../Button.svelte'
   import FormInput from '../FormInput.svelte'
+  import Loading from '../Loading.svelte'
 
   const schema = z.object({
     firstName: z.string().trim().min(1, 'First name is required'),
     lastName: z.string().trim().min(1, 'Last name is required'),
   })
+
+  let loading = $state(true)
 
   const formResult = superForm(
     defaults({ firstName: '', lastName: '' }, zod(schema as any) as any) as any,
@@ -64,45 +67,52 @@
   const { form, enhance, delayed } = formResult
 
   onMount(() => {
+    let initialized = false
     return user.subscribe((u) => {
-      if (u && u.profile) {
+      if (u && u.profile && !initialized) {
         $form.firstName = u.profile.firstName || ''
         $form.lastName = u.profile.lastName || ''
+        initialized = true
+        loading = false
       }
     })
   })
 </script>
 
-<form use:enhance class="w-full">
-  <fieldset class="space-y-4" disabled={$delayed}>
-    <span class="font-bold">Name</span>
-    <div class="grid gap-2 sm:grid-cols-2">
-      <div class="flex flex-col gap-1.5">
-        <FormInput
-          form={formResult}
-          name="firstName"
-          label="First name"
-          bind:value={$form.firstName}
-        />
-      </div>
-      <div class="flex items-end gap-2">
-        <div class="flex w-full flex-col gap-1.5">
+{#if loading}
+  <Loading />
+{:else}
+  <form use:enhance class="w-full">
+    <fieldset class="space-y-4" disabled={$delayed}>
+      <span class="font-bold">Name</span>
+      <div class="grid gap-2 sm:grid-cols-2">
+        <div class="flex flex-col gap-1.5">
           <FormInput
             form={formResult}
-            name="lastName"
-            label="Last name"
-            bind:value={$form.lastName}
+            name="firstName"
+            label="First name"
+            bind:value={$form.firstName}
           />
         </div>
-        <Button
-          class="h-12 shrink-0"
-          color="blue"
-          type="submit"
-          disabled={$delayed}
-        >
-          Update
-        </Button>
+        <div class="flex items-end gap-2">
+          <div class="flex w-full flex-col gap-1.5">
+            <FormInput
+              form={formResult}
+              name="lastName"
+              label="Last name"
+              bind:value={$form.lastName}
+            />
+          </div>
+          <Button
+            class="h-12 shrink-0"
+            color="blue"
+            type="submit"
+            disabled={$delayed}
+          >
+            Update
+          </Button>
+        </div>
       </div>
-    </div>
-  </fieldset>
-</form>
+    </fieldset>
+  </form>
+{/if}

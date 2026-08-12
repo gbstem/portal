@@ -15,7 +15,6 @@
   } from '$lib/helpers/registrationForm'
   import { registrationService } from '$lib/services/registrationService'
   import { alert } from '$lib/stores'
-  import type { FirebaseError } from 'firebase/app'
   import { serverTimestamp } from 'firebase/firestore'
   import { cloneDeep, isEqual } from 'lodash-es'
   import { onDestroy, onMount } from 'svelte'
@@ -24,6 +23,7 @@
   import FormCheckbox from '../FormCheckbox.svelte'
   import FormInput from '../FormInput.svelte'
   import FormSelect from '../FormSelect.svelte'
+  import Loading from '../Loading.svelte'
   import { registrationSchema } from './schemas'
 
   interface Props {
@@ -49,6 +49,7 @@
   }: Props = $props()
 
   let loading = $state(true)
+  let loadError = $state(false)
   let saving = $state(false)
   let dbValues: Data.Registration
 
@@ -126,9 +127,10 @@
                 )
               }
             })
-            .catch((err: FirebaseError) => {
+            .catch((err: any) => {
               console.error('Registration submit error:', err)
-              alert.trigger('error', err.code, true)
+              const msg = err?.code || err?.message || 'An error occurred'
+              alert.trigger('error', msg, Boolean(err?.code))
             })
         }
       },
@@ -156,39 +158,50 @@
       unsubscribeUser = undefined
     }
     loading = true
+    loadError = false
     unsubscribeUser = user.subscribe(async (user) => {
       if (user) {
-        const applicationData =
-          await registrationService.fetchRegistration(childUid)
-        if (applicationData) {
-          safeSetValues(applicationData)
-          if (
-            !values.meta.submitted &&
-            (values.personal.parentFirstName !== user.profile.firstName ||
-              values.personal.parentLastName !== user.profile.lastName ||
-              values.personal.email !== user.object.email)
-          ) {
+        try {
+          const applicationData =
+            await registrationService.fetchRegistration(childUid)
+          if (applicationData) {
+            safeSetValues(applicationData)
+            if (
+              !values.meta.submitted &&
+              (values.personal.parentFirstName !== user.profile.firstName ||
+                values.personal.parentLastName !== user.profile.lastName ||
+                values.personal.email !== user.object.email)
+            ) {
+              values.personal.parentFirstName = user.profile.firstName
+              values.personal.parentLastName = user.profile.lastName
+              values.personal.email = user.object.email ?? ''
+              await handleSave()
+            }
+          } else {
+            values = createEmptyRegistration()
+            values.meta.uid = childUid
             values.personal.parentFirstName = user.profile.firstName
             values.personal.parentLastName = user.profile.lastName
             values.personal.email = user.object.email ?? ''
-            handleSave()
+            dbValues = cloneDeep(values)
+            await handleSave()
           }
-        } else {
-          values = createEmptyRegistration()
-          values.meta.uid = childUid
-          values.personal.parentFirstName = user.profile.firstName
-          values.personal.parentLastName = user.profile.lastName
-          values.personal.email = user.object.email ?? ''
-          dbValues = cloneDeep(values)
-          handleSave()
-        }
-        loading = false
-        if (new Date() > new Date(semesterDates.registrationsOpen)) {
-          if (saveInterval === undefined) {
-            saveInterval = window.setInterval(() => {
-              handleSave()
-            }, 300000)
+          if (new Date() > new Date(semesterDates.registrationsOpen)) {
+            if (saveInterval === undefined) {
+              saveInterval = window.setInterval(() => {
+                handleSave()
+              }, 300000)
+            }
           }
+        } catch (err) {
+          console.error('[RegistrationForm] Failed to load registration:', err)
+          loadError = true
+          alert.trigger(
+            'error',
+            'Could not load registration. Please reload the page to try again.',
+          )
+        } finally {
+          loading = false
         }
       }
     })
@@ -236,8 +249,8 @@
     }
   }
 
-  function handleSave() {
-    if (loading || saving || $submitting) return Promise.resolve()
+  function handleSave(): Promise<void> {
+    if (values.meta.submitted || saving || $submitting) return Promise.resolve()
     saving = true
     return new Promise<void>((resolve, reject) => {
       if ($user) {
@@ -283,8 +296,9 @@
           .catch((err) => {
             saving = false
             console.error('Registration save error:', err)
-            alert.trigger('error', err.code, true)
-            reject()
+            const msg = err?.code || err?.message || 'An error occurred'
+            alert.trigger('error', msg, Boolean(err?.code))
+            reject(err)
           })
       } else {
         saving = false
@@ -332,7 +346,16 @@
 
 <svelte:window onbeforeunload={handleUnload} />
 
-{#if new Date() < new Date(semesterDates.registrationsOpen)}
+{#if loading}
+  <Loading />
+{:else if loadError}
+  <Card class="mx-auto w-fit text-center">
+    <div class="space-y-3">
+      <div class="font-bold">Couldn't load registration</div>
+      <div class="text-sm">Please reload the page to try again.</div>
+    </div>
+  </Card>
+{:else if new Date() < new Date(semesterDates.registrationsOpen)}
   <Card class="mb-6 max-w-2xl border-red-200 bg-red-50">
     <div class="flex items-start gap-3">
       <svg
@@ -404,7 +427,7 @@
     </div>
   {:else}
     <form use:enhance class="max-w-2xl">
-      <fieldset class="space-y-14" disabled={loading || $submitting || saving}>
+      <fieldset class="space-y-14" disabled={$submitting || saving}>
         {#if values.personal.studentFirstName !== ''}
           <div
             class="w-full rounded-md border border-red-200 bg-red-100 px-4 py-2 text-center text-green-900 shadow-xs"
