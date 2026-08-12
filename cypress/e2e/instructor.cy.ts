@@ -27,10 +27,16 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
     })
 
     cy.visit('/apply')
-    cy.wait(2000) // Allow auto-save to start and complete
     cy.get('h1').should('contain', 'Apply')
 
-    // Wait for the form loading/saving to finish
+    // ApplyForm.svelte's onMount kicks off an async handleSave() that later
+    // reassigns the whole `values` object (ApplyForm.svelte:225), which resets
+    // bound form inputs -- the disabled check below only reflects the *saving*
+    // flag, which is still false both before that save starts and after it
+    // finishes, so it doesn't rule out typing landing mid-save. Verified via a
+    // real test run: without this wait, keystrokes into phoneNumber got
+    // scrambled (typed "5559876543" ended up as "55398").
+    cy.wait(2000)
     cy.get('input[name="personal.phoneNumber"]').should('not.be.disabled')
 
     // Fill application form details
@@ -76,7 +82,6 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
 
     // Reload the page
     cy.visit('/apply')
-    cy.wait(1500)
 
     // Verify submitted status is displayed
     cy.get('body').should('contain', 'Application submitted and in review!')
@@ -112,7 +117,6 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
     cy.get('a').contains('Community Service Hours Tracker').should('be.visible')
 
     cy.visit('/apply')
-    cy.wait(1500)
     cy.get('body').should('contain', 'Application submitted and in review!')
     cy.get('input[name="personal.phoneNumber"]').should('be.disabled')
   })
@@ -128,7 +132,6 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
     cy.get('a').contains('Community Service Hours Tracker').should('not.exist')
 
     cy.visit('/apply')
-    cy.wait(1500)
     cy.get('body').should('contain', 'Application submitted and in review!')
     cy.signOutViaUi()
   })
@@ -157,7 +160,6 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
 
     // Scenario 2: Book slot
     cy.visit('/dashboard')
-    cy.wait(1500)
     cy.get('input[type="radio"]')
       .first()
       .parent()
@@ -242,9 +244,9 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
       })
     cy.waitForNotification('Class details saved!')
 
-    // Wait for the 2-second timeout reload to trigger and load the page
-    cy.wait(2500)
-    cy.contains('h2', 'Class Details')
+    // The page does a location.reload() ~2000ms after this save -- give the
+    // lookup extra retry budget to span that instead of a fixed pre-wait.
+    cy.contains('h2', 'Class Details', { timeout: 8000 })
       .closest('.rounded-xl')
       .within(() => {
         cy.get('input[name="classCap"]')
@@ -311,8 +313,18 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
     cy.waitForNotification('Sub request sent!')
     cy.get('[role="dialog"]').should('not.exist')
 
-    // Wait for window.location.reload() (which fires 1000ms after sub request) to finish
-    cy.wait(1500)
+    // window.location.reload() fires ~1000ms after the sub request -- give the
+    // lookup extra retry budget to span that instead of a fixed pre-wait.
+    cy.contains('h2', 'Sign Up To Substitute A Class', {
+      timeout: 8000,
+    }).should('be.visible')
+    // A full page reload resets the whole document, so unlike the lookup
+    // above (which only needs the content to exist and retries fine), the
+    // checkbox/submit click below needs the reloaded page to actually be
+    // interactive again -- verified via a real test run: without this,
+    // clicking immediately after the h2 appears occasionally lands before
+    // hydration finishes and the signup never fires.
+    cy.wait(500)
 
     // Sign up to substitute a class session and verify confirmation email (/api/substitute)
     cy.contains('h2', 'Sign Up To Substitute A Class')

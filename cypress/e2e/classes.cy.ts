@@ -18,20 +18,17 @@ describe('Section D: Class Roster and Details View', () => {
 
     // 1. Select course filter
     cy.selectOption('input[placeholder="Filter by course"]', 'Python 1')
-    cy.wait(500)
     cy.get('body').should('contain', 'Python 1')
     // We should not see other courses if we filter by Python 1
     cy.contains('body', 'Scratch 1').should('not.exist')
 
     // Remove filter
     cy.selectOption('input[placeholder="Filter by course"]', 'all')
-    cy.wait(500)
     cy.get('body').should('contain', 'Python 1')
     cy.get('body').should('contain', 'Mathematics 2a')
 
     // 2. Toggle showing only enrolled classes
     cy.contains('button', 'Show all enrolled classes').click()
-    cy.wait(500)
     cy.contains('button', 'Show all classes').should('be.visible')
     // Python 1 (enrolled class) should still be visible
     cy.get('body').should('contain', 'Python 1')
@@ -40,7 +37,6 @@ describe('Section D: Class Roster and Details View', () => {
 
     // Toggle back to show all classes
     cy.contains('button', 'Show all classes').click()
-    cy.wait(500)
     cy.contains('button', 'Show all enrolled classes').should('be.visible')
     // Both Python 1 and Mathematics 2a should reappear
     cy.get('body').should('contain', 'Python 1')
@@ -53,6 +49,10 @@ describe('Section D: Class Roster and Details View', () => {
 
     // Wait for class details and student enrollment data to load
     cy.get('body').should('contain', 'Mathematics 2a')
+    // Empirically needed: removing this caused the enroll flow below to
+    // silently produce no success toast in a real test run, even though the
+    // card's text (and presumably its buttons) were already present -- some
+    // settle time beyond "the card text exists" is required here.
     cy.wait(500)
 
     // Enroll in a class and verify enrollment confirmation email (/api/enroll)
@@ -86,13 +86,11 @@ describe('Section D: Class Roster and Details View', () => {
 
     // 1. Select course filter
     cy.selectOption('input[placeholder="Filter by course"]', 'Python 1')
-    cy.wait(500)
     cy.get('body').should('contain', 'Python 1')
     cy.contains('body', 'Scratch 1').should('not.exist')
 
     // Remove filter
     cy.selectOption('input[placeholder="Filter by course"]', 'all')
-    cy.wait(500)
     cy.get('body').should('contain', 'Python 1')
     cy.get('body').should('contain', 'Scratch 1')
   })
@@ -104,6 +102,8 @@ describe('Section D: Class Roster and Details View', () => {
     // Verify instructor class schedule is visible and wait for student list to populate
     cy.contains('Next Upcoming Class:').should('be.visible')
     cy.get('body').should('contain', 'Python 1')
+    // Empirically needed: same as the enroll flow above -- removing this
+    // caused the reminder flow below to silently produce no success toast.
     cy.wait(1000)
 
     // Send class reminder to students and verify email (/api/remindStudents)
