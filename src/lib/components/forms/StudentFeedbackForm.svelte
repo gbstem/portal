@@ -10,10 +10,13 @@
   import { z } from 'zod'
   import Button from '../Button.svelte'
   import FormInput from '../FormInput.svelte'
+  import Loading from '../Loading.svelte'
 
   let showValidation = false
   let selectedStudentUid = $derived(selectedStudentIdState.current)
 
+  let loading = $state(true)
+  let loadError = $state(false)
   let selectedStudentCourses: any[] = $state([])
   let studentName = $state('')
 
@@ -100,25 +103,40 @@
 
   $effect(() => {
     const currentUid = selectedStudentUid
-    if (!currentUid) return
+    if (!currentUid) {
+      loading = false
+      return
+    }
     let cancelled = false
-    registrationService
-      .fetchRegistration(currentUid)
-      .then((data) => {
+    loading = true
+    loadError = false
+    ;(async () => {
+      try {
+        const data = await registrationService.fetchRegistration(currentUid)
         if (cancelled) return
         if (data) {
           studentName =
             data.personal.studentFirstName + ' ' + data.personal.studentLastName
           const classIds = data.classes || []
-          fetchCourseList(classIds)
+          await fetchCourseList(classIds)
+        } else {
+          studentName = ''
+          selectedStudentCourses = []
         }
-      })
-      .catch((err) => {
-        console.error(
-          '[StudentFeedbackForm] Error fetching student registration:',
-          err,
-        )
-      })
+      } catch (err) {
+        if (!cancelled) {
+          console.error(
+            '[StudentFeedbackForm] Error fetching student registration:',
+            err,
+          )
+          loadError = true
+        }
+      } finally {
+        if (!cancelled) {
+          loading = false
+        }
+      }
+    })()
     return () => {
       cancelled = true
     }
@@ -131,7 +149,15 @@
       Weekly Class Feedback Form{#if studentName}
         For {studentName}{/if}
     </h2>
-    {#if selectedStudentCourses.length == 0}
+    {#if loading}
+      <div class="py-8">
+        <Loading />
+      </div>
+    {:else if loadError}
+      <div class="py-4 text-sm text-red-600">
+        Failed to load student course details. Please try again.
+      </div>
+    {:else if selectedStudentCourses.length == 0}
       <div class="text-sm text-gray-500">
         This student is not currently enrolled in a course.
       </div>

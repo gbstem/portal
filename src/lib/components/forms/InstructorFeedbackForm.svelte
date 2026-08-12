@@ -11,6 +11,7 @@
   import Card from '../Card.svelte'
   import FormCheckbox from '../FormCheckbox.svelte'
   import FormInput from '../FormInput.svelte'
+  import Loading from '../Loading.svelte'
   import { ClassStatus } from '../helpers/ClassStatus'
 
   interface Props {
@@ -24,6 +25,7 @@
   let showValidation = false
   let currentUser: Data.User.Store
   let loading = $state(true)
+  let loadError = $state(false)
   let feedbackCompletedArray: boolean[] = []
   let classStatusesArray: string[] = []
 
@@ -132,9 +134,11 @@
           '[InstructorFeedbackForm] Error fetching initial data:',
           err,
         )
+        loadError = true
         alert.trigger('error', 'Failed to load class details.')
+      } finally {
+        loading = false
       }
-      loading = false
     }
   })
 
@@ -165,61 +169,72 @@
 
 <Card class="sticky top-2 z-50 flex max-w-2xl flex-col gap-3 p-3 md:p-3">
   <hr class="mt-5 mb-3" />
-  <form class={cn(showValidation && 'show-validation')} use:enhance>
-    <fieldset disabled={$submitting || loading}>
-      <h2 class="mt-6 mb-4 text-lg font-bold">Class Information</h2>
-      <div class="grid gap-1 sm:grid-cols-2 sm:gap-2">
-        <div class="flex flex-col gap-1.5 sm:col-span-1">
+  {#if loading}
+    <div class="py-8">
+      <Loading />
+    </div>
+  {:else if loadError}
+    <div class="py-4 text-center text-sm text-red-600">
+      Failed to load class details. Please try again.
+    </div>
+  {:else}
+    <form class={cn(showValidation && 'show-validation')} use:enhance>
+      <fieldset disabled={$submitting}>
+        <h2 class="mt-6 mb-4 text-lg font-bold">Class Information</h2>
+        <div class="grid gap-1 sm:grid-cols-2 sm:gap-2">
+          <div class="flex flex-col gap-1.5 sm:col-span-1">
+            <FormInput
+              form={formResult}
+              name="classDate"
+              label="Date of Class"
+              type="date"
+              bind:value={$form.classDate}
+            />
+          </div>
+          <div class="flex flex-col gap-1.5 sm:col-span-1">
+            <FormInput
+              form={formResult}
+              name="classNumber"
+              label="Class Session Number"
+              type="number"
+              bind:value={$form.classNumber}
+            />
+          </div>
+        </div>
+
+        <div class="mt-4 flex flex-col gap-1.5">
           <FormInput
             form={formResult}
-            name="classDate"
-            label="Date of Class"
-            type="date"
-            bind:value={$form.classDate}
+            name="feedback"
+            label="Reflect on how the class went. What went well? What could be improved? This will be shared with your course curriculum developer and track directors."
+            bind:value={$form.feedback}
           />
         </div>
-        <div class="flex flex-col gap-1.5 sm:col-span-1">
-          <FormInput
-            form={formResult}
-            name="classNumber"
-            label="Class Session Number"
-            type="number"
-            bind:value={$form.classNumber}
-          />
+
+        <hr class="mt-5 mb-3" />
+
+        <h2 class="mb-2 text-lg font-bold">Class Attendance</h2>
+        <div class="mt-2 space-y-2">
+          {#each classList as student, i (i)}
+            {#if $form.attendanceList[student]}
+              <div class="flex flex-col gap-1.5">
+                <FormCheckbox
+                  form={formResult}
+                  name={`attendanceList.${student}.present`}
+                  label={student}
+                  bind:checked={$form.attendanceList[student].present}
+                />
+              </div>
+            {/if}
+          {/each}
         </div>
-      </div>
 
-      <div class="mt-4 flex flex-col gap-1.5">
-        <FormInput
-          form={formResult}
-          name="feedback"
-          label="Reflect on how the class went. What went well? What could be improved? This will be shared with your course curriculum developer and track directors."
-          bind:value={$form.feedback}
-        />
-      </div>
-
-      <hr class="mt-5 mb-3" />
-
-      <h2 class="mb-2 text-lg font-bold">Class Attendance</h2>
-      <div class="mt-2 space-y-2">
-        {#each classList as student, i (i)}
-          {#if $form.attendanceList[student]}
-            <div class="flex flex-col gap-1.5">
-              <FormCheckbox
-                form={formResult}
-                name={`attendanceList.${student}.present`}
-                label={student}
-                bind:checked={$form.attendanceList[student].present}
-              />
-            </div>
-          {/if}
-        {/each}
-      </div>
-
-      <div class="justify m-3 mt-5 flex">
-        <Button color="blue" type="submit" disabled={$submitting}>Submit</Button
-        >
-      </div>
-    </fieldset>
-  </form>
+        <div class="justify m-3 mt-5 flex">
+          <Button color="blue" type="submit" disabled={$submitting}
+            >Submit</Button
+          >
+        </div>
+      </fieldset>
+    </form>
+  {/if}
 </Card>
