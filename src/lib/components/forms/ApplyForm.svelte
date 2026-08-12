@@ -142,6 +142,7 @@
           if (applicationData) {
             values = cloneDeep(applicationData)
             dbValues = cloneDeep(applicationData)
+            form.set(toFormValues(values))
             if (
               !values.meta.submitted &&
               (values.personal.email !== user.object.email ||
@@ -153,10 +154,12 @@
                 user.object,
                 user.profile,
               )
+              form.set(toFormValues(values))
               await handleSave()
             }
           } else {
             values = normalizeApplicationData(null, user.object, user.profile)
+            form.set(toFormValues(values))
             await handleSave()
           }
           if (!values.meta.submitted) {
