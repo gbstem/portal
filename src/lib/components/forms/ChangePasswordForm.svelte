@@ -54,6 +54,28 @@
     if ($user) {
       try {
         await updatePassword($user.object, passwordToUpdate)
+        // Changing the password revokes every session issued before it,
+        // including the server-side `__session` cookie this tab is still
+        // using (see hooks.server.ts's checkRevoked). Re-mint it from a
+        // freshly-refreshed ID token the same way SignInForm/SignUpForm do,
+        // or the next server load silently signs this tab out. The password
+        // change itself already succeeded, so a resync hiccup here (network
+        // blip, etc.) shouldn't surface as a password-change error - worst
+        // case the user is asked to sign in again on their next navigation,
+        // same as before this resync existed.
+        try {
+          const idToken = await $user.object.getIdToken(true)
+          await fetch('/api/auth', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idToken }),
+          })
+        } catch (resyncErr) {
+          console.error(
+            '[ChangePasswordForm] Failed to resync session cookie:',
+            resyncErr,
+          )
+        }
         alert.trigger('success', 'Password was successfully changed.')
       } catch (err: any) {
         alert.trigger('error', err.code, true)

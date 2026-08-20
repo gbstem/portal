@@ -156,6 +156,26 @@
     dbValues = cloneDeep(values)
   }
 
+  // Writes a freshly-bootstrapped (or freshly-renormalized) registration
+  // without the save->refetch->reapply round trip handleSave does for
+  // user-initiated saves. `newValues` already reflects exactly what we're
+  // about to write, so there's nothing worth re-fetching, and doing so here
+  // risked two races under slow CI: a stale "Your progress was saved." toast
+  // landing after a more important alert (e.g. the max-children error), and
+  // the refetch's `values` reassignment clobbering whatever the user had
+  // already started typing via the `form.set(toFormValues(values))` effect
+  // below by the time it resolved. `uid` is captured by the caller rather
+  // than read from the `childUid` prop in here, since this stays in flight
+  // across awaits and the prop can change (e.g. adding another child) before
+  // it resolves.
+  async function bootstrapRegistration(
+    uid: string,
+    newValues: Data.Registration,
+  ) {
+    await registrationService.saveRegistration(uid, newValues)
+    dbValues = cloneDeep(newValues)
+  }
+
   const initializeForm = () => {
     if (unsubscribeUser) {
       unsubscribeUser()
@@ -180,7 +200,7 @@
               values.personal.parentLastName = user.profile.lastName
               values.personal.email = user.object.email ?? ''
               form.set(toFormValues(values))
-              await handleSave()
+              await bootstrapRegistration(childUid, values)
             }
           } else {
             values = createEmptyRegistration()
@@ -190,7 +210,7 @@
             values.personal.email = user.object.email ?? ''
             dbValues = cloneDeep(values)
             form.set(toFormValues(values))
-            await handleSave()
+            await bootstrapRegistration(childUid, values)
           }
           if (new Date() > new Date(semesterDates.registrationsOpen)) {
             if (saveInterval === undefined) {
