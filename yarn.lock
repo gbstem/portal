@@ -7911,7 +7911,6 @@ __metadata:
     jest: "npm:^30.4.2"
     jest-environment-jsdom: "npm:^30.4.1"
     lodash-es: "npm:^4.18.1"
-    node-fetch: "npm:^3.3.2"
     nprogress: "npm:^0.2.0"
     postcss: "npm:^8.5.26"
     prettier: "npm:^3.9.6"

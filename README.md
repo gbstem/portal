@@ -186,7 +186,7 @@ ncu -t minor -u firebase firebase-admin typescript "@types/node" zod
 # Update all other dependencies in package.json to the latest versions
 ncu --peer --reject firebase,firebase-admin,typescript,"@types/node",zod -u
 
-# Install the updated packages and update package-lock.json
+# Install the updated packages and update yarn.lock
 yarn install
 
 # Run unit tests to verify no breaking changes were introduced
@@ -204,7 +204,7 @@ yarn lint
 yarn build
 ```
 
-After verifying that the tests, linting, and build pass successfully, commit and submit both `package.json` and `package-lock.json` to the repository.
+After verifying that the tests, linting, and build pass successfully, commit and submit both `package.json` and `yarn.lock` to the repository.
 
 ## Directory and File Index
 
@@ -240,7 +240,6 @@ Below is an alphabetical list of the top-level directories and significant confi
 - **`jest.config.ts`**: The configuration file for our Jest testing environment, specifically tailored to work alongside TypeScript and Svelte.
 - **`jest.setup.ts`**: Initial setup code that runs before our Jest tests, importing tools like `@testing-library/jest-dom` for custom DOM matchers.
 - **`package.json`**: Defines the project's details, scripts, and dependencies (the npm packages we rely on).
-- **`package-lock.json`**: An automatically generated file that locks down the exact versions of dependencies used, ensuring that all developers have identical, reproducible environments.
 - **`postcss.config.js`**: Configuration for PostCSS, typically used for transforming CSS with plugins.
 - **`prettier.config.js`**: Configuration rules for Prettier, ensuring consistent code formatting across the project.
 - **`src/data.csv`**: A static CSV data file containing program information or dataset resources.
@@ -248,3 +247,4 @@ Below is an alphabetical list of the top-level directories and significant confi
 - **`TEST_PLAN.md`**: A comprehensive test plan outlining testing strategies, test scenarios, coverage, and instructions for running Jest and Cypress tests.
 - **`tsconfig.json`**: Configuration settings for the TypeScript compiler.
 - **`vite.config.js`**: Vite configuration file for compiling, bundling, and configuring build plugins.
+- **`yarn.lock`**: An automatically generated file that locks down the exact versions of dependencies used, ensuring that all developers have identical, reproducible environments.
