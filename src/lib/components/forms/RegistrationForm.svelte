@@ -102,6 +102,7 @@
             },
             timestamps: {
               ...values.timestamps,
+              created: values.timestamps.created || serverTimestamp(),
               updated: serverTimestamp(),
             },
           }
@@ -286,6 +287,7 @@
           },
           timestamps: {
             ...values.timestamps,
+            created: values.timestamps.created || serverTimestamp(),
             updated: serverTimestamp(),
           },
         }
