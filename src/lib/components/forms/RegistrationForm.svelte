@@ -71,43 +71,11 @@
         if (!formVal.valid) return
         if ($user) {
           const frozenUser = $user
-          const updatedValues = {
-            ...values,
-            personal: {
-              ...values.personal,
-              ...formVal.data.personal,
-              email: values.personal.email,
-              parentFirstName: values.personal.parentFirstName,
-              parentLastName: values.personal.parentLastName,
-            },
-            academic: {
-              ...values.academic,
-              ...formVal.data.academic,
-            },
-            program: {
-              ...values.program,
-              ...formVal.data.program,
-            },
-            inPerson: {
-              ...values.inPerson,
-              ...formVal.data.inPerson,
-            },
-            agreements: {
-              ...values.agreements,
-              ...formVal.data.agreements,
-            },
-            meta: {
-              ...values.meta,
-              submitted: true,
-            },
-            timestamps: {
-              ...values.timestamps,
-              created: values.timestamps.created || serverTimestamp(),
-              updated: serverTimestamp(),
-            },
-          }
           registrationService
-            .saveRegistration(childUid, updatedValues)
+            .updateRegistration(childUid, {
+              ...ownedFields(formVal.data),
+              meta: { uid: childUid, submitted: true },
+            })
             .then(async () => {
               const freshReg =
                 await registrationService.fetchRegistration(childUid)
@@ -156,8 +124,9 @@
     dbValues = cloneDeep(values)
   }
 
-  // Writes a freshly-bootstrapped (or freshly-renormalized) registration
-  // without the save->refetch->reapply round trip handleSave does for
+  // Writes a freshly-bootstrapped registration - the first write for this uid,
+  // and the only one that sends the whole document - without the
+  // save->refetch->reapply round trip handleSave does for
   // user-initiated saves. `newValues` already reflects exactly what we're
   // about to write, so there's nothing worth re-fetching, and doing so here
   // risked two races under slow CI: a stale "Your progress was saved." toast
@@ -172,7 +141,7 @@
     uid: string,
     newValues: Data.Registration,
   ) {
-    await registrationService.saveRegistration(uid, newValues)
+    await registrationService.createRegistration(uid, newValues)
     dbValues = cloneDeep(newValues)
   }
 
@@ -200,7 +169,16 @@
               values.personal.parentLastName = user.profile.lastName
               values.personal.email = user.object.email ?? ''
               form.set(toFormValues(values))
-              await bootstrapRegistration(childUid, values)
+              // The document already exists, so write only the three identity
+              // fields that just drifted rather than the whole draft.
+              await registrationService.updateRegistration(childUid, {
+                personal: {
+                  parentFirstName: values.personal.parentFirstName,
+                  parentLastName: values.personal.parentLastName,
+                  email: values.personal.email,
+                },
+              })
+              dbValues = cloneDeep(values)
             }
           } else {
             values = createEmptyRegistration()
@@ -275,44 +253,44 @@
     }
   }
 
+  // The parts of the document this form owns, ready to be merged in. Two
+  // deliberate omissions: `meta` (written only by the submit handler above and by
+  // the bootstrap write), and `agreements.bypassAgeLimits`, which is admin-only -
+  // it waives the course age check `classService` enforces, this form never
+  // renders it, and echoing the page-load value back on every autosave is what
+  // used to revoke a waiver granted while the parent had the page open.
+  function ownedFields(formData: any) {
+    return {
+      personal: {
+        ...values.personal,
+        ...formData.personal,
+        email: values.personal.email,
+        parentFirstName: values.personal.parentFirstName,
+        parentLastName: values.personal.parentLastName,
+      },
+      academic: { ...values.academic, ...formData.academic },
+      program: { ...values.program, ...formData.program },
+      inPerson: { ...values.inPerson, ...formData.inPerson },
+      agreements: {
+        mediaRelease: formData.agreements.mediaRelease,
+        entireProgram: formData.agreements.entireProgram,
+        timeCommitment: formData.agreements.timeCommitment,
+        submitting: formData.agreements.submitting,
+      },
+      timestamps: {
+        created: values.timestamps.created || serverTimestamp(),
+        updated: serverTimestamp(),
+      },
+    }
+  }
+
   function handleSave(): Promise<void> {
     if (values.meta.submitted || saving || $submitting) return Promise.resolve()
     saving = true
     return new Promise<void>((resolve, reject) => {
       if ($user) {
-        const updatedValues = {
-          ...values,
-          personal: {
-            ...values.personal,
-            ...$form.personal,
-            email: values.personal.email,
-            parentFirstName: values.personal.parentFirstName,
-            parentLastName: values.personal.parentLastName,
-          },
-          academic: {
-            ...values.academic,
-            ...$form.academic,
-          },
-          program: {
-            ...values.program,
-            ...$form.program,
-          },
-          inPerson: {
-            ...values.inPerson,
-            ...$form.inPerson,
-          },
-          agreements: {
-            ...values.agreements,
-            ...$form.agreements,
-          },
-          timestamps: {
-            ...values.timestamps,
-            created: values.timestamps.created || serverTimestamp(),
-            updated: serverTimestamp(),
-          },
-        }
         registrationService
-          .saveRegistration(childUid, updatedValues)
+          .updateRegistration(childUid, ownedFields($form))
           .then(async () => {
             const applicationData =
               await registrationService.fetchRegistration(childUid)
