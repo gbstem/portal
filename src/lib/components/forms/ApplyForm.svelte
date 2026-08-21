@@ -62,40 +62,13 @@
         if (!formVal.valid) return
         if ($user) {
           const frozenUser = $user
-          const updatedValues = {
-            ...values,
-            personal: {
-              ...values.personal,
-              ...formVal.data.personal,
-            },
-            academic: {
-              ...values.academic,
-              ...formVal.data.academic,
-            },
-            program: {
-              ...values.program,
-              ...formVal.data.program,
-            },
-            essay: {
-              ...values.essay,
-              ...formVal.data.essay,
-            },
-            agreements: {
-              ...values.agreements,
-              ...formVal.data.agreements,
-            },
-            meta: {
-              ...values.meta,
-              submitted: true,
-            },
-            timestamps: {
-              ...values.timestamps,
-              created: values.timestamps.created || serverTimestamp(),
-              updated: serverTimestamp(),
-            },
-          }
           applicationService
-            .saveUserApplication(frozenUser.object.uid, updatedValues)
+            .updateUserApplication(frozenUser.object.uid, {
+              ...ownedFields(formVal.data),
+              // Only `submitted` - `interview` and `decided` belong to admin's
+              // decision actions and are left to the merge.
+              meta: { uid: frozenUser.object.uid, submitted: true },
+            })
             .then(async () => {
               const freshApp = await applicationService.fetchUserApplication(
                 frozenUser.object.uid,
@@ -161,7 +134,7 @@
           } else {
             values = normalizeApplicationData(null, user.object, user.profile)
             form.set(toFormValues(values))
-            await handleSave()
+            await handleSave(true)
           }
           if (!values.meta.submitted) {
             if (saveInterval === undefined) {
@@ -191,42 +164,45 @@
     saveInterval = undefined
   })
 
-  function handleSave(): Promise<void> {
+  // The parts of the document this form owns, ready to be merged in. `meta` is
+  // absent on purpose: `meta.decided`/`meta.interview` are admin's, and echoing
+  // this form's snapshot of them back on every autosave is what used to revert a
+  // decision recorded while the applicant had the page open. `meta.submitted` is
+  // written only by the submit handler above.
+  function ownedFields(formData: any) {
+    return {
+      personal: { ...values.personal, ...formData.personal },
+      academic: { ...values.academic, ...formData.academic },
+      program: { ...values.program, ...formData.program },
+      essay: { ...values.essay, ...formData.essay },
+      agreements: { ...values.agreements, ...formData.agreements },
+      timestamps: {
+        created: values.timestamps.created || serverTimestamp(),
+        updated: serverTimestamp(),
+      },
+    }
+  }
+
+  // `isFirstWrite` is set by the bootstrap call below, where no document exists
+  // yet and the whole default shape (including every `meta` field admin filters
+  // on) has to be written in one go.
+  function handleSave(isFirstWrite = false): Promise<void> {
     if (values.meta.submitted || saving) return Promise.resolve()
     saving = true
     return new Promise<void>((resolve, reject) => {
       if ($user) {
         const frozenUser = $user
-        const updatedValues = {
-          ...values,
-          personal: {
-            ...values.personal,
-            ...$form.personal,
-          },
-          academic: {
-            ...values.academic,
-            ...$form.academic,
-          },
-          program: {
-            ...values.program,
-            ...$form.program,
-          },
-          essay: {
-            ...values.essay,
-            ...$form.essay,
-          },
-          agreements: {
-            ...values.agreements,
-            ...$form.agreements,
-          },
-          timestamps: {
-            ...values.timestamps,
-            created: values.timestamps.created || serverTimestamp(),
-            updated: serverTimestamp(),
-          },
-        }
-        applicationService
-          .saveUserApplication(frozenUser.object.uid, updatedValues)
+        const edits = ownedFields($form)
+        const written = isFirstWrite
+          ? applicationService.createUserApplication(frozenUser.object.uid, {
+              ...values,
+              ...edits,
+            })
+          : applicationService.updateUserApplication(
+              frozenUser.object.uid,
+              edits,
+            )
+        written
           .then(async () => {
             const applicationData =
               await applicationService.fetchUserApplication(

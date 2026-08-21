@@ -43,15 +43,58 @@ describe('registrationService (Data Access Layer)', () => {
     })
   })
 
-  describe('saveRegistration', () => {
-    it('saves registration data to Firestore', async () => {
+  describe('createRegistration', () => {
+    it('writes the whole document with semester info, without merging', async () => {
       ;(firestore.setDoc as jest.Mock).mockResolvedValueOnce(undefined)
       const mockData = {
         personal: { studentFirstName: 'Timmy' },
+        meta: { uid: 'reg-1', submitted: false },
       } as Data.Registration
 
-      await registrationService.saveRegistration('reg-1', mockData)
-      expect(firestore.setDoc).toHaveBeenCalled()
+      await registrationService.createRegistration('reg-1', mockData)
+
+      expect(firestore.setDoc).toHaveBeenCalledTimes(1)
+      const [, payload, options] = (firestore.setDoc as jest.Mock).mock.calls[0]
+      expect(payload).toEqual(
+        expect.objectContaining({
+          personal: { studentFirstName: 'Timmy' },
+          semester: expect.any(String),
+        }),
+      )
+      // The draft has to land with `meta.submitted` present, since admin's lists
+      // query on `meta.submitted == false`.
+      expect(payload.meta).toEqual({ uid: 'reg-1', submitted: false })
+      expect(options).toBeUndefined()
+    })
+  })
+
+  describe('updateRegistration', () => {
+    it('merges only the given fields so admin-owned ones survive', async () => {
+      ;(firestore.setDoc as jest.Mock).mockResolvedValueOnce(undefined)
+
+      await registrationService.updateRegistration('reg-1', {
+        personal: { studentFirstName: 'Timmy' },
+      })
+
+      expect(firestore.setDoc).toHaveBeenCalledTimes(1)
+      const [, payload, options] = (firestore.setDoc as jest.Mock).mock.calls[0]
+      expect(payload).toEqual({
+        personal: { studentFirstName: 'Timmy' },
+        semester: expect.any(String),
+      })
+      // Never a full overwrite - see updateRegistration's docstring.
+      expect(options).toEqual({ merge: true })
+      expect(payload).not.toHaveProperty('agreements')
+    })
+
+    it('propagates errors from setDoc', async () => {
+      ;(firestore.setDoc as jest.Mock).mockRejectedValueOnce(
+        new Error('permission-denied'),
+      )
+
+      await expect(
+        registrationService.updateRegistration('reg-1', {}),
+      ).rejects.toThrow('permission-denied')
     })
   })
 
