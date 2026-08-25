@@ -15,6 +15,7 @@ declare namespace Cypress {
       text: string,
       options?: Partial<Cypress.Timeoutable>,
     ): Chainable<any>
+    waitForFormHydration(selector?: string): Chainable<any>
     parseCopiedEmails(clipboardText: string): Chainable<string[]>
     getLatestOobLink(
       email: string,

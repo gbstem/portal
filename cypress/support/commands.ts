@@ -11,6 +11,23 @@ Cypress.Commands.add('fillInput', (selector: string, text: string) => {
   cy.get(selector).should('have.value', text)
 })
 
+// Waits until a form's `use:enhance` action has actually run.
+//
+// Every form in this app is a Superforms SPA form (`<form use:enhance>`), and
+// that action sets `method="post"` on the element when it runs - so the
+// attribute's presence is a direct signal that the JS submit handler is
+// attached. It is worth waiting on precisely because of what happens without
+// it: submitting a not-yet-hydrated form does a *native GET*, navigating to
+// `?email=...&password=...` instead of running any JS, so no validation, no
+// Firebase call, and no error toast ever happen. That is a silent wrong-looking
+// pass or a confusing timeout, not an obvious failure.
+//
+// This replaced fixed `cy.wait(500)` calls that were racing hydration under
+// full-suite load.
+Cypress.Commands.add('waitForFormHydration', (selector = 'form') => {
+  cy.get(selector, { timeout: 15000 }).should('have.attr', 'method', 'post')
+})
+
 Cypress.Commands.add('loadSignupPage', () => {
   cy.visit('/signup')
   cy.get('h1').should('contain', 'Sign up')
