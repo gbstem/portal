@@ -3,7 +3,6 @@ import {
   classSchema,
   getApplyFormDefaults,
   getClassDataDefaults,
-  getClassDetailsFormDefaults,
   getInterviewSlotDefaults,
   getRegistrationFormDefaults,
   interviewSlotSchema,
@@ -480,13 +479,6 @@ describe('Zod Validation Schemas', () => {
   })
 
   describe('Form Defaults Factories', () => {
-    it('returns valid initial defaults for ClassDetailsForm', () => {
-      const defaults = getClassDetailsFormDefaults()
-      expect(defaults.course).toBe('')
-      expect(defaults.classCap).toBe(15)
-      expect(defaults.online).toBe(true)
-    })
-
     it('returns valid initial defaults for ApplyForm', () => {
       const defaults = getApplyFormDefaults()
       expect(defaults.personal.race).toEqual([])

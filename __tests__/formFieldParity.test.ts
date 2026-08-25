@@ -11,7 +11,6 @@
 // stored one and silently clobbers it. These tests derive the field list from
 // the schema itself, so adding a field without wiring it fails here rather than
 // in production.
-import type {} from '../src/data.d.ts'
 import {
   applicationSchema,
   classDetailsFormSchema,
@@ -20,10 +19,6 @@ import {
   registrationSchema,
 } from '$lib/components/forms/schemas'
 import {
-  getDefaultClassValues,
-  toFormValues as toClassFormValues,
-} from '$lib/helpers/classDetailsForm'
-import {
   APPLICATION_ADMIN_OWNED_FIELDS,
   applicationOwnedFields,
   createEmptyApplication,
@@ -31,13 +26,18 @@ import {
   toApplyFormValues,
 } from '$lib/helpers/applyForm'
 import {
+  getDefaultClassValues,
+  toFormValues as toClassFormValues,
+} from '$lib/helpers/classDetailsForm'
+import {
   createEmptyRegistration,
+  normalizeRegistrationData,
   REGISTRATION_ADMIN_OWNED_FIELDS,
   registrationOwnedFields,
-  normalizeRegistrationData,
   toRegistrationFormValues,
 } from '$lib/helpers/registrationForm'
 import { z } from 'zod'
+import type {} from '../src/data.d.ts'
 
 type LeafKind = 'string' | 'number' | 'boolean' | 'array'
 type Leaf = { path: string; kind: LeafKind }
@@ -235,8 +235,7 @@ const APPLICATION_FORM = {
  * block.
  *
  * `getDefaultClassValues` serves as both the defaults factory and the empty
- * document factory here; the separate `getClassDetailsFormDefaults()` in
- * schemas.ts is a mirror of admin's copy that nothing in the portal calls.
+ * document factory here.
  */
 const CLASS_DETAILS_FORM = {
   label: 'class details',

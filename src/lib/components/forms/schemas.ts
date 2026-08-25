@@ -204,20 +204,6 @@ export const interviewSlotSchema = z.object({
     .default('available'),
 })
 
-export function getClassDetailsFormDefaults() {
-  return {
-    course: '',
-    gradeRecommendation: '',
-    classCap: 15,
-    meetingLink: '',
-    classDay1: 'Monday' as const,
-    classTime1: '',
-    classDay2: '',
-    classTime2: '',
-    online: true,
-  }
-}
-
 export function getApplyFormDefaults() {
   return {
     personal: {
