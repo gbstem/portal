@@ -133,3 +133,58 @@ export function buildApplyApiPayload(
     firstName,
   }
 }
+
+/**
+ * Fields inside the application document that this form must never write.
+ *
+ * Nothing inside the schema's own sections is admin-owned here - the whole of
+ * `meta` is (`meta.decided`/`meta.interview` are set by admin decision actions),
+ * and `applicationOwnedFields` omits `meta` wholesale rather than field by field.
+ */
+export const APPLICATION_ADMIN_OWNED_FIELDS: string[] = []
+
+/**
+ * What `applicationOwnedFields` returns: `meta` is dropped, but every group it
+ * does return is complete, since each one spreads the last-loaded values before
+ * the form's. Saying so (rather than returning the looser `ApplicationUpdate`)
+ * is what lets the bootstrap write combine this with `values` and still be a
+ * whole `Data.Application`.
+ */
+export type OwnedApplicationFields = Omit<Data.Application, 'meta'>
+
+/**
+ * The parts of the application document this form owns, ready to be merged in.
+ *
+ * Every save after the bootstrap write is a `{ merge: true }` write, so what
+ * this returns is exactly what reaches Firestore and anything omitted keeps
+ * whatever the last writer left. See `registrationOwnedFields` for why this
+ * lives here rather than in the component.
+ *
+ * `meta` is absent on purpose: echoing this form's snapshot of
+ * `meta.decided`/`meta.interview` back on every autosave is what used to revert
+ * a decision recorded while the applicant had the page open, and
+ * `meta.submitted` is written only by the submit handler.
+ *
+ * No identity re-pin is needed: `toApplyFormValues` deliberately omits
+ * `personal.email`/`firstName`/`lastName`, so the spread below leaves the values
+ * `normalizeApplicationData` took from the signed-in profile intact.
+ *
+ * @param timestamp the caller's `serverTimestamp()` sentinel.
+ */
+export function applicationOwnedFields(
+  values: Data.Application,
+  formData: any,
+  timestamp: any,
+): OwnedApplicationFields {
+  return {
+    personal: { ...values.personal, ...formData.personal },
+    academic: { ...values.academic, ...formData.academic },
+    program: { ...values.program, ...formData.program },
+    essay: { ...values.essay, ...formData.essay },
+    agreements: { ...values.agreements, ...formData.agreements },
+    timestamps: {
+      created: values.timestamps.created || timestamp,
+      updated: timestamp,
+    },
+  }
+}

@@ -11,6 +11,7 @@
   import {
     createEmptyRegistration,
     normalizeRegistrationData,
+    registrationOwnedFields,
     toRegistrationFormValues as toFormValues,
   } from '$lib/helpers/registrationForm'
   import { registrationService } from '$lib/services/registrationService'
@@ -253,35 +254,11 @@
     }
   }
 
-  // The parts of the document this form owns, ready to be merged in. Two
-  // deliberate omissions: `meta` (written only by the submit handler above and by
-  // the bootstrap write), and `agreements.bypassAgeLimits`, which is admin-only -
-  // it waives the course age check `classService` enforces, this form never
-  // renders it, and echoing the page-load value back on every autosave is what
-  // used to revoke a waiver granted while the parent had the page open.
+  // The parts of the document this form owns, ready to be merged in. Lives in
+  // `$lib/helpers/registrationForm` (along with the note on what it deliberately
+  // omits) so `formFieldParity.test.ts` can check the list against the schema.
   function ownedFields(formData: any) {
-    return {
-      personal: {
-        ...values.personal,
-        ...formData.personal,
-        email: values.personal.email,
-        parentFirstName: values.personal.parentFirstName,
-        parentLastName: values.personal.parentLastName,
-      },
-      academic: { ...values.academic, ...formData.academic },
-      program: { ...values.program, ...formData.program },
-      inPerson: { ...values.inPerson, ...formData.inPerson },
-      agreements: {
-        mediaRelease: formData.agreements.mediaRelease,
-        entireProgram: formData.agreements.entireProgram,
-        timeCommitment: formData.agreements.timeCommitment,
-        submitting: formData.agreements.submitting,
-      },
-      timestamps: {
-        created: values.timestamps.created || serverTimestamp(),
-        updated: serverTimestamp(),
-      },
-    }
+    return registrationOwnedFields(values, formData, serverTimestamp())
   }
 
   function handleSave(): Promise<void> {

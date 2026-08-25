@@ -2,6 +2,7 @@ import type {} from '../../data.d.ts'
 import { cloneDeep } from 'lodash-es'
 import type { RegistrationRequestBody } from '../../routes/api/registration/+server'
 import { getRegistrationFormDefaults } from '../components/forms/schemas'
+import type { RegistrationUpdate } from '../services/registrationService'
 
 /**
  * Returns default empty Data.Registration structure.
@@ -148,5 +149,64 @@ export function buildRegistrationApiPayload(
     studentName: studentFirstName,
     parentOrientationDate,
     secondaryEmail,
+  }
+}
+
+/**
+ * Fields inside the registration document that this form must never write.
+ *
+ * `agreements.bypassAgeLimits` is admin-only - it waives the course age check
+ * `classService` enforces. The form never renders it, so echoing its page-load
+ * value back on every autosave is what used to revoke a waiver granted while
+ * the parent had the page open.
+ */
+export const REGISTRATION_ADMIN_OWNED_FIELDS = ['agreements.bypassAgeLimits']
+
+/**
+ * The parts of the registration document this form owns, ready to be merged in.
+ *
+ * Every save after the bootstrap write is a `{ merge: true }` write, so what
+ * this returns is exactly what reaches Firestore and anything omitted keeps
+ * whatever the last writer left. That makes this the highest-consequence field
+ * list in the form - hence living here, where `formFieldParity.test.ts` can
+ * check it against the schema, rather than inside the component.
+ *
+ * `meta` is absent on purpose: it's written only by the submit handler and by
+ * the bootstrap write.
+ *
+ * @param timestamp the caller's `serverTimestamp()` sentinel.
+ */
+export function registrationOwnedFields(
+  values: Data.Registration,
+  formData: any,
+  timestamp: any,
+): RegistrationUpdate {
+  return {
+    personal: {
+      ...values.personal,
+      ...formData.personal,
+      // Identity fields belong to the parent's account, not to this form.
+      // `initializeForm` writes them from the signed-in profile; re-pin them
+      // here so a stale or absent form value can never overwrite them.
+      email: values.personal.email,
+      parentFirstName: values.personal.parentFirstName,
+      parentLastName: values.personal.parentLastName,
+    },
+    academic: { ...values.academic, ...formData.academic },
+    program: { ...values.program, ...formData.program },
+    inPerson: { ...values.inPerson, ...formData.inPerson },
+    // Enumerated rather than spread so `bypassAgeLimits` can't ride along.
+    // A new agreement added to the schema has to be added here too - which is
+    // what the parity test enforces.
+    agreements: {
+      mediaRelease: formData.agreements.mediaRelease,
+      entireProgram: formData.agreements.entireProgram,
+      timeCommitment: formData.agreements.timeCommitment,
+      submitting: formData.agreements.submitting,
+    },
+    timestamps: {
+      created: values.timestamps.created || timestamp,
+      updated: timestamp,
+    },
   }
 }
