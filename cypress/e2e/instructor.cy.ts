@@ -275,40 +275,19 @@ const CLASS_COMPUTED_FIELDS = [
 ]
 
 /**
- * Picks an option in a Select that already holds a value.
- *
- * `cy.selectOption` can't do this. Select's `handleFocusIn` shows the full list,
- * but `filterOptionsBy` then re-filters by the text in the input on a 150ms
- * debounce - so a select arriving with a value collapses to just that value a
- * frame after the dropdown opens, and every other option vanishes before an
- * assertion can retry onto it. Clearing the input first resets the filter to the
- * whole list. (`cy.selectOption` gets away with it on empty selects, where the
- * empty filter matches everything.)
- */
-function reselectOption(selector: string, text: string) {
-  cy.get(selector).clear()
-  // Scoped to the open dropdown (`.top-14`) rather than any button: the class
-  // picker above this form labels each class with its course name, so an
-  // unscoped `cy.contains('button', 'Mathematics 1a')` matches that instead and
-  // silently switches class rather than choosing the option.
-  cy.contains('.top-14 button', text, { timeout: 10000 }).click({ force: true })
-  cy.get(selector).should('have.value', text)
-}
-
-/**
  * Fills the inline class details form. `classDay2`/`classTime2` only render for
  * a maths course taught online, so the caller has to pick one to reach them.
  */
 function fillClassDetailsForm(input: ClassDetailsInput) {
-  reselectOption('input[name="course"]', input.course)
+  cy.selectOption('input[name="course"]', input.course)
   cy.fillInput('input[name="gradeRecommendation"]', input.gradeRecommendation)
-  reselectOption('input[name="classDay1"]', input.classDay1)
+  cy.selectOption('input[name="classDay1"]', input.classDay1)
   cy.fillInput('input[name="classTime1"]', input.classTime1)
 
   const showsSecondDay =
     input.course.toLowerCase().includes('math') && input.online
   if (showsSecondDay) {
-    reselectOption('input[name="classDay2"]', input.classDay2)
+    cy.selectOption('input[name="classDay2"]', input.classDay2)
     cy.fillInput('input[name="classTime2"]', input.classTime2)
   }
 
