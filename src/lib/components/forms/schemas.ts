@@ -163,6 +163,19 @@ export const otherInstructorEmailsSchema = z
     },
   )
 
+/**
+ * What ClassDetailsForm validates: `classSchema` plus the two fields only the
+ * portal's instructor-facing form collects.
+ *
+ * Derived from `classSchema` with `.extend()` rather than spelled out again, so
+ * the two can't drift - this used to be a hand-copied duplicate living inside
+ * the component, where `formFieldParity.test.ts` couldn't reach it.
+ */
+export const classDetailsFormSchema = classSchema.extend({
+  otherInstructorEmails: otherInstructorEmailsSchema,
+  submitting: z.boolean().default(false),
+})
+
 export const PASSWORD_MIN_LENGTH = 6
 export const PASSWORD_MAX_LENGTH = 64
 
@@ -190,20 +203,6 @@ export const interviewSlotSchema = z.object({
     .enum(['available', 'pending', 'confirmed', 'completed', 'canceled'])
     .default('available'),
 })
-
-export function getClassDetailsFormDefaults() {
-  return {
-    course: '',
-    gradeRecommendation: '',
-    classCap: 15,
-    meetingLink: '',
-    classDay1: 'Monday' as const,
-    classTime1: '',
-    classDay2: '',
-    classTime2: '',
-    online: true,
-  }
-}
 
 export function getApplyFormDefaults() {
   return {

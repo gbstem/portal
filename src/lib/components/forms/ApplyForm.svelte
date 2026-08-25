@@ -3,6 +3,7 @@
   import Card from '$lib/components/Card.svelte'
   import { coursesJson, gendersJson, raceJson, reasonsJson } from '$lib/data'
   import {
+    applicationOwnedFields,
     createEmptyApplication,
     normalizeApplicationData,
     toApplyFormValues as toFormValues,
@@ -164,23 +165,11 @@
     saveInterval = undefined
   })
 
-  // The parts of the document this form owns, ready to be merged in. `meta` is
-  // absent on purpose: `meta.decided`/`meta.interview` are admin's, and echoing
-  // this form's snapshot of them back on every autosave is what used to revert a
-  // decision recorded while the applicant had the page open. `meta.submitted` is
-  // written only by the submit handler above.
+  // The parts of the document this form owns, ready to be merged in. Lives in
+  // `$lib/helpers/applyForm` (along with the note on what it deliberately omits)
+  // so `formFieldParity.test.ts` can check the list against the schema.
   function ownedFields(formData: any) {
-    return {
-      personal: { ...values.personal, ...formData.personal },
-      academic: { ...values.academic, ...formData.academic },
-      program: { ...values.program, ...formData.program },
-      essay: { ...values.essay, ...formData.essay },
-      agreements: { ...values.agreements, ...formData.agreements },
-      timestamps: {
-        created: values.timestamps.created || serverTimestamp(),
-        updated: serverTimestamp(),
-      },
-    }
+    return applicationOwnedFields(values, formData, serverTimestamp())
   }
 
   // `isFirstWrite` is set by the bootstrap call below, where no document exists
