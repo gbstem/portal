@@ -12,7 +12,6 @@ export function getDefaultClassValues(): Data.Class {
     meetingLink: '',
     gradeRecommendation: '',
     course: '',
-    submitting: false,
     meetingTimes: [],
     completedClassDates: [],
     feedbackCompleted: [],
@@ -42,7 +41,9 @@ export function toFormValues(v: Data.Class) {
     classTime2: v.classTime2 || '',
     online: v.online !== undefined ? v.online : true,
     otherInstructorEmails: v.otherInstructorEmails || '',
-    submitting: v.submitting || false,
+    // Always false, never `v.confirmation`: the acknowledgement is not stored,
+    // and re-entering the form has to ask for it again.
+    confirmation: false,
   }
 }
 
@@ -135,4 +136,34 @@ export function generateNewClassId(
       : '1'
 
   return `${userUid}-${classNumber}`
+}
+
+/**
+ * The class fields the generated schedule is derived from. `getMeetingDates`
+ * reads exactly these four and nothing else, so a change to any of them
+ * invalidates every meeting date already stored on the class - and a change to
+ * any other field leaves the stored schedule perfectly valid.
+ */
+export const SCHEDULE_SOURCE_FIELDS = [
+  'classDay1',
+  'classTime1',
+  'classDay2',
+  'classTime2',
+] as const
+
+/**
+ * Whether saving `next` over `stored` would produce a different schedule.
+ *
+ * Both sides are coerced with `|| ''` because an absent field and an empty one
+ * mean the same thing here: a class meeting once a week stores `classDay2` as
+ * `''`, while a document written before that field existed omits it entirely.
+ * Neither should read as a change the instructor has to confirm.
+ */
+export function scheduleSourceChanged(
+  stored: Partial<Data.Class>,
+  next: Partial<Data.Class>,
+): boolean {
+  return SCHEDULE_SOURCE_FIELDS.some(
+    (field) => (stored?.[field] || '') !== (next?.[field] || ''),
+  )
 }

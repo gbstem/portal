@@ -346,3 +346,34 @@ Cypress.Commands.add(
     })
   },
 )
+
+/**
+ * Records every `window.confirm` raised for the rest of the test and answers
+ * them all with `answer` (default: accept). Yields the recording array, so the
+ * idiomatic use is to alias it:
+ *
+ * ```ts
+ * cy.captureConfirms().as('confirms')
+ * // ...do the thing...
+ * cy.get('@confirms').should('have.length', 1)
+ * cy.get('@confirms').its(0).should('contain', 'overwrite')
+ * ```
+ *
+ * Prefer this over a bare `cy.on('window:confirm', () => true)`. Cypress
+ * accepts confirms automatically, so that form asserts nothing: a prompt that
+ * should never have appeared is accepted in silence and looks exactly like
+ * correct behaviour, and a prompt whose wording has drifted still passes.
+ * Capturing the text is what makes "no prompt appeared" and "this prompt
+ * appeared" both assertable.
+ *
+ * The array is mutated in place, so `cy.get('@confirms')` re-yields live state
+ * and Cypress retries length assertions against it.
+ */
+Cypress.Commands.add('captureConfirms', (answer: boolean = true) => {
+  const seen: string[] = []
+  cy.on('window:confirm', (text: string) => {
+    seen.push(text)
+    return answer
+  })
+  return cy.wrap(seen, { log: false })
+})

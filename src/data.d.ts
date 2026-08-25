@@ -188,7 +188,6 @@ declare global {
       meetingLink: string
       gradeRecommendation: string
       course: string
-      submitting: boolean
       meetingTimes: Date[]
       completedClassDates: Date[]
       feedbackCompleted: boolean[]

@@ -164,6 +164,24 @@ export const otherInstructorEmailsSchema = z
   )
 
 /**
+ * The instructor's per-submission acknowledgement on ClassDetailsForm.
+ *
+ * `.refine` rather than a plain boolean because this has to *block* the save:
+ * it was previously a field named `submitting` that was written to the class
+ * document, read by nothing, and required by nothing, so the warning it
+ * carried was decorative. Submitting publishes the class for registration, so
+ * the instructor has to say so every time - which is also why it is validated
+ * but never stored: a persisted `true` would come back ticked and the gate
+ * would only ever bite once.
+ */
+export const confirmationSchema = z
+  .boolean()
+  .default(false)
+  .refine((val) => val === true, {
+    message: 'Please confirm you understand the impact of this form submission',
+  })
+
+/**
  * What ClassDetailsForm validates: `classSchema` plus the two fields only the
  * portal's instructor-facing form collects.
  *
@@ -173,7 +191,7 @@ export const otherInstructorEmailsSchema = z
  */
 export const classDetailsFormSchema = classSchema.extend({
   otherInstructorEmails: otherInstructorEmailsSchema,
-  submitting: z.boolean().default(false),
+  confirmation: confirmationSchema,
 })
 
 export const PASSWORD_MIN_LENGTH = 6
