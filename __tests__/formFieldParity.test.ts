@@ -196,6 +196,18 @@ const REGISTRATION_IDENTITY_FIELDS = [
   'personal.parentLastName',
 ]
 
+/**
+ * Schema fields ClassDetailsForm validates but deliberately never stores.
+ *
+ * `confirmation` is the instructor's per-submission acknowledgement: it has to
+ * be in the schema to gate the save, and has to stay out of `Data.Class` so a
+ * stored `true` can't come back ticked and silently retire the gate. The
+ * shared round-trip checks below take a stored document as their input, so
+ * they can't speak to a field that is never stored - these two tests cover it
+ * instead.
+ */
+const CLASS_DETAILS_FORM_ONLY_FIELDS = ['confirmation']
+
 /** Stands in for the caller's `serverTimestamp()` sentinel. */
 const TIMESTAMP = { __serverTimestamp: true }
 
@@ -207,6 +219,7 @@ const REGISTRATION_FORM = {
   normalize: (data: any) => normalizeRegistrationData(data),
   toFormValues: (data: any) => toRegistrationFormValues(data),
   unvalidated: REGISTRATION_UNVALIDATED_FIELDS,
+  formOnly: [] as string[],
   ownedFields: (values: any, formData: any) =>
     registrationOwnedFields(values, formData, TIMESTAMP) as any,
   adminOwned: REGISTRATION_ADMIN_OWNED_FIELDS,
@@ -221,6 +234,7 @@ const APPLICATION_FORM = {
   normalize: (data: any) => normalizeApplicationData(data),
   toFormValues: (data: any) => toApplyFormValues(data),
   unvalidated: APPLICATION_UNVALIDATED_FIELDS,
+  formOnly: [] as string[],
   ownedFields: (values: any, formData: any) =>
     applicationOwnedFields(values, formData, TIMESTAMP) as any,
   adminOwned: APPLICATION_ADMIN_OWNED_FIELDS,
@@ -245,6 +259,7 @@ const CLASS_DETAILS_FORM = {
   normalize: (data: any) => data,
   toFormValues: (data: any) => toClassFormValues(data),
   unvalidated: [] as string[],
+  formOnly: CLASS_DETAILS_FORM_ONLY_FIELDS,
 }
 
 describe('Form field parity', () => {
@@ -257,14 +272,43 @@ describe('Form field parity', () => {
       normalize,
       toFormValues,
       unvalidated,
+      formOnly,
     }) => {
-      const leaves = schemaLeaves(schema)
+      // Split rather than filtered away: the stored-document checks below run
+      // over `leaves`, and `formOnlyLeaves` gets its own assertions so a
+      // form-only field can't just quietly opt out of all coverage.
+      const allLeaves = schemaLeaves(schema)
+      const leaves = allLeaves.filter((leaf) => !formOnly.includes(leaf.path))
+      const formOnlyLeaves = allLeaves.filter((leaf) =>
+        formOnly.includes(leaf.path),
+      )
 
       test('the schema walker finds a non-trivial set of fields', () => {
         // Cheap canary: if `schemaLeaves` ever silently returns nothing, every
         // other test in this block would vacuously pass.
-        expect(leaves.length).toBeGreaterThan(10)
+        expect(allLeaves.length).toBeGreaterThan(10)
       })
+
+      test('every declared form-only field is actually in the schema', () => {
+        // Stops the exemption list from outliving the field it exempts and
+        // silently excusing nothing.
+        expect(formOnlyLeaves.map((leaf) => leaf.path).sort()).toEqual(
+          [...formOnly].sort(),
+        )
+      })
+
+      // `test.each([])` is a Jest error and most forms declare none, so the
+      // case is skipped rather than absent - a form that grows one starts
+      // being checked without anything else changing.
+      const eachFormOnly = formOnlyLeaves.length
+        ? test.each(formOnlyLeaves)
+        : test.skip.each([{ path: '(none)', kind: 'boolean' } as Leaf])
+      eachFormOnly(
+        'form-only field $path is validated but never stored',
+        ({ path }) => {
+          expect(hasPath(createEmpty(), path)).toBe(false)
+        },
+      )
 
       test.each(leaves)(
         'schema field $path has a default in the form defaults factory',
@@ -301,7 +345,7 @@ describe('Form field parity', () => {
 
       test('toFormValues exposes no field the schema does not validate', () => {
         const exposed = objectLeaves(toFormValues(createEmpty()))
-        const validated = new Set(leaves.map((leaf) => leaf.path))
+        const validated = new Set(allLeaves.map((leaf) => leaf.path))
         const extras = exposed.filter(
           (path) => !validated.has(path) && !unvalidated.includes(path),
         )

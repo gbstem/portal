@@ -6,6 +6,8 @@ import {
   parseTime,
   getMeetingDates,
   generateNewClassId,
+  scheduleSourceChanged,
+  SCHEDULE_SOURCE_FIELDS,
 } from '$lib/helpers/classDetailsForm'
 
 describe('ClassDetailsForm Helpers', () => {
@@ -70,6 +72,81 @@ describe('ClassDetailsForm Helpers', () => {
       dates.forEach((d) => {
         expect([1, 3]).toContain(d.getDay())
       })
+    })
+  })
+
+  describe('scheduleSourceChanged', () => {
+    const stored = {
+      classDay1: 'Tuesday',
+      classTime1: '15:30',
+      classDay2: 'Thursday',
+      classTime2: '16:45',
+    } as Partial<Data.Class>
+
+    test('every field the schedule is built from is compared', () => {
+      // Pins the list against `getMeetingDates`' signature: a fifth input to
+      // the schedule that nobody adds here would silently stop prompting.
+      expect([...SCHEDULE_SOURCE_FIELDS]).toEqual([
+        'classDay1',
+        'classTime1',
+        'classDay2',
+        'classTime2',
+      ])
+    })
+
+    test('no change when the schedule fields are identical', () => {
+      expect(scheduleSourceChanged(stored, { ...stored })).toBe(false)
+    })
+
+    test('ignores fields the schedule is not built from', () => {
+      // The whole point of the change: editing the cap must not offer to
+      // rebuild a schedule that is still correct.
+      expect(
+        scheduleSourceChanged(stored, {
+          ...stored,
+          classCap: 30,
+          course: 'Mathematics 2a',
+          online: false,
+          meetingLink: 'https://example.com/other',
+        } as Partial<Data.Class>),
+      ).toBe(false)
+    })
+
+    test.each([...SCHEDULE_SOURCE_FIELDS])(
+      'detects a change to %s',
+      (field) => {
+        expect(
+          scheduleSourceChanged(stored, { ...stored, [field]: 'Saturday' }),
+        ).toBe(true)
+      },
+    )
+
+    test('detects a second meeting day being added or dropped', () => {
+      expect(
+        scheduleSourceChanged(stored, {
+          ...stored,
+          classDay2: '',
+          classTime2: '',
+        }),
+      ).toBe(true)
+      expect(
+        scheduleSourceChanged(
+          { classDay1: 'Tuesday', classTime1: '15:30' } as Partial<Data.Class>,
+          stored,
+        ),
+      ).toBe(true)
+    })
+
+    test('an absent field and an empty one are the same schedule', () => {
+      // A class document written before `classDay2` existed omits it; that is
+      // not an edit, so it must not prompt the instructor to rebuild.
+      const legacy = {
+        classDay1: 'Tuesday',
+        classTime1: '15:30',
+      } as Partial<Data.Class>
+      const current = { ...legacy, classDay2: '', classTime2: '' }
+      expect(scheduleSourceChanged(legacy, current)).toBe(false)
+      expect(scheduleSourceChanged(current, legacy)).toBe(false)
     })
   })
 

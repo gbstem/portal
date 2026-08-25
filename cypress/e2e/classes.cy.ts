@@ -107,9 +107,13 @@ describe('Section D: Class Roster and Details View', () => {
     cy.wait(1000)
 
     // Send class reminder to students and verify email (/api/remindStudents)
-    cy.on('window:confirm', () => true)
+    cy.captureConfirms().as('confirms')
     cy.contains('button', 'Send Reminder').click({ force: true })
     cy.waitForNotification('Reminder emails were sent!')
+    cy.get('@confirms').should('have.length', 1)
+    // The all-students wording specifically: `sendClassReminder` has a
+    // second, per-student prompt, and this button must not be taking it.
+    cy.get('@confirms').its(0).should('contain', 'all students')
     cy.verifyEmailSent('student@gbstem.org', 'gbSTEM Class Reminder')
   })
 })

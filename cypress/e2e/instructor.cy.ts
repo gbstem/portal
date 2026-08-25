@@ -244,15 +244,6 @@ interface ClassDetailsInput {
   classCap: number
   otherInstructorEmails: string
   online: boolean
-  submitting: boolean
-  /**
-   * Drives the "automatically create a class schedule" checkbox. Set it
-   * explicitly rather than relying on the default: `createClassSchedule` is
-   * local component state initialised to `true`, but it's rendered through
-   * FormCheckbox with a name the schema doesn't contain, and the checkbox that
-   * comes up is not checked.
-   */
-  createSchedule: boolean
 }
 
 /** The class the admin seed gives instructor@gbstem.org. */
@@ -306,8 +297,10 @@ function fillClassDetailsForm(input: ClassDetailsInput) {
     }
   }
   setCheckbox('online', input.online)
-  setCheckbox('submitting', input.submitting)
-  setCheckbox('createClassSchedule', input.createSchedule)
+  // Not part of `ClassDetailsInput`: `confirmation` gates the save rather than
+  // being stored, so every filled form has to tick it. Test Case 13e covers
+  // leaving it alone.
+  setCheckbox('confirmation', true)
 }
 
 /**
@@ -332,7 +325,6 @@ function expectedClassDoc(
     classCap: input.classCap,
     otherInstructorEmails: input.otherInstructorEmails,
     online: input.online,
-    submitting: input.submitting,
     meetingLink: context.meetingLink,
     // Written from the signed-in profile on every save, never from the form.
     instructorFirstName: 'Demo',
@@ -392,6 +384,15 @@ function assertGeneratedSchedule(options: { regenerated: boolean }) {
 function saveClassDetails() {
   cy.get('button[type="submit"]').click()
   cy.waitForNotification('Class details saved!')
+}
+
+/** Reads the seeded class document straight out of Firestore. */
+function readClassDoc(): Cypress.Chainable<any> {
+  return cy
+    .getFirebaseAuthToken()
+    .then((authToken: string) =>
+      cy.getFirestoreDoc(authToken, classesCollection, SEEDED_CLASS_ID),
+    )
 }
 
 describe('Section C & E: Instructor Applications & Community Service', () => {
@@ -777,11 +778,10 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
       classCap: 8,
       otherInstructorEmails: 'cohost@gbstem.org',
       online: true,
-      submitting: true,
-      createSchedule: true,
     }
 
     cy.signedInSession('instructor')
+    cy.captureConfirms().as('confirms')
 
     cy.contains('h2', 'Class Details')
       .closest('.rounded-xl')
@@ -797,8 +797,12 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
     fillClassDetailsForm(input)
     saveClassDetails()
 
-    // `createClassSchedule` is left checked (its default), so the meeting dates
-    // and the two per-meeting arrays are rebuilt from the semester range.
+    // The days and times differ from the seeded class, so the schedule has to
+    // be rebuilt - and because the seeded class already has one, that costs an
+    // explicit confirmation rather than happening silently.
+    cy.get('@confirms').should('have.length', 1)
+    cy.get('@confirms').its(0).should('contain', 'class schedule')
+    cy.get('@confirms').its(0).should('contain', 'already enrolled')
     assertClassDoc(input, { meetingLink: SEEDED_MEETING_LINK })
     assertGeneratedSchedule({ regenerated: true })
   })
@@ -814,8 +818,6 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
       classCap: 8,
       otherInstructorEmails: 'before@gbstem.org',
       online: true,
-      submitting: true,
-      createSchedule: true,
     }
     // Every field differs, including both booleans. `online` going false also
     // hides `classDay2`/`classTime2`, which must then keep their stored values
@@ -829,13 +831,10 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
       classCap: 12,
       otherInstructorEmails: 'after@gbstem.org',
       online: false,
-      submitting: false,
-      // Editing an existing class: regenerating here would discard the
-      // schedule, which is exactly what the checkbox's label warns about.
-      createSchedule: false,
     }
 
     cy.signedInSession('instructor')
+    cy.captureConfirms().as('confirms')
 
     cy.contains('h2', 'Class Details')
       .closest('.rounded-xl')
@@ -870,12 +869,154 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
       'have.value',
       String(initial.classCap),
     )
+    // Counted around the second save rather than in total: whether the first
+    // save prompts depends on the days the previous test happened to leave on
+    // the class, but the second save moves classDay1/classTime1 outright and
+    // must always prompt.
+    let promptsBeforeSecondSave = 0
+    cy.get('@confirms').then((seen: any) => {
+      promptsBeforeSecondSave = seen.length
+    })
+
     fillClassDetailsForm(modified)
     saveClassDetails()
 
     assertClassDoc(modified, { meetingLink: SEEDED_MEETING_LINK })
-    // Left unchecked this pass, so the schedule the first save built survives.
+    cy.get('@confirms').then((seen: any) => {
+      expect(
+        seen.length - promptsBeforeSecondSave,
+        'schedule rebuild prompts for the second save',
+      ).to.equal(1)
+    })
     assertGeneratedSchedule({ regenerated: true })
+  })
+
+  it('Test Case 13c: Class Details - Editing Other Fields Leaves The Schedule Alone', () => {
+    // The regression this guards: the schedule used to be rebuilt whenever a
+    // checkbox happened to be ticked, so an instructor raising their class cap
+    // could wipe the meeting dates students were already enrolled against.
+    cy.signedInSession('instructor')
+    cy.captureConfirms(false).as('confirms')
+
+    let before: any
+    readClassDoc().then((data: any) => {
+      expect(data, 'class document').to.not.equal(null)
+      before = data
+    })
+
+    cy.contains('h2', 'Class Details')
+      .closest('.rounded-xl')
+      .within(() => {
+        cy.contains('button', 'Edit class details').click()
+      })
+    cy.get('input[name="course"]')
+      .should('not.be.disabled')
+      .and('not.have.value', '')
+
+    // Deliberately leaves every day and time input untouched, so the form
+    // saves them back exactly as loaded.
+    cy.fillInput('input[name="classCap"]', '19')
+    cy.fillInput('input[name="gradeRecommendation"]', '9-12')
+    cy.get('input[name="confirmation"]').check({ force: true })
+    saveClassDetails()
+
+    cy.get('@confirms').should('have.length', 0)
+    readClassDoc().then((after: any) => {
+      expect(after.classCap, 'class cap').to.equal(19)
+      expect(after.gradeRecommendation).to.equal('9-12')
+      // Not just the same length - the same dates and the same per-session
+      // progress, which a needless rebuild would have reset.
+      expect(after.meetingTimes).to.deep.equal(before.meetingTimes)
+      expect(after.feedbackCompleted).to.deep.equal(before.feedbackCompleted)
+      expect(after.classStatuses).to.deep.equal(before.classStatuses)
+    })
+  })
+
+  it('Test Case 13d: Class Details - Declining The Rebuild Saves Nothing', () => {
+    // Saving the new days without rebuilding would leave `meetingTimes`
+    // describing days the class no longer meets on, so declining has to abort
+    // the whole save rather than write a half-updated class.
+    cy.signedInSession('instructor')
+    cy.captureConfirms(false).as('confirms')
+
+    let before: any
+    readClassDoc().then((data: any) => {
+      expect(data, 'class document').to.not.equal(null)
+      before = data
+    })
+
+    cy.contains('h2', 'Class Details')
+      .closest('.rounded-xl')
+      .within(() => {
+        cy.contains('button', 'Edit class details').click()
+      })
+    cy.get('input[name="course"]')
+      .should('not.be.disabled')
+      .and('not.have.value', '')
+
+    cy.then(() => {
+      const otherDay = before.classDay1 === 'Monday' ? 'Wednesday' : 'Monday'
+      cy.selectOption('input[name="classDay1"]', otherDay)
+      cy.fillInput('input[name="classCap"]', '21')
+    })
+    cy.get('input[name="confirmation"]').check({ force: true })
+
+    cy.get('button[type="submit"]').click()
+    cy.waitForNotification('Nothing was saved', 'bg-gray-200')
+
+    cy.get('@confirms').should('have.length', 1)
+    // The class cap was edited too, so this also pins that declining aborts
+    // the entire write rather than just skipping the schedule.
+    readClassDoc().then((after: any) => {
+      expect(after).to.deep.equal(before)
+    })
+  })
+
+  it('Test Case 13e: Class Details - Confirmation Gates Submission', () => {
+    // The acknowledgement used to be a field named `submitting` that was
+    // stored, read by nothing, and required by nothing - ticking it or not
+    // made no difference to anything. It is a Zod gate now, so leaving it
+    // alone has to stop the save outright and say why.
+    cy.signedInSession('instructor')
+    cy.captureConfirms().as('confirms')
+
+    let before: any
+    readClassDoc().then((data: any) => {
+      expect(data, 'class document').to.not.equal(null)
+      before = data
+    })
+
+    cy.contains('h2', 'Class Details')
+      .closest('.rounded-xl')
+      .within(() => {
+        cy.contains('button', 'Edit class details').click()
+      })
+    cy.get('input[name="course"]')
+      .should('not.be.disabled')
+      .and('not.have.value', '')
+
+    // Re-entering edit mode must never restore a previous tick, or the gate
+    // would only ever bite on an instructor's very first save.
+    cy.get('input[name="confirmation"]').should('not.be.checked')
+
+    cy.fillInput('input[name="classCap"]', '23')
+    cy.get('button[type="submit"]').click()
+
+    cy.contains(
+      'Please confirm you understand the impact of this form submission',
+    ).should('be.visible')
+    // The save never got far enough to consider the schedule.
+    cy.get('@confirms').should('have.length', 0)
+    readClassDoc().then((after: any) => {
+      expect(after).to.deep.equal(before)
+    })
+
+    // ...and ticking it lets the same edit through.
+    cy.get('input[name="confirmation"]').check({ force: true })
+    saveClassDetails()
+    readClassDoc().then((after: any) => {
+      expect(after.classCap, 'class cap').to.equal(23)
+    })
   })
 
   it('Test Case 14: Edit Schedule and Add Class', () => {

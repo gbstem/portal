@@ -8,6 +8,7 @@
     getDefaultClassValues,
     getMeetingDates,
     normalizeOtherInstructorEmails,
+    scheduleSourceChanged,
     toFormValues,
   } from '$lib/helpers/classDetailsForm'
   import { classService } from '$lib/services/classService'
@@ -46,9 +47,12 @@
 
   let values: Data.Class = $state(getDefaultClassValues())
 
-  let createClassSchedule = $state(true)
-
   const schema = classDetailsFormSchema
+
+  const CONFIRMATION_TEXT =
+    'I understand submitting will immediately make my class visible to students and available for registration, ' +
+    'and any edits will be immediately visible as well. I confirm this is the correct class and these class ' +
+    'times will work for me.'
 
   // svelte-ignore state_referenced_locally
   const formResult = superForm(
@@ -67,16 +71,52 @@
         if ($user) {
           try {
             const frozenUser = $user
+            // `confirmation` is validated but deliberately not part of the
+            // class document, so it is dropped here rather than riding the
+            // spread into Firestore.
+            const { confirmation: _confirmation, ...formFields } = formVal.data
             const newValues = {
               ...values,
-              ...formVal.data,
+              ...formFields,
             }
 
             newValues.otherInstructorEmails = normalizeOtherInstructorEmails(
               newValues.otherInstructorEmails,
             )
 
-            if (createClassSchedule) {
+            // The schedule used to be driven by a "create a schedule for me?"
+            // checkbox, which meant an instructor editing their class cap
+            // could silently leave `meetingTimes` describing days the class no
+            // longer meets on. It's derived from the save instead: rebuild it
+            // exactly when the fields it's built from changed, and make the
+            // instructor agree first if that overwrites a real schedule.
+            const hasStoredSchedule = (values.meetingTimes?.length ?? 0) > 0
+            let rebuildSchedule =
+              !hasStoredSchedule || scheduleSourceChanged(values, newValues)
+
+            if (rebuildSchedule && hasStoredSchedule) {
+              rebuildSchedule = confirm(
+                'You changed your class days or times, so your class schedule ' +
+                  'has to be rebuilt.\n\n' +
+                  'This replaces your existing schedule - including any changes ' +
+                  'you made to individual sessions - and moves the meeting dates ' +
+                  'for every student already enrolled in this class.\n\n' +
+                  'Rebuild the schedule?',
+              )
+              if (!rebuildSchedule) {
+                // Saving the new days without rebuilding is the inconsistency
+                // this replaced, so back out entirely and leave their edits on
+                // screen to undo.
+                disabled = false
+                alert.trigger(
+                  'info',
+                  'Nothing was saved. Put your class days and times back if you want to keep your existing schedule.',
+                )
+                return
+              }
+            }
+
+            if (rebuildSchedule) {
               const meetingTimes = getMeetingDates(
                 newValues.classDay1,
                 newValues.classDay2,
@@ -146,7 +186,6 @@
     selectedClassId = classId
     values = instructorClasses[classId]
     disabled = true
-    createClassSchedule = false
     isCreatingNewClass = false
   }
 
@@ -154,7 +193,6 @@
     selectedClassId = ''
     values = getDefaultClassValues()
     disabled = false
-    createClassSchedule = true
     isCreatingNewClass = true
   }
 
@@ -178,7 +216,6 @@
             selectedClassId = availableClassIds[0]
             values = instructorClasses[selectedClassId]
             disabled = true
-            createClassSchedule = false
           }
         } catch (err) {
           console.error('[ClassDetailsForm] Failed to load classes:', err)
@@ -328,10 +365,6 @@
                   type="button"
                   onclick={() => (disabled = false)}>Edit class details</Button
                 >
-                <p class="text-sm text-gray-500">
-                  Note that editing your class details will reset your class
-                  schedule.
-                </p>
               {/if}
 
               <fieldset class="mt-4 space-y-4" disabled={disabled || $delayed}>
@@ -509,18 +542,9 @@
                 <div class="mt-2 flex flex-col gap-1.5">
                   <FormCheckbox
                     form={formResult}
-                    name="submitting"
-                    label="I understand submitting will make my class available for registration, so I should not submit until I am sure the class and class times work for me."
-                    bind:checked={$form.submitting}
-                  />
-                </div>
-
-                <div class="mt-2 flex flex-col gap-1.5">
-                  <FormCheckbox
-                    form={formResult}
-                    name="createClassSchedule"
-                    label="Would you like a class schedule to be automatically created for you? Typically, you want to check this box the first time you submit your class details, but you should avoid checking this box when submitting the form again to edit your class details because it will overwrite changes you have made to your existing class schedule."
-                    bind:checked={createClassSchedule}
+                    name="confirmation"
+                    label={CONFIRMATION_TEXT}
+                    bind:checked={$form.confirmation}
                   />
                 </div>
 
@@ -554,9 +578,6 @@
           type="button"
           onclick={() => (disabled = false)}>Edit class details</Button
         >
-        <p class="text-sm text-gray-500">
-          Note that editing your class details will reset your class schedule.
-        </p>
       {/if}
 
       <fieldset class="mt-4 space-y-4" disabled={disabled || $delayed}>
@@ -742,18 +763,9 @@
         <div class="mt-2 flex flex-col gap-1.5">
           <FormCheckbox
             form={formResult}
-            name="submitting"
-            label="I understand submitting will make my class available for registration, so I should not submit until I am sure the class and class times work for me."
-            bind:checked={$form.submitting}
-          />
-        </div>
-
-        <div class="mt-2 flex flex-col gap-1.5">
-          <FormCheckbox
-            form={formResult}
-            name="createClassSchedule"
-            label="Would you like a class schedule to be automatically created for you? Typically, you want to check this box the first time you submit your class details, but you should avoid checking this box when submitting the form again to edit your class details because it will overwrite changes you have made to your existing class schedule."
-            bind:checked={createClassSchedule}
+            name="confirmation"
+            label={CONFIRMATION_TEXT}
+            bind:checked={$form.confirmation}
           />
         </div>
 
