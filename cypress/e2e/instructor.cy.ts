@@ -3,6 +3,7 @@ import {
   applicationsCollection,
   classesCollection,
   currentSemester,
+  instructorFeedbackCollection,
 } from '../../src/lib/data/collections'
 import semesterDates from '../../src/lib/data/semesterDates.json'
 import { generateDateHash, prepareDocForCompare } from '../support/utils'
@@ -697,6 +698,8 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
     )
     cy.clock(postOrientationDate.getTime(), ['Date'])
 
+    const expectedAttendance: Record<string, { present: boolean }> = {}
+
     cy.signedInSession('instructor')
 
     cy.contains('button', 'Submit Feedback').click()
@@ -709,11 +712,63 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
         'input[name="feedback"]',
         'Class went really well! Students were highly interactive.',
       )
-      cy.get('input[type="checkbox"]').first().check({ force: true }) // Check attendance for first student
+      // Build the expected attendance map from the roster the form actually
+      // rendered - the keys are resolved student names, not uids.
+      cy.get('input[name^="attendanceList."]').each(($el, index) => {
+        const student = ($el.attr('name') || '')
+          .replace(/^attendanceList\./, '')
+          .replace(/\.present$/, '')
+        expectedAttendance[student] = { present: index === 0 }
+      })
+      cy.get('input[name^="attendanceList."]').first().check({ force: true })
       cy.contains('button', 'Submit').click({ force: true })
     })
     cy.waitForNotification('Class Feedback saved!')
     cy.get('[role="dialog"]').should('not.exist')
+
+    // `submitInstructorFeedback` writes the feedback document under
+    // `${classId}-${Date.now()}`. `cy.clock` above freezes Date, so that id is
+    // computable rather than needing a collection scan.
+    const feedbackId = `${SEEDED_CLASS_ID}-${postOrientationDate.getTime()}`
+
+    cy.getFirebaseAuthToken().then((authToken: string) => {
+      cy.getFirestoreDoc(
+        authToken,
+        instructorFeedbackCollection,
+        feedbackId,
+      ).then((data: any) => {
+        expect(data, 'instructor feedback document').to.not.equal(null)
+        expect(prepareDocForCompare(data)).to.deep.equal({
+          semester: currentSemester,
+          date: '2026-06-12',
+          feedback: 'Class went really well! Students were highly interactive.',
+          attendanceList: expectedAttendance,
+          classNumber: 1,
+          // Empty unless this is a substitute filing the feedback, which this
+          // test isn't - it comes from `classBeingSubbed`, not the class.
+          courseName: '',
+          instructorName: 'Demo Instructor',
+        })
+      })
+
+      // The same call also advances the class's two per-meeting arrays. They're
+      // indexed by `classNumber - 1`, so a mistake here corrupts a different
+      // week's status rather than erroring.
+      cy.getFirestoreDoc(authToken, classesCollection, SEEDED_CLASS_ID).then(
+        (klass: any) => {
+          expect(klass.feedbackCompleted[0], 'week 1 feedback done').to.equal(
+            true,
+          )
+          expect(klass.classStatuses[0], 'week 1 status').to.equal(
+            'EverythingComplete',
+          )
+          expect(klass.feedbackCompleted[1], 'week 2 untouched').to.equal(false)
+          expect(klass.classStatuses[1], 'week 2 untouched').to.equal(
+            'ClassInFuture',
+          )
+        },
+      )
+    })
   })
 
   it('Test Case 11: Instructor Community Service Hours', () => {

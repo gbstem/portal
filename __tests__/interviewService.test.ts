@@ -1,3 +1,7 @@
+import {
+  applicationsCollection,
+  interviewCollection,
+} from '$lib/data/collections'
 import { interviewService } from '$lib/services/interviewService'
 import * as firestore from 'firebase/firestore'
 import type {} from '../src/data.d.ts'
@@ -261,6 +265,66 @@ describe('interviewService (Data Access Layer)', () => {
       await expect(
         interviewService.bookInterviewSlot(slot, currentUser),
       ).rejects.toThrow('permission-denied')
+    })
+
+    // The three payloads below are hand-written object literals, and the two
+    // documents they touch are shared with admin. Asserting shape rather than
+    // just call count is the point: a field dropped from any of them is a
+    // silent partial booking, since every write here still resolves.
+    describe('written payloads', () => {
+      // The `db` handle is undefined under the mocked firestore module, so
+      // compare only the collection path and document id.
+      const docTarget = (callIndex: number) =>
+        (firestore.doc as jest.Mock).mock.calls[callIndex].slice(1)
+
+      beforeEach(async () => {
+        ;(firestore.updateDoc as jest.Mock).mockResolvedValue(undefined)
+        ;(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true })
+        await interviewService.bookInterviewSlot(slot, currentUser)
+      })
+
+      it('touches only meta.interview on the application', () => {
+        // A whole-object `meta` write here would clobber `meta.decided` and
+        // `meta.submitted`, which admin and ApplyForm own respectively.
+        expect(firestore.updateDoc).toHaveBeenNthCalledWith(
+          1,
+          expect.anything(),
+          {
+            'meta.interview': true,
+          },
+        )
+        expect(docTarget(0)).toEqual([applicationsCollection, 'uid-1'])
+      })
+
+      it('claims the slot with the full interviewee identity', () => {
+        expect(firestore.updateDoc).toHaveBeenNthCalledWith(
+          2,
+          expect.anything(),
+          {
+            // Taken from the caller's slot, not hardcoded - the booking flow
+            // decides whether this lands as 'pending' or 'confirmed'.
+            interviewSlotStatus: 'pending',
+            intervieweeFirstName: 'Timmy',
+            intervieweeLastName: 'Tester',
+            intervieweeEmail: 'applicant@example.com',
+            intervieweeId: 'uid-1',
+          },
+        )
+        expect(docTarget(1)).toEqual([interviewCollection, 'slot-1'])
+      })
+
+      it('sends the confirmation email addressed to the interviewer', () => {
+        const [, init] = (global.fetch as jest.Mock).mock.calls[0]
+        expect(JSON.parse((init as RequestInit).body as string)).toEqual({
+          // The interviewer is notified, so this must be their address and not
+          // the applicant's - the two sit side by side on the slot.
+          email: 'jane@example.com',
+          date: '2026-06-01 10:00 AM',
+          link: 'https://zoom.us/1',
+          interviewer: 'Jane',
+          firstName: 'Timmy',
+        })
+      })
     })
   })
 
