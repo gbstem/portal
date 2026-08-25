@@ -1,6 +1,7 @@
 import { coursesJson } from '../../src/lib/data'
 import {
   applicationsCollection,
+  classesCollection,
   currentSemester,
 } from '../../src/lib/data/collections'
 import semesterDates from '../../src/lib/data/semesterDates.json'
@@ -200,7 +201,9 @@ function assertApplicationDoc(
         (data: any) => {
           expect(data, 'application document').to.not.equal(null)
           expect(
-            prepareDocForCompare(data, APPLICATION_ARRAY_FIELDS),
+            prepareDocForCompare(data, {
+              sortArraysAt: APPLICATION_ARRAY_FIELDS,
+            }),
           ).to.deep.equal(
             prepareDocForCompare(
               expectedApplicationDoc(input, {
@@ -208,7 +211,7 @@ function assertApplicationDoc(
                 uid,
                 submitted: options.submitted,
               }),
-              APPLICATION_ARRAY_FIELDS,
+              { sortArraysAt: APPLICATION_ARRAY_FIELDS },
             ),
           )
         },
@@ -220,6 +223,195 @@ function assertApplicationDoc(
 function saveApplicationDraft() {
   cy.contains('button', 'Save draft').click()
   cy.waitForNotification('Your progress was saved.')
+}
+
+/**
+ * Every field the class details form renders inline on the dashboard.
+ *
+ * `meetingLink` is deliberately absent: the inline variant offers a
+ * "create link" button rather than an input for it, so this form can't set it
+ * directly. That makes it a useful control - it must survive every save
+ * untouched.
+ */
+interface ClassDetailsInput {
+  course: string
+  gradeRecommendation: string
+  classDay1: string
+  classTime1: string
+  classDay2: string
+  classTime2: string
+  classCap: number
+  otherInstructorEmails: string
+  online: boolean
+  submitting: boolean
+  /**
+   * Drives the "automatically create a class schedule" checkbox. Set it
+   * explicitly rather than relying on the default: `createClassSchedule` is
+   * local component state initialised to `true`, but it's rendered through
+   * FormCheckbox with a name the schema doesn't contain, and the checkbox that
+   * comes up is not checked.
+   */
+  createSchedule: boolean
+}
+
+/** The class the admin seed gives instructor@gbstem.org. */
+const SEEDED_CLASS_ID = 'class-python1'
+const SEEDED_MEETING_LINK = 'https://zoom.us/j/123456789'
+const SEEDED_STUDENTS = ['student-demo-uid-1', 'student1', 'student2']
+
+/**
+ * `meetingTimes` and `completedClassDates` hold Firestore timestamps, which
+ * `getFirestoreDoc`'s converter returns as raw wrappers; `feedbackCompleted`
+ * and `classStatuses` are regenerated per meeting date, so their length tracks
+ * the semester's date range rather than anything this form sets. All four are
+ * asserted separately by `assertGeneratedSchedule`.
+ */
+const CLASS_COMPUTED_FIELDS = [
+  'meetingTimes',
+  'completedClassDates',
+  'feedbackCompleted',
+  'classStatuses',
+]
+
+/**
+ * Picks an option in a Select that already holds a value.
+ *
+ * `cy.selectOption` can't do this. Select's `handleFocusIn` shows the full list,
+ * but `filterOptionsBy` then re-filters by the text in the input on a 150ms
+ * debounce - so a select arriving with a value collapses to just that value a
+ * frame after the dropdown opens, and every other option vanishes before an
+ * assertion can retry onto it. Clearing the input first resets the filter to the
+ * whole list. (`cy.selectOption` gets away with it on empty selects, where the
+ * empty filter matches everything.)
+ */
+function reselectOption(selector: string, text: string) {
+  cy.get(selector).clear()
+  // Scoped to the open dropdown (`.top-14`) rather than any button: the class
+  // picker above this form labels each class with its course name, so an
+  // unscoped `cy.contains('button', 'Mathematics 1a')` matches that instead and
+  // silently switches class rather than choosing the option.
+  cy.contains('.top-14 button', text, { timeout: 10000 }).click({ force: true })
+  cy.get(selector).should('have.value', text)
+}
+
+/**
+ * Fills the inline class details form. `classDay2`/`classTime2` only render for
+ * a maths course taught online, so the caller has to pick one to reach them.
+ */
+function fillClassDetailsForm(input: ClassDetailsInput) {
+  reselectOption('input[name="course"]', input.course)
+  cy.fillInput('input[name="gradeRecommendation"]', input.gradeRecommendation)
+  reselectOption('input[name="classDay1"]', input.classDay1)
+  cy.fillInput('input[name="classTime1"]', input.classTime1)
+
+  const showsSecondDay =
+    input.course.toLowerCase().includes('math') && input.online
+  if (showsSecondDay) {
+    reselectOption('input[name="classDay2"]', input.classDay2)
+    cy.fillInput('input[name="classTime2"]', input.classTime2)
+  }
+
+  cy.fillInput('input[name="classCap"]', String(input.classCap))
+  cy.fillInput(
+    'input[name="otherInstructorEmails"]',
+    input.otherInstructorEmails,
+  )
+
+  const setCheckbox = (name: string, checked: boolean) => {
+    const selector = `input[name="${name}"]`
+    if (checked) {
+      cy.get(selector).check({ force: true })
+    } else {
+      cy.get(selector).uncheck({ force: true })
+    }
+  }
+  setCheckbox('online', input.online)
+  setCheckbox('submitting', input.submitting)
+  setCheckbox('createClassSchedule', input.createSchedule)
+}
+
+/**
+ * The complete class document the form is expected to have written. Note how
+ * much of it the form never renders: `saveClassDetails` is a `{ merge: true }`
+ * write of `{ ...values, ...formVal.data }`, so every one of these has to
+ * survive, and a regression that drops one shows up here rather than silently
+ * in production.
+ */
+function expectedClassDoc(
+  input: ClassDetailsInput,
+  context: { meetingLink: string },
+) {
+  return {
+    semester: currentSemester,
+    course: input.course,
+    gradeRecommendation: input.gradeRecommendation,
+    classDay1: input.classDay1,
+    classTime1: input.classTime1,
+    classDay2: input.classDay2,
+    classTime2: input.classTime2,
+    classCap: input.classCap,
+    otherInstructorEmails: input.otherInstructorEmails,
+    online: input.online,
+    submitting: input.submitting,
+    meetingLink: context.meetingLink,
+    // Written from the signed-in profile on every save, never from the form.
+    instructorFirstName: 'Demo',
+    instructorLastName: 'Instructor',
+    instructorEmail: 'instructor@gbstem.org',
+    // Owned by registration/admin - the form must not touch the roster.
+    students: SEEDED_STUDENTS,
+  }
+}
+
+function assertClassDoc(
+  input: ClassDetailsInput,
+  context: { meetingLink: string },
+) {
+  cy.getFirebaseAuthToken().then((authToken: string) => {
+    cy.getFirestoreDoc(authToken, classesCollection, SEEDED_CLASS_ID).then(
+      (data: any) => {
+        expect(data, 'class document').to.not.equal(null)
+        expect(
+          prepareDocForCompare(data, { omit: CLASS_COMPUTED_FIELDS }),
+        ).to.deep.equal(
+          prepareDocForCompare(expectedClassDoc(input, context), {
+            omit: CLASS_COMPUTED_FIELDS,
+          }),
+        )
+      },
+    )
+  })
+}
+
+/**
+ * The three per-meeting arrays have to stay the same length as each other and
+ * as `meetingTimes`, or the feedback form's `classNumber - 1` indexing walks
+ * off the end of one of them.
+ */
+function assertGeneratedSchedule(options: { regenerated: boolean }) {
+  cy.getFirebaseAuthToken().then((authToken: string) => {
+    cy.getFirestoreDoc(authToken, classesCollection, SEEDED_CLASS_ID).then(
+      (data: any) => {
+        const count = data.meetingTimes.length
+        expect(count, 'meeting times').to.be.greaterThan(0)
+        expect(data.feedbackCompleted).to.have.length(count)
+        expect(data.classStatuses).to.have.length(count)
+        if (options.regenerated) {
+          expect(data.feedbackCompleted).to.deep.equal(
+            new Array(count).fill(false),
+          )
+          expect(data.classStatuses).to.deep.equal(
+            new Array(count).fill('ClassInFuture'),
+          )
+        }
+      },
+    )
+  })
+}
+
+function saveClassDetails() {
+  cy.get('button[type="submit"]').click()
+  cy.waitForNotification('Class details saved!')
 }
 
 describe('Section C & E: Instructor Applications & Community Service', () => {
@@ -538,28 +730,118 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
     )
   })
 
-  it('Test Case 13: Class Details Submission & Modifying Details', () => {
+  it('Test Case 13: Class Details - Every Field Reaches Firestore', () => {
+    // A maths course taught online is what makes `classDay2`/`classTime2`
+    // render at all, so this is the only combination that reaches every field.
+    const input: ClassDetailsInput = {
+      course: 'Mathematics 1a',
+      gradeRecommendation: '3-5',
+      classDay1: 'Tuesday',
+      classTime1: '15:30',
+      classDay2: 'Thursday',
+      classTime2: '16:45',
+      classCap: 8,
+      otherInstructorEmails: 'cohost@gbstem.org',
+      online: true,
+      submitting: true,
+      createSchedule: true,
+    }
+
     cy.signedInSession('instructor')
 
-    // Edit Form Details
     cy.contains('h2', 'Class Details')
       .closest('.rounded-xl')
       .within(() => {
         cy.contains('button', 'Edit class details').click()
-        cy.fillInput('input[name="classCap"]', '8')
-        cy.get('button[type="submit"]').click()
       })
-    cy.waitForNotification('Class details saved!')
 
-    // The page does a location.reload() ~2000ms after this save -- give the
-    // lookup extra retry budget to span that instead of a fixed pre-wait.
-    cy.contains('h2', 'Class Details', { timeout: 8000 })
+    // Only one class details form is mounted at a time, so these selectors
+    // don't need the card scoping the `Edit` lookup above required.
+    cy.get('input[name="course"]')
+      .should('not.be.disabled')
+      .and('not.have.value', '')
+    fillClassDetailsForm(input)
+    saveClassDetails()
+
+    // `createClassSchedule` is left checked (its default), so the meeting dates
+    // and the two per-meeting arrays are rebuilt from the semester range.
+    assertClassDoc(input, { meetingLink: SEEDED_MEETING_LINK })
+    assertGeneratedSchedule({ regenerated: true })
+  })
+
+  it('Test Case 13b: Class Details - Every Field Can Be Modified', () => {
+    const initial: ClassDetailsInput = {
+      course: 'Mathematics 1a',
+      gradeRecommendation: '3-5',
+      classDay1: 'Tuesday',
+      classTime1: '15:30',
+      classDay2: 'Thursday',
+      classTime2: '16:45',
+      classCap: 8,
+      otherInstructorEmails: 'before@gbstem.org',
+      online: true,
+      submitting: true,
+      createSchedule: true,
+    }
+    // Every field differs, including both booleans. `online` going false also
+    // hides `classDay2`/`classTime2`, which must then keep their stored values
+    // rather than being blanked.
+    const modified: ClassDetailsInput = {
+      ...initial,
+      course: 'Mathematics 2a',
+      gradeRecommendation: '6-8',
+      classDay1: 'Wednesday',
+      classTime1: '17:15',
+      classCap: 12,
+      otherInstructorEmails: 'after@gbstem.org',
+      online: false,
+      submitting: false,
+      // Editing an existing class: regenerating here would discard the
+      // schedule, which is exactly what the checkbox's label warns about.
+      createSchedule: false,
+    }
+
+    cy.signedInSession('instructor')
+
+    cy.contains('h2', 'Class Details')
       .closest('.rounded-xl')
       .within(() => {
-        cy.get('input[name="classCap"]')
-          .should('be.disabled')
-          .should('have.value', '8')
+        cy.contains('button', 'Edit class details').click()
       })
+
+    // Only one class details form is mounted at a time, so these selectors
+    // don't need the card scoping the `Edit` lookup above required.
+    cy.get('input[name="course"]')
+      .should('not.be.disabled')
+      .and('not.have.value', '')
+    fillClassDetailsForm(initial)
+    saveClassDetails()
+    assertClassDoc(initial, { meetingLink: SEEDED_MEETING_LINK })
+
+    // ClassDetailsForm calls `location.reload()` 2s after a successful save, so
+    // wait it out rather than racing it - starting the next edit mid-reload
+    // tears the document out from under whatever command is running. The wait
+    // is pinned to that literal timer, not guesswork.
+    cy.wait(3000)
+
+    // Re-entering edit mode reads the stored document back through
+    // `toFormValues`, which is where a field missing from that mapper would
+    // come back empty and then be written straight back over the stored value.
+    cy.contains('h2', 'Class Details', { timeout: 10000 })
+      .closest('.rounded-xl')
+      .within(() => {
+        cy.contains('button', 'Edit class details').click()
+      })
+    cy.get('input[name="classCap"]').should(
+      'have.value',
+      String(initial.classCap),
+    )
+    fillClassDetailsForm(modified)
+    saveClassDetails()
+
+    assertClassDoc(modified, { meetingLink: SEEDED_MEETING_LINK })
+    // Left unchecked this pass, so the schedule the first save built survives.
+    assertGeneratedSchedule({ regenerated: true })
   })
 
   it('Test Case 14: Edit Schedule and Add Class', () => {

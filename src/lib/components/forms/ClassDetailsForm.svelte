@@ -1,6 +1,6 @@
 <script lang="ts">
   import { user } from '$lib/client/firebase'
-  import { otherInstructorEmailsSchema } from '$lib/components/forms/schemas'
+  import { classDetailsFormSchema } from '$lib/components/forms/schemas'
   import { coursesJson, daysOfWeekJson } from '$lib/data'
   import { withSemester } from '$lib/data/collections'
   import {
@@ -16,7 +16,6 @@
   import { onMount, untrack } from 'svelte'
   import { defaults, superForm } from 'sveltekit-superforms'
   import { zod } from 'sveltekit-superforms/adapters'
-  import { z } from 'zod'
   import Button from '../Button.svelte'
   import Card from '../Card.svelte'
   import Dialog from '../Dialog.svelte'
@@ -49,44 +48,7 @@
 
   let createClassSchedule = $state(true)
 
-  const schema = z.object({
-    course: z.string().min(1, 'Course is required'),
-    gradeRecommendation: z.string().optional().default(''),
-    classCap: z.coerce.number().min(0, 'Capacity must be at least 0'),
-    meetingLink: z.string().optional().default(''),
-    classDay1: z.enum(
-      [
-        'Monday',
-        'Tuesday',
-        'Wednesday',
-        'Thursday',
-        'Friday',
-        'Saturday',
-        'Sunday',
-      ],
-      {
-        errorMap: () => ({ message: 'Day 1 is required' }),
-      },
-    ),
-    classTime1: z.string().min(1, 'Time 1 is required'),
-    classDay2: z
-      .enum([
-        '',
-        'Monday',
-        'Tuesday',
-        'Wednesday',
-        'Thursday',
-        'Friday',
-        'Saturday',
-        'Sunday',
-      ])
-      .optional()
-      .default(''),
-    classTime2: z.string().optional().default(''),
-    online: z.boolean().default(true),
-    otherInstructorEmails: otherInstructorEmailsSchema,
-    submitting: z.boolean().default(false),
-  })
+  const schema = classDetailsFormSchema
 
   // svelte-ignore state_referenced_locally
   const formResult = superForm(

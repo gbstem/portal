@@ -160,7 +160,9 @@ function assertRegistrationDoc(
           (data: any) => {
             expect(data, 'registration document').to.not.equal(null)
             expect(
-              prepareDocForCompare(data, REGISTRATION_ARRAY_FIELDS),
+              prepareDocForCompare(data, {
+                sortArraysAt: REGISTRATION_ARRAY_FIELDS,
+              }),
             ).to.deep.equal(
               prepareDocForCompare(
                 expectedRegistrationDoc(input, {
@@ -168,7 +170,7 @@ function assertRegistrationDoc(
                   childUid,
                   submitted: options.submitted,
                 }),
-                REGISTRATION_ARRAY_FIELDS,
+                { sortArraysAt: REGISTRATION_ARRAY_FIELDS },
               ),
             )
           },

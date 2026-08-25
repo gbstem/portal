@@ -27,6 +27,11 @@ export const generateDateHash = (prefix: string): string => {
  *   appends in the order boxes are ticked, so a checkbox group's stored order
  *   reflects click order rather than anything meaningful - pinning it would
  *   make these tests fail for the wrong reason.
+ * - The paths named in `omit` are dropped. Use this only for values that can't
+ *   be compared literally - other `Date` fields, which come back as raw
+ *   `{ timestampValue }` wrappers for the same reason `timestamps` does - and
+ *   assert those separately. Every field dropped here is a field the
+ *   deep-equal stops guarding, so keep the list short and justified.
  *
  * Deep-equal rather than per-field assertions is the point: a field added to a
  * form's schema but never wired through to the write path shows up here as an
@@ -35,11 +40,13 @@ export const generateDateHash = (prefix: string): string => {
  */
 export const prepareDocForCompare = (
   doc: Record<string, any>,
-  sortArraysAt: string[] = [],
+  options: { sortArraysAt?: string[]; omit?: string[] } = {},
 ): Record<string, any> => {
+  const { sortArraysAt = [], omit = [] } = options
   const { timestamps: _timestamps, ...rest } = doc
   const copy = JSON.parse(JSON.stringify(rest))
-  for (const path of sortArraysAt) {
+
+  const resolveParent = (path: string) => {
     const keys = path.split('.')
     const last = keys.pop() as string
     let cursor = copy
@@ -47,6 +54,15 @@ export const prepareDocForCompare = (
       if (cursor === null || cursor === undefined) break
       cursor = cursor[key]
     }
+    return { cursor, last }
+  }
+
+  for (const path of omit) {
+    const { cursor, last } = resolveParent(path)
+    if (cursor) delete cursor[last]
+  }
+  for (const path of sortArraysAt) {
+    const { cursor, last } = resolveParent(path)
     if (cursor && Array.isArray(cursor[last])) {
       cursor[last] = [...cursor[last]].sort()
     }

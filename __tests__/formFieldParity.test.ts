@@ -14,10 +14,15 @@
 import type {} from '../src/data.d.ts'
 import {
   applicationSchema,
+  classDetailsFormSchema,
   getApplyFormDefaults,
   getRegistrationFormDefaults,
   registrationSchema,
 } from '$lib/components/forms/schemas'
+import {
+  getDefaultClassValues,
+  toFormValues as toClassFormValues,
+} from '$lib/helpers/classDetailsForm'
 import {
   APPLICATION_ADMIN_OWNED_FIELDS,
   applicationOwnedFields,
@@ -194,35 +199,57 @@ const REGISTRATION_IDENTITY_FIELDS = [
 /** Stands in for the caller's `serverTimestamp()` sentinel. */
 const TIMESTAMP = { __serverTimestamp: true }
 
+const REGISTRATION_FORM = {
+  label: 'registration',
+  schema: registrationSchema as unknown as z.ZodTypeAny,
+  getDefaults: getRegistrationFormDefaults,
+  createEmpty: createEmptyRegistration,
+  normalize: (data: any) => normalizeRegistrationData(data),
+  toFormValues: (data: any) => toRegistrationFormValues(data),
+  unvalidated: REGISTRATION_UNVALIDATED_FIELDS,
+  ownedFields: (values: any, formData: any) =>
+    registrationOwnedFields(values, formData, TIMESTAMP) as any,
+  adminOwned: REGISTRATION_ADMIN_OWNED_FIELDS,
+  identity: REGISTRATION_IDENTITY_FIELDS,
+}
+
+const APPLICATION_FORM = {
+  label: 'application',
+  schema: applicationSchema as unknown as z.ZodTypeAny,
+  getDefaults: getApplyFormDefaults,
+  createEmpty: createEmptyApplication,
+  normalize: (data: any) => normalizeApplicationData(data),
+  toFormValues: (data: any) => toApplyFormValues(data),
+  unvalidated: APPLICATION_UNVALIDATED_FIELDS,
+  ownedFields: (values: any, formData: any) =>
+    applicationOwnedFields(values, formData, TIMESTAMP) as any,
+  adminOwned: APPLICATION_ADMIN_OWNED_FIELDS,
+  identity: [] as string[],
+}
+
+/**
+ * ClassDetailsForm has a shorter pipeline than the other two: `Data.Class` is
+ * flat, there's no normalize step, and the save is a plain
+ * `{ ...values, ...formVal.data }` spread rather than an `ownedFields`
+ * allowlist - so it takes the shared checks below but not the `ownedFields`
+ * block.
+ *
+ * `getDefaultClassValues` serves as both the defaults factory and the empty
+ * document factory here; the separate `getClassDetailsFormDefaults()` in
+ * schemas.ts is a mirror of admin's copy that nothing in the portal calls.
+ */
+const CLASS_DETAILS_FORM = {
+  label: 'class details',
+  schema: classDetailsFormSchema as unknown as z.ZodTypeAny,
+  getDefaults: getDefaultClassValues,
+  createEmpty: getDefaultClassValues,
+  normalize: (data: any) => data,
+  toFormValues: (data: any) => toClassFormValues(data),
+  unvalidated: [] as string[],
+}
+
 describe('Form field parity', () => {
-  describe.each([
-    {
-      label: 'registration',
-      schema: registrationSchema as unknown as z.ZodTypeAny,
-      getDefaults: getRegistrationFormDefaults,
-      createEmpty: createEmptyRegistration,
-      normalize: (data: any) => normalizeRegistrationData(data),
-      toFormValues: (data: any) => toRegistrationFormValues(data),
-      unvalidated: REGISTRATION_UNVALIDATED_FIELDS,
-      ownedFields: (values: any, formData: any) =>
-        registrationOwnedFields(values, formData, TIMESTAMP) as any,
-      adminOwned: REGISTRATION_ADMIN_OWNED_FIELDS,
-      identity: REGISTRATION_IDENTITY_FIELDS,
-    },
-    {
-      label: 'application',
-      schema: applicationSchema as unknown as z.ZodTypeAny,
-      getDefaults: getApplyFormDefaults,
-      createEmpty: createEmptyApplication,
-      normalize: (data: any) => normalizeApplicationData(data),
-      toFormValues: (data: any) => toApplyFormValues(data),
-      unvalidated: APPLICATION_UNVALIDATED_FIELDS,
-      ownedFields: (values: any, formData: any) =>
-        applicationOwnedFields(values, formData, TIMESTAMP) as any,
-      adminOwned: APPLICATION_ADMIN_OWNED_FIELDS,
-      identity: [] as string[],
-    },
-  ])(
+  describe.each([REGISTRATION_FORM, APPLICATION_FORM, CLASS_DETAILS_FORM])(
     '$label',
     ({
       schema,
@@ -231,22 +258,8 @@ describe('Form field parity', () => {
       normalize,
       toFormValues,
       unvalidated,
-      ownedFields,
-      adminOwned,
-      identity,
     }) => {
       const leaves = schemaLeaves(schema)
-
-      /**
-       * Runs `ownedFields` with the last-loaded document and the live form
-       * values populated from different sentinel sets, so each assertion can
-       * tell which side a written value actually came from.
-       */
-      const runOwnedFields = () =>
-        ownedFields(
-          populate(createEmpty(), leaves, 'values'),
-          populate(toFormValues(createEmpty()), leaves, 'form'),
-        )
 
       test('the schema walker finds a non-trivial set of fields', () => {
         // Cheap canary: if `schemaLeaves` ever silently returns nothing, every
@@ -295,83 +308,112 @@ describe('Form field parity', () => {
         )
         expect(extras).toEqual([])
       })
-
-      // Every save after the bootstrap write is a `{ merge: true }` write, so
-      // `ownedFields` output is literally what reaches Firestore: a field
-      // missing from it keeps whatever the last writer left, with no error.
-      describe('ownedFields', () => {
-        test('writes every schema field the form is allowed to own', () => {
-          const written = runOwnedFields()
-          const missing = leaves
-            .filter((leaf) => !adminOwned.includes(leaf.path))
-            .filter((leaf) => !hasPath(written, leaf.path))
-            .map((leaf) => leaf.path)
-          expect(missing).toEqual([])
-        })
-
-        test('takes each of those fields from the form, not the stored copy', () => {
-          const written = runOwnedFields()
-          const wrong = leaves
-            .filter(
-              (leaf) =>
-                !adminOwned.includes(leaf.path) &&
-                !identity.includes(leaf.path),
-            )
-            .filter((leaf, index) => {
-              const expected = sentinelFor(leaf, index, 'form')
-              return (
-                JSON.stringify(getPath(written, leaf.path)) !==
-                JSON.stringify(expected)
-              )
-            })
-            .map((leaf) => leaf.path)
-          expect(wrong).toEqual([])
-        })
-
-        test('re-pins account-owned identity fields from the stored copy', () => {
-          const values = populate(createEmpty(), leaves, 'values')
-          const formData = populate(toFormValues(createEmpty()), leaves, 'form')
-          // Not every identity field is a schema field - parentFirstName and
-          // parentLastName are deliberately unvalidated - so `populate` won't
-          // have reached them. Set both sides here instead.
-          for (const path of identity) {
-            setPath(values, path, `values-${path}`)
-            setPath(formData, path, `form-${path}`)
-          }
-
-          const written = ownedFields(values, formData)
-
-          for (const path of identity) {
-            expect({ path, value: getPath(written, path) }).toEqual({
-              path,
-              value: `values-${path}`,
-            })
-          }
-        })
-
-        test('never writes an admin-owned field', () => {
-          const written = runOwnedFields()
-          const leaked = adminOwned.filter((path) => hasPath(written, path))
-          expect(leaked).toEqual([])
-        })
-
-        test('never writes meta, which admin and the submit handler own', () => {
-          expect(runOwnedFields().meta).toBeUndefined()
-        })
-
-        test('preserves an existing created timestamp and always stamps updated', () => {
-          const existing = { __existingCreated: true }
-          const values: any = createEmpty()
-          values.timestamps.created = existing
-
-          expect(
-            ownedFields(values, toFormValues(createEmpty())).timestamps,
-          ).toEqual({ created: existing, updated: TIMESTAMP })
-          expect(
-            ownedFields(createEmpty(), toFormValues(createEmpty())).timestamps,
-          ).toEqual({ created: TIMESTAMP, updated: TIMESTAMP })
-        })
-      })
     },
   )
 })
+
+/**
+ * Only the two forms whose save path goes through an `ownedFields` allowlist.
+ * ClassDetailsForm writes a plain `{ ...values, ...formVal.data }` spread over a
+ * flat document, so there's no allowlist to drift out of step with the schema.
+ */
+describe.each([REGISTRATION_FORM, APPLICATION_FORM])(
+  '$label ownedFields',
+  ({
+    schema,
+    createEmpty,
+    toFormValues,
+    ownedFields,
+    adminOwned,
+    identity,
+  }) => {
+    const leaves = schemaLeaves(schema)
+
+    /**
+     * Runs `ownedFields` with the last-loaded document and the live form values
+     * populated from different sentinel sets, so each assertion can tell which
+     * side a written value actually came from.
+     */
+    const runOwnedFields = () =>
+      ownedFields(
+        populate(createEmpty(), leaves, 'values'),
+        populate(toFormValues(createEmpty()), leaves, 'form'),
+      )
+
+    // Every save after the bootstrap write is a `{ merge: true }` write, so
+    // `ownedFields` output is literally what reaches Firestore: a field
+    // missing from it keeps whatever the last writer left, with no error.
+    describe('ownedFields', () => {
+      test('writes every schema field the form is allowed to own', () => {
+        const written = runOwnedFields()
+        const missing = leaves
+          .filter((leaf) => !adminOwned.includes(leaf.path))
+          .filter((leaf) => !hasPath(written, leaf.path))
+          .map((leaf) => leaf.path)
+        expect(missing).toEqual([])
+      })
+
+      test('takes each of those fields from the form, not the stored copy', () => {
+        const written = runOwnedFields()
+        const wrong = leaves
+          .filter(
+            (leaf) =>
+              !adminOwned.includes(leaf.path) && !identity.includes(leaf.path),
+          )
+          .filter((leaf, index) => {
+            const expected = sentinelFor(leaf, index, 'form')
+            return (
+              JSON.stringify(getPath(written, leaf.path)) !==
+              JSON.stringify(expected)
+            )
+          })
+          .map((leaf) => leaf.path)
+        expect(wrong).toEqual([])
+      })
+
+      test('re-pins account-owned identity fields from the stored copy', () => {
+        const values = populate(createEmpty(), leaves, 'values')
+        const formData = populate(toFormValues(createEmpty()), leaves, 'form')
+        // Not every identity field is a schema field - parentFirstName and
+        // parentLastName are deliberately unvalidated - so `populate` won't
+        // have reached them. Set both sides here instead.
+        for (const path of identity) {
+          setPath(values, path, `values-${path}`)
+          setPath(formData, path, `form-${path}`)
+        }
+
+        const written = ownedFields(values, formData)
+
+        for (const path of identity) {
+          expect({ path, value: getPath(written, path) }).toEqual({
+            path,
+            value: `values-${path}`,
+          })
+        }
+      })
+
+      test('never writes an admin-owned field', () => {
+        const written = runOwnedFields()
+        const leaked = adminOwned.filter((path) => hasPath(written, path))
+        expect(leaked).toEqual([])
+      })
+
+      test('never writes meta, which admin and the submit handler own', () => {
+        expect(runOwnedFields().meta).toBeUndefined()
+      })
+
+      test('preserves an existing created timestamp and always stamps updated', () => {
+        const existing = { __existingCreated: true }
+        const values: any = createEmpty()
+        values.timestamps.created = existing
+
+        expect(
+          ownedFields(values, toFormValues(createEmpty())).timestamps,
+        ).toEqual({ created: existing, updated: TIMESTAMP })
+        expect(
+          ownedFields(createEmpty(), toFormValues(createEmpty())).timestamps,
+        ).toEqual({ created: TIMESTAMP, updated: TIMESTAMP })
+      })
+    })
+  },
+)
