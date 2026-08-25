@@ -25,7 +25,9 @@ Cypress.Commands.add('fillInput', (selector: string, text: string) => {
 // This replaced fixed `cy.wait(500)` calls that were racing hydration under
 // full-suite load.
 Cypress.Commands.add('waitForFormHydration', (selector = 'form') => {
-  cy.get(selector, { timeout: 15000 }).should('have.attr', 'method', 'post')
+  cy.get(selector, { timeout: 15000 })
+    .should('have.attr', 'method')
+    .and('match', /post/i)
 })
 
 Cypress.Commands.add('loadSignupPage', () => {
