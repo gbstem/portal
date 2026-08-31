@@ -90,6 +90,13 @@
     {
       SPA: true,
       validators: zod(schema as any) as any,
+      // Superforms' SPA default is `resetForm: true`, and a caught failure in
+      // `onUpdate` still counts as a completed submission - so a rejected
+      // signup (duplicate email, most often) blanked every field including the
+      // role select. Combined with the 3s toast timeout that left the user
+      // staring at an empty form with no explanation, which is how this was
+      // reported in production. Keep the values so the retry is a retry.
+      resetForm: false,
       async onUpdate({ form: formVal }: { form: any }) {
         if (!formVal.valid) return
         const firstName = formVal.data.firstName.trim()
