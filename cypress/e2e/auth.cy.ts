@@ -241,4 +241,105 @@ describe('Section A: Authentication and Navigation', () => {
       cy.contains('a', 'Register').should('not.exist')
     })
   })
+
+  // Portal and admin share one Firebase Auth instance, so an email that already
+  // has an account anywhere - same role, the other portal role, or an admin-site
+  // role - can never be signed up again here. `createUserWithEmailAndPassword`
+  // rejects with `auth/email-already-in-use`, which `SignUpForm` hands to
+  // `alert.trigger(..., true)`, so the failure surfaces as a red toast. That
+  // toast is the whole point of these cases: without it the only thing the user
+  // sees is a form that sat there, which is how the equivalent admin-site
+  // failure was reported in production.
+  ;[
+    {
+      label: 'Same Role (Existing Parent/Student)',
+      email: 'student@gbstem.org',
+      role: 'Parent registering my child for classes',
+    },
+    {
+      label: 'Different Role, Same Site (Existing Instructor)',
+      email: 'instructor@gbstem.org',
+      role: 'Parent registering my child for classes',
+    },
+    {
+      label: 'Different Role, Admin Site (Existing Reviewer)',
+      email: 'reviewer@gbstem.org',
+      role: 'High school/college student applying to be an instructor',
+    },
+    {
+      label: 'Different Role, Admin Site (Existing Admin)',
+      email: 'demo@gbstem.org',
+      role: 'High school/college student applying to be an instructor',
+    },
+  ].forEach(({ label, email, role }) => {
+    it(`Test Case 6: Sign Up Rejected for Existing Account - ${label}`, () => {
+      cy.loadSignupPage()
+      cy.selectOption('input[name="role"]', role, { timeout: 10000 })
+      cy.fillInput('input[name="firstName"]', 'Duplicate')
+      cy.fillInput('input[name="lastName"]', generateDateHash('Account'))
+      cy.fillInput('input[name="email"]', email)
+      cy.fillInput('input[name="password"]', 'penguin')
+      cy.fillInput('input[name="confirmPassword"]', 'penguin')
+      cy.get('button[type="submit"]').click()
+
+      // The failure has to be visible, not just implied by a form that didn't
+      // go anywhere.
+      cy.waitForNotification('Email already in use.', 'bg-red-200')
+
+      // Still on the signup form, and not signed in as anyone - least of all as
+      // the pre-existing account whose email was just typed in.
+      cy.get('[role="dialog"]').should('not.exist')
+      cy.url().should('include', '/signup')
+      cy.get('h1').should('contain', 'Sign up')
+
+      cy.visit('/dashboard')
+      cy.url().should('include', '/signin')
+    })
+  })
+
+  it('Test Case 6b: Repeated Failed Sign Up Still Shows the Error', () => {
+    // Retrying without a reload is what a real user does after a typo, and it
+    // is where the equivalent admin-site flow regressed in production. Two
+    // separate failures live here, so both get pinned:
+    //
+    // 1. Superforms' SPA `resetForm` default wiped every field - role included
+    //    - on a rejected signup, leaving a blank form once the 3s toast
+    //    expired.
+    // 2. The toast has to re-raise on a second failure, not just the first.
+    const email = 'instructor@gbstem.org'
+
+    cy.loadSignupPage()
+    cy.selectOption(
+      'input[name="role"]',
+      'Parent registering my child for classes',
+      { timeout: 10000 },
+    )
+    cy.fillInput('input[name="firstName"]', 'Duplicate')
+    cy.fillInput('input[name="lastName"]', generateDateHash('Retry'))
+    cy.fillInput('input[name="email"]', email)
+    cy.fillInput('input[name="password"]', 'penguin')
+    cy.fillInput('input[name="confirmPassword"]', 'penguin')
+    cy.get('button[type="submit"]').click()
+
+    cy.waitForNotification('Email already in use.', 'bg-red-200')
+
+    // Let the submit cycle fully settle before reading the form back - the
+    // reset used to land after the toast appeared, not with it.
+    cy.get('fieldset').should('not.be.disabled')
+    cy.get('input[name="role"]').should(
+      'have.value',
+      'Parent registering my child for classes',
+    )
+    cy.get('input[name="email"]').should('have.value', email)
+    cy.get('input[name="firstName"]').should('have.value', 'Duplicate')
+    cy.get('input[name="password"]').should('have.value', 'penguin')
+
+    // Dismiss the toast (the whole banner is the dismiss button) and submit the
+    // retained values again - the failure has to surface a second time.
+    cy.get('.bg-red-200').click({ force: true })
+    cy.get('.bg-red-200').should('not.exist')
+
+    cy.get('button[type="submit"]').click()
+    cy.waitForNotification('Email already in use.', 'bg-red-200')
+  })
 })
