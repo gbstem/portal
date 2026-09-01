@@ -39,6 +39,42 @@ export function createEmptyRegistration(): Data.Registration {
 }
 
 /**
+ * Builds the registration document for a child slot's very first write.
+ *
+ * `timestamps.created` is stamped here because this is the only write that sends the
+ * whole document: `registrationOwnedFields` fills `created` in only when it is already
+ * missing, so a draft bootstrapped with the `null` `createEmptyRegistration` returns kept
+ * that null until its parent happened to save again - and kept it forever once submitted,
+ * which is what admin's `timestamps.created.toDate()` reads crashed on. The save paths
+ * were fixed in portal #61; this one was missed.
+ *
+ * Note the caller's `serverTimestamp()` sentinel stays in the in-memory copy afterwards
+ * (the bootstrap deliberately doesn't re-read the document - see `bootstrapRegistration`).
+ * It is truthy, so the next save re-sends it rather than round-tripping a stored value,
+ * and `created` lands on that save's server time instead of this one - at most one autosave
+ * interval later. That is a bounded imprecision on a server clock, unlike the null it
+ * replaces, which was a hard crash.
+ *
+ * @param timestamp the caller's `serverTimestamp()` sentinel.
+ */
+export function createBootstrapRegistration(
+  childUid: string,
+  parentFirstName: string,
+  parentLastName: string,
+  email: string,
+  timestamp: any,
+): Data.Registration {
+  const values = createEmptyRegistration()
+  values.meta.uid = childUid
+  values.personal.parentFirstName = parentFirstName
+  values.personal.parentLastName = parentLastName
+  values.personal.email = email
+  values.timestamps.created = timestamp
+  values.timestamps.updated = timestamp
+  return values
+}
+
+/**
  * Safely merges incoming Firestore registration data with clean default structure.
  */
 export function normalizeRegistrationData(data: any): Data.Registration {

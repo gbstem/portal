@@ -9,6 +9,7 @@
     raceJson,
   } from '$lib/data'
   import {
+    createBootstrapRegistration,
     createEmptyRegistration,
     normalizeRegistrationData,
     registrationOwnedFields,
@@ -182,11 +183,13 @@
               dbValues = cloneDeep(values)
             }
           } else {
-            values = createEmptyRegistration()
-            values.meta.uid = childUid
-            values.personal.parentFirstName = user.profile.firstName
-            values.personal.parentLastName = user.profile.lastName
-            values.personal.email = user.object.email ?? ''
+            values = createBootstrapRegistration(
+              childUid,
+              user.profile.firstName,
+              user.profile.lastName,
+              user.object.email ?? '',
+              serverTimestamp(),
+            )
             dbValues = cloneDeep(values)
             form.set(toFormValues(values))
             await bootstrapRegistration(childUid, values)
