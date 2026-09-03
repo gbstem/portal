@@ -1,0 +1,83 @@
+<mjml>
+  <mj-head>
+    <mj-include path="../layout/head.mjml" />
+  </mj-head>
+  <mj-body background-color="#f8f8f8">
+    <mj-include path="../layout/header.mjml" />
+    <mj-section
+      background-color="#ffffff"
+      padding="20px 0px 20px 0px"
+      padding-top="20px"
+      padding-bottom="50px"
+    >
+      <mj-column>
+        <mj-text color="#797e82" padding="0px 25px 15px 25px">
+          <h1
+            style="
+              text-align: center;
+              color: #000000;
+              font-weight: 700;
+              font-size: 34px;
+            "
+          >
+            {{ action.name }}
+          </h1>
+        </mj-text>
+        <mj-text
+          font-size="16px"
+          line-height="22px"
+          padding="10px 25px"
+          padding-top="0px"
+        >
+          <p style="margin: 0 0">{{ action.description }}</p>
+        </mj-text>
+        <mj-button
+          href="{{url action.link}}"
+          background-color="darkblue"
+          color="#ffffff"
+          font-size="14px"
+          font-weight="normal"
+          line-height="120%"
+          border-radius="100px"
+          inner-padding="15px 25px 15px 25px"
+          padding="10px 25px"
+          padding-top="20px"
+          ><b style="font-weight: 700"
+            ><b style="font-weight: 700">{{ action.name }}</b></b
+          ></mj-button
+        >
+        <mj-text
+          font-size="16px"
+          line-height="22px"
+          padding="10px 25px"
+          padding-top="0px"
+        >
+          <p style="margin: 30px 0">
+            If you did not request this action, please ignore this email.
+            Additionally, if the above button does not work, you can manually
+            visit
+            <a
+              target="_blank"
+              rel="noopener noreferrer"
+              style="color: darkblue"
+              href="{{url action.link}}"
+              >{{ action.link }}</a
+            >.
+          </p>
+          <p style="margin: 30px 0">
+            For any questions or concerns, visit our FAQs or reach us at
+            <a
+              target="_blank"
+              rel="noopener noreferrer"
+              style="color: darkblue"
+              href="mailto:contact@gbstem.org"
+              >contact@gbstem.org</a
+            >.
+          </p>
+          <p>With love 🤍,<br />The gbSTEM Team</p>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-include path="../layout/footer.mjml" />
+  </mj-body>
+</mjml>

@@ -1,8 +1,7 @@
-import { inPersonClassEnrolledEmailTemplate } from '$lib/data/emailTemplates/inPersonClassEnrolledEmailTemplate'
-import { onlineClassEnrolledEmailTemplate } from '$lib/data/emailTemplates/onlineClassEnrolledEmailTemplate'
 import { verifyAuthenticated, handleApiError } from '$lib/server/apiHelpers'
 import { sendEmail } from '$lib/server/email'
-import { addDataToHtmlTemplate, formatTime24to12 } from '$lib/utils'
+import { renderEmail } from '$lib/emails/render'
+import { formatTime24to12 } from '$lib/utils'
 import { json } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 
@@ -51,11 +50,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       },
     }
 
-    const emailTemplate = body.online
-      ? onlineClassEnrolledEmailTemplate
-      : inPersonClassEnrolledEmailTemplate
-
-    const htmlBody = addDataToHtmlTemplate(emailTemplate, template)
+    const htmlBody = renderEmail(
+      body.online
+        ? 'onlineClassEnrolledEmailTemplate'
+        : 'inPersonClassEnrolledEmailTemplate',
+      template.data,
+    )
 
     try {
       await sendEmail({

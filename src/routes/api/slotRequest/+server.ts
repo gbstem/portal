@@ -1,7 +1,6 @@
-import { interviewRequestedEmailTemplate } from '$lib/data/emailTemplates/interviewRequestedEmailTemplate'
 import { verifyAuthenticated, handleApiError } from '$lib/server/apiHelpers'
 import { sendEmail } from '$lib/server/email'
-import { addDataToHtmlTemplate } from '$lib/utils'
+import { renderEmail } from '$lib/emails/render'
 import { json } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 
@@ -20,6 +19,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       name: 'interviewSlotRequest',
       data: {
         subject: `New Interview Timeslot Request From ${body.firstName} `,
+        app: {
+          name: 'Admin',
+          link: 'https://admin.gbstem.org',
+        },
         interview: {
           firstName: body.firstName,
           timeSlot: body.timeSlot,
@@ -30,9 +33,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       },
     }
 
-    const htmlBody = addDataToHtmlTemplate(
-      interviewRequestedEmailTemplate,
-      template,
+    const htmlBody = renderEmail(
+      'interviewRequestedEmailTemplate',
+      template.data,
     )
 
     try {

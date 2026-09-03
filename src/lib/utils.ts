@@ -56,35 +56,6 @@ export function trapFocus(node: HTMLElement) {
   }
 }
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-}
-
-// replace html template with data
-export function addDataToHtmlTemplate(
-  html: string,
-  template: { data: Record<string, any> },
-): string {
-  const htmlBody = html.replace(/{{(.*?)}}/g, (_: string, key: string) => {
-    const keys = key.trim().split('.')
-    let value: any = template.data
-    for (const k of keys) {
-      if (value && typeof value === 'object' && k in value) {
-        value = value[k]
-      } else {
-        return ''
-      }
-    }
-    return escapeHtml(String(value ?? ''))
-  })
-  return htmlBody
-}
-
 export function formatTime24to12(time24: string): string {
   // Split the string by ":" to obtain hours and minutes
   const [hours24, minutes] = time24.split(':')
