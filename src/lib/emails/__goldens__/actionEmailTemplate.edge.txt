@@ -1,0 +1,16 @@
+title: 
+heading: Zoë Ñuñez 田中 🎓 <3 & "quoted" Bartholomew-Wentworth Fitzgerald-Montgomery IIIBartholomew-Wentworth Fitzgerald-Montgomery IIIBartholomew-Wentworth Fitzgerald-Montgomery III
+text: Zoë Ñuñez 田中 🎓 <3 & "quoted" Bartholomew-Wentworth Fitzgerald-Montgomery IIIBartholomew-Wentworth Fitzgerald-Montgomery IIIBartholomew-Wentworth Fitzgerald-Montgomery III
+text: Zoë Ñuñez 田中 🎓 <3 & "quoted" Bartholomew-Wentworth Fitzgerald-Montgomery IIIBartholomew-Wentworth Fitzgerald-Montgomery IIIBartholomew-Wentworth Fitzgerald-Montgomery III
+text: Zoë Ñuñez 田中 🎓 <3 & "quoted" Bartholomew-Wentworth Fitzgerald-Montgomery IIIBartholomew-Wentworth Fitzgerald-Montgomery IIIBartholomew-Wentworth Fitzgerald-Montgomery III
+text: If you did not request this action, please ignore this email. Additionally, if the above button does not work, you can manually visit https://portal.gbstem.org/dashboard?tab=classes&id=7#top.
+text: For any questions or concerns, visit our FAQs or reach us at contact@gbstem.org.
+text: With love 🤍,The gbSTEM Team
+text: Main | Zoë Ñuñez 田中 🎓 <3 & "quoted" Bartholomew-Wentworth Fitzgerald-Montgomery IIIBartholomew-Wentworth Fitzgerald-Montgomery IIIBartholomew-Wentworth Fitzgerald-Montgomery III
+text: gbSTEM © 2026
+link: Zoë Ñuñez 田中 🎓 <3 & "quoted" Bartholomew-Wentworth Fitzgerald-Montgomery IIIBartholomew-Wentworth Fitzgerald-Montgomery IIIBartholomew-Wentworth Fitzgerald-Montgomery III -> https://portal.gbstem.org/dashboard?tab=classes&id=7#top
+link: https://portal.gbstem.org/dashboard?tab=classes&id=7#top -> https://portal.gbstem.org/dashboard?tab=classes&id=7#top
+link: contact@gbstem.org -> mailto:contact@gbstem.org
+link: Main -> https://gbstem.org
+link: Zoë Ñuñez 田中 🎓 <3 & "quoted" Bartholomew-Wentworth Fitzgerald-Montgomery IIIBartholomew-Wentworth Fitzgerald-Montgomery IIIBartholomew-Wentworth Fitzgerald-Montgomery III -> https://portal.gbstem.org/dashboard?tab=classes&id=7#top
+image: https://firebasestorage.googleapis.com/v0/b/gbstem-public/o/logoNOBACKGROUND.png?alt=media&token=ccf22ae8-323e-44a6-981c-a314b9563c45 (alt= width=550)

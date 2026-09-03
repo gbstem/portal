@@ -1,7 +1,6 @@
-import { communityServiceEmailTemplate } from '$lib/data/emailTemplates/communityServiceEmailTemplate'
 import { verifyAuthenticated, handleApiError } from '$lib/server/apiHelpers'
 import { sendEmail } from '$lib/server/email'
-import { addDataToHtmlTemplate } from '$lib/utils'
+import { renderEmail } from '$lib/emails/render'
 import { json } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 
@@ -39,10 +38,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       },
     }
 
-    const htmlBody = addDataToHtmlTemplate(
-      communityServiceEmailTemplate,
-      template,
-    )
+    const htmlBody = renderEmail('communityServiceEmailTemplate', template.data)
 
     try {
       await sendEmail({

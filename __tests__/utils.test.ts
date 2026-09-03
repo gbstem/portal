@@ -27,7 +27,6 @@ jest.mock('$lib/stores', () => ({
 
 import { alert } from '$lib/stores'
 import {
-  addDataToHtmlTemplate,
   classTodayHeld,
   cleanEnvVar,
   clickOutside,
@@ -157,30 +156,6 @@ describe('utils', () => {
       expect(document.activeElement).toBe(button2)
 
       action.destroy()
-    })
-  })
-
-  describe('addDataToHtmlTemplate', () => {
-    it('substitutes nested values and handles spaces', () => {
-      const html = 'Hello {{  user.name  }}!'
-      const template = { data: { user: { name: 'Alice' } } }
-      expect(addDataToHtmlTemplate(html, template)).toBe('Hello Alice!')
-    })
-
-    it('returns empty string for missing keys', () => {
-      const html = 'Hello {{user.age}}!'
-      const template = { data: { user: {} } }
-      expect(addDataToHtmlTemplate(html, template)).toBe('Hello !')
-    })
-
-    it('escapes HTML special characters to prevent injection', () => {
-      const html = 'Hello {{name}}!'
-      const template = {
-        data: { name: '<img src=x onerror=alert(1)>&"\'' },
-      }
-      expect(addDataToHtmlTemplate(html, template)).toBe(
-        'Hello &lt;img src=x onerror=alert(1)&gt;&amp;&quot;&#39;!',
-      )
     })
   })
 

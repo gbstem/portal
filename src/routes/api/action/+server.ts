@@ -1,8 +1,7 @@
-import { actionEmailTemplate } from '$lib/data/emailTemplates/actionEmailTemplate'
 import { verifyAuthenticated, handleApiError } from '$lib/server/apiHelpers'
 import { sendEmail } from '$lib/server/email'
 import { adminAuth } from '$lib/server/firebase'
-import { addDataToHtmlTemplate } from '$lib/utils'
+import { renderEmail } from '$lib/emails/render'
 import { error, json } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 
@@ -102,7 +101,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       },
     }
 
-    const htmlBody = addDataToHtmlTemplate(actionEmailTemplate, template)
+    const htmlBody = renderEmail('actionEmailTemplate', template.data)
 
     try {
       await sendEmail({

@@ -1,0 +1,8 @@
+<mj-title></mj-title>
+<mj-font
+  name="Open Sans"
+  href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700"
+/>
+<mj-attributes>
+  <mj-all font-family="Open Sans, Helvetica, Arial, sans-serif" />
+</mj-attributes>

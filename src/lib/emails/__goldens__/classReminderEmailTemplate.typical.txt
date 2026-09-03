@@ -1,0 +1,10 @@
+title: 
+heading: 
+text: Hello Ada and family,
+text: This is a reminder for your upcoming Intro to Python class at Saturdays at 10:00 AM. See you then!
+text: Best,Grace Hopper
+text: Main | Portal
+text: gbSTEM © 2026
+link: Main -> https://gbstem.org
+link: Portal -> https://portal.gbstem.org
+image: https://firebasestorage.googleapis.com/v0/b/gbstem-public/o/logoNOBACKGROUND.png?alt=media&token=ccf22ae8-323e-44a6-981c-a314b9563c45 (alt= width=550)

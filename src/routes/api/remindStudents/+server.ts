@@ -1,7 +1,6 @@
-import { classReminderEmailTemplate } from '$lib/data/emailTemplates/classReminderEmailTemplate'
 import { verifyAuthenticated, handleApiError } from '$lib/server/apiHelpers'
 import { sendEmail } from '$lib/server/email'
-import { addDataToHtmlTemplate } from '$lib/utils'
+import { renderEmail } from '$lib/emails/render'
 import { json } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 
@@ -32,11 +31,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
           class: body.class,
           classTime: body.classTime,
           instructor: body.instructorName,
+          link: 'https://portal.gbstem.org',
         },
       },
     }
 
-    const htmlBody = addDataToHtmlTemplate(classReminderEmailTemplate, template)
+    const htmlBody = renderEmail('classReminderEmailTemplate', template.data)
 
     try {
       await sendEmail({

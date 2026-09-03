@@ -16,6 +16,9 @@ yarn lint || { echo "❌ Linting failed. Please fix errors before committing."; 
 echo "🔍 Running yarn run check..."
 yarn run check || { echo "❌ Check failed. Please fix errors before committing."; exit 1; }
 
+echo "📧 Checking generated email templates are up to date..."
+yarn email:check || { echo "❌ Email templates are stale. Run 'yarn email:build' and commit the result."; exit 1; }
+
 echo "🧪 Running yarn test..."
 yarn test || { echo "❌ Tests failed. Please fix them before committing."; exit 1; }
 

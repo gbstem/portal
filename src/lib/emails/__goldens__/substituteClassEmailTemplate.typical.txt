@@ -1,0 +1,12 @@
+title: 
+heading: Substitute Class Added
+text: Substitute Class Added
+text: Hi Ada,
+text: With love 🤍,The gbSTEM Team
+text: Access Portal
+text: Main | Portal
+text: gbSTEM © 2026
+link: Access Portal -> https://portal.gbstem.org/dashboard
+link: Main -> https://gbstem.org
+link: Portal -> https://portal.gbstem.org
+image: https://firebasestorage.googleapis.com/v0/b/gbstem-public/o/logoNOBACKGROUND.png?alt=media&token=ccf22ae8-323e-44a6-981c-a314b9563c45 (alt= width=550)
