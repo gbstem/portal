@@ -81,6 +81,11 @@ declare global {
       intervieweeEmail: string
       intervieweeId: string
       interviewerEmail: string
+      // Absent on slots written before this field existed - callers must
+      // fall back to `interviewerEmail` rather than treat '' as "no owner".
+      // Kept in parity with admin's copy of this type, which owns writing
+      // it; portal only ever reads it.
+      interviewerUid: string
       interviewSlotStatus: string
       meetingLink: string
     }
