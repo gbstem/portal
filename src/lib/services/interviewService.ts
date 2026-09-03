@@ -114,6 +114,7 @@ export const interviewService = {
 
     const payload: InterviewRequestBody = {
       email: slot.interviewerEmail,
+      interviewerUid: slot.interviewerUid || undefined,
       date: slot.date,
       link: slot.meetingLink,
       interviewer: slot.interviewerName,

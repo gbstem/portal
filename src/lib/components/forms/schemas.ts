@@ -213,6 +213,9 @@ export const interviewSlotSchema = z.object({
   meetingLink: z.string().min(1, 'Meeting link is required'),
   interviewerName: z.string().min(1, 'Interviewer name is required'),
   interviewerEmail: z.string().email('Invalid interviewer email address'),
+  // Kept in parity with admin's copy of this schema, which owns writing
+  // interview slots - portal never creates or edits one itself.
+  interviewerUid: z.string().optional().default(''),
   intervieweeFirstName: z.string().optional().default(''),
   intervieweeLastName: z.string().optional().default(''),
   intervieweeEmail: z.string().optional().default(''),
@@ -299,12 +302,14 @@ export function getRegistrationFormDefaults() {
 export function getInterviewSlotDefaults(
   interviewerName = '',
   interviewerEmail = '',
+  interviewerUid = '',
 ) {
   return {
     id: '',
     date: '',
     interviewerName,
     interviewerEmail,
+    interviewerUid,
     intervieweeFirstName: '',
     intervieweeLastName: '',
     intervieweeEmail: '',

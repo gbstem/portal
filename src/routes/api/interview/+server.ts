@@ -1,11 +1,16 @@
 import { verifyAuthenticated, handleApiError } from '$lib/server/apiHelpers'
 import { sendEmail } from '$lib/server/email'
 import { renderEmail } from '$lib/emails/render'
+import { resolveCurrentInterviewerEmail } from '$lib/server/interviewerIdentity'
 import { json } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 
 export interface InterviewRequestBody {
   email: string
+  // Optional: absent for a slot written before `interviewerUid` existed, in
+  // which case `email` (the stored, possibly stale, interviewerEmail) is
+  // used as-is. See interviewerIdentity.ts.
+  interviewerUid?: string
   date: string
   link: string
   interviewer: string
@@ -17,7 +22,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     const user = verifyAuthenticated(locals)
     const body = (await request.json()) as InterviewRequestBody
 
-    const interviewerEmail = body.email
+    const interviewerEmail = await resolveCurrentInterviewerEmail(
+      body.interviewerUid,
+      body.email,
+    )
     const interviewDate = body.date
     const interviewLink = body.link
     const interviewerName = body.interviewer
