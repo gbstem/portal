@@ -625,7 +625,10 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
 
     // Scenario 1: Request time
     cy.contains('button', 'Request A Time').click()
-    cy.fillInput('input[name="dateToAdd"]', '2026-06-15T15:00')
+    const targetDate = new Date(Date.now() + 24 * 60 * 60 * 1000)
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const formattedDate = `${targetDate.getFullYear()}-${pad(targetDate.getMonth() + 1)}-${pad(targetDate.getDate())}T${pad(targetDate.getHours())}:${pad(targetDate.getMinutes())}`
+    cy.fillInput('input[name="dateToAdd"]', formattedDate)
     cy.get('input[name="dateToAdd"]')
       .closest('form')
       .contains('button', 'Submit')
