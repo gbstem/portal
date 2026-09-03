@@ -24,6 +24,9 @@ scripts/emails/                    <- build + verification tooling
 4. `yarn email:goldens` to accept it, then commit the `.mjml`, the generated
    `.ts` and the golden together.
 
+If the change touches layout rather than copy, run `yarn email:preview` and look
+at it — see below for why.
+
 `yarn email:check` fails if the generated files are out of date with their
 sources; run it in CI so a stale commit can't ship.
 
@@ -53,38 +56,31 @@ year, which is caller-supplied and unrelated.
 
 ## Testing
 
-Three layers, cheapest first:
-
 | Command            | What it checks                                                                                                                                                      |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `yarn test`        | Semantic goldens: the text, links, images and headings of every template against 4 fixtures each, plus an assertion that no fixture can produce executable content. |
-| `yarn email:check` | The committed generated HTML matches the `.mjml` sources.                                                                                                           |
-| `yarn email:audit` | Full before/after comparison, including screenshots and a pixel diff.                                                                                               |
+| `yarn email:check` | The committed generated HTML matches the `.mjml` sources. Runs in the husky pre-commit hook and should run in CI.                                                   |
 
 The goldens deliberately ignore wrapper markup, so an MJML upgrade that changes
 table scaffolding doesn't produce noise, while a changed sentence or a broken
 link fails loudly. Fixtures live in `scripts/emails/fixtures.ts` and cover
 production-shaped data, XSS probes, unicode/overlong values, and no data at all.
 
-### The audit report
-
-`yarn email:audit` renders every template on both the old and new engines,
-screenshots each at 600px and 375px in headless Chrome, and writes
-`.email-snapshots/report/index.html` — a page with, per template, the semantic
-diff and a magenta-highlighted pixel diff. Differences are classified against
-`scripts/emails/expected-drift.json`; anything not matching an entry there is
-flagged as unexplained and the command exits non-zero.
-
-The "before" side is rendered from a git ref (`EMAIL_BASELINE_REF`, default
-`HEAD`) rather than the working tree, because the migration overwrites the files
-it needs. Once the migration has landed, point it at the commit before it:
+### Looking at an email
 
 ```sh
-EMAIL_BASELINE_REF=<pre-migration-sha> yarn email:audit
+yarn email:preview          # renders every template with the `typical` fixture
+yarn email:preview edge     # or adversarial / missing / typical
 ```
 
-Screenshots need Chrome (`CHROME_PATH` to override the search). Without it the
-semantic comparison still runs; you just lose the pictures.
+Open the index it prints. Output goes to `.email-preview/`, which is gitignored.
+
+**Do this whenever you change layout** — padding, a section, a button — rather
+than only trusting `yarn test`. The goldens compare meaning, not appearance, so
+a wrong padding shifts the entire email while every golden stays green. That is
+not hypothetical: it happened twice while these templates were being ported, and
+only a rendered comparison caught it. Copy-only edits are safe to trust to the
+goldens alone.
 
 ## Why MJML
 
@@ -94,6 +90,13 @@ to be maintained by hand. Keeping MJML as the _source_ means the generated HTML
 is nearly identical to what shipped before (the migration's worst pixel delta
 was 0.02%, all of it the footer year), while `mj-include` reduces each template
 to just its own content.
+
+The migration was verified by a temporary before/after audit pipeline that
+rendered both engines, screenshotted each at 600px and 375px, and pixel-diffed
+them. It reported 0 unexplained differences with a 0.02% worst-case pixel delta,
+all of it the footer year. That tooling was removed once it had served its
+purpose; recover it from the commit history if a comparable migration ever comes
+up again.
 
 Do not add an HTML formatting pass to `scripts/emails/build.ts`. Prettier's HTML
 parser rewrites the Outlook conditional comments these templates depend on

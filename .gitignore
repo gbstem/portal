@@ -38,4 +38,4 @@ yarn-error.log*
 # Cypress
 cypress/screenshots
 cypress/logs
-.email-snapshots/
+.email-preview/

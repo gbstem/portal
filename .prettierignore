@@ -12,6 +12,5 @@ pnpm-lock.yaml
 package-lock.json
 yarn.lock
 
-# Generated email output - regenerable, and the legacy renders in it are not
-# valid HTML (nested <p>), which Prettier refuses to parse.
-.email-snapshots
+# Generated email output - regenerable, and not ours to reformat.
+.email-preview

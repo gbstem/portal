@@ -13,14 +13,9 @@
 import { describe, it, expect } from '@jest/globals'
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
-import {
-  CASES,
-  FIXTURE_YEAR,
-  TEMPLATES,
-  fixtureFor,
-} from '../../scripts/emails/fixtures'
+import { CASES, TEMPLATES } from '../../scripts/emails/fixtures'
+import { renderFixture } from '../../scripts/emails/renderFixture'
 import { digest, digestToText } from '../../scripts/emails/semantic'
-import { renderEmail } from '../../src/lib/emails/render'
 
 const GOLDEN_DIR = join(
   __dirname,
@@ -31,15 +26,6 @@ const GOLDEN_DIR = join(
   'emails',
   '__goldens__',
 )
-
-function renderFixture(
-  template: string,
-  testCase: (typeof CASES)[number],
-): string {
-  const { data } = fixtureFor(template, testCase)
-  // Pin the year the render layer otherwise reads from the clock.
-  return renderEmail(template, { ...data, footerYear: FIXTURE_YEAR })
-}
 
 describe('email goldens', () => {
   it('has a golden for every template and case, and no orphans', () => {

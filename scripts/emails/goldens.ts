@@ -11,8 +11,8 @@
  */
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { CASES, TEMPLATES, fixtureFor } from './fixtures'
-import { render } from './renderers'
+import { CASES, TEMPLATES } from './fixtures'
+import { renderFixture } from './renderFixture'
 import { digest, digestToText } from './semantic'
 import { GOLDEN_ROOT } from './paths'
 
@@ -23,11 +23,7 @@ async function main() {
   let count = 0
   for (const template of TEMPLATES) {
     for (const testCase of CASES) {
-      const html = await render(
-        'mjml',
-        template,
-        fixtureFor(template, testCase),
-      )
+      const html = renderFixture(template, testCase)
       await writeFile(
         join(GOLDEN_ROOT, `${template}.${testCase}.txt`),
         digestToText(digest(html)),

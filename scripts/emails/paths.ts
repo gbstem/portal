@@ -7,11 +7,11 @@ const here = dirname(fileURLToPath(import.meta.url))
 export const REPO_ROOT = resolve(here, '..', '..')
 
 /**
- * Rendered HTML, screenshots and reports. Gitignored: every file here is
- * regenerable from the templates plus `fixtures.ts`, and the PNGs are large.
- * The committed regression gate is `src/lib/emails/__goldens__` instead.
+ * Browsable output of `yarn email:preview`. Gitignored: every file here is
+ * regenerable from the templates plus `fixtures.ts`. The committed regression
+ * gate is `src/lib/emails/__goldens__` instead.
  */
-export const SNAPSHOT_ROOT = join(REPO_ROOT, '.email-snapshots')
+export const PREVIEW_ROOT = join(REPO_ROOT, '.email-preview')
 
 /** Committed semantic digests - small, text, reviewable in a pull request. */
 export const GOLDEN_ROOT = join(
