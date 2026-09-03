@@ -179,18 +179,17 @@ export const classService = {
 
   /**
    * Gets all classes an instructor has access to, both classes explicitly
-   * shared with their email (via the instructorClasses mapping) and classes
-   * they own (class ID prefixed with their UID, for backward compatibility).
+   * shared with them (via the uid-keyed instructorClasses mapping) and
+   * classes they own (class ID prefixed with their UID).
    * Returns an empty object (rather than throwing) on fetch failure, since
    * callers treat "no accessible classes" and "fetch failed" the same way.
    */
   async fetchInstructorClasses(
     instructorUID: string,
-    instructorEmail: string,
   ): Promise<{ [classId: string]: Data.Class }> {
     try {
       const instructorClassesDoc = await getDoc(
-        doc(db, instructorClassesCollection, instructorEmail),
+        doc(db, instructorClassesCollection, instructorUID),
       )
       let accessibleClassIds: string[] = []
 
@@ -245,29 +244,50 @@ export const classService = {
   },
 
   /**
-   * Ensures the main instructor and each comma-separated co-instructor email
-   * has access to a class via the instructorClasses mapping.
+   * Ensures the main instructor and each resolved co-instructor uid has
+   * access to a class via the instructorClasses mapping. `otherInstructorUids`
+   * is the subset of otherInstructorEmails that resolved to an instructor
+   * account (see resolveInstructorUids on the server) - an unresolved email
+   * simply isn't granted mapping access, same as today.
    */
   async updateInstructorClassMappings(
     classId: string,
-    mainInstructorEmail: string,
-    otherInstructorEmails: string,
+    mainInstructorUid: string,
+    otherInstructorUids: string[],
   ): Promise<void> {
     try {
-      await addInstructorToClass(mainInstructorEmail, classId)
+      await addInstructorToClass(mainInstructorUid, classId)
 
-      if (otherInstructorEmails.trim()) {
-        const coInstructorEmails = otherInstructorEmails
-          .split(',')
-          .map((email) => email.trim())
-          .filter((email) => email.length > 0)
-
-        for (const email of coInstructorEmails) {
-          await addInstructorToClass(email, classId)
-        }
+      for (const uid of otherInstructorUids) {
+        await addInstructorToClass(uid, classId)
       }
     } catch (error) {
       console.error('Error updating instructor class mappings:', error)
+    }
+  },
+
+  /**
+   * Resolves co-instructor email addresses to uids via the server (client
+   * code can't look up another account's uid directly). An email with no
+   * resolvable instructor account is silently dropped - the caller keeps
+   * relying on the otherInstructorEmails string fallback for it.
+   */
+  async resolveOtherInstructorUids(emails: string[]): Promise<string[]> {
+    if (emails.length === 0) return []
+    try {
+      const res = await fetch('/api/resolveInstructorUids', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emails }),
+      })
+      if (!res.ok) return []
+      const { uidsByEmail } = (await res.json()) as {
+        uidsByEmail: Record<string, string>
+      }
+      return Object.values(uidsByEmail)
+    } catch (error) {
+      console.error('Error resolving co-instructor uids:', error)
+      return []
     }
   },
 
@@ -441,13 +461,13 @@ export const classService = {
  * creating the mapping document if it doesn't exist yet.
  */
 async function addInstructorToClass(
-  instructorEmail: string,
+  instructorUid: string,
   classId: string,
 ): Promise<void> {
   const instructorClassesRef = doc(
     db,
     instructorClassesCollection,
-    instructorEmail,
+    instructorUid,
   )
 
   try {

@@ -46,7 +46,9 @@
     instructorFirstName: '',
     instructorLastName: '',
     instructorEmail: '',
+    instructorUid: '',
     otherInstructorEmails: '',
+    otherInstructorUids: [],
     course: '',
     meetingLink: '',
     meetingTimes: [],
@@ -262,7 +264,6 @@
         // Get all classes for this instructor using the DAL
         const userClasses = await classService.fetchInstructorClasses(
           user.object.uid,
-          user.object.email || '',
         )
 
         // Convert to ClassDetails format and add id field
@@ -276,7 +277,9 @@
             instructorFirstName: classData.instructorFirstName,
             instructorLastName: classData.instructorLastName,
             instructorEmail: classData.instructorEmail,
+            instructorUid: classData.instructorUid,
             otherInstructorEmails: classData.otherInstructorEmails,
+            otherInstructorUids: classData.otherInstructorUids,
             course: classData.course,
             meetingLink: classData.meetingLink,
             meetingTimes: classData.meetingTimes,

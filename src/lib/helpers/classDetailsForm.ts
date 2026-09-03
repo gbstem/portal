@@ -19,7 +19,9 @@ export function getDefaultClassValues(): Data.Class {
     instructorFirstName: '',
     instructorLastName: '',
     instructorEmail: '',
+    instructorUid: '',
     otherInstructorEmails: '',
+    otherInstructorUids: [],
     classCap: 7,
     online: true,
     students: [],
@@ -57,6 +59,16 @@ export function normalizeOtherInstructorEmails(raw: string): string {
     .map((email: string) => email.trim().toLowerCase())
     .filter((email: string) => email.length > 0)
     .join(', ')
+}
+
+/**
+ * Splits an already-`normalizeOtherInstructorEmails`-normalized string back
+ * into individual addresses, for resolving each against
+ * /api/resolveInstructorUids.
+ */
+export function parseOtherInstructorEmails(normalized: string): string[] {
+  if (!normalized) return []
+  return normalized.split(', ')
 }
 
 /**

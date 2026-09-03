@@ -3,6 +3,7 @@ import {
   getDefaultClassValues,
   toFormValues,
   normalizeOtherInstructorEmails,
+  parseOtherInstructorEmails,
   parseTime,
   getMeetingDates,
   generateNewClassId,
@@ -41,6 +42,22 @@ describe('ClassDetailsForm Helpers', () => {
 
     test('returns empty string for empty input', () => {
       expect(normalizeOtherInstructorEmails('')).toBe('')
+    })
+  })
+
+  describe('parseOtherInstructorEmails', () => {
+    test('splits a normalized ", "-joined string back into addresses', () => {
+      const normalized = normalizeOtherInstructorEmails(
+        ' ALICE@EXAMPLE.COM,  bob@example.com ,  ',
+      )
+      expect(parseOtherInstructorEmails(normalized)).toEqual([
+        'alice@example.com',
+        'bob@example.com',
+      ])
+    })
+
+    test('returns [] for empty input', () => {
+      expect(parseOtherInstructorEmails('')).toEqual([])
     })
   })
 

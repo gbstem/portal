@@ -23,7 +23,6 @@
       // Get all classes for this instructor using the DAL
       const userClasses = await classService.fetchInstructorClasses(
         user.object.uid,
-        user.object.email || '',
       )
 
       let courses: string[] = []

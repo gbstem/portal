@@ -330,6 +330,11 @@ function expectedClassDoc(
     instructorFirstName: 'Demo',
     instructorLastName: 'Instructor',
     instructorEmail: 'instructor@gbstem.org',
+    instructorUid: 'instructor-demo-uid',
+    // None of the co-instructor emails used in these tests belong to a real
+    // seeded instructor account, so resolveInstructorUids resolves none of
+    // them - see Test Case 13f for the case where one does resolve.
+    otherInstructorUids: [],
     // Owned by registration/admin - the form must not touch the roster.
     students: SEEDED_STUDENTS,
   }
@@ -1019,6 +1024,50 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
     saveClassDetails()
     readClassDoc().then((after: any) => {
       expect(after.classCap, 'class cap').to.equal(23)
+    })
+  })
+
+  it('Test Case 13f: Class Details - Own Class Stays Writable After An Email Change', () => {
+    // Reproduces the class-ownership analogue of the interview-slot production
+    // bug (see admin's interviews.cy.ts "Section H"): the seeded instructor's
+    // class doc is put into the state it would be in if she'd changed her
+    // account's email after the class was created - a stale instructorEmail,
+    // but the correct (never-changing) instructorUid. Firestore's own
+    // isInstructorOfClass() rule has to allow this write on the uid match
+    // alone; the old email-only rule would reject it outright, so this test
+    // exercises the real rule, not just app logic.
+    cy.task('mergeFirestoreDoc', {
+      docPath: `${classesCollection}/${SEEDED_CLASS_ID}`,
+      data: {
+        instructorEmail: 'old-instructor@gbstem.org',
+        instructorUid: 'instructor-demo-uid',
+      },
+    })
+
+    cy.signedInSession('instructor')
+
+    // Visible and editable without unchecking anything - there's no ownership
+    // filter on this page, but the class must still load and open for edit.
+    cy.contains('h2', 'Class Details')
+      .closest('.rounded-xl')
+      .within(() => {
+        cy.contains('button', 'Edit class details').click()
+      })
+    cy.get('input[name="course"]')
+      .should('not.be.disabled')
+      .and('not.have.value', '')
+
+    cy.fillInput('input[name="classCap"]', '19')
+    cy.get('input[name="confirmation"]').check({ force: true })
+    saveClassDetails()
+
+    // The write must have actually landed - a rule rejection would leave
+    // classCap at its prior value with no client-visible error, since
+    // permission-denied still resolves the promise `onUpdate` awaits.
+    readClassDoc().then((after: any) => {
+      expect(after.classCap, 'class cap').to.equal(19)
+      // Self-healed back to the live signed-in email, same as every other save.
+      expect(after.instructorEmail).to.equal('instructor@gbstem.org')
     })
   })
 
