@@ -1071,6 +1071,55 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
     })
   })
 
+  it('Test Case 13g: Class Details - Create New Class', () => {
+    // "+ Create New Class" had no coverage at all before this test, which is
+    // how firestore.rules's isInstructorOwnerOrAdmin() went unnoticed doing an
+    // *exact* uid match against a classId that's always `${uid}-${n}` -
+    // meaning it could never actually match, and every instructor create was
+    // silently rejected by Firestore itself (only isAdmin() ever let one
+    // through). Confirmed directly against the emulator's REST API before
+    // this fix: a real instructor creating `${their uid}-99` got back a 403.
+    const newClassId = 'instructor-demo-uid-1'
+    // `online: false` so the save doesn't also try to create a real meeting
+    // link - out of scope for what this test is checking.
+    const input: ClassDetailsInput = {
+      course: 'Python 2',
+      gradeRecommendation: '6-8',
+      classDay1: 'Monday',
+      classTime1: '10:00',
+      classDay2: '',
+      classTime2: '',
+      classCap: 5,
+      otherInstructorEmails: 'cohost@gbstem.org',
+      online: false,
+    }
+
+    cy.signedInSession('instructor')
+
+    cy.contains('h2', 'Class Details')
+      .closest('.rounded-xl')
+      .within(() => {
+        cy.contains('button', 'Edit class details').click()
+      })
+    cy.contains('button', '+ Create New Class').click()
+    cy.contains('p', 'Creating new class...').should('be.visible')
+
+    fillClassDetailsForm(input)
+    cy.get('input[name="confirmation"]').check({ force: true })
+    saveClassDetails()
+
+    cy.getFirebaseAuthToken().then((authToken: string) => {
+      cy.getFirestoreDoc(authToken, classesCollection, newClassId).then(
+        (data: any) => {
+          expect(data, 'new class document').to.not.equal(null)
+          expect(data.course).to.equal(input.course)
+          expect(data.instructorUid).to.equal('instructor-demo-uid')
+          expect(data.instructorEmail).to.equal('instructor@gbstem.org')
+        },
+      )
+    })
+  })
+
   it('Test Case 14: Edit Schedule and Add Class', () => {
     // Set system clock to 1 day after instructor orientation date so ClassSchedule is rendered
     const orientationDate = new Date(semesterDates.instructorOrientation)
