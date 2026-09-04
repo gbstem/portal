@@ -75,11 +75,40 @@ jobs:
         with:
           path: portal
 
+      # A change that spans both repos ships as two PRs on a same-named branch
+      # (see CLAUDE.md's "Tightly coupled with ../admin"), and portal's e2e
+      # suite runs against admin's seed data. Pinning admin to `main` meant a
+      # portal PR whose tests need a new seed fixture could not go green until
+      # the admin PR merged - so CI stopped being a merge gate for exactly the
+      # coordinated changes that most need one, and the obvious way out was to
+      # merge admin unreviewed. Prefer a same-named admin branch when one
+      # exists, and fall back to the default branch otherwise, so a solo portal
+      # change is unaffected.
+      - name: Pick the admin branch to seed from
+        id: admin-ref
+        env:
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          if [ -n "$BRANCH" ] && git ls-remote --exit-code --heads \
+              https://github.com/gbstem/admin.git "$BRANCH" >/dev/null 2>&1; then
+            echo "Found a matching admin branch: $BRANCH"
+            echo "ref=$BRANCH" >> "$GITHUB_OUTPUT"
+          else
+            echo "No admin branch named \"$BRANCH\"; seeding from admin's default branch."
+            echo "ref=" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Check out admin (shared Firebase project + seed data)
         uses: actions/checkout@v7
         with:
           repository: gbstem/admin
           path: admin
+          # Empty means actions/checkout's own default (admin's default branch).
+          ref: ${{ steps.admin-ref.outputs.ref }}
+
+      - name: Report which admin revision seeded the emulator
+        working-directory: admin
+        run: git log --oneline -1
 
       # This job checks out two repos side by side, so there is no single
       # project root for setup-node's `cache: yarn` probe to look at -- it runs
