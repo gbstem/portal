@@ -1,9 +1,9 @@
-import type {} from '../../data.d.ts'
-import { isClassUpcoming } from '$lib/utils'
 import { ClassStatus } from '$lib/components/helpers/ClassStatus'
 import { SubRequestStatus } from '$lib/components/helpers/SubRequestStatus'
 import generateMeetingTimeChangeEmail from '$lib/components/helpers/generateMeetingTimeChangeEmail'
 import type Student from '$lib/components/types/Student'
+import { isClassUpcoming } from '$lib/utils'
+import type {} from '../../data.d.ts'
 
 /**
  * Computes updated class statuses based on meeting times and feedback completion.
@@ -182,8 +182,14 @@ export function buildSubRequestPayload(params: {
   subRequestNotes: string
   course: string
   instructorEmail: string
+  instructorUid?: string
   meetingLink: string
 }): Data.SubRequest {
+  // New sub requests will have an instructorUid, but legacy ones may not, and in that case
+  // we parse it out of the ${instructorUid}-${classSequenceNumber} format document ID.
+  const originalInstructorUid =
+    params.instructorUid ||
+    (params.classId.includes('-') ? params.classId.replace(/-\d+$/, '') : '')
   return {
     id: params.classId,
     classNumber: params.subRequestClassNumber,
@@ -191,6 +197,7 @@ export function buildSubRequestPayload(params: {
     notes: params.subRequestNotes,
     course: params.course,
     originalInstructorEmail: params.instructorEmail,
+    originalInstructorUid,
     subInstructorFirstName: '',
     subInstructorEmail: '',
     subInstructorId: '',

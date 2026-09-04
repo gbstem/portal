@@ -151,6 +151,7 @@ export const interviewService = {
         currentUser.object.uid + '-' + dateToAdd,
       ),
       {
+        uid: currentUser.object.uid,
         firstName: currentUser.profile.firstName,
         lastName: currentUser.profile.lastName,
         email: currentUser.object.email,

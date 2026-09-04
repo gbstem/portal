@@ -819,6 +819,59 @@ describe('API routes POST endpoints', () => {
     expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
   })
 
+  it('enrollPOST resolves instructor email via instructorUid', async () => {
+    mockAdminAuth.getUser.mockResolvedValueOnce({
+      uid: 'inst-uid-1',
+      email: 'resolved-inst@test.com',
+    })
+    mockRequest.json.mockResolvedValue({
+      email: 'student@test.com',
+      firstName: 'Student',
+      instructor: 'Instructor',
+      instructorUid: 'inst-uid-1',
+      classTimes: ['14:00', '16:00'],
+      classDays: ['Monday', 'Wednesday'],
+      course: 'Math',
+      studentName: 'StudentFull',
+      online: true,
+    })
+    const res = await enrollPOST({
+      request: mockRequest as any,
+      locals: { user: { email: 'test@test.com' } },
+    } as any)
+    expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
+    expect(mockAdminAuth.getUser).toHaveBeenCalledWith('inst-uid-1')
+    expect(MailService.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: ['test@test.com'],
+        cc: ['resolved-inst@test.com'],
+      }),
+    )
+  })
+
+  it('enrollPOST returns 400 when instructor email cannot be resolved', async () => {
+    mockRequest.json.mockResolvedValue({
+      email: 'student@test.com',
+      firstName: 'Student',
+      instructor: 'Instructor',
+      classTimes: ['14:00', '16:00'],
+      classDays: ['Monday', 'Wednesday'],
+      course: 'Math',
+      studentName: 'StudentFull',
+      online: true,
+    })
+    const res = await enrollPOST({
+      request: mockRequest as any,
+      locals: { user: { email: 'test@test.com' } },
+    } as any)
+    expect(res).toEqual(
+      expect.objectContaining({
+        body: { error: 'Instructor email could not be resolved.' },
+        init: { status: 400 },
+      }),
+    )
+  })
+
   it('enrollPOST returns a 500 json response when sending the email fails', async () => {
     await withRejectedSend(async () => {
       mockRequest.json.mockResolvedValue({
@@ -1141,21 +1194,72 @@ describe('API routes POST endpoints', () => {
     )
   })
 
-  it('substitutePOST successfully', async () => {
-    mockRequest.json.mockResolvedValue({ name: 'Student' })
+  it('substitutePOST successfully resolves original instructor email via UID', async () => {
+    mockAdminAuth.getUser.mockResolvedValueOnce({
+      uid: 'orig-uid-1',
+      email: 'orig@gbstem.org',
+    })
+    mockRequest.json.mockResolvedValue({
+      firstName: 'Alice',
+      course: 'Math',
+      classNumber: 1,
+      date: '2026-09-10',
+      originalInstructorUid: 'orig-uid-1',
+    })
     const res = await substitutePOST({
       request: mockRequest as any,
-      locals: { user: { email: 'test@test.com' } },
+      locals: { user: { email: 'sub@gbstem.org', role: 'instructor' } },
+    } as any)
+    expect(mockAdminAuth.getUser).toHaveBeenCalledWith('orig-uid-1')
+    expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
+  })
+
+  it('substitutePOST successfully falls back to originalInstructorEmail', async () => {
+    mockRequest.json.mockResolvedValue({
+      firstName: 'Alice',
+      course: 'Math',
+      classNumber: 1,
+      date: '2026-09-10',
+      originalInstructorEmail: 'orig@gbstem.org',
+    })
+    const res = await substitutePOST({
+      request: mockRequest as any,
+      locals: { user: { email: 'sub@gbstem.org', role: 'instructor' } },
     } as any)
     expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
   })
 
+  it('substitutePOST returns 400 when original instructor email cannot be resolved', async () => {
+    mockRequest.json.mockResolvedValue({
+      firstName: 'Alice',
+      course: 'Math',
+      classNumber: 1,
+      date: '2026-09-10',
+    })
+    const res = await substitutePOST({
+      request: mockRequest as any,
+      locals: { user: { email: 'sub@gbstem.org', role: 'instructor' } },
+    } as any)
+    expect(res).toEqual(
+      expect.objectContaining({
+        body: { error: 'Original instructor email could not be resolved.' },
+        init: { status: 400 },
+      }),
+    )
+  })
+
   it('substitutePOST returns a 500 json response when sending the email fails', async () => {
     await withRejectedSend(async () => {
-      mockRequest.json.mockResolvedValue({ name: 'Student' })
+      mockRequest.json.mockResolvedValue({
+        firstName: 'Alice',
+        course: 'Math',
+        classNumber: 1,
+        date: '2026-09-10',
+        originalInstructorEmail: 'orig@gbstem.org',
+      })
       const res = await substitutePOST({
         request: mockRequest as any,
-        locals: { user: { email: 'test@test.com' } },
+        locals: { user: { email: 'sub@gbstem.org', role: 'instructor' } },
       } as any)
       expect(res).toEqual(
         expect.objectContaining({
@@ -1166,8 +1270,32 @@ describe('API routes POST endpoints', () => {
     })
   })
 
+  it('substitutePOST throws 403 when user is not an instructor', async () => {
+    mockRequest.json.mockResolvedValue({
+      firstName: 'Alice',
+      course: 'Math',
+      classNumber: 1,
+      date: '2026-09-10',
+      originalInstructorEmail: 'orig@gbstem.org',
+    })
+    await expect(
+      substitutePOST({
+        request: mockRequest as any,
+        locals: { user: { email: 'student@gbstem.org', role: 'student' } },
+      } as any),
+    ).rejects.toEqual(
+      expect.objectContaining({ status: 403, __isSvelteKitError: true }),
+    )
+  })
+
   it('substitutePOST propagates the auth error when the user is not signed in', async () => {
-    mockRequest.json.mockResolvedValue({ name: 'Student' })
+    mockRequest.json.mockResolvedValue({
+      firstName: 'Alice',
+      course: 'Math',
+      classNumber: 1,
+      date: '2026-09-10',
+      originalInstructorEmail: 'orig@gbstem.org',
+    })
     await expect(
       substitutePOST({ request: mockRequest as any, locals: {} } as any),
     ).rejects.toEqual(

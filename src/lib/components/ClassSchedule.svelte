@@ -222,6 +222,7 @@
         values.course,
         values.instructorEmail,
         values.meetingLink,
+        values.instructorUid,
       )
       .then(() => {
         alert.trigger('success', 'Sub request sent!')

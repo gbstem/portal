@@ -69,6 +69,13 @@ export function buildSubstituteApiPayload(
   userEmail: string,
   classToSub: Data.SubRequest,
 ) {
+  // New sub requests will have an originalInstructorUid, but legacy ones may not, and in that case
+  // we parse it out of the ${instructorUid}-${classSequenceNumber}---${subRequestClassNumber} format document ID.
+  const originalInstructorUid =
+    classToSub.originalInstructorUid ||
+    (classToSub.id
+      ? classToSub.id.replace(/---.*$/, '').replace(/-\d+$/, '')
+      : '')
   return {
     firstName: userFirstName,
     subInstructorEmail: userEmail,
@@ -76,6 +83,7 @@ export function buildSubstituteApiPayload(
     classNumber: classToSub.classNumber,
     date: formatDate(timestampToDate(classToSub.dateOfClass)),
     originalInstructorEmail: classToSub.originalInstructorEmail,
+    originalInstructorUid: originalInstructorUid || undefined,
   }
 }
 
