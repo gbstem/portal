@@ -160,6 +160,7 @@ export const interviewService = {
 
     const payload: SlotRequestRequestBody = {
       firstName: currentUser.profile.firstName,
+      // TODO: remove intervieweeEmail in ~3 weeks once server endpoints drop it
       intervieweeEmail: currentUser.object.email || '',
       timeSlot: formatDateLocal(new Date(dateToAdd)),
     }

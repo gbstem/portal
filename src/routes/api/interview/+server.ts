@@ -3,24 +3,26 @@ import { sendEmail } from '$lib/server/email'
 import { renderEmail } from '$lib/emails/render'
 import { resolveCurrentInterviewerEmail } from '$lib/server/interviewerIdentity'
 import { json } from '@sveltejs/kit'
+import { z } from 'zod'
 import type { RequestHandler } from './$types'
 
-export interface InterviewRequestBody {
-  email: string
-  // Optional: resolved via uid first. Stored email is unreliable because the
-  // interviewer could change it later, so code should avoid using it; it is
-  // retained as a permanent record if an account is deleted, though fallback is rare.
-  interviewerUid?: string
-  date: string
-  link: string
-  interviewer: string
-  firstName: string
-}
+// TODO: make interviewerUid required and remove email in ~3 weeks once active interview scheduling concludes.
+const interviewSchema = z.object({
+  email: z.string().email('Invalid interviewer email address'),
+  // Optional for backwards compatibility with currently deployed client sessions:
+  interviewerUid: z.string().optional(),
+  date: z.string().min(1, 'Date is required'),
+  link: z.string().min(1, 'Meeting link is required'),
+  interviewer: z.string().min(1, 'Interviewer name is required'),
+  firstName: z.string().min(1, 'First name is required'),
+})
+
+export type InterviewRequestBody = z.infer<typeof interviewSchema>
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   try {
     const user = verifyAuthenticated(locals)
-    const body = (await request.json()) as InterviewRequestBody
+    const body = interviewSchema.parse(await request.json())
 
     const interviewerEmail = await resolveCurrentInterviewerEmail(
       body.interviewerUid,

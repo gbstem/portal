@@ -1,4 +1,4 @@
-import { verifyAuthenticated, handleApiError } from '$lib/server/apiHelpers'
+import { verifyInstructor, handleApiError } from '$lib/server/apiHelpers'
 import { sendEmail } from '$lib/server/email'
 import { resolveCoInstructorEmails } from '$lib/server/instructorDirectory'
 import { renderEmail } from '$lib/emails/render'
@@ -22,7 +22,7 @@ export type RemindStudentsRequestBody = z.infer<typeof remindStudentsSchema>
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   try {
-    verifyAuthenticated(locals)
+    verifyInstructor(locals)
     const body = remindStudentsSchema.parse(await request.json())
 
     const email = body.email

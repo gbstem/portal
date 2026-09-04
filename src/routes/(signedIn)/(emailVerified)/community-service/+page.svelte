@@ -68,7 +68,6 @@
       hours: numRegHours * 1.25 + numSubHours * 1.5,
       season: (isFall ? 'fall' : 'spring') as 'fall' | 'spring',
       course: course,
-      email: currentUser.object.email || '',
       year: year,
       presidents: 'Kendree Chen, Dea Pance, and Michael Bolgov',
     }
