@@ -1,6 +1,7 @@
 import type {} from '../src/data.d.ts'
 import {
   addCoInstructor,
+  canClaimClassOwnership,
   coInstructorAddError,
   coInstructorDisplayName,
   coInstructorUids,
@@ -111,6 +112,75 @@ describe('ClassDetailsForm Helpers', () => {
       expect(coInstructorAddError([], ada, 'uid-ada')).toMatch(
         /already this class/,
       )
+    })
+  })
+
+  describe('canClaimClassOwnership', () => {
+    const ada = { uid: 'uid-ada', email: 'ada@example.com' }
+    const grace = { uid: 'uid-grace', email: 'grace@example.com' }
+
+    test('a class with no owner recorded is claimable - it is being created', () => {
+      expect(
+        canClaimClassOwnership({ instructorUid: '', instructorEmail: '' }, ada),
+      ).toBe(true)
+      expect(canClaimClassOwnership(undefined, ada)).toBe(true)
+    })
+
+    test('the owner may restamp, which is what self-heals a changed email', () => {
+      expect(
+        canClaimClassOwnership(
+          { instructorUid: 'uid-ada', instructorEmail: 'old@example.com' },
+          ada,
+        ),
+      ).toBe(true)
+    })
+
+    // The bug this exists to stop: being added as a co-instructor puts the
+    // class on your dashboard, so a co-instructor can open the form and save.
+    // An unconditional stamp made them the instructor and left the real owner
+    // matching none of isInstructorOfClass()'s clauses.
+    test('a co-instructor may not take ownership by saving', () => {
+      expect(
+        canClaimClassOwnership(
+          { instructorUid: 'uid-ada', instructorEmail: 'ada@example.com' },
+          grace,
+        ),
+      ).toBe(false)
+    })
+
+    test('falls back to the email on documents predating instructorUid', () => {
+      expect(
+        canClaimClassOwnership(
+          { instructorUid: '', instructorEmail: 'ada@example.com' },
+          ada,
+        ),
+      ).toBe(true)
+      expect(
+        canClaimClassOwnership(
+          { instructorUid: '', instructorEmail: 'ada@example.com' },
+          grace,
+        ),
+      ).toBe(false)
+    })
+
+    test('compares addresses case-insensitively', () => {
+      expect(
+        canClaimClassOwnership(
+          { instructorUid: '', instructorEmail: 'Ada@Example.com' },
+          ada,
+        ),
+      ).toBe(true)
+    })
+
+    // A stored uid is authoritative: a stale email that now belongs to
+    // somebody else must not let that person claim the class.
+    test('a stored uid wins over a matching email', () => {
+      expect(
+        canClaimClassOwnership(
+          { instructorUid: 'uid-ada', instructorEmail: 'grace@example.com' },
+          grace,
+        ),
+      ).toBe(false)
     })
   })
 
