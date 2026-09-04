@@ -5,7 +5,7 @@ import { adminAuth } from '$lib/server/firebase'
  * the stored email if the account was deleted or uid is missing. Stored email
  * is unreliable because the interviewer could change their email later, so code
  * should avoid using it directly; we retain it only as a permanent record of the
- * primary instructor, though fallback is rare.
+ * interviewer, though fallback is rare.
  */
 export async function resolveCurrentInterviewerEmail(
   interviewerUid: string | undefined,
