@@ -201,10 +201,13 @@ declare global {
       instructorLastName: string
       instructorEmail: string
       // Absent on classes written before this field existed - callers must
-      // fall back to instructorEmail/otherInstructorEmails rather than treat
-      // '' as "no owner". See admin's firestore.rules's isInstructorOfClass().
+      // fall back to instructorEmail rather than treat '' as "no owner". See
+      // admin's firestore.rules's isInstructorOfClass().
       instructorUid: string
-      otherInstructorEmails: string
+      // Co-instructors, by uid only. The retired `otherInstructorEmails`
+      // string this replaced was free text, so any address at all could be
+      // given write access to a class; a uid only lands here after
+      // /api/lookupCoInstructor confirms it belongs to an accepted instructor.
       otherInstructorUids: string[]
       classCap: number
       students: string[]
@@ -217,7 +220,6 @@ declare global {
       meetingTimes: Date[]
       completedClassDates: Date[]
       feedbackCompleted: boolean[]
-      otherInstructorEmails: string
       otherInstructorUids: string[]
       course: string
       instructorFirstName: string

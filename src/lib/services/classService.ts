@@ -13,6 +13,8 @@ import {
   buildSubRequestPayload,
   transformStudentDocData,
 } from '$lib/helpers/classSchedule'
+import { instructorClassMappingDiff } from '$lib/helpers/classDetailsForm'
+import type { CoInstructor } from '$lib/helpers/classDetailsForm'
 import {
   parseClassInfoDoc,
   sortClassesBySpotsRemaining,
@@ -23,6 +25,7 @@ import {
   arrayRemove,
   arrayUnion,
   collection,
+  deleteField,
   doc,
   getDoc,
   getDocs,
@@ -174,7 +177,22 @@ export const classService = {
     classDetails: Partial<Data.ClassDetails>,
   ): Promise<void> {
     const classRef = doc(db, classesCollection, classId)
-    await setDoc(classRef, classDetails, { merge: true })
+    await setDoc(
+      classRef,
+      {
+        ...classDetails,
+        // This is a `{ merge: true }` write, so omitting the retired
+        // `otherInstructorEmails` field would leave the stale string sitting
+        // on the document forever. Deleting it explicitly means every save
+        // cleans up a document the backfill hasn't reached yet.
+        //
+        // TODO(otherInstructorEmails migration, remove ~2026-12-01): drop
+        // this once `yarn backfill:coinstructors --drop-legacy-field` has run
+        // against production and no class document carries the field.
+        otherInstructorEmails: deleteField(),
+      },
+      { merge: true },
+    )
   },
 
   /**
@@ -244,51 +262,107 @@ export const classService = {
   },
 
   /**
-   * Ensures the main instructor and each resolved co-instructor uid has
-   * access to a class via the instructorClasses mapping. `otherInstructorUids`
-   * is the subset of otherInstructorEmails that resolved to an instructor
-   * account (see resolveInstructorUids on the server) - an unresolved email
-   * simply isn't granted mapping access, same as today.
+   * Brings the instructorClasses index in line with a class's co-instructor
+   * list: the owner and every current co-instructor can reach the class, and
+   * anyone dropped from the list stops seeing it.
+   *
+   * This index is a convenience, not the authorization boundary. Write access
+   * is decided by firestore.rules's isInstructorOfClass(), which reads the
+   * class document's own `otherInstructorUids`; the class write that precedes
+   * this call is what actually grants or revokes it. So a failure here leaves
+   * a removed co-instructor still seeing the class on their dashboard, but
+   * unable to edit it - which is why it warns rather than throwing.
    */
   async updateInstructorClassMappings(
     classId: string,
     mainInstructorUid: string,
-    otherInstructorUids: string[],
+    previousOtherUids: string[],
+    nextOtherUids: string[],
   ): Promise<void> {
-    try {
-      await addInstructorToClass(mainInstructorUid, classId)
+    const { added, removed } = instructorClassMappingDiff(
+      previousOtherUids,
+      nextOtherUids,
+      mainInstructorUid,
+    )
 
-      for (const uid of otherInstructorUids) {
-        await addInstructorToClass(uid, classId)
-      }
-    } catch (error) {
-      console.error('Error updating instructor class mappings:', error)
+    // allSettled, not a sequential loop: one instructor's mapping failing
+    // shouldn't decide whether the rest get updated.
+    const results = await Promise.allSettled([
+      addInstructorToClass(mainInstructorUid, classId),
+      ...added.map((uid) => addInstructorToClass(uid, classId)),
+      ...removed.map((uid) => removeInstructorFromClass(uid, classId)),
+    ])
+    const failures = results.filter((result) => result.status === 'rejected')
+    if (failures.length > 0) {
+      console.error(
+        `Failed to update ${failures.length} instructorClasses mapping(s) for ${classId}:`,
+        failures,
+      )
     }
   },
 
   /**
-   * Resolves co-instructor email addresses to uids via the server (client
-   * code can't look up another account's uid directly). An email with no
-   * resolvable instructor account is silently dropped - the caller keeps
-   * relying on the otherInstructorEmails string fallback for it.
+   * Resolves one co-instructor email to their identity, or an error message
+   * explaining why it can't be used.
+   *
+   * The server is the only side that can answer this: a client can't read
+   * another account's uid, `users` document, or decision. See
+   * /api/lookupCoInstructor for why every rejection gets the same message.
    */
-  async resolveOtherInstructorUids(emails: string[]): Promise<string[]> {
-    if (emails.length === 0) return []
+  async lookupCoInstructor(
+    email: string,
+  ): Promise<
+    { ok: true; coInstructor: CoInstructor } | { ok: false; message: string }
+  > {
     try {
-      const res = await fetch('/api/resolveInstructorUids', {
+      const res = await fetch('/api/lookupCoInstructor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ emails }),
+        body: JSON.stringify({ email }),
       })
-      if (!res.ok) return []
-      const { uidsByEmail } = (await res.json()) as {
-        uidsByEmail: Record<string, string>
+      const body = await res.json()
+      if (!res.ok) {
+        return {
+          ok: false,
+          message:
+            body?.message ||
+            'Could not check that email address. Please try again.',
+        }
       }
-      return Object.values(uidsByEmail)
+      return { ok: true, coInstructor: body.instructor }
     } catch (error) {
-      console.error('Error resolving co-instructor uids:', error)
-      return []
+      console.error('Error looking up a co-instructor:', error)
+      return {
+        ok: false,
+        message: 'Could not check that email address. Please try again.',
+      }
     }
+  },
+
+  /**
+   * Expands a class's stored `otherInstructorUids` into displayable
+   * identities. Uids whose account has been deleted come back omitted; see
+   * resolveCoInstructorIdentities on the server.
+   *
+   * Throws on a transport failure rather than returning [], because callers
+   * use the result to decide which stored uids to keep - and silently
+   * returning "none of them resolved" would let one failed request wipe a
+   * class's co-instructors on the next save.
+   */
+  async resolveCoInstructors(uids: string[]): Promise<CoInstructor[]> {
+    if (uids.length === 0) return []
+    const res = await fetch('/api/resolveCoInstructors', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uids }),
+    })
+    if (!res.ok) {
+      throw new Error(`Failed to resolve co-instructors (${res.status})`)
+    }
+    const { instructors } = (await res.json()) as {
+      instructors: CoInstructor[]
+    }
+    return instructors
   },
 
   /**
@@ -478,5 +552,35 @@ async function addInstructorToClass(
     await setDoc(instructorClassesRef, {
       classIds: [classId],
     })
+  }
+}
+
+/**
+ * Revokes an instructor's access to a class in the instructorClasses mapping.
+ *
+ * Unlike `addInstructorToClass` there's no create-on-missing fallback: if the
+ * mapping document doesn't exist there is nothing to revoke, and `updateDoc`
+ * failing on a missing document is the expected outcome rather than an error
+ * worth surfacing.
+ */
+async function removeInstructorFromClass(
+  instructorUid: string,
+  classId: string,
+): Promise<void> {
+  const instructorClassesRef = doc(
+    db,
+    instructorClassesCollection,
+    instructorUid,
+  )
+
+  try {
+    await updateDoc(instructorClassesRef, {
+      classIds: arrayRemove(classId),
+    })
+  } catch (error) {
+    console.error(
+      `Could not revoke ${instructorUid}'s mapping for class ${classId}:`,
+      error,
+    )
   }
 }

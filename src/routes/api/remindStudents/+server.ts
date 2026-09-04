@@ -1,25 +1,32 @@
 import { verifyAuthenticated, handleApiError } from '$lib/server/apiHelpers'
 import { sendEmail } from '$lib/server/email'
+import { resolveCoInstructorEmails } from '$lib/server/instructorDirectory'
 import { renderEmail } from '$lib/emails/render'
 import { json } from '@sveltejs/kit'
+import { z } from 'zod'
 import type { RequestHandler } from './$types'
 
-export interface RemindStudentsRequestBody {
-  email: string
-  otherInstructorEmails: string
-  name: string
-  class: string
-  classTime: string
-  instructorName: string
-}
+const remindStudentsSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  // Uids, not addresses: co-instructor emails are resolved here rather than
+  // sent up by the client, so a cc always goes to the account's current
+  // address and a client can't dictate who gets copied on a reminder.
+  otherInstructorUids: z.array(z.string()).default([]),
+  name: z.string().min(1, 'Name is required'),
+  class: z.string().min(1, 'Class is required'),
+  classTime: z.string().min(1, 'Class time is required'),
+  instructorName: z.string().min(1, 'Instructor name is required'),
+})
+
+export type RemindStudentsRequestBody = z.infer<typeof remindStudentsSchema>
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   try {
     verifyAuthenticated(locals)
-    const body = (await request.json()) as RemindStudentsRequestBody
+    const body = remindStudentsSchema.parse(await request.json())
 
     const email = body.email
-    const otherInstructorEmails = body.otherInstructorEmails
+    const ccEmails = await resolveCoInstructorEmails(body.otherInstructorUids)
 
     const template = {
       name: 'classReminder',
@@ -41,7 +48,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     try {
       await sendEmail({
         to: email,
-        cc: otherInstructorEmails,
+        cc: ccEmails,
         subject: String(template.data.subject),
         html: htmlBody,
       })

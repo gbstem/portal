@@ -242,8 +242,31 @@ interface ClassDetailsInput {
   classDay2: string
   classTime2: string
   classCap: number
-  otherInstructorEmails: string
+  /**
+   * Co-instructors to add, by email. Each is typed into the add box and
+   * resolved through /api/lookupCoInstructor, so only addresses belonging to
+   * an accepted instructor end up on the saved document - which is the whole
+   * point of the field and what `expectedCoInstructorUids` encodes.
+   */
+  coInstructorEmails: string[]
   online: boolean
+}
+
+/**
+ * The seeded instructors that /api/lookupCoInstructor will actually resolve,
+ * and the uid each one resolves to. Anything not in here is expected to be
+ * refused: `instructor-rejected@gbstem.org` and `instructor-interview@`
+ * have instructor accounts but no accepted decision, and unseeded addresses
+ * have no account at all.
+ */
+const ACCEPTED_CO_INSTRUCTOR_UIDS: Record<string, string> = {
+  'cohost@gbstem.org': 'instructor-cohost-uid',
+}
+
+function expectedCoInstructorUids(emails: string[]): string[] {
+  return emails
+    .map((email) => ACCEPTED_CO_INSTRUCTOR_UIDS[email])
+    .filter(Boolean)
 }
 
 /** The class the admin seed gives instructor@gbstem.org. */
@@ -266,6 +289,41 @@ const CLASS_COMPUTED_FIELDS = [
 ]
 
 /**
+ * Brings the co-instructor list to exactly `emails`.
+ *
+ * Reconciles rather than just adding, because the form is also used to *edit*
+ * a class that already has co-instructors (Test Case 13b) - there is no
+ * "clear the field" any more, only per-row Remove buttons. Each add
+ * round-trips through /api/lookupCoInstructor, so this waits for the row to
+ * settle rather than racing the next field.
+ */
+function setCoInstructors(emails: string[]) {
+  cy.get('body').then(($body) => {
+    const existing: string[] = $body
+      .find('[data-co-instructor]')
+      .toArray()
+      .map((el: HTMLElement) => el.getAttribute('data-co-instructor') as string)
+
+    existing
+      .filter((email) => !emails.includes(email))
+      .forEach((email) => {
+        cy.get(`[data-co-instructor="${email}"]`)
+          .contains('button', 'Remove')
+          .click()
+        cy.get(`[data-co-instructor="${email}"]`).should('not.exist')
+      })
+
+    emails
+      .filter((email) => !existing.includes(email))
+      .forEach((email) => {
+        cy.fillInput('input[name="coInstructorEmail"]', email)
+        cy.contains('button', 'Add').click()
+        cy.get(`[data-co-instructor="${email}"]`).should('exist')
+      })
+  })
+}
+
+/**
  * Fills the inline class details form. `classDay2`/`classTime2` only render for
  * a maths course taught online, so the caller has to pick one to reach them.
  */
@@ -283,10 +341,7 @@ function fillClassDetailsForm(input: ClassDetailsInput) {
   }
 
   cy.fillInput('input[name="classCap"]', String(input.classCap))
-  cy.fillInput(
-    'input[name="otherInstructorEmails"]',
-    input.otherInstructorEmails,
-  )
+  setCoInstructors(input.coInstructorEmails)
 
   const setCheckbox = (name: string, checked: boolean) => {
     const selector = `input[name="${name}"]`
@@ -323,7 +378,6 @@ function expectedClassDoc(
     classDay2: input.classDay2,
     classTime2: input.classTime2,
     classCap: input.classCap,
-    otherInstructorEmails: input.otherInstructorEmails,
     online: input.online,
     meetingLink: context.meetingLink,
     // Written from the signed-in profile on every save, never from the form.
@@ -331,10 +385,7 @@ function expectedClassDoc(
     instructorLastName: 'Instructor',
     instructorEmail: 'instructor@gbstem.org',
     instructorUid: 'instructor-demo-uid',
-    // None of the co-instructor emails used in these tests belong to a real
-    // seeded instructor account, so resolveInstructorUids resolves none of
-    // them - see Test Case 13f for the case where one does resolve.
-    otherInstructorUids: [],
+    otherInstructorUids: expectedCoInstructorUids(input.coInstructorEmails),
     // Owned by registration/admin - the form must not touch the roster.
     students: SEEDED_STUDENTS,
   }
@@ -784,7 +835,7 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
       classDay2: 'Thursday',
       classTime2: '16:45',
       classCap: 8,
-      otherInstructorEmails: 'cohost@gbstem.org',
+      coInstructorEmails: ['cohost@gbstem.org'],
       online: true,
     }
 
@@ -824,7 +875,7 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
       classDay2: 'Thursday',
       classTime2: '16:45',
       classCap: 8,
-      otherInstructorEmails: 'before@gbstem.org',
+      coInstructorEmails: ['cohost@gbstem.org'],
       online: true,
     }
     // Every field differs, including both booleans. `online` going false also
@@ -837,7 +888,7 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
       classDay1: 'Wednesday',
       classTime1: '17:15',
       classCap: 12,
-      otherInstructorEmails: 'after@gbstem.org',
+      coInstructorEmails: [],
       online: false,
     }
 
@@ -1090,7 +1141,7 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
       classDay2: '',
       classTime2: '',
       classCap: 5,
-      otherInstructorEmails: 'cohost@gbstem.org',
+      coInstructorEmails: ['cohost@gbstem.org'],
       online: false,
     }
 
@@ -1117,6 +1168,112 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
           expect(data.instructorEmail).to.equal('instructor@gbstem.org')
         },
       )
+    })
+  })
+
+  it('Test Case 13h: Class Details - Only Accepted Instructors Can Be Added', () => {
+    // The business rule this whole field exists to enforce: "no one should be
+    // teaching if they haven't been interviewed and accepted". Before this,
+    // the co-instructor field was free text, so any address at all could be
+    // typed in and would be honoured by firestore.rules's isInstructorOfClass.
+    //
+    // All three of these must be refused with the *same* message: telling
+    // them apart would turn the box into a probe for whether an address has a
+    // gbSTEM account and how that person's application went.
+    const refused = [
+      // An instructor account, but rejected rather than accepted.
+      'instructor-rejected@gbstem.org',
+      // An instructor account still awaiting a decision.
+      'instructor-interview@gbstem.org',
+      // No gbSTEM account at all.
+      'stranger@example.com',
+    ]
+
+    cy.signedInSession('instructor')
+
+    cy.contains('h2', 'Class Details')
+      .closest('.rounded-xl')
+      .within(() => {
+        cy.contains('button', 'Edit class details').click()
+      })
+    cy.get('input[name="course"]').should('not.be.disabled')
+
+    refused.forEach((email) => {
+      cy.fillInput('input[name="coInstructorEmail"]', email)
+      cy.contains('button', 'Add').click()
+      cy.contains('No accepted gbSTEM instructor').should('be.visible')
+      cy.get(`[data-co-instructor="${email}"]`).should('not.exist')
+    })
+
+    // An accepted instructor, by contrast, goes straight in.
+    cy.fillInput('input[name="coInstructorEmail"]', 'cohost@gbstem.org')
+    cy.contains('button', 'Add').click()
+    cy.get('[data-co-instructor="cohost@gbstem.org"]').should('exist')
+
+    cy.get('input[name="confirmation"]').check({ force: true })
+    saveClassDetails()
+
+    // Only the accepted one was ever a candidate for the document.
+    readClassDoc().then((data: any) => {
+      expect(data.otherInstructorUids).to.deep.equal(['instructor-cohost-uid'])
+      expect(data).to.not.have.property('otherInstructorEmails')
+    })
+  })
+
+  it('Test Case 13i: Class Details - Removing A Co-Instructor Revokes Their Access', () => {
+    // Removal had no revocation path at all before this: a uid added to
+    // instructorClasses stayed there forever, so a co-instructor taken off a
+    // class kept seeing it on their dashboard indefinitely.
+    cy.signedInSession('instructor')
+
+    cy.contains('h2', 'Class Details')
+      .closest('.rounded-xl')
+      .within(() => {
+        cy.contains('button', 'Edit class details').click()
+      })
+    cy.get('input[name="course"]').should('not.be.disabled')
+
+    setCoInstructors(['cohost@gbstem.org'])
+    cy.get('input[name="confirmation"]').check({ force: true })
+    saveClassDetails()
+
+    cy.getFirebaseAuthToken().then((authToken: string) => {
+      cy.getFirestoreDoc(
+        authToken,
+        'instructorClasses',
+        'instructor-cohost-uid',
+      ).then((mapping: any) => {
+        expect(mapping.classIds, 'granted').to.include(SEEDED_CLASS_ID)
+      })
+    })
+
+    // Now take them off again.
+    cy.contains('h2', 'Class Details')
+      .closest('.rounded-xl')
+      .within(() => {
+        cy.contains('button', 'Edit class details').click()
+      })
+    cy.get('input[name="course"]').should('not.be.disabled')
+
+    setCoInstructors([])
+    cy.get('input[name="confirmation"]').check({ force: true })
+    saveClassDetails()
+
+    // The class document is what actually gates write access...
+    readClassDoc().then((data: any) => {
+      expect(data.otherInstructorUids).to.deep.equal([])
+    })
+    // ...and the dashboard index has to stop listing it too.
+    cy.getFirebaseAuthToken().then((authToken: string) => {
+      cy.getFirestoreDoc(
+        authToken,
+        'instructorClasses',
+        'instructor-cohost-uid',
+      ).then((mapping: any) => {
+        expect(mapping.classIds ?? [], 'revoked').to.not.include(
+          SEEDED_CLASS_ID,
+        )
+      })
     })
   })
 

@@ -148,20 +148,19 @@ export const registrationSchema = z.object({
   }),
 })
 
-export const otherInstructorEmailsSchema = z
-  .string()
-  .optional()
-  .default('')
-  .refine(
-    (val) => {
-      if (!val) return true
-      const parts = val.split(/[ ,]+/).filter((p) => p.length > 0)
-      return parts.every((p) => z.string().email().safeParse(p).success)
-    },
-    {
-      message: 'Please enter valid, comma-separated email addresses',
-    },
-  )
+/**
+ * The co-instructors on a class, stored as uids.
+ *
+ * This used to be a free-text comma-separated email string the class owner
+ * typed by hand, which meant any address at all could be given write access
+ * to the class document. gbSTEM leadership's rule is that nobody teaches a
+ * class they were not interviewed and accepted for, so co-instructors are now
+ * added one at a time through /api/lookupCoInstructor, which resolves an
+ * address to a uid only when it belongs to an accepted instructor. By the
+ * time a uid reaches this schema it has already been vouched for; there is
+ * nothing left for the client to validate beyond the shape.
+ */
+export const otherInstructorUidsSchema = z.array(z.string()).default([])
 
 /**
  * The instructor's per-submission acknowledgement on ClassDetailsForm.
@@ -190,7 +189,7 @@ export const confirmationSchema = z
  * the component, where `formFieldParity.test.ts` couldn't reach it.
  */
 export const classDetailsFormSchema = classSchema.extend({
-  otherInstructorEmails: otherInstructorEmailsSchema,
+  otherInstructorUids: otherInstructorUidsSchema,
   confirmation: confirmationSchema,
 })
 
@@ -326,7 +325,6 @@ export function getClassDataDefaults() {
     instructorFirstName: '',
     instructorLastName: '',
     instructorEmail: '',
-    otherInstructorEmails: '',
     classDay1: '',
     classTime1: '',
     classDay2: '',

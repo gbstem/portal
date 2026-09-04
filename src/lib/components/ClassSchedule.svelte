@@ -47,7 +47,6 @@
     instructorLastName: '',
     instructorEmail: '',
     instructorUid: '',
-    otherInstructorEmails: '',
     otherInstructorUids: [],
     course: '',
     meetingLink: '',
@@ -278,7 +277,6 @@
             instructorLastName: classData.instructorLastName,
             instructorEmail: classData.instructorEmail,
             instructorUid: classData.instructorUid,
-            otherInstructorEmails: classData.otherInstructorEmails,
             otherInstructorUids: classData.otherInstructorUids,
             course: classData.course,
             meetingLink: classData.meetingLink,
@@ -480,7 +478,7 @@
                             values.instructorFirstName +
                             ' ' +
                             values.instructorLastName,
-                          otherInstructorEmails: values.otherInstructorEmails,
+                          otherInstructorUids: values.otherInstructorUids ?? [],
                           className: values.course,
                           nextMeetingTime:
                             nextClassIndex === -1
@@ -564,7 +562,7 @@
             sendClassReminder({
               studentList,
               instructorName: values.instructorFirstName,
-              otherInstructorEmails: values.otherInstructorEmails,
+              otherInstructorUids: values.otherInstructorUids ?? [],
               className: values.course,
               nextMeetingTime:
                 nextClassIndex === -1

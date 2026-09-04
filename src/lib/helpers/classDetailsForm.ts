@@ -1,6 +1,27 @@
 import type {} from '../../data.d.ts'
 
 /**
+ * A co-instructor as the app talks about one: a stable uid, plus the
+ * display/contact details that have to be looked up fresh every time because
+ * they can change out from under a stored copy.
+ *
+ * Lives here rather than beside the server resolver that produces it so that
+ * client code can name the type without importing `$lib/server/*`, which
+ * SvelteKit refuses to bundle.
+ */
+export type CoInstructor = {
+  uid: string
+  email: string
+  firstName: string
+  lastName: string
+  // Whether this account is *currently* an accepted instructor. Adding a
+  // co-instructor requires this; an already-stored one that has since lost it
+  // is surfaced to the class owner rather than silently revoked, so the
+  // removal is a deliberate act with someone accountable for it.
+  accepted: boolean
+}
+
+/**
  * Returns default empty Data.Class structure.
  */
 export function getDefaultClassValues(): Data.Class {
@@ -20,7 +41,6 @@ export function getDefaultClassValues(): Data.Class {
     instructorLastName: '',
     instructorEmail: '',
     instructorUid: '',
-    otherInstructorEmails: '',
     otherInstructorUids: [],
     classCap: 7,
     online: true,
@@ -42,7 +62,10 @@ export function toFormValues(v: Data.Class) {
     classDay2: (v.classDay2 as any) || '',
     classTime2: v.classTime2 || '',
     online: v.online !== undefined ? v.online : true,
-    otherInstructorEmails: v.otherInstructorEmails || '',
+    // A copy, not the stored array: the form mutates this on every add and
+    // remove, and aliasing it would edit the class snapshot `values` in place
+    // and defeat "Cancel changes".
+    otherInstructorUids: [...(v.otherInstructorUids ?? [])],
     // Always false, never `v.confirmation`: the acknowledgement is not stored,
     // and re-entering the form has to ask for it again.
     confirmation: false,
@@ -50,25 +73,85 @@ export function toFormValues(v: Data.Class) {
 }
 
 /**
- * Normalizes comma/space separated instructor email list.
+ * Normalizes a hand-typed email for lookup. Addresses are stored on Firebase
+ * Auth lowercased, and a class owner reading one off a roster will not be.
  */
-export function normalizeOtherInstructorEmails(raw: string): string {
-  if (!raw) return ''
-  return raw
-    .split(/[\s,]+/)
-    .map((email: string) => email.trim().toLowerCase())
-    .filter((email: string) => email.length > 0)
-    .join(', ')
+export function normalizeInstructorEmail(raw: string): string {
+  return raw.trim().toLowerCase()
+}
+
+/** "Ada Lovelace" for display, falling back to the address when unnamed. */
+export function coInstructorDisplayName(coInstructor: CoInstructor): string {
+  const name = `${coInstructor.firstName} ${coInstructor.lastName}`.trim()
+  return name || coInstructor.email
+}
+
+export function coInstructorUids(list: CoInstructor[]): string[] {
+  return list.map((coInstructor) => coInstructor.uid)
 }
 
 /**
- * Splits an already-`normalizeOtherInstructorEmails`-normalized string back
- * into individual addresses, for resolving each against
- * /api/resolveInstructorUids.
+ * Why `candidate` can't join `list`, or null when it can.
+ *
+ * Eligibility itself is not checked here - the server already refused to
+ * resolve an address that doesn't belong to an accepted instructor, and it is
+ * the only side that can check it. This covers only what the client knows:
+ * the same person twice, or the class owner adding themselves (they are
+ * already the instructor, and a self-entry would let a later removal strip
+ * their own instructorClasses mapping).
  */
-export function parseOtherInstructorEmails(normalized: string): string[] {
-  if (!normalized) return []
-  return normalized.split(', ')
+export function coInstructorAddError(
+  list: CoInstructor[],
+  candidate: CoInstructor,
+  ownerUid: string,
+): string | null {
+  if (candidate.uid === ownerUid) {
+    return "You are already this class's instructor."
+  }
+  if (list.some((coInstructor) => coInstructor.uid === candidate.uid)) {
+    return `${coInstructorDisplayName(candidate)} is already a co-instructor for this class.`
+  }
+  return null
+}
+
+export function addCoInstructor(
+  list: CoInstructor[],
+  candidate: CoInstructor,
+): CoInstructor[] {
+  if (list.some((coInstructor) => coInstructor.uid === candidate.uid)) {
+    return list
+  }
+  return [...list, candidate]
+}
+
+export function removeCoInstructor(
+  list: CoInstructor[],
+  uid: string,
+): CoInstructor[] {
+  return list.filter((coInstructor) => coInstructor.uid !== uid)
+}
+
+/**
+ * Which instructorClasses mappings a save has to add and which to revoke.
+ *
+ * The owner is excluded from both sides: their mapping is added
+ * unconditionally on every save, and they also reach the class through the
+ * `${uid}-${n}` class ID prefix, so revoking it would be both wrong and
+ * useless. Removing a co-instructor's *mapping* only takes the class off
+ * their dashboard; what actually revokes their write access is their uid
+ * leaving `otherInstructorUids`, which firestore.rules reads directly.
+ */
+export function instructorClassMappingDiff(
+  previousUids: string[],
+  nextUids: string[],
+  ownerUid: string,
+): { added: string[]; removed: string[] } {
+  const previous = new Set(previousUids.filter((uid) => uid !== ownerUid))
+  const next = new Set(nextUids.filter((uid) => uid !== ownerUid))
+  return {
+    added: [...next].filter((uid) => !previous.has(uid)),
+    removed: [...previous].filter((uid) => !next.has(uid)),
+  }
 }
 
 /**

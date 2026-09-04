@@ -172,7 +172,7 @@
         className: course,
         instructorName: subInstructorFirstName,
         nextMeetingTime: formatDate(timestampToDate(dateOfClass)),
-        otherInstructorEmails: '',
+        otherInstructorUids: [],
       })
     } catch (err) {
       console.error('Failed to send reminder:', err)
