@@ -8,7 +8,8 @@ import type { RemindStudentsRequestBody } from '../../../routes/api/remindStuden
  * @param studentName The name of the student to send the email to, use "all" if you want to send it ot all of them
  * @param studentEmail The email of the student to send the email to
  * @param instructorName The name of the instructor
- * @param otherInstructorEmails The emails of other instructors as a comma-separated string
+ * @param otherInstructorUids The uids of the class's other instructors, resolved to
+ *   current email addresses server-side and cc'd on the reminder
  * @param className The name of the class
  * @param nextMeetingTime The time of the next class
  */
@@ -17,7 +18,7 @@ function sendClassReminder(opts: {
   studentName?: string
   studentEmail?: string
   instructorName: string
-  otherInstructorEmails: string
+  otherInstructorUids: string[]
   className: string
   nextMeetingTime: string
 }) {
@@ -27,7 +28,7 @@ function sendClassReminder(opts: {
     studentName,
     studentEmail,
     instructorName,
-    otherInstructorEmails,
+    otherInstructorUids,
     className,
     nextMeetingTime,
   } = opts
@@ -44,7 +45,7 @@ function sendClassReminder(opts: {
         const payload: RemindStudentsRequestBody = {
           name: normalizeCapitals(student.name),
           email: student.email,
-          otherInstructorEmails: otherInstructorEmails,
+          otherInstructorUids: otherInstructorUids,
           class: className,
           classTime: nextMeetingTime,
           instructorName: normalizeCapitals(instructorName),
@@ -77,7 +78,7 @@ function sendClassReminder(opts: {
       const payload: RemindStudentsRequestBody = {
         name: studentName || '',
         email: studentEmail || '',
-        otherInstructorEmails: otherInstructorEmails,
+        otherInstructorUids: otherInstructorUids,
         class: className,
         classTime: nextMeetingTime,
         instructorName: normalizeCapitals(instructorName),

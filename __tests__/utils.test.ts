@@ -171,6 +171,29 @@ describe('utils', () => {
       const mockTimestamp = { seconds: 1779900600 } as any
       expect(timestampToDate(mockTimestamp).getTime()).toBe(1779900600 * 1000)
     })
+
+    // Dropping nanoseconds rounded every stored time down to the whole
+    // second, so a class's meeting times drifted a little every time the
+    // class was read and written back.
+    it('keeps sub-second precision', () => {
+      const mockTimestamp = {
+        seconds: 1779900600,
+        nanoseconds: 215000000,
+      } as any
+      expect(timestampToDate(mockTimestamp).getTime()).toBe(
+        1779900600 * 1000 + 215,
+      )
+    })
+
+    it('still handles a Timestamp with no nanoseconds field', () => {
+      const mockTimestamp = { seconds: 1779900600, nanoseconds: 0 } as any
+      expect(timestampToDate(mockTimestamp).getTime()).toBe(1779900600 * 1000)
+    })
+
+    it('passes a Date through untouched', () => {
+      const date = new Date('2026-05-28T12:00:00.215Z')
+      expect(timestampToDate(date)).toBe(date)
+    })
   })
 
   describe('classTodayHeld with fake timers', () => {

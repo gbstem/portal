@@ -64,6 +64,8 @@ const mockAdminAuth = {
   createSessionCookie: jest.fn(),
   verifySessionCookie: jest.fn(),
   getUser: jest.fn(),
+  getUsers: jest.fn().mockResolvedValue({ users: [], notFound: [] }),
+  getUserByEmail: jest.fn(),
   setCustomUserClaims: jest.fn(),
   generateEmailVerificationLink: jest.fn().mockResolvedValue('http://link'),
   generateVerifyAndChangeEmailLink: jest.fn().mockResolvedValue('http://link'),
@@ -163,7 +165,11 @@ import { POST as communityServicePOST } from '../src/routes/api/communityService
 import { POST as enrollPOST } from '../src/routes/api/enroll/+server'
 import { POST as interviewPOST } from '../src/routes/api/interview/+server'
 import { POST as registrationPOST } from '../src/routes/api/registration/+server'
+import { POST as lookupCoInstructorPOST } from '../src/routes/api/lookupCoInstructor/+server'
+import { NOT_AN_ACCEPTED_INSTRUCTOR } from '$lib/server/instructorDirectory'
+import { decisionsCollection } from '$lib/data/collections'
 import { POST as remindStudentsPOST } from '../src/routes/api/remindStudents/+server'
+import { POST as resolveCoInstructorsPOST } from '../src/routes/api/resolveCoInstructors/+server'
 import { POST as slotRequestPOST } from '../src/routes/api/slotRequest/+server'
 import { POST as substitutePOST } from '../src/routes/api/substitute/+server'
 import { POST as tokenPOST } from '../src/routes/api/token/+server'
@@ -179,6 +185,177 @@ async function withRejectedSend(fn: () => Promise<void>) {
   )
   await fn()
 }
+
+describe('co-instructor directory routes', () => {
+  let mockRequest: any
+
+  /**
+   * Points every adminDb.doc() read at `docs`, so a test can say who is an
+   * accepted instructor. Anything unlisted reads as a missing document.
+   */
+  function mockFirestoreDocs(docs: Record<string, any>) {
+    mockAdminDb.doc.mockImplementation((path: string) => ({
+      get: async () => ({ exists: path in docs, data: () => docs[path] }),
+    }))
+  }
+
+  const acceptedCaller = {
+    [`${decisionsCollection}/caller-uid`]: { type: 'accepted' },
+  }
+  const instructorLocals = {
+    user: { uid: 'caller-uid', email: 'caller@gbstem.org', role: 'instructor' },
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    mockRequest = { json: jest.fn() }
+    mockFirestoreDocs({})
+  })
+
+  afterEach(() => {
+    mockAdminDb.doc.mockImplementation((id: string) => mockDoc(id))
+  })
+
+  describe('lookupCoInstructorPOST', () => {
+    it('returns the identity of an accepted instructor', async () => {
+      mockFirestoreDocs({
+        ...acceptedCaller,
+        'users/uid-ada': { firstName: 'Ada', lastName: 'Lovelace' },
+        [`${decisionsCollection}/uid-ada`]: { type: 'accepted' },
+      })
+      mockAdminAuth.getUserByEmail.mockResolvedValue({
+        uid: 'uid-ada',
+        email: 'ada@gbstem.org',
+        customClaims: { role: 'instructor' },
+      })
+      mockRequest.json.mockResolvedValue({ email: 'ada@gbstem.org' })
+
+      const res: any = await lookupCoInstructorPOST({
+        request: mockRequest,
+        locals: instructorLocals,
+      } as any)
+
+      expect(res.body.instructor).toMatchObject({
+        uid: 'uid-ada',
+        accepted: true,
+      })
+    })
+
+    // The business rule: an instructor-role account is not enough, because
+    // the role claim is set at signup, long before any interview.
+    it('refuses an instructor who has not been accepted', async () => {
+      mockFirestoreDocs({
+        ...acceptedCaller,
+        [`${decisionsCollection}/uid-ada`]: { type: 'rejected' },
+      })
+      mockAdminAuth.getUserByEmail.mockResolvedValue({
+        uid: 'uid-ada',
+        email: 'ada@gbstem.org',
+        customClaims: { role: 'instructor' },
+      })
+      mockRequest.json.mockResolvedValue({ email: 'ada@gbstem.org' })
+
+      await expect(
+        lookupCoInstructorPOST({
+          request: mockRequest,
+          locals: instructorLocals,
+        } as any),
+      ).rejects.toEqual(expect.objectContaining({ status: 404 }))
+    })
+
+    // Same message and status for "no account" as for "not accepted", so this
+    // can't be used to find out whether an address has a gbSTEM account.
+    it('gives the same 404 for an address with no account at all', async () => {
+      mockFirestoreDocs(acceptedCaller)
+      mockAdminAuth.getUserByEmail.mockRejectedValue(new Error('not found'))
+      mockRequest.json.mockResolvedValue({ email: 'nobody@example.com' })
+
+      await expect(
+        lookupCoInstructorPOST({
+          request: mockRequest,
+          locals: instructorLocals,
+        } as any),
+      ).rejects.toEqual(
+        expect.objectContaining({
+          status: 404,
+          message: NOT_AN_ACCEPTED_INSTRUCTOR,
+        }),
+      )
+    })
+
+    it('rejects a signed-in student with a 403', async () => {
+      mockRequest.json.mockResolvedValue({ email: 'ada@gbstem.org' })
+
+      await expect(
+        lookupCoInstructorPOST({
+          request: mockRequest,
+          locals: { user: { uid: 's-1', role: 'student' } },
+        } as any),
+      ).rejects.toEqual(expect.objectContaining({ status: 403 }))
+    })
+
+    // Narrows the "is this address an accepted instructor" oracle to the only
+    // people who can use the feature at all.
+    it('rejects an instructor who is not themselves accepted', async () => {
+      mockFirestoreDocs({})
+      mockRequest.json.mockResolvedValue({ email: 'ada@gbstem.org' })
+
+      await expect(
+        lookupCoInstructorPOST({
+          request: mockRequest,
+          locals: instructorLocals,
+        } as any),
+      ).rejects.toEqual(expect.objectContaining({ status: 403 }))
+    })
+
+    it('propagates a 401 when nobody is signed in', async () => {
+      mockRequest.json.mockResolvedValue({ email: 'ada@gbstem.org' })
+
+      await expect(
+        lookupCoInstructorPOST({ request: mockRequest, locals: {} } as any),
+      ).rejects.toEqual(expect.objectContaining({ status: 401 }))
+    })
+  })
+
+  describe('resolveCoInstructorsPOST', () => {
+    it('expands stored uids and omits ones whose account is gone', async () => {
+      mockFirestoreDocs({
+        'users/uid-ada': { firstName: 'Ada', lastName: 'Lovelace' },
+        [`${decisionsCollection}/uid-ada`]: { type: 'accepted' },
+      })
+      mockAdminAuth.getUsers.mockResolvedValue({
+        users: [
+          {
+            uid: 'uid-ada',
+            email: 'ada@gbstem.org',
+            customClaims: { role: 'instructor' },
+          },
+        ],
+        notFound: [{ uid: 'uid-deleted' }],
+      })
+      mockRequest.json.mockResolvedValue({ uids: ['uid-ada', 'uid-deleted'] })
+
+      const res: any = await resolveCoInstructorsPOST({
+        request: mockRequest,
+        locals: instructorLocals,
+      } as any)
+
+      expect(res.body.instructors).toHaveLength(1)
+      expect(res.body.instructors[0]).toMatchObject({ uid: 'uid-ada' })
+    })
+
+    it('rejects a signed-in student with a 403', async () => {
+      mockRequest.json.mockResolvedValue({ uids: ['uid-ada'] })
+
+      await expect(
+        resolveCoInstructorsPOST({
+          request: mockRequest,
+          locals: { user: { uid: 's-1', role: 'student' } },
+        } as any),
+      ).rejects.toEqual(expect.objectContaining({ status: 403 }))
+    })
+  })
+})
 
 describe('hooks.server.ts handle', () => {
   let event: any
@@ -742,7 +919,7 @@ describe('API routes POST endpoints', () => {
       email: 'student@test.com',
       instructorName: 'Instructor',
       instructorEmail: 'inst@test.com',
-      otherInstructorEmails: '',
+      otherInstructorUids: [],
       class: 'Math',
       classTime: 'Monday at 2:00 PM',
     })
@@ -760,7 +937,7 @@ describe('API routes POST endpoints', () => {
         email: 'student@test.com',
         instructorName: 'Instructor',
         instructorEmail: 'inst@test.com',
-        otherInstructorEmails: '',
+        otherInstructorUids: [],
         class: 'Math',
         classTime: 'Monday at 2:00 PM',
       })
@@ -777,13 +954,40 @@ describe('API routes POST endpoints', () => {
     })
   })
 
+  // The point of storing uids instead of addresses: the cc goes to whatever
+  // address the account has right now, and the client never gets to name it.
+  it('remindStudentsPOST resolves co-instructor uids to current emails server-side', async () => {
+    mockAdminAuth.getUsers.mockResolvedValueOnce({
+      users: [{ uid: 'co-uid-1', email: 'renamed@gbstem.org' }],
+      notFound: [{ uid: 'co-uid-deleted' }],
+    })
+    mockRequest.json.mockResolvedValue({
+      name: 'Student',
+      email: 'student@test.com',
+      instructorName: 'Instructor',
+      otherInstructorUids: ['co-uid-1', 'co-uid-deleted'],
+      class: 'Math',
+      classTime: 'Monday at 2:00 PM',
+    })
+
+    await remindStudentsPOST({
+      request: mockRequest as any,
+      locals: { user: { email: 'test@test.com' } },
+    } as any)
+
+    // The deleted account is dropped rather than bouncing the whole send.
+    expect(MailService.send).toHaveBeenCalledWith(
+      expect.objectContaining({ cc: ['renamed@gbstem.org'] }),
+    )
+  })
+
   it('remindStudentsPOST propagates the auth error when the user is not signed in', async () => {
     mockRequest.json.mockResolvedValue({
       name: 'Student',
       email: 'student@test.com',
       instructorName: 'Instructor',
       instructorEmail: 'inst@test.com',
-      otherInstructorEmails: '',
+      otherInstructorUids: [],
       class: 'Math',
       classTime: 'Monday at 2:00 PM',
     })

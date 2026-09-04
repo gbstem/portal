@@ -4,13 +4,18 @@
   import { coursesJson, daysOfWeekJson } from '$lib/data'
   import { withSemester } from '$lib/data/collections'
   import {
+    addCoInstructor,
+    coInstructorAddError,
+    coInstructorDisplayName,
+    coInstructorUids,
     generateNewClassId,
     getDefaultClassValues,
     getMeetingDates,
-    normalizeOtherInstructorEmails,
-    parseOtherInstructorEmails,
+    normalizeInstructorEmail,
+    removeCoInstructor,
     scheduleSourceChanged,
     toFormValues,
+    type CoInstructor,
   } from '$lib/helpers/classDetailsForm'
   import { classService } from '$lib/services/classService'
   import { alert } from '$lib/stores'
@@ -48,6 +53,16 @@
 
   let values: Data.Class = $state(getDefaultClassValues())
 
+  // Co-instructor identities, keyed by uid. `null` means the lookup came back
+  // and that account is gone; a uid simply *absent* from this map hasn't been
+  // resolved yet (in flight, or the request failed). Keeping those two cases
+  // apart is what makes the drop safe: only a confirmed-`null` uid is removed
+  // on save, so one failed request can never wipe a class's co-instructors.
+  let identities: Record<string, CoInstructor | null> = $state({})
+  let coInstructorEmail = $state('')
+  let coInstructorError = $state('')
+  let addingCoInstructor = $state(false)
+
   const schema = classDetailsFormSchema
 
   const CONFIRMATION_TEXT =
@@ -80,10 +95,6 @@
               ...values,
               ...formFields,
             }
-
-            newValues.otherInstructorEmails = normalizeOtherInstructorEmails(
-              newValues.otherInstructorEmails,
-            )
 
             // The schedule used to be driven by a "create a schedule for me?"
             // checkbox, which meant an instructor editing their class cap
@@ -140,17 +151,15 @@
             newValues.instructorEmail = frozenUser.object.email as string
             newValues.instructorUid = frozenUser.object.uid
 
-            // `otherInstructorEmails` is free text the class owner types, so
-            // only the subset that resolves to an instructor account gets a
-            // uid - an unresolved address just keeps relying on the email
-            // fallback in firestore.rules's isInstructorOfClass(), same as
-            // before this field existed.
-            const otherInstructorEmailList = parseOtherInstructorEmails(
-              newValues.otherInstructorEmails,
-            )
+            // Every uid in the form was vouched for by
+            // /api/lookupCoInstructor when it was added, so there is nothing
+            // to re-resolve here. `droppedUids` are the ones whose accounts
+            // have since been deleted; they're the only ones removed without
+            // the owner asking, and only because there is nobody left to ask
+            // about. See `loadCoInstructors`.
             newValues.otherInstructorUids =
-              await classService.resolveOtherInstructorUids(
-                otherInstructorEmailList,
+              newValues.otherInstructorUids.filter(
+                (uid: string) => !droppedUids.has(uid),
               )
 
             if (newValues.online && newValues.meetingLink === '') {
@@ -170,6 +179,7 @@
             await classService.updateInstructorClassMappings(
               classId,
               frozenUser.object.uid,
+              values.otherInstructorUids ?? [],
               newValues.otherInstructorUids,
             )
 
@@ -196,6 +206,20 @@
   )
 
   const { form, enhance, delayed } = formResult
+
+  // Derived from `$form`, so they have to come after it is destructured.
+  const formUids = $derived(($form.otherInstructorUids ?? []) as string[])
+  const unresolvedUids = $derived(
+    formUids.filter((uid) => !(uid in identities)),
+  )
+  const coInstructors = $derived(
+    formUids
+      .map((uid) => identities[uid])
+      .filter((identity): identity is CoInstructor => Boolean(identity)),
+  )
+  const droppedUids = $derived(
+    new Set(formUids.filter((uid) => identities[uid] === null)),
+  )
 
   function selectClass(classId: string) {
     selectedClassId = classId
@@ -339,11 +363,170 @@
     }
   }
 
+  /**
+   * Resolves any uid the form holds that we don't have an identity for yet.
+   *
+   * An `$effect` rather than a `$derived` because the work is an async fetch,
+   * which a derived can't do - it reads `unresolvedUids` and writes
+   * `identities`, a different node, so this isn't the state-copying shape.
+   * The early return on an empty list is what makes it settle: filling
+   * `identities` empties `unresolvedUids`, and the next run stops there.
+   *
+   * On failure nothing is written, so the uids stay unresolved and are
+   * retried rather than being treated as deleted accounts.
+   */
+  $effect(() => {
+    const toResolve = unresolvedUids
+    if (toResolve.length === 0) return
+
+    let cancelled = false
+    classService
+      .resolveCoInstructors(toResolve)
+      .then((resolved) => {
+        if (cancelled) return
+        const byUid = new Map(resolved.map((one) => [one.uid, one]))
+        identities = {
+          ...identities,
+          // A requested uid the server didn't return has no account left.
+          ...Object.fromEntries(
+            toResolve.map((uid) => [uid, byUid.get(uid) ?? null]),
+          ),
+        }
+      })
+      .catch((err) => {
+        console.error('[ClassDetailsForm] Failed to load co-instructors:', err)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  })
+
+  async function addCoInstructorByEmail() {
+    const email = normalizeInstructorEmail(coInstructorEmail)
+    coInstructorError = ''
+    if (!email) {
+      coInstructorError = 'Enter an email address.'
+      return
+    }
+
+    addingCoInstructor = true
+    try {
+      const result = await classService.lookupCoInstructor(email)
+      if (!result.ok) {
+        coInstructorError = result.message
+        return
+      }
+
+      const candidate = result.coInstructor
+      const rejection = coInstructorAddError(
+        coInstructors,
+        candidate,
+        $user?.object.uid ?? '',
+      )
+      if (rejection) {
+        coInstructorError = rejection
+        return
+      }
+
+      identities = { ...identities, [candidate.uid]: candidate }
+      $form.otherInstructorUids = coInstructorUids(
+        addCoInstructor(coInstructors, candidate),
+      )
+      coInstructorEmail = ''
+    } finally {
+      addingCoInstructor = false
+    }
+  }
+
+  function removeCoInstructorByUid(uid: string) {
+    coInstructorError = ''
+    $form.otherInstructorUids = coInstructorUids(
+      removeCoInstructor(coInstructors, uid),
+    )
+  }
+
   // React to parent values changing (e.g. loaded data or cancel changes)
   $effect(() => {
     form.set(toFormValues(values))
   })
 </script>
+
+{#snippet coInstructorField()}
+  <div class="mt-2 flex flex-col gap-1.5">
+    <span class="text-sm font-bold">Co-instructors</span>
+    <p class="text-xs text-gray-600">
+      Add anyone teaching this class with you, one at a time. Only instructors
+      who have been interviewed and accepted by gbSTEM can be added. Keep in
+      mind that only one instructor per class should fill out this form.
+    </p>
+
+    {#if coInstructors.length > 0}
+      <ul class="mt-1 flex flex-col gap-1.5">
+        {#each coInstructors as coInstructor (coInstructor.uid)}
+          <li
+            class="flex flex-wrap items-center justify-between gap-2 rounded-md border border-gray-300 px-3 py-2"
+            data-co-instructor={coInstructor.email}
+          >
+            <span class="min-w-0 text-sm">
+              <span class="font-semibold"
+                >{coInstructorDisplayName(coInstructor)}</span
+              >
+              <span class="text-gray-600">{coInstructor.email}</span>
+              {#if !coInstructor.accepted}
+                <span
+                  class="ml-1 rounded-sm bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-800"
+                >
+                  No longer an accepted instructor - please remove
+                </span>
+              {/if}
+            </span>
+            <Button
+              color="red"
+              type="button"
+              class="min-h-8 px-2 py-1 text-xs"
+              onclick={() => removeCoInstructorByUid(coInstructor.uid)}
+            >
+              Remove
+            </Button>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+
+    <div class="mt-1 flex flex-wrap items-start gap-2">
+      <input
+        type="email"
+        name="coInstructorEmail"
+        placeholder="co-instructor@example.com"
+        bind:value={coInstructorEmail}
+        onkeydown={(event) => {
+          // Enter inside a form submits it; this field adds instead.
+          if (event.key === 'Enter') {
+            event.preventDefault()
+            addCoInstructorByEmail()
+          }
+        }}
+        class="h-12 min-w-0 flex-1 appearance-none rounded-md border border-gray-400 px-3 transition-colors placeholder:text-gray-500 focus:border-gray-600 focus:outline-hidden disabled:bg-white disabled:text-gray-400"
+      />
+      <Button
+        color="blue"
+        type="button"
+        class="h-12"
+        disabled={addingCoInstructor}
+        onclick={addCoInstructorByEmail}
+      >
+        {addingCoInstructor ? 'Checking...' : 'Add'}
+      </Button>
+    </div>
+
+    {#if coInstructorError}
+      <p class="text-xs font-semibold text-red-500" role="alert">
+        {coInstructorError}
+      </p>
+    {/if}
+  </div>
+{/snippet}
 
 {#if dialog === true}
   <Dialog bind:open size="full" alert>
@@ -524,14 +707,7 @@
                   />
                 </div>
 
-                <div class="mt-2 flex flex-col gap-1.5">
-                  <FormInput
-                    form={formResult}
-                    name="otherInstructorEmails"
-                    label="Enter the emails of any co-instructors here, comma separated. Keep in mind that only one instructor per class should fill out this form."
-                    bind:value={$form.otherInstructorEmails}
-                  />
-                </div>
+                {@render coInstructorField()}
 
                 {#if $form.online}
                   <div class="mt-2 flex flex-col gap-1.5">
@@ -729,14 +905,7 @@
           />
         </div>
 
-        <div class="mt-2 flex flex-col gap-1.5">
-          <FormInput
-            form={formResult}
-            name="otherInstructorEmails"
-            label="Enter the emails of any co-instructors here, comma separated. Keep in mind that only one instructor per class should fill out this form."
-            bind:value={$form.otherInstructorEmails}
-          />
-        </div>
+        {@render coInstructorField()}
 
         <div class="mt-4 flex flex-col gap-1.5">
           <FormCheckbox

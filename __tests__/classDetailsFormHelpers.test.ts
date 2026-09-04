@@ -1,9 +1,14 @@
 import type {} from '../src/data.d.ts'
 import {
+  addCoInstructor,
+  coInstructorAddError,
+  coInstructorDisplayName,
+  coInstructorUids,
   getDefaultClassValues,
+  instructorClassMappingDiff,
+  normalizeInstructorEmail,
+  removeCoInstructor,
   toFormValues,
-  normalizeOtherInstructorEmails,
-  parseOtherInstructorEmails,
   parseTime,
   getMeetingDates,
   generateNewClassId,
@@ -31,33 +36,109 @@ describe('ClassDetailsForm Helpers', () => {
       expect(mapped.classDay1).toBe('Monday')
       expect(mapped.classTime1).toBe('4:00 PM')
     })
-  })
 
-  describe('normalizeOtherInstructorEmails', () => {
-    test('trims, lowercases, and removes empty email tokens', () => {
-      const raw = ' ALICE@EXAMPLE.COM,  bob@example.com ,  '
-      const normalized = normalizeOtherInstructorEmails(raw)
-      expect(normalized).toBe('alice@example.com, bob@example.com')
+    // The form mutates this array on every add and remove. Aliasing the
+    // stored one would edit the `values` snapshot in place, which is what
+    // "Cancel changes" restores from.
+    test('toFormValues copies otherInstructorUids rather than aliasing it', () => {
+      const cls = getDefaultClassValues()
+      cls.otherInstructorUids = ['uid-ada']
+
+      const mapped = toFormValues(cls)
+      expect(mapped.otherInstructorUids).toEqual(['uid-ada'])
+      expect(mapped.otherInstructorUids).not.toBe(cls.otherInstructorUids)
     })
 
-    test('returns empty string for empty input', () => {
-      expect(normalizeOtherInstructorEmails('')).toBe('')
+    // Documents written before the field existed have no array at all.
+    test('toFormValues defaults a missing otherInstructorUids to []', () => {
+      const cls = getDefaultClassValues()
+      delete (cls as Partial<Data.Class>).otherInstructorUids
+
+      expect(toFormValues(cls).otherInstructorUids).toEqual([])
     })
   })
 
-  describe('parseOtherInstructorEmails', () => {
-    test('splits a normalized ", "-joined string back into addresses', () => {
-      const normalized = normalizeOtherInstructorEmails(
-        ' ALICE@EXAMPLE.COM,  bob@example.com ,  ',
+  describe('co-instructor list helpers', () => {
+    const ada = {
+      uid: 'uid-ada',
+      email: 'ada@example.com',
+      firstName: 'Ada',
+      lastName: 'Lovelace',
+      accepted: true,
+    }
+    const grace = {
+      uid: 'uid-grace',
+      email: 'grace@example.com',
+      firstName: 'Grace',
+      lastName: 'Hopper',
+      accepted: true,
+    }
+
+    test('normalizeInstructorEmail trims and lowercases for lookup', () => {
+      expect(normalizeInstructorEmail('  ADA@Example.COM ')).toBe(
+        'ada@example.com',
       )
-      expect(parseOtherInstructorEmails(normalized)).toEqual([
-        'alice@example.com',
-        'bob@example.com',
+      expect(normalizeInstructorEmail('')).toBe('')
+    })
+
+    test('coInstructorDisplayName falls back to the address when unnamed', () => {
+      expect(coInstructorDisplayName(ada)).toBe('Ada Lovelace')
+      expect(
+        coInstructorDisplayName({ ...ada, firstName: '', lastName: '' }),
+      ).toBe('ada@example.com')
+    })
+
+    test('add appends, and removing by uid takes exactly one out', () => {
+      const list = addCoInstructor(addCoInstructor([], ada), grace)
+      expect(coInstructorUids(list)).toEqual(['uid-ada', 'uid-grace'])
+      expect(coInstructorUids(removeCoInstructor(list, 'uid-ada'))).toEqual([
+        'uid-grace',
       ])
     })
 
-    test('returns [] for empty input', () => {
-      expect(parseOtherInstructorEmails('')).toEqual([])
+    test('add is idempotent, so a double-submit cannot duplicate a row', () => {
+      const list = addCoInstructor([ada], ada)
+      expect(list).toHaveLength(1)
+    })
+
+    // The two things the client can judge on its own. Eligibility is not one
+    // of them - only the server can see a decision document.
+    test('coInstructorAddError rejects a duplicate and the owner themselves', () => {
+      expect(coInstructorAddError([], ada, 'owner-uid')).toBeNull()
+      expect(coInstructorAddError([ada], ada, 'owner-uid')).toMatch(
+        /already a co-instructor/,
+      )
+      expect(coInstructorAddError([], ada, 'uid-ada')).toMatch(
+        /already this class/,
+      )
+    })
+  })
+
+  describe('instructorClassMappingDiff', () => {
+    test('reports only what changed', () => {
+      expect(
+        instructorClassMappingDiff(['a', 'b'], ['b', 'c'], 'owner'),
+      ).toEqual({ added: ['c'], removed: ['a'] })
+    })
+
+    test('never adds or revokes the class owner', () => {
+      // The owner's mapping is written unconditionally on every save, and
+      // they also reach the class through the `${uid}-${n}` ID prefix, so
+      // revoking it here would be both wrong and useless.
+      expect(
+        instructorClassMappingDiff(['owner', 'a'], ['owner'], 'owner'),
+      ).toEqual({ added: [], removed: ['a'] })
+      expect(instructorClassMappingDiff([], ['owner'], 'owner')).toEqual({
+        added: [],
+        removed: [],
+      })
+    })
+
+    test('is empty when nothing moved', () => {
+      expect(instructorClassMappingDiff(['a'], ['a'], 'owner')).toEqual({
+        added: [],
+        removed: [],
+      })
     })
   })
 

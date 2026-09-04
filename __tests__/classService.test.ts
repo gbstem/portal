@@ -12,6 +12,7 @@ jest.mock('firebase/firestore', () => ({
   updateDoc: jest.fn(),
   arrayUnion: jest.fn((val) => val),
   arrayRemove: jest.fn((val) => val),
+  deleteField: jest.fn(() => ({ __deleteField: true })),
 }))
 
 function mockQuerySnapshot(docs: any[]) {
@@ -258,7 +259,12 @@ describe('portal classService (Data Access Layer)', () => {
     it('updates the mapping for the main instructor when the doc already exists', async () => {
       ;(firestore.updateDoc as jest.Mock).mockResolvedValueOnce(undefined)
 
-      await classService.updateInstructorClassMappings('c-1', 'main-uid', [])
+      await classService.updateInstructorClassMappings(
+        'c-1',
+        'main-uid',
+        [],
+        [],
+      )
 
       expect(firestore.updateDoc).toHaveBeenCalledTimes(1)
       expect(firestore.setDoc).not.toHaveBeenCalled()
@@ -270,101 +276,207 @@ describe('portal classService (Data Access Layer)', () => {
       )
       ;(firestore.setDoc as jest.Mock).mockResolvedValueOnce(undefined)
 
-      await classService.updateInstructorClassMappings('c-1', 'main-uid', [])
+      await classService.updateInstructorClassMappings(
+        'c-1',
+        'main-uid',
+        [],
+        [],
+      )
 
       expect(firestore.setDoc).toHaveBeenCalledWith(expect.anything(), {
         classIds: ['c-1'],
       })
     })
 
-    it('grants access to each resolved co-instructor uid', async () => {
+    it('grants access to each newly added co-instructor uid', async () => {
       ;(firestore.updateDoc as jest.Mock).mockResolvedValue(undefined)
 
-      await classService.updateInstructorClassMappings('c-1', 'main-uid', [
-        'co-uid-1',
-        'co-uid-2',
-      ])
+      await classService.updateInstructorClassMappings(
+        'c-1',
+        'main-uid',
+        [],
+        ['co-uid-1', 'co-uid-2'],
+      )
 
       expect(firestore.updateDoc).toHaveBeenCalledTimes(3)
+      expect(firestore.arrayUnion).toHaveBeenCalledTimes(3)
+      expect(firestore.arrayRemove).not.toHaveBeenCalled()
     })
 
-    it('logs and does not throw if adding an instructor fails entirely', async () => {
+    // Before this, a uid dropped from a class's co-instructor list kept the
+    // class on their dashboard forever - there was no removal path at all.
+    it('revokes the mapping of a co-instructor who was removed', async () => {
+      ;(firestore.updateDoc as jest.Mock).mockResolvedValue(undefined)
+
+      await classService.updateInstructorClassMappings(
+        'c-1',
+        'main-uid',
+        ['co-uid-1', 'co-uid-2'],
+        ['co-uid-2'],
+      )
+
+      expect(firestore.arrayRemove).toHaveBeenCalledTimes(1)
+      expect(firestore.arrayRemove).toHaveBeenCalledWith('c-1')
+      // Two writes: the owner's mapping (rewritten every save) and the
+      // revoke. The co-instructor who didn't move is left alone.
+      expect(firestore.updateDoc).toHaveBeenCalledTimes(2)
+    })
+
+    it('leaves an unchanged co-instructor alone', async () => {
+      ;(firestore.updateDoc as jest.Mock).mockResolvedValue(undefined)
+
+      await classService.updateInstructorClassMappings(
+        'c-1',
+        'main-uid',
+        ['co-uid-1'],
+        ['co-uid-1'],
+      )
+
+      // The owner's mapping, and nothing else.
+      expect(firestore.updateDoc).toHaveBeenCalledTimes(1)
+      expect(firestore.arrayRemove).not.toHaveBeenCalled()
+    })
+
+    // The owner reaches the class through the `${uid}-${n}` ID prefix as well,
+    // so revoking their mapping would be both wrong and useless.
+    it('never revokes the class owner, even if they are listed as a co-instructor', async () => {
+      ;(firestore.updateDoc as jest.Mock).mockResolvedValue(undefined)
+
+      await classService.updateInstructorClassMappings(
+        'c-1',
+        'main-uid',
+        ['main-uid'],
+        [],
+      )
+
+      expect(firestore.arrayRemove).not.toHaveBeenCalled()
+      expect(firestore.arrayUnion).toHaveBeenCalledTimes(1)
+    })
+
+    it('logs and does not throw if a mapping write fails entirely', async () => {
       ;(firestore.updateDoc as jest.Mock).mockRejectedValue(
         new Error('update failed'),
       )
-      ;(firestore.setDoc as jest.Mock).mockRejectedValueOnce(
+      ;(firestore.setDoc as jest.Mock).mockRejectedValue(
         new Error('set failed'),
       )
       const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
 
       await expect(
-        classService.updateInstructorClassMappings('c-1', 'main-uid', []),
+        classService.updateInstructorClassMappings('c-1', 'main-uid', [], []),
       ).resolves.toBeUndefined()
 
-      expect(errorSpy).toHaveBeenCalledWith(
-        'Error updating instructor class mappings:',
-        expect.any(Error),
+      expect(errorSpy).toHaveBeenCalled()
+      errorSpy.mockRestore()
+    })
+
+    // One instructor's mapping failing must not decide whether the rest get
+    // written - hence allSettled rather than a sequential loop.
+    it('still writes the other mappings when one of them fails', async () => {
+      ;(firestore.updateDoc as jest.Mock)
+        .mockRejectedValueOnce(new Error('update failed'))
+        .mockRejectedValueOnce(new Error('update failed'))
+        .mockResolvedValue(undefined)
+      ;(firestore.setDoc as jest.Mock).mockRejectedValue(
+        new Error('set failed'),
       )
+      const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
+
+      await classService.updateInstructorClassMappings(
+        'c-1',
+        'main-uid',
+        [],
+        ['co-uid-1', 'co-uid-2'],
+      )
+
+      expect(firestore.updateDoc).toHaveBeenCalledTimes(3)
       errorSpy.mockRestore()
     })
   })
 
-  describe('resolveOtherInstructorUids', () => {
-    it('returns [] without calling the API when there are no emails to resolve', async () => {
-      const res = await classService.resolveOtherInstructorUids([])
-      expect(res).toEqual([])
-      expect(global.fetch).not.toHaveBeenCalled()
-    })
-
-    it('posts the emails and returns the resolved uids', async () => {
+  describe('lookupCoInstructor', () => {
+    it('returns the resolved co-instructor on success', async () => {
+      const coInstructor = {
+        uid: 'co-uid-1',
+        email: 'co1@example.com',
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+        accepted: true,
+      }
       ;(global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
-        json: () =>
-          Promise.resolve({
-            uidsByEmail: { 'co1@example.com': 'co-uid-1' },
-          }),
+        json: () => Promise.resolve({ instructor: coInstructor }),
       })
 
-      const res = await classService.resolveOtherInstructorUids([
-        'co1@example.com',
-        'unresolvable@example.com',
-      ])
-
-      expect(res).toEqual(['co-uid-1'])
+      await expect(
+        classService.lookupCoInstructor('co1@example.com'),
+      ).resolves.toEqual({ ok: true, coInstructor })
       expect(global.fetch).toHaveBeenCalledWith(
-        '/api/resolveInstructorUids',
+        '/api/lookupCoInstructor',
         expect.objectContaining({ method: 'POST' }),
       )
     })
 
-    it('returns [] and logs rather than throwing on a failed response', async () => {
-      ;(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false })
-      const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
+    // The server deliberately gives one message for every rejection reason,
+    // so it is shown to the class owner verbatim rather than reinterpreted.
+    it('surfaces the server message when the address is refused', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        json: () =>
+          Promise.resolve({ message: 'No accepted gbSTEM instructor...' }),
+      })
 
-      const res = await classService.resolveOtherInstructorUids([
-        'co1@example.com',
-      ])
-
-      expect(res).toEqual([])
-      errorSpy.mockRestore()
+      await expect(
+        classService.lookupCoInstructor('nobody@example.com'),
+      ).resolves.toEqual({
+        ok: false,
+        message: 'No accepted gbSTEM instructor...',
+      })
     })
 
-    it('returns [] and logs rather than throwing when fetch itself rejects', async () => {
+    it('reports a generic failure rather than throwing when fetch rejects', async () => {
       ;(global.fetch as jest.Mock).mockRejectedValueOnce(
         new Error('network error'),
       )
       const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
 
-      const res = await classService.resolveOtherInstructorUids([
-        'co1@example.com',
-      ])
+      const res = await classService.lookupCoInstructor('co1@example.com')
 
-      expect(res).toEqual([])
-      expect(errorSpy).toHaveBeenCalledWith(
-        'Error resolving co-instructor uids:',
-        expect.any(Error),
-      )
+      expect(res).toEqual({ ok: false, message: expect.any(String) })
       errorSpy.mockRestore()
+    })
+  })
+
+  describe('resolveCoInstructors', () => {
+    it('returns [] without calling the API when there are no uids', async () => {
+      await expect(classService.resolveCoInstructors([])).resolves.toEqual([])
+      expect(global.fetch).not.toHaveBeenCalled()
+    })
+
+    it('posts the uids and returns the identities', async () => {
+      const instructors = [{ uid: 'co-uid-1', email: 'co1@example.com' }]
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ instructors }),
+      })
+
+      await expect(
+        classService.resolveCoInstructors(['co-uid-1']),
+      ).resolves.toEqual(instructors)
+    })
+
+    // Must NOT swallow this into []. The caller uses the result to decide
+    // which stored uids to keep, so a silent empty result on a failed request
+    // would wipe a class's co-instructors on the next save.
+    it('throws rather than returning [] when the request fails', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+      })
+
+      await expect(
+        classService.resolveCoInstructors(['co-uid-1']),
+      ).rejects.toThrow()
     })
   })
 

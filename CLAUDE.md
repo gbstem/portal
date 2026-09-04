@@ -10,6 +10,8 @@ This supplements [README.md](README.md) (architecture, setup, shared Firebase em
 
 Portal and admin share the **same Firestore database and Firebase project** and the same shape of `src/lib/data/collections.ts`. Unlike admin (which can browse past semesters), **portal only ever reads and writes the current semester** — `withSemester()` here always stamps `currentSemester` with no override, since there's no `?semester=` browsing UI. The `currentSemester` suffix and `semesterDates.json` in this repo are copied by hand from admin's copy during a semester rollover (see admin's README "Adding a New Semester") — **update both repos together**, and update Firestore security rules identically in both since they're merged by hand for production. Cypress e2e tests here also expect a sibling `../admin` checkout (used to seed the shared emulator) — see README's Cypress section.
 
+**Ship a cross-repo change as two PRs on a branch of the same name in both repos.** CI relies on that: portal's e2e job seeds the emulator from an admin branch with the same name when one exists, and from admin's default branch otherwise (see `.github/workflows/ci.yml`). Without it, a portal PR whose tests need a new seed fixture could not go green until the admin PR merged — so CI stopped gating exactly the coordinated changes that most need gating, and the way out was to merge admin unreviewed. The job logs which admin revision it seeded from, so check that line first when an e2e failure looks like missing data.
+
 ## Route groups are auth gates, not just folders
 
 - `(signedIn)/+layout.server.ts` redirects to `/signin` if `locals.user === null`.
@@ -32,6 +34,13 @@ There are **no `+page.server.ts` form actions anywhere in this repo**. Every for
 - `src/lib/client/firebase.ts` → client SDK, used in `.svelte` components, gated by shared `firestore.rules`.
 - `src/lib/server/firebase.ts` → Admin SDK, used only in `hooks.server.ts` and `src/routes/api/*/+server.ts`, guarded with `verifyAuthenticated(locals)` and `try { ... } catch (err) { throw handleApiError(err) }` (`src/lib/server/apiHelpers.ts`).
 - A cross-cutting idiom worth preserving: some client code imports request/response types straight from a route's `+server.ts` (e.g. `ApplicationRequestBody`) via relative paths rather than duplicating the type — keep doing this instead of redefining server payload shapes client-side.
+- `src/lib/server/apiHelpers.ts` also exports `verifyInstructor(locals)` (401 unsigned, 403 for anyone else). Reach for it, not `verifyAuthenticated`, on any endpoint that exposes something about _another_ user — an `/api/*` route sits outside the route-group layouts, so without it every signed-in student can call it.
+
+## Co-instructors are uids, and only accepted instructors
+
+Classes store co-instructors as `otherInstructorUids: string[]`. There is deliberately no email equivalent: the `otherInstructorEmails` free-text string this replaced was honoured directly by `firestore.rules`'s `isInstructorOfClass()`, so a class owner could type any address at all and hand that person write access. gbSTEM leadership's rule is that nobody teaches a class they weren't interviewed and accepted for, so a uid only gets onto a class through `/api/lookupCoInstructor`, which resolves an address only when the account holds the `instructor` role **and** has an `accepted` decision (`decisions/{uid}.type`) — the role claim alone means nothing here, since it is set at signup, long before any interview.
+
+**Never add a code path that takes a co-instructor email from the client.** All uid→email/identity resolution goes through `src/lib/server/instructorDirectory.ts`, which drops uids whose Auth account is gone; `/api/remindStudents` takes uids and resolves the cc list itself. Note that `/api/lookupCoInstructor` returns the _same_ message for every rejection reason on purpose — distinguishing them would leak whether an address has a gbSTEM account and how that person's application went.
 
 ## Document upload feature is partially dead code
 
