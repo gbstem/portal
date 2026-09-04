@@ -1277,6 +1277,54 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
     })
   })
 
+  it('Test Case 13j: Class Details - A Co-Instructor Saving Does Not Take Ownership', () => {
+    // Being added to a class is what puts it on your dashboard, so a
+    // co-instructor can open this form and save. The form used to stamp the
+    // signed-in user as the class's instructor on every save, which made them
+    // the owner - and left the real owner matching none of
+    // isInstructorOfClass()'s clauses, since an owner is never in
+    // `otherInstructorUids`. They lost write access to their own class, and
+    // silently: a rules rejection still resolves the promise the form awaits.
+    cy.signedInSession('instructor')
+
+    cy.contains('h2', 'Class Details')
+      .closest('.rounded-xl')
+      .within(() => {
+        cy.contains('button', 'Edit class details').click()
+      })
+    cy.get('input[name="course"]').should('not.be.disabled')
+    setCoInstructors(['cohost@gbstem.org'])
+    cy.get('input[name="confirmation"]').check({ force: true })
+    saveClassDetails()
+
+    // Now the co-instructor edits the same class.
+    cy.signedInSession('instructor', { email: 'cohost@gbstem.org' })
+
+    cy.contains('h2', 'Class Details')
+      .closest('.rounded-xl')
+      .within(() => {
+        cy.contains('button', 'Edit class details').click()
+      })
+    cy.get('input[name="course"]')
+      .should('not.be.disabled')
+      .and('not.have.value', '')
+    cy.fillInput('input[name="classCap"]', '17')
+    cy.get('input[name="confirmation"]').check({ force: true })
+    saveClassDetails()
+
+    readClassDoc().then((after: any) => {
+      // The co-instructor's edit has to have actually landed - otherwise this
+      // would pass just as well if their save had been rejected outright,
+      // which is a different bug and not the one under test.
+      expect(after.classCap, 'the co-instructor could still edit').to.equal(17)
+      // ...but the class is still Demo Instructor's.
+      expect(after.instructorUid).to.equal('instructor-demo-uid')
+      expect(after.instructorEmail).to.equal('instructor@gbstem.org')
+      expect(after.instructorFirstName).to.equal('Demo')
+      expect(after.otherInstructorUids).to.deep.equal(['instructor-cohost-uid'])
+    })
+  })
+
   it('Test Case 14: Edit Schedule and Add Class', () => {
     // Set system clock to 1 day after instructor orientation date so ClassSchedule is rendered
     const orientationDate = new Date(semesterDates.instructorOrientation)

@@ -5,6 +5,7 @@
   import { withSemester } from '$lib/data/collections'
   import {
     addCoInstructor,
+    canClaimClassOwnership,
     coInstructorAddError,
     coInstructorDisplayName,
     coInstructorUids,
@@ -146,10 +147,20 @@
               )
             }
 
-            newValues.instructorFirstName = frozenUser.profile.firstName
-            newValues.instructorLastName = frozenUser.profile.lastName
-            newValues.instructorEmail = frozenUser.object.email as string
-            newValues.instructorUid = frozenUser.object.uid
+            // Only the owner restamps these. A co-instructor saving the
+            // class would otherwise make themselves its instructor and lock
+            // the actual owner out - see canClaimClassOwnership.
+            if (
+              canClaimClassOwnership(values, {
+                uid: frozenUser.object.uid,
+                email: frozenUser.object.email ?? '',
+              })
+            ) {
+              newValues.instructorFirstName = frozenUser.profile.firstName
+              newValues.instructorLastName = frozenUser.profile.lastName
+              newValues.instructorEmail = frozenUser.object.email as string
+              newValues.instructorUid = frozenUser.object.uid
+            }
 
             // Every uid in the form was vouched for by
             // /api/lookupCoInstructor when it was added, so there is nothing

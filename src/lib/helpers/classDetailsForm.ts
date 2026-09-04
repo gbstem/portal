@@ -132,6 +132,37 @@ export function removeCoInstructor(
 }
 
 /**
+ * Whether this user may stamp themselves as the class's primary instructor.
+ *
+ * The class details form used to write the signed-in user's name, email and
+ * uid onto every save unconditionally, from back when only the class's owner
+ * could reach the form. Co-instructors reach it now - being added to a class
+ * is exactly what puts it on their dashboard - so an unconditional stamp let
+ * a co-instructor take ownership of a class by opening it and saving
+ * anything at all. The previous owner then matched none of
+ * isInstructorOfClass()'s clauses (they were never in `otherInstructorUids`;
+ * they were the owner), so they lost write access to their own class, and
+ * silently: a rules rejection still resolves the promise the form awaits, so
+ * their next save just doesn't happen.
+ *
+ * A class with no owner recorded at all is claimable - that is a class being
+ * created. Otherwise ownership is decided by uid, falling back to the email
+ * for documents written before `instructorUid` existed. The real owner still
+ * matches on every save, which is what keeps `instructorEmail` self-healing
+ * after they change their account address.
+ */
+export function canClaimClassOwnership(
+  stored: Pick<Data.Class, 'instructorUid' | 'instructorEmail'> | undefined,
+  user: { uid: string; email: string },
+): boolean {
+  const storedUid = stored?.instructorUid ?? ''
+  const storedEmail = (stored?.instructorEmail ?? '').toLowerCase()
+  if (!storedUid && !storedEmail) return true
+  if (storedUid) return storedUid === user.uid
+  return storedEmail === user.email.trim().toLowerCase()
+}
+
+/**
  * Which instructorClasses mappings a save has to add and which to revoke.
  *
  * The owner is excluded from both sides: their mapping is added
