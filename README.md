@@ -27,6 +27,7 @@ This project relies on several key modern web technologies:
 - **[Zod](https://zod.dev/)**: A schema declaration and validation library, used to declare form schemas and validate client/server payloads.
 - **[Formsnap](https://formsnap.dev/)**: Accessible, accessible-first form builder library for Svelte, integrating SvelteKit-Superforms validation with shadcn/bits-ui components.
 - **[Bits UI](https://bits-ui.com/)**: A headless component library for Svelte providing accessible, unstyled components that serve as the foundation for Formsnap and shadcn components.
+- **[MJML](https://github.com/mjmlio/mjml)**: Email templating language and engine used to generate responsive HTML emails.
 
 ## Getting Started with Development
 
@@ -155,6 +156,10 @@ Before adding code to a `.svelte` file, ask:
 - **Is it about what's rendered on screen, or wiring the two above together?** → That's the one thing that _does_ belong in the `.svelte` file itself.
 
 Whenever you add or change a service or helper function, add or update its test in the same commit — a change without a test is much more likely to silently break something down the road once the next volunteer touches that file, since there's no automated check that would catch it.
+
+## Firestore Schema
+
+See the **[Firebase Firestore Database schema in the Admin Repository's README.md](https://github.com/gbstem/admin/blob/main/README.md#firestore-database-schema)**.
 
 ## Adding a New Semester
 

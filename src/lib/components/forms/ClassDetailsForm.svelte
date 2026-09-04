@@ -8,6 +8,7 @@
     getDefaultClassValues,
     getMeetingDates,
     normalizeOtherInstructorEmails,
+    parseOtherInstructorEmails,
     scheduleSourceChanged,
     toFormValues,
   } from '$lib/helpers/classDetailsForm'
@@ -137,6 +138,20 @@
             newValues.instructorFirstName = frozenUser.profile.firstName
             newValues.instructorLastName = frozenUser.profile.lastName
             newValues.instructorEmail = frozenUser.object.email as string
+            newValues.instructorUid = frozenUser.object.uid
+
+            // `otherInstructorEmails` is free text the class owner types, so
+            // only the subset that resolves to an instructor account gets a
+            // uid - an unresolved address just keeps relying on the email
+            // fallback in firestore.rules's isInstructorOfClass(), same as
+            // before this field existed.
+            const otherInstructorEmailList = parseOtherInstructorEmails(
+              newValues.otherInstructorEmails,
+            )
+            newValues.otherInstructorUids =
+              await classService.resolveOtherInstructorUids(
+                otherInstructorEmailList,
+              )
 
             if (newValues.online && newValues.meetingLink === '') {
               newValues.meetingLink = await createLink(newValues)
@@ -154,8 +169,8 @@
 
             await classService.updateInstructorClassMappings(
               classId,
-              frozenUser.object.email || '',
-              newValues.otherInstructorEmails,
+              frozenUser.object.uid,
+              newValues.otherInstructorUids,
             )
 
             disabled = true
@@ -206,7 +221,6 @@
         try {
           const userClasses = await classService.fetchInstructorClasses(
             user.object.uid,
-            user.object.email || '',
           )
 
           instructorClasses = userClasses

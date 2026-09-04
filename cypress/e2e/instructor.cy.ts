@@ -330,6 +330,11 @@ function expectedClassDoc(
     instructorFirstName: 'Demo',
     instructorLastName: 'Instructor',
     instructorEmail: 'instructor@gbstem.org',
+    instructorUid: 'instructor-demo-uid',
+    // None of the co-instructor emails used in these tests belong to a real
+    // seeded instructor account, so resolveInstructorUids resolves none of
+    // them - see Test Case 13f for the case where one does resolve.
+    otherInstructorUids: [],
     // Owned by registration/admin - the form must not touch the roster.
     students: SEEDED_STUDENTS,
   }
@@ -1019,6 +1024,99 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
     saveClassDetails()
     readClassDoc().then((after: any) => {
       expect(after.classCap, 'class cap').to.equal(23)
+    })
+  })
+
+  it('Test Case 13f: Class Details - Own Class Stays Writable After An Email Change', () => {
+    // Reproduces the class-ownership analogue of the interview-slot production
+    // bug (see admin's interviews.cy.ts "Section H"): the seeded instructor's
+    // class doc is put into the state it would be in if she'd changed her
+    // account's email after the class was created - a stale instructorEmail,
+    // but the correct (never-changing) instructorUid. Firestore's own
+    // isInstructorOfClass() rule has to allow this write on the uid match
+    // alone; the old email-only rule would reject it outright, so this test
+    // exercises the real rule, not just app logic.
+    cy.task('mergeFirestoreDoc', {
+      docPath: `${classesCollection}/${SEEDED_CLASS_ID}`,
+      data: {
+        instructorEmail: 'old-instructor@gbstem.org',
+        instructorUid: 'instructor-demo-uid',
+      },
+    })
+
+    cy.signedInSession('instructor')
+
+    // Visible and editable without unchecking anything - there's no ownership
+    // filter on this page, but the class must still load and open for edit.
+    cy.contains('h2', 'Class Details')
+      .closest('.rounded-xl')
+      .within(() => {
+        cy.contains('button', 'Edit class details').click()
+      })
+    cy.get('input[name="course"]')
+      .should('not.be.disabled')
+      .and('not.have.value', '')
+
+    cy.fillInput('input[name="classCap"]', '19')
+    cy.get('input[name="confirmation"]').check({ force: true })
+    saveClassDetails()
+
+    // The write must have actually landed - a rule rejection would leave
+    // classCap at its prior value with no client-visible error, since
+    // permission-denied still resolves the promise `onUpdate` awaits.
+    readClassDoc().then((after: any) => {
+      expect(after.classCap, 'class cap').to.equal(19)
+      // Self-healed back to the live signed-in email, same as every other save.
+      expect(after.instructorEmail).to.equal('instructor@gbstem.org')
+    })
+  })
+
+  it('Test Case 13g: Class Details - Create New Class', () => {
+    // "+ Create New Class" had no coverage at all before this test, which is
+    // how firestore.rules's isInstructorOwnerOrAdmin() went unnoticed doing an
+    // *exact* uid match against a classId that's always `${uid}-${n}` -
+    // meaning it could never actually match, and every instructor create was
+    // silently rejected by Firestore itself (only isAdmin() ever let one
+    // through). Confirmed directly against the emulator's REST API before
+    // this fix: a real instructor creating `${their uid}-99` got back a 403.
+    const newClassId = 'instructor-demo-uid-1'
+    // `online: false` so the save doesn't also try to create a real meeting
+    // link - out of scope for what this test is checking.
+    const input: ClassDetailsInput = {
+      course: 'Python 2',
+      gradeRecommendation: '6-8',
+      classDay1: 'Monday',
+      classTime1: '10:00',
+      classDay2: '',
+      classTime2: '',
+      classCap: 5,
+      otherInstructorEmails: 'cohost@gbstem.org',
+      online: false,
+    }
+
+    cy.signedInSession('instructor')
+
+    cy.contains('h2', 'Class Details')
+      .closest('.rounded-xl')
+      .within(() => {
+        cy.contains('button', 'Edit class details').click()
+      })
+    cy.contains('button', '+ Create New Class').click()
+    cy.contains('p', 'Creating new class...').should('be.visible')
+
+    fillClassDetailsForm(input)
+    cy.get('input[name="confirmation"]').check({ force: true })
+    saveClassDetails()
+
+    cy.getFirebaseAuthToken().then((authToken: string) => {
+      cy.getFirestoreDoc(authToken, classesCollection, newClassId).then(
+        (data: any) => {
+          expect(data, 'new class document').to.not.equal(null)
+          expect(data.course).to.equal(input.course)
+          expect(data.instructorUid).to.equal('instructor-demo-uid')
+          expect(data.instructorEmail).to.equal('instructor@gbstem.org')
+        },
+      )
     })
   })
 

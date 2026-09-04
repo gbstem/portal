@@ -108,6 +108,25 @@ export default defineConfig({
           const doc = await getFirestore().doc(docPath).get()
           return doc.exists
         },
+        // Admin SDK merge-write, bypassing firestore.rules - lets a spec put a
+        // seeded doc into a state the app itself would never write (e.g. a
+        // stale interviewerEmail/instructorEmail predating an account email
+        // change), to exercise a fallback path directly.
+        async mergeFirestoreDoc({
+          docPath,
+          data,
+        }: {
+          docPath: string
+          data: Record<string, unknown>
+        }) {
+          if (getApps().length === 0) {
+            initializeApp({
+              projectId: process.env.FIREBASE_PROJECT_ID || 'demo-gbstem',
+            })
+          }
+          await getFirestore().doc(docPath).set(data, { merge: true })
+          return null
+        },
       })
       return config
     },

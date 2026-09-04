@@ -21,6 +21,7 @@ function mockQuerySnapshot(docs: any[]) {
 describe('portal classService (Data Access Layer)', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    global.fetch = jest.fn() as jest.Mock
   })
 
   describe('fetchStudentList', () => {
@@ -190,10 +191,7 @@ describe('portal classService (Data Access Layer)', () => {
         mockQuerySnapshot([{ id: 'uid-1-owned' }, { id: 'other-owner-1' }]),
       )
 
-      const res = await classService.fetchInstructorClasses(
-        'uid-1',
-        'inst@example.com',
-      )
+      const res = await classService.fetchInstructorClasses('uid-1')
 
       expect(Object.keys(res).sort()).toEqual(['inst-1-a', 'uid-1-owned'])
       expect(res['inst-1-a'].meetingTimes[0]).toBeInstanceOf(Date)
@@ -209,10 +207,7 @@ describe('portal classService (Data Access Layer)', () => {
         mockQuerySnapshot([]),
       )
 
-      const res = await classService.fetchInstructorClasses(
-        'uid-1',
-        'inst@example.com',
-      )
+      const res = await classService.fetchInstructorClasses('uid-1')
       expect(res).toEqual({})
     })
 
@@ -224,10 +219,7 @@ describe('portal classService (Data Access Layer)', () => {
         mockQuerySnapshot([]),
       )
 
-      const res = await classService.fetchInstructorClasses(
-        'uid-1',
-        'inst@example.com',
-      )
+      const res = await classService.fetchInstructorClasses('uid-1')
       expect(res).toEqual({})
     })
 
@@ -242,10 +234,7 @@ describe('portal classService (Data Access Layer)', () => {
         mockQuerySnapshot([]),
       )
 
-      const res = await classService.fetchInstructorClasses(
-        'uid-1',
-        'inst@example.com',
-      )
+      const res = await classService.fetchInstructorClasses('uid-1')
       expect(res).toEqual({})
     })
 
@@ -255,10 +244,7 @@ describe('portal classService (Data Access Layer)', () => {
       )
       const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
 
-      const res = await classService.fetchInstructorClasses(
-        'uid-1',
-        'inst@example.com',
-      )
+      const res = await classService.fetchInstructorClasses('uid-1')
       expect(res).toEqual({})
       expect(errorSpy).toHaveBeenCalledWith(
         'Error fetching instructor classes:',
@@ -272,11 +258,7 @@ describe('portal classService (Data Access Layer)', () => {
     it('updates the mapping for the main instructor when the doc already exists', async () => {
       ;(firestore.updateDoc as jest.Mock).mockResolvedValueOnce(undefined)
 
-      await classService.updateInstructorClassMappings(
-        'c-1',
-        'main@example.com',
-        '',
-      )
+      await classService.updateInstructorClassMappings('c-1', 'main-uid', [])
 
       expect(firestore.updateDoc).toHaveBeenCalledTimes(1)
       expect(firestore.setDoc).not.toHaveBeenCalled()
@@ -288,25 +270,20 @@ describe('portal classService (Data Access Layer)', () => {
       )
       ;(firestore.setDoc as jest.Mock).mockResolvedValueOnce(undefined)
 
-      await classService.updateInstructorClassMappings(
-        'c-1',
-        'main@example.com',
-        '',
-      )
+      await classService.updateInstructorClassMappings('c-1', 'main-uid', [])
 
       expect(firestore.setDoc).toHaveBeenCalledWith(expect.anything(), {
         classIds: ['c-1'],
       })
     })
 
-    it('grants access to each comma-separated co-instructor email', async () => {
+    it('grants access to each resolved co-instructor uid', async () => {
       ;(firestore.updateDoc as jest.Mock).mockResolvedValue(undefined)
 
-      await classService.updateInstructorClassMappings(
-        'c-1',
-        'main@example.com',
-        'co1@example.com, co2@example.com,',
-      )
+      await classService.updateInstructorClassMappings('c-1', 'main-uid', [
+        'co-uid-1',
+        'co-uid-2',
+      ])
 
       expect(firestore.updateDoc).toHaveBeenCalledTimes(3)
     })
@@ -321,15 +298,70 @@ describe('portal classService (Data Access Layer)', () => {
       const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
 
       await expect(
-        classService.updateInstructorClassMappings(
-          'c-1',
-          'main@example.com',
-          '',
-        ),
+        classService.updateInstructorClassMappings('c-1', 'main-uid', []),
       ).resolves.toBeUndefined()
 
       expect(errorSpy).toHaveBeenCalledWith(
         'Error updating instructor class mappings:',
+        expect.any(Error),
+      )
+      errorSpy.mockRestore()
+    })
+  })
+
+  describe('resolveOtherInstructorUids', () => {
+    it('returns [] without calling the API when there are no emails to resolve', async () => {
+      const res = await classService.resolveOtherInstructorUids([])
+      expect(res).toEqual([])
+      expect(global.fetch).not.toHaveBeenCalled()
+    })
+
+    it('posts the emails and returns the resolved uids', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            uidsByEmail: { 'co1@example.com': 'co-uid-1' },
+          }),
+      })
+
+      const res = await classService.resolveOtherInstructorUids([
+        'co1@example.com',
+        'unresolvable@example.com',
+      ])
+
+      expect(res).toEqual(['co-uid-1'])
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/resolveInstructorUids',
+        expect.objectContaining({ method: 'POST' }),
+      )
+    })
+
+    it('returns [] and logs rather than throwing on a failed response', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false })
+      const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
+
+      const res = await classService.resolveOtherInstructorUids([
+        'co1@example.com',
+      ])
+
+      expect(res).toEqual([])
+      errorSpy.mockRestore()
+    })
+
+    it('returns [] and logs rather than throwing when fetch itself rejects', async () => {
+      ;(global.fetch as jest.Mock).mockRejectedValueOnce(
+        new Error('network error'),
+      )
+      const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
+
+      const res = await classService.resolveOtherInstructorUids([
+        'co1@example.com',
+      ])
+
+      expect(res).toEqual([])
+      expect(errorSpy).toHaveBeenCalledWith(
+        'Error resolving co-instructor uids:',
         expect.any(Error),
       )
       errorSpy.mockRestore()
