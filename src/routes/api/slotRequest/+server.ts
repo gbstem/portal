@@ -7,12 +7,13 @@ import type { RequestHandler } from './$types'
 export interface SlotRequestRequestBody {
   firstName: string
   timeSlot: string
-  intervieweeEmail: string
+  // TODO: remove intervieweeEmail in ~3 weeks once active interview scheduling concludes
+  intervieweeEmail?: string
 }
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   try {
-    verifyAuthenticated(locals)
+    const user = verifyAuthenticated(locals)
     const body = (await request.json()) as SlotRequestRequestBody
 
     const template = {
@@ -26,7 +27,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         interview: {
           firstName: body.firstName,
           timeSlot: body.timeSlot,
-          email: body.intervieweeEmail,
+          email: user.email,
           name: 'Portal',
           link: 'https://admin.gbstem.org',
         },

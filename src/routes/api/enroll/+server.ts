@@ -2,6 +2,7 @@ import { verifyAuthenticated, handleApiError } from '$lib/server/apiHelpers'
 import { sendEmail } from '$lib/server/email'
 import { renderEmail } from '$lib/emails/render'
 import { formatTime24to12 } from '$lib/utils'
+import { adminAuth } from '$lib/server/firebase'
 import { json } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 
@@ -13,7 +14,8 @@ export interface EnrollRequestBody {
   instructor: string
   firstName: string
   meetingLink: string
-  instructorEmail: string
+  instructorUid?: string
+  instructorEmail?: string
   online: boolean
 }
 
@@ -21,6 +23,28 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   try {
     const user = verifyAuthenticated(locals)
     const body = (await request.json()) as EnrollRequestBody
+
+    let instructorEmail = body.instructorEmail
+    if (body.instructorUid) {
+      try {
+        const instructor = await adminAuth.getUser(body.instructorUid)
+        if (instructor.email) {
+          instructorEmail = instructor.email
+        }
+      } catch (err) {
+        console.error(
+          'Failed to resolve instructor email by uid, falling back to passed email:',
+          err,
+        )
+      }
+    }
+
+    if (!instructorEmail) {
+      return json(
+        { error: 'Instructor email could not be resolved.' },
+        { status: 400 },
+      )
+    }
 
     const classTimes: string[] = body.classTimes
     const classDays: string[] = body.classDays
@@ -43,7 +67,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
           class2Time: class2Time,
           meetingLink: body.meetingLink,
           course: body.course,
-          instructorEmail: body.instructorEmail,
+          instructorEmail,
           online: body.online,
           studentName: body.studentName,
         },
@@ -60,7 +84,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     try {
       await sendEmail({
         to: user.email,
-        cc: body.instructorEmail,
+        cc: instructorEmail,
         subject: String(template.data.subject),
         html: htmlBody,
       })

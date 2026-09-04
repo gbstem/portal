@@ -10,6 +10,7 @@ export type ClassInfo = {
   instructorFirstName: string
   instructorLastName: string
   instructorEmail: string
+  instructorUid?: string
   spotsRemaining: number
   meetingLink: string
   gradeRecommendation: string
@@ -63,6 +64,11 @@ export function parseClassInfoDoc(id: string, data: any): ClassInfo {
     instructorFirstName: data.instructorFirstName ?? '',
     instructorLastName: data.instructorLastName ?? '',
     instructorEmail: data.instructorEmail ?? '',
+    // New class documents will have a uid, but legacy ones may not, and in that case
+    // we can parse it out of the ${instructorUid}-${classSequenceNumber} format document ID.
+    instructorUid:
+      data.instructorUid ??
+      (id.includes('-') ? id.replace(/-\d+$/, '') : undefined),
     spotsRemaining: spotsRemaining ?? 0,
     meetingLink: data.meetingLink ?? '',
     gradeRecommendation: data.gradeRecommendation ?? '',
@@ -114,6 +120,7 @@ export function buildPortalEnrollApiPayload(
   return {
     firstName: userName,
     instructor: classDetails.instructorFirstName,
+    instructorUid: classDetails.instructorUid || undefined,
     instructorEmail: classDetails.instructorEmail,
     classTimes: classDetails.classTimes,
     classDays: classDetails.classDays,

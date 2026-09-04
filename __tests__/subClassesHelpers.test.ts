@@ -48,6 +48,7 @@ describe('SubClasses Helpers', () => {
         classNumber: 3,
         dateOfClass: { seconds: 1779900600 },
         originalInstructorEmail: 'orig@example.com',
+        originalInstructorUid: 'orig-uid-1',
       } as unknown as Data.SubRequest
 
       const payload = buildSubstituteApiPayload(
@@ -59,6 +60,24 @@ describe('SubClasses Helpers', () => {
       expect(payload.subInstructorEmail).toBe('sub@example.com')
       expect(payload.course).toBe('Python 1')
       expect(payload.classNumber).toBe(3)
+      expect(payload.originalInstructorUid).toBe('orig-uid-1')
+    })
+
+    test('falls back to parsing originalInstructorUid from sub request doc ID', () => {
+      const subReq = {
+        id: 'instructorUid123-1---3',
+        course: 'Python 1',
+        classNumber: 3,
+        dateOfClass: { seconds: 1779900600 },
+        originalInstructorEmail: 'orig@example.com',
+      } as unknown as Data.SubRequest
+
+      const payload = buildSubstituteApiPayload(
+        'Jane',
+        'sub@example.com',
+        subReq,
+      )
+      expect(payload.originalInstructorUid).toBe('instructorUid123')
     })
   })
 
