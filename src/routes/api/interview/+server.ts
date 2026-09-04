@@ -7,9 +7,9 @@ import type { RequestHandler } from './$types'
 
 export interface InterviewRequestBody {
   email: string
-  // Optional: absent for a slot written before `interviewerUid` existed, in
-  // which case `email` (the stored, possibly stale, interviewerEmail) is
-  // used as-is. See interviewerIdentity.ts.
+  // Optional: resolved via uid first. Stored email is unreliable because the
+  // interviewer could change it later, so code should avoid using it; it is
+  // retained as a permanent record if an account is deleted, though fallback is rare.
   interviewerUid?: string
   date: string
   link: string
