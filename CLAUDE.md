@@ -10,6 +10,8 @@ This supplements [README.md](README.md) (architecture, setup, shared Firebase em
 
 Portal and admin share the **same Firestore database and Firebase project** and the same shape of `src/lib/data/collections.ts`. Unlike admin (which can browse past semesters), **portal only ever reads and writes the current semester** — `withSemester()` here always stamps `currentSemester` with no override, since there's no `?semester=` browsing UI. The `currentSemester` suffix and `semesterDates.json` in this repo are copied by hand from admin's copy during a semester rollover (see admin's README "Adding a New Semester") — **update both repos together**, and update Firestore security rules identically in both since they're merged by hand for production. Cypress e2e tests here also expect a sibling `../admin` checkout (used to seed the shared emulator) — see README's Cypress section.
 
+**Ship a cross-repo change as two PRs on a branch of the same name in both repos.** CI relies on that: portal's e2e job seeds the emulator from an admin branch with the same name when one exists, and from admin's default branch otherwise (see `.github/workflows/ci.yml`). Without it, a portal PR whose tests need a new seed fixture could not go green until the admin PR merged — so CI stopped gating exactly the coordinated changes that most need gating, and the way out was to merge admin unreviewed. The job logs which admin revision it seeded from, so check that line first when an e2e failure looks like missing data.
+
 ## Route groups are auth gates, not just folders
 
 - `(signedIn)/+layout.server.ts` redirects to `/signin` if `locals.user === null`.
