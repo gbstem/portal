@@ -117,6 +117,9 @@ describe('ClassesPage Helpers', () => {
         online: true,
         studentName: 'Child',
       })
+      // The address rides along only as the server's fallback: it prefers
+      // instructorUid and resolves the current address from Auth, so a student
+      // cannot redirect the cc by supplying one. Phase 4 removes the parameter.
     })
   })
 })

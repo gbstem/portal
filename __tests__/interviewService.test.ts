@@ -378,7 +378,7 @@ describe('interviewService (Data Access Layer)', () => {
       ).rejects.toThrow('permission-denied')
     })
 
-    it('defaults the notification email to an empty string when the user has none set', async () => {
+    it('sends no address at all - the handler uses the verified session email', async () => {
       ;(firestore.setDoc as jest.Mock).mockResolvedValueOnce(undefined)
       ;(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true })
 
@@ -394,7 +394,11 @@ describe('interviewService (Data Access Layer)', () => {
 
       const [, options] = (global.fetch as jest.Mock).mock.calls[0]
       const body = JSON.parse(options.body)
-      expect(body.intervieweeEmail).toBe('')
+      expect(body).not.toHaveProperty('intervieweeEmail')
+      expect(body).toEqual({
+        firstName: 'Timmy',
+        timeSlot: expect.any(String),
+      })
     })
   })
 })

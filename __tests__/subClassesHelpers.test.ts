@@ -42,7 +42,7 @@ describe('SubClasses Helpers', () => {
   })
 
   describe('buildSubstituteApiPayload', () => {
-    test('builds API request payload for substitute signup', () => {
+    test('sends the uid, and drops only the caller-supplied address', () => {
       const subReq = {
         course: 'Python 1',
         classNumber: 3,
@@ -51,16 +51,17 @@ describe('SubClasses Helpers', () => {
         originalInstructorUid: 'orig-uid-1',
       } as unknown as Data.SubRequest
 
-      const payload = buildSubstituteApiPayload(
-        'Jane',
-        'sub@example.com',
-        subReq,
-      )
+      const payload = buildSubstituteApiPayload('Jane', subReq)
       expect(payload.firstName).toBe('Jane')
-      expect(payload.subInstructorEmail).toBe('sub@example.com')
       expect(payload.course).toBe('Python 1')
       expect(payload.classNumber).toBe(3)
       expect(payload.originalInstructorUid).toBe('orig-uid-1')
+      // subInstructorEmail is genuinely dead: the server sends the confirmation
+      // to the caller's own verified session address.
+      expect(payload).not.toHaveProperty('subInstructorEmail')
+      // originalInstructorEmail stays until Phase 4, as the server's fallback
+      // for a uid that names no Auth account.
+      expect(payload.originalInstructorEmail).toBe('orig@example.com')
     })
 
     test('falls back to parsing originalInstructorUid from sub request doc ID', () => {
@@ -72,12 +73,11 @@ describe('SubClasses Helpers', () => {
         originalInstructorEmail: 'orig@example.com',
       } as unknown as Data.SubRequest
 
-      const payload = buildSubstituteApiPayload(
-        'Jane',
-        'sub@example.com',
-        subReq,
-      )
+      const payload = buildSubstituteApiPayload('Jane', subReq)
       expect(payload.originalInstructorUid).toBe('instructorUid123')
+      // Parsed uids are a guess, so the stored address must still travel as
+      // the server's fallback.
+      expect(payload.originalInstructorEmail).toBe('orig@example.com')
     })
   })
 

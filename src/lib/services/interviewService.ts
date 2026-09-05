@@ -112,9 +112,13 @@ export const interviewService = {
       intervieweeId: currentUser.object.uid,
     })
 
+    // Uid plus the stored address: the server prefers the uid and resolves the
+    // interviewer's current address from Auth, falling back to this one when
+    // the uid is missing or names no Auth account. Only the server can tell
+    // which, so the client sends both and the server logs any fallback.
     const payload: InterviewRequestBody = {
-      email: slot.interviewerEmail,
       interviewerUid: slot.interviewerUid || undefined,
+      email: slot.interviewerEmail,
       date: slot.date,
       link: slot.meetingLink,
       interviewer: slot.interviewerName,
@@ -159,10 +163,10 @@ export const interviewService = {
       },
     )
 
+    // No email: the handler has used the session's verified address since
+    // Phase 1, so intervieweeEmail was already dead on arrival.
     const payload: SlotRequestRequestBody = {
       firstName: currentUser.profile.firstName,
-      // TODO: remove intervieweeEmail in ~3 weeks once server endpoints drop it
-      intervieweeEmail: currentUser.object.email || '',
       timeSlot: formatDateLocal(new Date(dateToAdd)),
     }
     const res = await fetch('/api/slotRequest', {

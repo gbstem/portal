@@ -7,8 +7,6 @@ import type { RequestHandler } from './$types'
 export interface SlotRequestRequestBody {
   firstName: string
   timeSlot: string
-  // TODO: remove intervieweeEmail in ~3 weeks once active interview scheduling concludes
-  intervieweeEmail?: string
 }
 
 export const POST: RequestHandler = async ({ request, locals }) => {

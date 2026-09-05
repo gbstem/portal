@@ -66,7 +66,6 @@ export function filterCheckedOffSubClasses(
  */
 export function buildSubstituteApiPayload(
   userFirstName: string,
-  userEmail: string,
   classToSub: Data.SubRequest,
 ) {
   // New sub requests will have an originalInstructorUid, but legacy ones may not, and in that case
@@ -76,14 +75,20 @@ export function buildSubstituteApiPayload(
     (classToSub.id
       ? classToSub.id.replace(/---.*$/, '').replace(/-\d+$/, '')
       : '')
+  // No subInstructorEmail: the server sends the confirmation to the caller's
+  // own verified session address, so that one is genuinely dead.
+  //
+  // originalInstructorEmail stays until Phase 4. The uid above is a guess
+  // whenever it comes from parsing the document id, and a sub request whose id
+  // does not follow the `${uid}-${n}---${m}` scheme yields a string naming no
+  // Auth account - only the server can tell, so it gets both.
   return {
     firstName: userFirstName,
-    subInstructorEmail: userEmail,
     course: classToSub.course,
     classNumber: classToSub.classNumber,
     date: formatDate(timestampToDate(classToSub.dateOfClass)),
-    originalInstructorEmail: classToSub.originalInstructorEmail,
     originalInstructorUid: originalInstructorUid || undefined,
+    originalInstructorEmail: classToSub.originalInstructorEmail,
   }
 }
 
