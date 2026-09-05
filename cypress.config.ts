@@ -57,6 +57,8 @@ if (combinedEnv.FIREBASE_PROJECT_ID) {
 }
 
 export default defineConfig({
+  // Cypress 16 deprecated bundled Electron as the implicit default browser.
+  defaultBrowser: 'chrome',
   // Public, non-sensitive configuration values
   expose: {
     FIRESTORE_EMULATOR_HOST: combinedEnv.FIRESTORE_EMULATOR_HOST,
@@ -65,8 +67,6 @@ export default defineConfig({
   env: {},
   e2e: {
     baseUrl: 'http://localhost:5173',
-    // Don't allow using the deprecated, insecure Cypress environment setup.
-    allowCypressEnv: false,
     scrollBehavior: 'center',
     viewportWidth: 1920,
     viewportHeight: 1080,
