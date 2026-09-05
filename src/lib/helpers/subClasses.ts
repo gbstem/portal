@@ -75,16 +75,20 @@ export function buildSubstituteApiPayload(
     (classToSub.id
       ? classToSub.id.replace(/---.*$/, '').replace(/-\d+$/, '')
       : '')
-  // Uid only, with no email fallback on either side: the uid above always
-  // resolves (field or document id), the server sends the confirmation to the
-  // caller's own verified session address, and it resolves the original
-  // instructor's current address from Auth.
+  // No subInstructorEmail: the server sends the confirmation to the caller's
+  // own verified session address, so that one is genuinely dead.
+  //
+  // originalInstructorEmail stays until Phase 4. The uid above is a guess
+  // whenever it comes from parsing the document id, and a sub request whose id
+  // does not follow the `${uid}-${n}---${m}` scheme yields a string naming no
+  // Auth account - only the server can tell, so it gets both.
   return {
     firstName: userFirstName,
     course: classToSub.course,
     classNumber: classToSub.classNumber,
     date: formatDate(timestampToDate(classToSub.dateOfClass)),
     originalInstructorUid: originalInstructorUid || undefined,
+    originalInstructorEmail: classToSub.originalInstructorEmail,
   }
 }
 

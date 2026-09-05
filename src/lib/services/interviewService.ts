@@ -112,12 +112,13 @@ export const interviewService = {
       intervieweeId: currentUser.object.uid,
     })
 
-    // Uid only: the server resolves the interviewer's current address from
-    // Auth. Falls back to the stored email only for a slot that predates
-    // interviewerUid, which the server logs as `[legacy-email-fallback]`.
+    // Uid plus the stored address: the server prefers the uid and resolves the
+    // interviewer's current address from Auth, falling back to this one when
+    // the uid is missing or names no Auth account. Only the server can tell
+    // which, so the client sends both and the server logs any fallback.
     const payload: InterviewRequestBody = {
       interviewerUid: slot.interviewerUid || undefined,
-      ...(slot.interviewerUid ? {} : { email: slot.interviewerEmail }),
+      email: slot.interviewerEmail,
       date: slot.date,
       link: slot.meetingLink,
       interviewer: slot.interviewerName,

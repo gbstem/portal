@@ -42,7 +42,7 @@ describe('SubClasses Helpers', () => {
   })
 
   describe('buildSubstituteApiPayload', () => {
-    test('sends the uid only, with neither instructor address', () => {
+    test('sends the uid, and drops only the caller-supplied address', () => {
       const subReq = {
         course: 'Python 1',
         classNumber: 3,
@@ -56,11 +56,12 @@ describe('SubClasses Helpers', () => {
       expect(payload.course).toBe('Python 1')
       expect(payload.classNumber).toBe(3)
       expect(payload.originalInstructorUid).toBe('orig-uid-1')
-      // The server sends the confirmation to the caller's own verified session
-      // address and resolves the original instructor's from Auth, so neither
-      // recipient can be dictated from the browser.
+      // subInstructorEmail is genuinely dead: the server sends the confirmation
+      // to the caller's own verified session address.
       expect(payload).not.toHaveProperty('subInstructorEmail')
-      expect(payload).not.toHaveProperty('originalInstructorEmail')
+      // originalInstructorEmail stays until Phase 4, as the server's fallback
+      // for a uid that names no Auth account.
+      expect(payload.originalInstructorEmail).toBe('orig@example.com')
     })
 
     test('falls back to parsing originalInstructorUid from sub request doc ID', () => {
@@ -74,7 +75,9 @@ describe('SubClasses Helpers', () => {
 
       const payload = buildSubstituteApiPayload('Jane', subReq)
       expect(payload.originalInstructorUid).toBe('instructorUid123')
-      expect(payload).not.toHaveProperty('originalInstructorEmail')
+      // Parsed uids are a guess, so the stored address must still travel as
+      // the server's fallback.
+      expect(payload.originalInstructorEmail).toBe('orig@example.com')
     })
   })
 

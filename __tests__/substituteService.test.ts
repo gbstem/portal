@@ -232,8 +232,9 @@ describe('substituteService (Data Access Layer)', () => {
       const [, options] = (global.fetch as jest.Mock).mock.calls[0]
       const body = JSON.parse(options.body)
       expect(body).not.toHaveProperty('subInstructorEmail')
-      expect(body).not.toHaveProperty('originalInstructorEmail')
-      // Recovered from the `${uid}-${n}---${classNumber}` document id.
+      expect(body.originalInstructorEmail).toBe('orig@example.com')
+      // Recovered from the `${uid}-${n}---${classNumber}` document id - a guess,
+      // which is exactly why the address above still travels with it.
       expect(body.originalInstructorUid).toBe('sub')
     })
 

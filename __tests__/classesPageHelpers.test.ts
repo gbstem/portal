@@ -109,6 +109,7 @@ describe('ClassesPage Helpers', () => {
         firstName: 'Parent',
         instructor: 'Alice',
         instructorUid: 'inst-uid-1',
+        instructorEmail: 'alice@example.com',
         classTimes: ['4pm', '4pm'],
         classDays: ['Mon', 'Wed'],
         course: 'Python 1',
@@ -116,9 +117,9 @@ describe('ClassesPage Helpers', () => {
         online: true,
         studentName: 'Child',
       })
-      // Any signed-in student can call /api/enroll, so the instructor's address
-      // must never be theirs to supply - the server resolves it from the uid.
-      expect(payload).not.toHaveProperty('instructorEmail')
+      // The address rides along only as the server's fallback: it prefers
+      // instructorUid and resolves the current address from Auth, so a student
+      // cannot redirect the cc by supplying one. Phase 4 removes the parameter.
     })
   })
 })
