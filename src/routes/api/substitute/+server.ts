@@ -42,6 +42,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
           err,
         )
       }
+    } else if (body.originalInstructorEmail) {
+      console.warn(
+        '[legacy-email-fallback] /api/substitute: no originalInstructorUid in ' +
+          'payload, using the client-supplied original instructor email',
+      )
     }
 
     if (!originalInstructorEmail) {

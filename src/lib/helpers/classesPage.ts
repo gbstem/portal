@@ -120,8 +120,11 @@ export function buildPortalEnrollApiPayload(
   return {
     firstName: userName,
     instructor: classDetails.instructorFirstName,
+    // Uid only, with no email fallback: parseClassInfoDoc always resolves an
+    // instructorUid, from the document field or from the `${uid}-${n}` class id,
+    // and portal only ever reads the current semester - where every class was
+    // created under that id scheme.
     instructorUid: classDetails.instructorUid || undefined,
-    instructorEmail: classDetails.instructorEmail,
     classTimes: classDetails.classTimes,
     classDays: classDetails.classDays,
     course: classDetails.course,

@@ -107,7 +107,6 @@ export const substituteService = {
 
     const payload = buildSubstituteApiPayload(
       user.profile.firstName,
-      user.object.email || '',
       classToSub,
     )
 

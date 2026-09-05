@@ -965,6 +965,47 @@ describe('API routes POST endpoints', () => {
     )
   })
 
+  it('interviewPOST accepts a uid-only payload with no interviewer email', async () => {
+    // The shape the current client sends after the uid migration.
+    mockAdminAuth.getUser.mockResolvedValueOnce({
+      uid: 'interviewer-uid-1',
+      email: 'interviewer@test.com',
+    })
+    mockRequest.json.mockResolvedValue({
+      interviewerUid: 'interviewer-uid-1',
+      date: '2026-06-01',
+      link: 'http://zoom',
+      interviewer: 'Interviewer',
+      firstName: 'Student',
+    })
+    const res = await interviewPOST({
+      request: mockRequest as any,
+      locals: { user: { email: 'student@test.com' } },
+    } as any)
+    expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
+    expect(MailService.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: ['student@test.com'],
+        cc: ['interviewer@test.com'],
+      }),
+    )
+  })
+
+  it('interviewPOST rejects a payload with neither interviewerUid nor email', async () => {
+    mockRequest.json.mockResolvedValue({
+      date: '2026-06-01',
+      link: 'http://zoom',
+      interviewer: 'Interviewer',
+      firstName: 'Student',
+    })
+    await expect(
+      interviewPOST({
+        request: mockRequest as any,
+        locals: { user: { email: 'student@test.com' } },
+      } as any),
+    ).rejects.toMatchObject({ status: 400 })
+  })
+
   it('interviewPOST returns a 500 json response when sending the email fails', async () => {
     await withRejectedSend(async () => {
       mockRequest.json.mockResolvedValue({

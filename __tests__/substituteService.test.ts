@@ -211,7 +211,7 @@ describe('substituteService (Data Access Layer)', () => {
       )
     })
 
-    it('defaults email to an empty string when the user has none set', async () => {
+    it('sends no substitute address - the handler uses the verified session email', async () => {
       ;(firestore.updateDoc as jest.Mock).mockResolvedValueOnce(undefined)
       ;(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true })
 
@@ -231,7 +231,10 @@ describe('substituteService (Data Access Layer)', () => {
       await substituteService.claimSubstituteSlot(classToSub, user)
       const [, options] = (global.fetch as jest.Mock).mock.calls[0]
       const body = JSON.parse(options.body)
-      expect(body.subInstructorEmail).toBe('')
+      expect(body).not.toHaveProperty('subInstructorEmail')
+      expect(body).not.toHaveProperty('originalInstructorEmail')
+      // Recovered from the `${uid}-${n}---${classNumber}` document id.
+      expect(body.originalInstructorUid).toBe('sub')
     })
 
     it('throws if the substitute signup API responds not-ok', async () => {

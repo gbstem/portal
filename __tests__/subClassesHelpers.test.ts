@@ -42,7 +42,7 @@ describe('SubClasses Helpers', () => {
   })
 
   describe('buildSubstituteApiPayload', () => {
-    test('builds API request payload for substitute signup', () => {
+    test('sends the uid only, with neither instructor address', () => {
       const subReq = {
         course: 'Python 1',
         classNumber: 3,
@@ -51,16 +51,16 @@ describe('SubClasses Helpers', () => {
         originalInstructorUid: 'orig-uid-1',
       } as unknown as Data.SubRequest
 
-      const payload = buildSubstituteApiPayload(
-        'Jane',
-        'sub@example.com',
-        subReq,
-      )
+      const payload = buildSubstituteApiPayload('Jane', subReq)
       expect(payload.firstName).toBe('Jane')
-      expect(payload.subInstructorEmail).toBe('sub@example.com')
       expect(payload.course).toBe('Python 1')
       expect(payload.classNumber).toBe(3)
       expect(payload.originalInstructorUid).toBe('orig-uid-1')
+      // The server sends the confirmation to the caller's own verified session
+      // address and resolves the original instructor's from Auth, so neither
+      // recipient can be dictated from the browser.
+      expect(payload).not.toHaveProperty('subInstructorEmail')
+      expect(payload).not.toHaveProperty('originalInstructorEmail')
     })
 
     test('falls back to parsing originalInstructorUid from sub request doc ID', () => {
@@ -72,12 +72,9 @@ describe('SubClasses Helpers', () => {
         originalInstructorEmail: 'orig@example.com',
       } as unknown as Data.SubRequest
 
-      const payload = buildSubstituteApiPayload(
-        'Jane',
-        'sub@example.com',
-        subReq,
-      )
+      const payload = buildSubstituteApiPayload('Jane', subReq)
       expect(payload.originalInstructorUid).toBe('instructorUid123')
+      expect(payload).not.toHaveProperty('originalInstructorEmail')
     })
   })
 

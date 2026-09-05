@@ -112,9 +112,12 @@ export const interviewService = {
       intervieweeId: currentUser.object.uid,
     })
 
+    // Uid only: the server resolves the interviewer's current address from
+    // Auth. Falls back to the stored email only for a slot that predates
+    // interviewerUid, which the server logs as `[legacy-email-fallback]`.
     const payload: InterviewRequestBody = {
-      email: slot.interviewerEmail,
       interviewerUid: slot.interviewerUid || undefined,
+      ...(slot.interviewerUid ? {} : { email: slot.interviewerEmail }),
       date: slot.date,
       link: slot.meetingLink,
       interviewer: slot.interviewerName,
@@ -159,10 +162,10 @@ export const interviewService = {
       },
     )
 
+    // No email: the handler has used the session's verified address since
+    // Phase 1, so intervieweeEmail was already dead on arrival.
     const payload: SlotRequestRequestBody = {
       firstName: currentUser.profile.firstName,
-      // TODO: remove intervieweeEmail in ~3 weeks once server endpoints drop it
-      intervieweeEmail: currentUser.object.email || '',
       timeSlot: formatDateLocal(new Date(dateToAdd)),
     }
     const res = await fetch('/api/slotRequest', {
