@@ -38,7 +38,7 @@
     "@types/nprogress": "^0.2.3",
     "@typescript-eslint/eslint-plugin": "^8.69.0",
     "@typescript-eslint/parser": "^8.69.0",
-    "cypress": "^15.21.1",
+    "cypress": "^16.0.0",
     "cypress-terminal-report": "^7.3.3",
     "dotenv": "^17.4.2",
     "eslint": "^10.9.1",

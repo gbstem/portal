@@ -29,14 +29,9 @@ before(() => {
     )
   }
 
-  // Restore the emulator database to the seed state to ensure tests are deterministic.
-  // This assumes the admin repository is checked out in a parallel directory.
-  //
-  // `cd ../admin && yarn seed` rather than `yarn --cwd ../admin seed`: Corepack
-  // resolves the Yarn version from the *current* directory, not from --cwd's
-  // target. That only works here as long as the directory Cypress runs from
-  // pins "packageManager" in its package.json -- cd'ing first reads the pin
-  // from admin's own package.json and does not depend on where we started.
-  cy.exec('cd ../admin && yarn seed', { timeout: 120000 })
+  // Restore the emulator database to the seed state to ensure tests are
+  // deterministic. This assumes the admin repository is checked out in a
+  // parallel directory - see the `seed` task in cypress.config.ts.
+  cy.task('seed', undefined, { timeout: 120000 })
   cy.clearTestEmails()
 })

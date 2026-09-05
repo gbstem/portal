@@ -3,9 +3,13 @@ import installLogsPrinter from 'cypress-terminal-report/src/installLogsPrinter'
 import { getApps, initializeApp } from 'firebase-admin/app'
 import { getAuth } from 'firebase-admin/auth'
 import { getFirestore } from 'firebase-admin/firestore'
+import { exec as execCallback } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { promisify } from 'util'
+
+const exec = promisify(execCallback)
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -79,6 +83,20 @@ export default defineConfig({
       on('task', {
         log(message) {
           console.log(message) // Print to the terminal
+          return null
+        },
+        // Restores the shared emulator to admin's seed state. Portal has no
+        // seed data of its own - see cypress/support/e2e.ts and README's
+        // Cypress section for why this shells into the sibling ../admin
+        // checkout (`cd ../admin && yarn seed` rather than `yarn --cwd
+        // ../admin seed`, for the same Corepack/packageManager-pin reason
+        // documented there) instead of duplicating admin's seed script.
+        // This is a cy.task() rather than the removed cy.exec() only because
+        // Cypress 16 dropped cy.exec(); the underlying command is unchanged.
+        async seed() {
+          const { stdout, stderr } = await exec('cd ../admin && yarn seed')
+          if (stdout) console.log(stdout)
+          if (stderr) console.error(stderr)
           return null
         },
         async getFirestoreUserId(email: string) {
