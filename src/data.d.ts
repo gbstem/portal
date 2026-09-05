@@ -81,10 +81,9 @@ declare global {
       intervieweeEmail: string
       intervieweeId: string
       interviewerEmail: string
-      // Absent on slots written before this field existed - callers must
-      // fall back to `interviewerEmail` rather than treat '' as "no owner".
-      // Kept in parity with admin's copy of this type, which owns writing
-      // it; portal only ever reads it.
+      // Keyed primarily by uid. Stored email is unreliable because the interviewer
+      // could change their email later, so code should avoid using it; it is retained
+      // as a permanent record if their account is deleted, though fallback is rare.
       interviewerUid: string
       interviewSlotStatus: string
       meetingLink: string
@@ -236,6 +235,7 @@ declare global {
       course: string
       dateOfClass: Date
       originalInstructorEmail: string
+      originalInstructorUid?: string
       subInstructorId: string
       subInstructorFirstName: string
       subInstructorEmail: string

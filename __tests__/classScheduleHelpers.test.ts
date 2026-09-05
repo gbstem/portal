@@ -150,20 +150,22 @@ describe('ClassSchedule Helpers', () => {
   })
 
   describe('buildSubRequestPayload', () => {
-    test('creates expected SubRequest object', () => {
+    test('creates expected SubRequest object with originalInstructorUid', () => {
       const sub = buildSubRequestPayload({
-        classId: 'class-123',
+        classId: 'uid-teacher-1',
         subRequestClassNumber: 2,
         subRequestDate: '2026-05-12T10:00:00Z',
         subRequestNotes: 'Need sub for trip',
         course: 'Python 1',
         instructorEmail: 'teacher@example.com',
+        instructorUid: 'uid-teacher',
         meetingLink: 'https://teams.microsoft.com/l/meetup-join/...',
       })
 
-      expect(sub.id).toBe('class-123')
+      expect(sub.id).toBe('uid-teacher-1')
       expect(sub.classNumber).toBe(2)
       expect(sub.course).toBe('Python 1')
+      expect(sub.originalInstructorUid).toBe('uid-teacher')
       expect(sub.subRequestStatus).toBe(SubRequestStatus.SubstituteNeeded)
     })
   })

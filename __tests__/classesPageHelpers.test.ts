@@ -16,6 +16,7 @@ describe('ClassesPage Helpers', () => {
         instructorFirstName: 'Alice',
         instructorLastName: 'Smith',
         instructorEmail: 'alice@example.com',
+        instructorUid: 'inst-uid-explicit',
         classCap: 10,
         students: ['s1', 's2'],
         meetingLink: 'https://teams.microsoft.com/...',
@@ -29,9 +30,23 @@ describe('ClassesPage Helpers', () => {
 
       const info = parseClassInfoDoc('class-1', raw)
       expect(info.id).toBe('class-1')
+      expect(info.instructorUid).toBe('inst-uid-explicit')
       expect(info.spotsRemaining).toBe(8)
       expect(info.classDays).toEqual(['Monday', 'Wednesday'])
       expect(info.classTimes).toEqual(['4:00 PM', '4:00 PM'])
+    })
+
+    test('falls back to extracting instructorUid from doc ID when not in doc data', () => {
+      const raw = {
+        className: 'Python 101',
+        course: 'Python 1',
+        instructorFirstName: 'Alice',
+        instructorLastName: 'Smith',
+        instructorEmail: 'alice@example.com',
+      }
+
+      const info = parseClassInfoDoc('userUid123-1', raw)
+      expect(info.instructorUid).toBe('userUid123')
     })
   })
 
@@ -81,6 +96,7 @@ describe('ClassesPage Helpers', () => {
         course: 'Python 1',
         instructorFirstName: 'Alice',
         instructorLastName: 'Smith',
+        instructorUid: 'inst-uid-1',
         instructorEmail: 'alice@example.com',
         spotsRemaining: 5,
         meetingLink: 'link',
@@ -92,6 +108,7 @@ describe('ClassesPage Helpers', () => {
       expect(payload).toEqual({
         firstName: 'Parent',
         instructor: 'Alice',
+        instructorUid: 'inst-uid-1',
         instructorEmail: 'alice@example.com',
         classTimes: ['4pm', '4pm'],
         classDays: ['Mon', 'Wed'],

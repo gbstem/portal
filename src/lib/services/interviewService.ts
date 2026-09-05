@@ -151,6 +151,7 @@ export const interviewService = {
         currentUser.object.uid + '-' + dateToAdd,
       ),
       {
+        uid: currentUser.object.uid,
         firstName: currentUser.profile.firstName,
         lastName: currentUser.profile.lastName,
         email: currentUser.object.email,
@@ -160,6 +161,7 @@ export const interviewService = {
 
     const payload: SlotRequestRequestBody = {
       firstName: currentUser.profile.firstName,
+      // TODO: remove intervieweeEmail in ~3 weeks once server endpoints drop it
       intervieweeEmail: currentUser.object.email || '',
       timeSlot: formatDateLocal(new Date(dateToAdd)),
     }
