@@ -2,6 +2,7 @@
   import '../app.css'
   import Alert from '$lib/components/Alert.svelte'
   import Footer from '$lib/components/Footer.svelte'
+  import StaleClientBanner from '$lib/components/StaleClientBanner.svelte'
   import { navigating } from '$app/state'
   import progress from '$lib/client/progress'
   interface Props {
@@ -20,6 +21,7 @@
 </script>
 
 <div class="flex min-h-screen flex-col">
+  <StaleClientBanner />
   <div class="flex grow flex-col">
     {@render children?.()}
   </div>
