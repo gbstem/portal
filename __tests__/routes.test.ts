@@ -1083,7 +1083,7 @@ describe('API routes POST endpoints', () => {
       email: 'student@test.com',
       instructorName: 'Instructor',
       instructorEmail: 'inst@test.com',
-      otherInstructorUids: [],
+      instructorUids: [],
       class: 'Math',
       classTime: 'Monday at 2:00 PM',
     })
@@ -1100,7 +1100,7 @@ describe('API routes POST endpoints', () => {
       email: 'student@test.com',
       instructorName: 'Instructor',
       instructorEmail: 'inst@test.com',
-      otherInstructorUids: [],
+      instructorUids: [],
       class: 'Math',
       classTime: 'Monday at 2:00 PM',
     })
@@ -1124,7 +1124,7 @@ describe('API routes POST endpoints', () => {
         email: 'student@test.com',
         instructorName: 'Instructor',
         instructorEmail: 'inst@test.com',
-        otherInstructorUids: [],
+        instructorUids: [],
         class: 'Math',
         classTime: 'Monday at 2:00 PM',
       })
@@ -1152,7 +1152,7 @@ describe('API routes POST endpoints', () => {
       name: 'Student',
       email: 'student@test.com',
       instructorName: 'Instructor',
-      otherInstructorUids: ['co-uid-1', 'co-uid-deleted'],
+      instructorUids: ['co-uid-1', 'co-uid-deleted'],
       class: 'Math',
       classTime: 'Monday at 2:00 PM',
     })
@@ -1168,13 +1168,51 @@ describe('API routes POST endpoints', () => {
     )
   })
 
+  // The list the client sends is the class's whole teaching staff, so the
+  // sender is in it. Whoever pressed the button doesn't need a copy of their
+  // own reminder - everyone else teaching the class does, which is what a
+  // co-instructor sending one used to miss: they cc'd themselves and left the
+  // class's primary instructor off entirely.
+  it('remindStudentsPOST cc’s the class’s other instructors but not the sender', async () => {
+    mockAdminAuth.getUsers.mockResolvedValueOnce({
+      users: [{ uid: 'owner-uid', email: 'owner@gbstem.org' }],
+      notFound: [],
+    })
+    mockRequest.json.mockResolvedValue({
+      name: 'Student',
+      email: 'student@test.com',
+      instructorName: 'Instructor',
+      instructorUids: ['owner-uid', 'caller-uid'],
+      class: 'Math',
+      classTime: 'Monday at 2:00 PM',
+    })
+
+    await remindStudentsPOST({
+      request: mockRequest as any,
+      locals: {
+        user: {
+          uid: 'caller-uid',
+          email: 'caller@gbstem.org',
+          role: 'instructor',
+        },
+      },
+    } as any)
+
+    // Only the other instructor was ever looked up - the caller is dropped
+    // by uid, before resolution, so a changed email can't reintroduce them.
+    expect(mockAdminAuth.getUsers).toHaveBeenCalledWith([{ uid: 'owner-uid' }])
+    expect(MailService.send).toHaveBeenCalledWith(
+      expect.objectContaining({ cc: ['owner@gbstem.org'] }),
+    )
+  })
+
   it('remindStudentsPOST propagates the auth error when the user is not signed in', async () => {
     mockRequest.json.mockResolvedValue({
       name: 'Student',
       email: 'student@test.com',
       instructorName: 'Instructor',
       instructorEmail: 'inst@test.com',
-      otherInstructorUids: [],
+      instructorUids: [],
       class: 'Math',
       classTime: 'Monday at 2:00 PM',
     })

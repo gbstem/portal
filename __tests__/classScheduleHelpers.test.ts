@@ -1,5 +1,6 @@
 import type {} from '../src/data.d.ts'
 import {
+  classInstructorUids,
   computeUpdatedClassStatuses,
   computeMeetingTimeChanges,
   findNextClassDateIndex,
@@ -146,6 +147,41 @@ describe('ClassSchedule Helpers', () => {
         grade: '5th',
         school: 'Oak Elementary',
       })
+    })
+  })
+
+  describe('classInstructorUids', () => {
+    test('puts the owner first, then the co-instructors', () => {
+      expect(
+        classInstructorUids({
+          instructorUid: 'uid-owner',
+          otherInstructorUids: ['uid-co-1', 'uid-co-2'],
+        }),
+      ).toEqual(['uid-owner', 'uid-co-1', 'uid-co-2'])
+    })
+
+    test('drops a missing owner and an absent co-instructor list', () => {
+      // A class document written before instructorUid existed. The list is
+      // cc'd, so an empty string in it would be resolved as a uid naming
+      // nobody rather than simply skipped.
+      expect(
+        classInstructorUids({ otherInstructorUids: ['uid-co-1'] }),
+      ).toEqual(['uid-co-1'])
+      expect(classInstructorUids({ instructorUid: '' })).toEqual([])
+      expect(classInstructorUids({ instructorUid: 'uid-owner' })).toEqual([
+        'uid-owner',
+      ])
+    })
+
+    test('de-duplicates an owner who is also listed as a co-instructor', () => {
+      // The form refuses to add the owner to their own class, but a document
+      // written before that check - or by hand - can still carry both.
+      expect(
+        classInstructorUids({
+          instructorUid: 'uid-owner',
+          otherInstructorUids: ['uid-owner', 'uid-co-1'],
+        }),
+      ).toEqual(['uid-owner', 'uid-co-1'])
     })
   })
 

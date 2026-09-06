@@ -440,10 +440,11 @@ deliberately differs from the class's primary instructor.
   request is built from the class document, so `originalInstructorUid`/`Email`
   are the primary's, and `/api/substitute` replies to and cc's them - a
   co-instructor who asks for a sub does not hear back directly.
-- **13o - Reminders are signed by the primary** (limitation): the reminder email
-  is signed with the class's stored instructor name, and its cc list is the
-  class's `otherInstructorUids` - so a co-instructor sending one cc's themselves
-  and does not copy the primary.
+- **13o - Reminders copy the rest of the teaching staff**: the cc list is every
+  instructor on the class except the sender (resolved server-side from uids, so
+  always to current addresses), which means a co-instructor's reminder copies
+  the primary. The sign-off stays the class's instructor of record - the name
+  the class is listed under - whichever of its instructors sent it.
 - **13q - Revocation is enforced, not just recorded**: with a stale dashboard
   mapping (its update is best-effort), a removed co-instructor can still open
   the class details form, but Firestore refuses the save and the UI surfaces

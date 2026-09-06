@@ -1722,15 +1722,17 @@ describe('Section G: Co-Instructor Access To A Shared Class', () => {
       })
   })
 
-  it('Test Case 13o: Co-Instructor - Reminder Emails Are Signed By The Primary', () => {
-    // The other inherited-identity case, and the one with a real wart in it:
-    // the reminder is signed with the class's stored instructor name, and the
-    // cc list is the class's `otherInstructorUids` - so a co-instructor
-    // sending it cc's *themselves* and the primary is not copied at all.
+  it('Test Case 13o: Co-Instructor - Reminders Copy The Rest Of The Teaching Staff', () => {
+    // The cc list is every instructor on the class except whoever is sending,
+    // so a reminder always tells the other people teaching it what the
+    // students were told. It used to be the class's `otherInstructorUids`
+    // alone - the owner's colleagues - which is right when the owner sends and
+    // backwards when a co-instructor does: they cc'd themselves and copied the
+    // primary on nothing.
     //
-    // TODO(reminder cc list): copying the class's whole teaching staff except
-    // the sender is what this should do; that means resolving the owner's uid
-    // alongside `otherInstructorUids` server-side and dropping the caller.
+    // The sign-off is a separate question and deliberately still the class's
+    // instructor of record: that is the name the class is listed under and the
+    // one parents will recognise, whichever of its instructors pressed send.
     grantCoInstructorAccess()
     signInAsCoInstructorAfterOrientation()
     cy.captureConfirms().as('confirms')
@@ -1751,10 +1753,11 @@ describe('Section G: Co-Instructor Access To A Shared Class', () => {
       // Only one of the seeded roster's uids has a registration document, so
       // exactly one reminder goes out.
       expect(latest.to).to.deep.equal(['student@gbstem.org'])
-      expect(latest.cc, 'cc is the class’s other instructors').to.deep.equal([
-        COHOST_EMAIL,
-      ])
-      expect(latest.cc, 'the primary is not copied').to.not.include(OWNER_EMAIL)
+      // The primary is copied, resolved from the class's `instructorUid` to
+      // whatever address that account holds now...
+      expect(latest.cc, 'the primary is copied').to.deep.equal([OWNER_EMAIL])
+      // ...and the co-instructor who sent it is not cc'd on their own send.
+      expect(latest.cc, 'the sender is dropped').to.not.include(COHOST_EMAIL)
       // Signed off with the class's instructor of record ("Demo"), not the
       // co-instructor who pressed the button.
       expect(latest.html).to.contain('Demo')

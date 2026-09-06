@@ -4,6 +4,7 @@
   import Dialog from '$lib/components/Dialog.svelte'
   import DialogActions from '$lib/components/DialogActions.svelte'
   import {
+    classInstructorUids,
     computeMeetingTimeChanges,
     computeUpdatedClassStatuses,
     findNextClassDateIndex,
@@ -479,7 +480,7 @@
                             values.instructorFirstName +
                             ' ' +
                             values.instructorLastName,
-                          otherInstructorUids: values.otherInstructorUids ?? [],
+                          instructorUids: classInstructorUids(values),
                           className: values.course,
                           nextMeetingTime:
                             nextClassIndex === -1
@@ -563,7 +564,7 @@
             sendClassReminder({
               studentList,
               instructorName: values.instructorFirstName,
-              otherInstructorUids: values.otherInstructorUids ?? [],
+              instructorUids: classInstructorUids(values),
               className: values.course,
               nextMeetingTime:
                 nextClassIndex === -1

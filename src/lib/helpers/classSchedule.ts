@@ -158,6 +158,26 @@ export function findNextClassDateIndex(
 }
 
 /**
+ * Every instructor uid on a class - its owner, then its co-instructors, with
+ * blanks and duplicates dropped.
+ *
+ * What the reminder endpoint cc's, minus whoever is sending it. It has to
+ * carry the owner as well as `otherInstructorUids`, or a reminder sent by a
+ * co-instructor copies their colleagues and not the person whose class it is.
+ */
+export function classInstructorUids(klass: {
+  instructorUid?: string
+  otherInstructorUids?: string[]
+}): string[] {
+  return [
+    ...new Set([
+      klass.instructorUid ?? '',
+      ...(klass.otherInstructorUids ?? []),
+    ]),
+  ].filter(Boolean)
+}
+
+/**
  * Normalizes student document data from Firestore into a Student object.
  */
 export function transformStudentDocData(data: any): Student | null {
