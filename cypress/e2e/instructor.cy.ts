@@ -1700,6 +1700,198 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
       })
     })
   })
+
+  it('Test Case 15e: Sub Request - The Substitute Holds The Class And Files Its Feedback', () => {
+    // Continues from Test Case 15d, which left this substitute signed up for
+    // a session of the seeded class.
+    //
+    // Neither half of this worked before: both write to the *class* document
+    // (`completedClassDates`, `classStatuses`, `feedbackCompleted`) and
+    // firestore.rules opens that only to the class's own instructors, which a
+    // substitute is not. "Join" failed to the console and nowhere else, and
+    // the feedback failed halfway - the feedback document saved, so the form
+    // said "Class Feedback saved!", while the class was never updated and the
+    // request never left "feedback needed". Both go through the server now.
+    const feedback = 'Covered lists and loops; the group got through it all.'
+    afterOrientation()
+    cy.signedInSession('instructor', { email: COHOST_EMAIL })
+    cy.captureConfirms().as('confirms')
+    cy.window().then((win) => {
+      // "Join" opens the meeting in a new tab; the stub keeps that out of the
+      // run and lets the link itself be asserted.
+      cy.stub(win, 'open').as('windowOpen')
+    })
+
+    // The card renders before its data arrives ("You are not currently
+    // substituting any classes."), and `invoke('text')` reads whatever is
+    // there at that moment rather than retrying - so wait for the row itself.
+    cy.contains('h2', 'Your Classes To Substitute')
+      .parent()
+      .should('contain', 'class #')
+    cy.contains('h2', 'Your Classes To Substitute')
+      .parent()
+      .invoke('text')
+      .then((cardText) => {
+        const match = cardText.match(/class #(\d+)/)
+        expect(match, 'a class to substitute').to.not.equal(null)
+        const classNumber = Number((match as RegExpMatchArray)[1])
+        const sessionIndex = classNumber - 1
+
+        let before: any
+        readClassDoc().then((data: any) => {
+          before = data
+        })
+
+        cy.contains('h2', 'Your Classes To Substitute')
+          .parent()
+          .within(() => {
+            cy.contains('button', 'Join').click()
+          })
+        cy.get('@confirms')
+          .its(0)
+          .should('contain', 'confirm you are holding class now')
+        cy.get('@windowOpen').should(
+          'have.been.calledWith',
+          SEEDED_MEETING_LINK,
+        )
+
+        // The session is marked held on the class - a write the substitute
+        // could not make from the browser at all.
+        readClassDoc().then((after: any) => {
+          expect(
+            after.completedClassDates.length,
+            'the session was recorded as held',
+          ).to.equal((before.completedClassDates ?? []).length + 1)
+          expect(after.classStatuses[sessionIndex]).to.equal(
+            'FeedbackIncomplete',
+          )
+        })
+        cy.getFirebaseAuthToken().then((authToken: string) => {
+          cy.getFirestoreDoc(
+            authToken,
+            substituteRequestsCollection,
+            `${SEEDED_CLASS_ID}---${classNumber}`,
+          ).then((request: any) => {
+            expect(request.subRequestStatus).to.equal(
+              'SubstituteFeedbackNeeded',
+            )
+          })
+        })
+
+        // ...and then the feedback, which completes the session and closes the
+        // request out. The document id is server-generated, so it comes back
+        // from the endpoint rather than being computed from a frozen clock.
+        cy.intercept('POST', '/api/substituteFeedback').as('substituteFeedback')
+        cy.contains('h2', 'Your Classes To Substitute')
+          .parent()
+          .within(() => {
+            cy.contains('button', 'Submit Feedback').click()
+          })
+
+        const expectedAttendance: Record<string, { present: boolean }> = {}
+        cy.get('[role="dialog"]').within(() => {
+          cy.contains(/substitute class feedback form/i).should('be.visible')
+          cy.fillInput('input[name="classDate"]', '2026-10-09')
+          cy.fillInput('input[name="feedback"]', feedback)
+          cy.get('input[name^="attendanceList."]').each(($el, index) => {
+            const student = ($el.attr('name') || '')
+              .replace(/^attendanceList\./, '')
+              .replace(/\.present$/, '')
+            expectedAttendance[student] = { present: index === 0 }
+          })
+          cy.get('input[name^="attendanceList."]')
+            .first()
+            .check({ force: true })
+          cy.contains('button', 'Submit').click({ force: true })
+        })
+        cy.waitForNotification('Class Feedback saved!')
+
+        cy.wait('@substituteFeedback')
+          .its('response.body.feedbackId')
+          .then((feedbackId: string) => {
+            cy.getFirebaseAuthToken().then((authToken: string) => {
+              cy.getFirestoreDoc(
+                authToken,
+                instructorFeedbackCollection,
+                feedbackId,
+              ).then((data: any) => {
+                expect(data, 'substitute feedback document').to.not.equal(null)
+                expect(prepareDocForCompare(data)).to.deep.equal({
+                  semester: currentSemester,
+                  date: '2026-10-09',
+                  feedback,
+                  attendanceList: expectedAttendance,
+                  classNumber,
+                  // Both taken from the sub request rather than the form: the
+                  // course the substitute covered, and their own name.
+                  courseName: before.course,
+                  instructorName: 'Cohost',
+                })
+              })
+
+              cy.getFirestoreDoc(
+                authToken,
+                substituteRequestsCollection,
+                `${SEEDED_CLASS_ID}---${classNumber}`,
+              ).then((request: any) => {
+                // What credits the substitute's community service hours.
+                expect(request.subRequestStatus).to.equal('NoSubstituteNeeded')
+              })
+            })
+            readClassDoc().then((after: any) => {
+              expect(after.feedbackCompleted[sessionIndex]).to.equal(true)
+              expect(after.classStatuses[sessionIndex]).to.equal(
+                'EverythingComplete',
+              )
+            })
+          })
+      })
+  })
+
+  it('Test Case 15f: Sub Request - A Covered Class Earns The Substitute Their Hours', () => {
+    // The end of the line for the sub request from 15d/15e, and the reason any
+    // of it matters to an instructor: hours are counted from requests in the
+    // `NoSubstituteNeeded` state, which nothing could reach before, so a
+    // substitute's 1.5 hours per covered class were never credited at all.
+    //
+    // The substitute is also a co-instructor of the same class by this point
+    // (Test Case 13j added them), so the page shows both kinds of hour and the
+    // expectation is computed from the class rather than hard-coded - the
+    // point being the 1.5 in the substitute half, which used to be 0.
+    const SUBSTITUTED_CLASSES = 1
+    let taughtSessions = 0
+    readClassDoc().then((klass: any) => {
+      taughtSessions = klass.classStatuses.filter(
+        (status: string) =>
+          status === 'EverythingComplete' || status === 'FeedbackIncomplete',
+      ).length
+    })
+
+    cy.then(() => {
+      const substituteHours = SUBSTITUTED_CLASSES * 1.5
+      const instructionHours = taughtSessions * 1.25
+
+      cy.signedInSession('instructor', {
+        email: COHOST_EMAIL,
+        initialPage: '/community-service',
+      })
+
+      cy.contains(
+        'h2',
+        `You have completed ${taughtSessions + SUBSTITUTED_CLASSES} classes`,
+      ).should('be.visible')
+      cy.contains(
+        `equaling ${instructionHours + substituteHours} total hours`,
+      ).should('be.visible')
+      // The half that was always zero before, whatever the substitute did.
+      // The two <strong>s in that line are instruction hours then substitute
+      // hours, so the second one is the one this test exists for.
+      cy.contains('div', 'as a substitute instructor')
+        .find('strong')
+        .eq(1)
+        .should('have.text', String(substituteHours))
+    })
+  })
 })
 
 /**

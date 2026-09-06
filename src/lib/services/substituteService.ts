@@ -1,10 +1,6 @@
 import { db } from '$lib/client/firebase'
-import { ClassStatus } from '$lib/components/helpers/ClassStatus'
 import { SubRequestStatus } from '$lib/components/helpers/SubRequestStatus'
-import {
-  classesCollection,
-  substituteRequestsCollection,
-} from '$lib/data/collections'
+import { substituteRequestsCollection } from '$lib/data/collections'
 import {
   buildSubstituteApiPayload,
   parseSubRequestDocs,
@@ -16,12 +12,19 @@ import {
   collection,
   deleteDoc,
   doc,
-  getDoc,
   getDocs,
   query,
   setDoc,
   updateDoc,
 } from 'firebase/firestore'
+import type {
+  SubstituteFeedbackRequestBody,
+  SubstituteFeedbackResponse,
+} from '../../routes/api/substituteFeedback/+server'
+import type {
+  SubstituteSessionRequestBody,
+  SubstituteSessionResponse,
+} from '../../routes/api/substituteSession/+server'
 
 /**
  * Service providing Data Access Layer for substitute requests and class substitution.
@@ -141,36 +144,51 @@ export const substituteService = {
   /**
    * Records completed class session date and updates substitute request status.
    */
-  async recordSubstituteClassSession(
+  /**
+   * Records that this substitute is holding the class they signed up for, and
+   * returns the meeting link to send them to.
+   *
+   * Server-side, unlike every other write in this service: marking the session
+   * held updates the *class* document, which firestore.rules opens only to the
+   * class's own instructors. See /api/substituteSession.
+   */
+  async recordSubstituteSession(
     subRequestId: string,
-    classId: string,
-    classNumber: number,
-    dateOfClass: any,
-  ): Promise<Data.Class> {
-    const classDocRef = doc(db, classesCollection, classId)
-    const classSnap = await getDoc(classDocRef)
-    if (!classSnap.exists()) {
-      throw new Error('Class document not found.')
+  ): Promise<SubstituteSessionResponse> {
+    const payload: SubstituteSessionRequestBody = { subRequestId }
+    const res = await fetch('/api/substituteSession', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    const body = await res.json()
+    if (!res.ok) {
+      throw new Error(
+        body?.message || 'Could not start that class. Please try again.',
+      )
     }
+    return body as SubstituteSessionResponse
+  },
 
-    const classValues = classSnap.data() as Data.Class
-    const classStatuses = [...classValues.classStatuses]
-    const completedClassDates = [
-      ...classValues.completedClassDates,
-      dateOfClass,
-    ]
-    classStatuses[classNumber - 1] = ClassStatus.FeedbackIncomplete
-
-    await updateDoc(classDocRef, {
-      completedClassDates,
-      classStatuses,
+  /**
+   * Files a substitute's feedback for the class they covered, which also
+   * marks the session complete and closes the request out. Server-side for
+   * the same reason as `recordSubstituteSession`.
+   */
+  async submitSubstituteFeedback(
+    payload: SubstituteFeedbackRequestBody,
+  ): Promise<SubstituteFeedbackResponse> {
+    const res = await fetch('/api/substituteFeedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
     })
-
-    const subReqDocRef = doc(db, substituteRequestsCollection, subRequestId)
-    await updateDoc(subReqDocRef, {
-      subRequestStatus: SubRequestStatus.SubstituteFeedbackNeeded,
-    })
-
-    return classValues
+    const body = await res.json()
+    if (!res.ok) {
+      throw new Error(
+        body?.message || 'Could not save that feedback. Please try again.',
+      )
+    }
+    return body as SubstituteFeedbackResponse
   },
 }

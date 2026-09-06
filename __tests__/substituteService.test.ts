@@ -1,4 +1,3 @@
-import { ClassStatus } from '$lib/components/helpers/ClassStatus'
 import { SubRequestStatus } from '$lib/components/helpers/SubRequestStatus'
 import { substituteService } from '$lib/services/substituteService'
 import * as firestore from 'firebase/firestore'
@@ -157,68 +156,100 @@ describe('substituteService (Data Access Layer)', () => {
     })
   })
 
-  describe('recordSubstituteClassSession', () => {
-    it('appends the completed date, updates class status, and marks the sub request feedback-needed', async () => {
-      const classValues = {
-        classStatuses: ['Everything Complete', 'Class Not Held'],
-        completedClassDates: [new Date('2026-01-01')],
-      }
-      ;(firestore.getDoc as jest.Mock).mockResolvedValueOnce({
-        exists: () => true,
-        data: () => classValues,
-      })
-      ;(firestore.updateDoc as jest.Mock).mockResolvedValue(undefined)
+  // These two are the only writes in this service that do not touch Firestore
+  // from the browser: a substitute is not an instructor of the class they are
+  // covering, so firestore.rules refuses them there. The service's job is now
+  // to call the endpoint and to turn a failure into a message a component can
+  // show, which is what the old client-side version never did.
+  describe('recordSubstituteSession', () => {
+    it('posts the request id and returns the meeting link', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          meetingLink: 'https://zoom.us/j/1',
+          alreadyRecorded: false,
+        }),
+      } as any)
 
-      const dateOfClass = new Date('2026-01-08')
-      const res = await substituteService.recordSubstituteClassSession(
-        'sub-req-1',
-        'c-1',
-        2,
-        dateOfClass,
+      const res = await substituteService.recordSubstituteSession('c-1---2')
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/substituteSession',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ subRequestId: 'c-1---2' }),
+        }),
       )
-
-      expect(res).toEqual(classValues)
-      expect(firestore.updateDoc).toHaveBeenCalledTimes(2)
-      const [, classPayload] = (firestore.updateDoc as jest.Mock).mock.calls[0]
-      expect(classPayload.completedClassDates).toEqual([
-        new Date('2026-01-01'),
-        dateOfClass,
-      ])
-      expect(classPayload.classStatuses[1]).toBe(ClassStatus.FeedbackIncomplete)
-      const [, subReqPayload] = (firestore.updateDoc as jest.Mock).mock.calls[1]
-      expect(subReqPayload).toEqual({
-        subRequestStatus: SubRequestStatus.SubstituteFeedbackNeeded,
-      })
+      expect(res.meetingLink).toBe('https://zoom.us/j/1')
     })
 
-    it('throws if the class document does not exist', async () => {
-      ;(firestore.getDoc as jest.Mock).mockResolvedValueOnce({
-        exists: () => false,
-      })
+    it('throws the server’s message so the caller can show it', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({
+          message: 'You are not the substitute for that class.',
+        }),
+      } as any)
 
       await expect(
-        substituteService.recordSubstituteClassSession(
-          'sub-req-1',
-          'c-1',
-          1,
-          new Date(),
-        ),
-      ).rejects.toThrow('Class document not found.')
+        substituteService.recordSubstituteSession('c-1---2'),
+      ).rejects.toThrow('You are not the substitute for that class.')
     })
 
-    it('propagates errors from getDoc', async () => {
-      ;(firestore.getDoc as jest.Mock).mockRejectedValueOnce(
-        new Error('permission-denied'),
-      )
+    it('falls back to a readable message when the server sends none', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({}),
+      } as any)
 
       await expect(
-        substituteService.recordSubstituteClassSession(
-          'sub-req-1',
-          'c-1',
-          1,
-          new Date(),
-        ),
-      ).rejects.toThrow('permission-denied')
+        substituteService.recordSubstituteSession('c-1---2'),
+      ).rejects.toThrow('Could not start that class. Please try again.')
+    })
+  })
+
+  describe('submitSubstituteFeedback', () => {
+    const payload = {
+      subRequestId: 'c-1---2',
+      date: '2026-10-02',
+      feedback: 'Went well.',
+      attendanceList: { 'Ada Lovelace': { present: true } },
+      classNumber: 2,
+    }
+
+    it('posts the feedback and returns the document id', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ feedbackId: 'c-1-123' }),
+      } as any)
+
+      const res = await substituteService.submitSubstituteFeedback(payload)
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/substituteFeedback',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify(payload),
+        }),
+      )
+      expect(res.feedbackId).toBe('c-1-123')
+    })
+
+    it('throws the server’s message so the form can show it', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({
+          message:
+            'That request is for class #2, so its feedback has to be too.',
+        }),
+      } as any)
+
+      await expect(
+        substituteService.submitSubstituteFeedback({
+          ...payload,
+          classNumber: 5,
+        }),
+      ).rejects.toThrow('That request is for class #2')
     })
   })
 

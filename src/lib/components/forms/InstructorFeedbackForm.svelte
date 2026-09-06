@@ -1,6 +1,7 @@
 <script lang="ts">
   import { user } from '$lib/client/firebase'
   import { classService } from '$lib/services/classService'
+  import { substituteService } from '$lib/services/substituteService'
   import { alert } from '$lib/stores'
   import { cn } from '$lib/utils'
   import { untrack } from 'svelte'
@@ -70,40 +71,49 @@
               ? classId || frozenUser.object.uid
               : classBeingSubbed.id.split('---')[0]
 
-          const submissionValues = {
-            date: formVal.data.classDate,
-            feedback: formVal.data.feedback,
-            attendanceList: formVal.data.attendanceList,
-            courseName: classBeingSubbed?.course || '',
-            classNumber: formVal.data.classNumber,
-            instructorName:
-              classBeingSubbed === undefined
-                ? frozenUser.profile.firstName +
-                  ' ' +
-                  frozenUser.profile.lastName
-                : classBeingSubbed.subInstructorFirstName,
-          }
-
-          if (
-            formVal.data.classNumber - 1 < 0 ||
-            formVal.data.classNumber - 1 >= feedbackCompletedArray.length
-          ) {
-            alert.trigger('error', 'Invalid class number.')
-            return
-          }
-
-          feedbackCompletedArray[formVal.data.classNumber - 1] = true
-          classStatusesArray[formVal.data.classNumber - 1] =
-            ClassStatus.EverythingComplete
-
           try {
-            await classService.submitInstructorFeedback(
-              id,
-              submissionValues,
-              feedbackCompletedArray,
-              classStatusesArray,
-              classBeingSubbed?.id,
-            )
+            if (classBeingSubbed !== undefined) {
+              // A substitute's feedback goes through the server, which owns
+              // the writes to the class document that firestore.rules will
+              // not let them make from here, and derives the course and the
+              // session from the request rather than from this form.
+              await substituteService.submitSubstituteFeedback({
+                subRequestId: classBeingSubbed.id,
+                date: formVal.data.classDate,
+                feedback: formVal.data.feedback,
+                attendanceList: formVal.data.attendanceList,
+                classNumber: formVal.data.classNumber,
+              })
+            } else {
+              if (
+                formVal.data.classNumber - 1 < 0 ||
+                formVal.data.classNumber - 1 >= feedbackCompletedArray.length
+              ) {
+                alert.trigger('error', 'Invalid class number.')
+                return
+              }
+
+              feedbackCompletedArray[formVal.data.classNumber - 1] = true
+              classStatusesArray[formVal.data.classNumber - 1] =
+                ClassStatus.EverythingComplete
+
+              await classService.submitInstructorFeedback(
+                id,
+                {
+                  date: formVal.data.classDate,
+                  feedback: formVal.data.feedback,
+                  attendanceList: formVal.data.attendanceList,
+                  courseName: '',
+                  classNumber: formVal.data.classNumber,
+                  instructorName:
+                    frozenUser.profile.firstName +
+                    ' ' +
+                    frozenUser.profile.lastName,
+                },
+                feedbackCompletedArray,
+                classStatusesArray,
+              )
+            }
             alert.trigger('success', 'Class Feedback saved!')
             setTimeout(() => location.reload(), 1000)
           } catch (error: any) {

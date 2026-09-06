@@ -1,5 +1,4 @@
 import { db } from '$lib/client/firebase'
-import { SubRequestStatus } from '$lib/components/helpers/SubRequestStatus'
 import type Student from '$lib/components/types/Student'
 import {
   classesCollection,
@@ -500,16 +499,21 @@ export const classService = {
   },
 
   /**
-   * Records instructor feedback for a class session: saves the feedback doc,
-   * marks the session complete on the class document, and (if this was a
-   * substitute-taught session) closes out the substitute request.
+   * Records a class instructor's feedback for one session: saves the feedback
+   * document and marks the session complete on the class.
+   *
+   * Only for an instructor of the class - a substitute's feedback goes through
+   * /api/substituteFeedback instead, because the class update below is a write
+   * firestore.rules refuses them. This used to close out a substitute request
+   * as well, which meant the sub path ran entirely here and failed halfway
+   * through: the feedback saved, the class update was denied, and the request
+   * was left asking for feedback forever.
    */
   async submitInstructorFeedback(
     classId: string,
     feedback: InstructorFeedbackSubmission,
     feedbackCompleted: boolean[],
     classStatuses: string[],
-    subRequestId?: string,
   ): Promise<void> {
     await setDoc(
       doc(db, instructorFeedbackCollection, `${classId}-${Date.now()}`),
@@ -519,11 +523,6 @@ export const classService = {
       feedbackCompleted,
       classStatuses,
     })
-    if (subRequestId !== undefined) {
-      await updateDoc(doc(db, substituteRequestsCollection, subRequestId), {
-        subRequestStatus: SubRequestStatus.NoSubstituteNeeded,
-      })
-    }
   },
 
   /**
