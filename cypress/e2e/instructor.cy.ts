@@ -1744,24 +1744,19 @@ describe('Section G: Co-Instructor Access To A Shared Class', () => {
       .its(0)
       .should('contain', 'Send class reminder to all students?')
 
-    cy.request('GET', '/api/test/emails').then((response) => {
-      const reminders = (response.body || []).filter((message: any) =>
-        message.subject.includes('gbSTEM Class Reminder'),
-      )
-      const latest = reminders[reminders.length - 1]
-      expect(latest, 'a class reminder was sent').to.not.equal(undefined)
-      // Only one of the seeded roster's uids has a registration document, so
-      // exactly one reminder goes out.
-      expect(latest.to).to.deep.equal(['student@gbstem.org'])
-      // The primary is copied, resolved from the class's `instructorUid` to
-      // whatever address that account holds now...
-      expect(latest.cc, 'the primary is copied').to.deep.equal([OWNER_EMAIL])
-      // ...and the co-instructor who sent it is not cc'd on their own send.
-      expect(latest.cc, 'the sender is dropped').to.not.include(COHOST_EMAIL)
+    // Only one of the seeded roster's uids has a registration document, so
+    // exactly one reminder goes out - to the student, copying the primary
+    // (resolved from the class's `instructorUid` to whatever address that
+    // account holds now) and not the co-instructor who sent it.
+    cy.verifyEmailSent('student@gbstem.org', 'gbSTEM Class Reminder', {
+      to: ['student@gbstem.org'],
+      cc: [OWNER_EMAIL],
+      notCc: [COHOST_EMAIL],
+    }).then((reminder: any) => {
       // Signed off with the class's instructor of record ("Demo"), not the
       // co-instructor who pressed the button.
-      expect(latest.html).to.contain('Demo')
-      expect(latest.html).to.not.contain('Cohost')
+      expect(reminder.html).to.contain('Demo')
+      expect(reminder.html).to.not.contain('Cohost')
     })
   })
 
