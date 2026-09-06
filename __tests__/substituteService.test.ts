@@ -92,30 +92,67 @@ describe('substituteService (Data Access Layer)', () => {
     })
   })
 
-  describe('saveSubRequest', () => {
-    it('saves substitute request to Firestore', async () => {
-      ;(firestore.setDoc as jest.Mock).mockResolvedValueOnce(undefined)
-      const subReq = { classNumber: 2 } as Data.SubRequest
+  // Every assertion here is on the document *path*. These tests used to check
+  // only that setDoc/deleteDoc had been called at all, which is how an edit
+  // that wrote to `${signedInUid}---${n}` - a document no class has ever been
+  // stored at - passed for as long as it did.
+  const pathOf = (call: number = 0) =>
+    (firestore.doc as jest.Mock).mock.calls[call][2]
 
-      await substituteService.saveSubRequest('user123', subReq)
-      expect(firestore.setDoc).toHaveBeenCalled()
+  describe('saveSubRequest', () => {
+    it('writes back to the document the request was read from', async () => {
+      ;(firestore.setDoc as jest.Mock).mockResolvedValueOnce(undefined)
+      const subReq = {
+        id: 'owner-uid-1---2',
+        classNumber: 2,
+        notes: 'edited',
+      } as Data.SubRequest
+
+      await substituteService.saveSubRequest(subReq)
+
+      expect(pathOf()).toBe('owner-uid-1---2')
+      // The stored `id` field means the class, the way creation writes it.
+      expect(firestore.setDoc).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ id: 'owner-uid-1', notes: 'edited' }),
+      )
+      expect(firestore.deleteDoc).not.toHaveBeenCalled()
     })
 
-    it('deletes old request if classNumber changed', async () => {
+    it('moves the document when the class number changes', async () => {
       ;(firestore.setDoc as jest.Mock).mockResolvedValueOnce(undefined)
       ;(firestore.deleteDoc as jest.Mock).mockResolvedValueOnce(undefined)
-      const subReq = { classNumber: 3 } as Data.SubRequest
+      const subReq = {
+        id: 'owner-uid-1---2',
+        classNumber: 3,
+      } as Data.SubRequest
 
-      await substituteService.saveSubRequest('user123', subReq, 2)
-      expect(firestore.setDoc).toHaveBeenCalled()
+      await substituteService.saveSubRequest(subReq, 2)
+
+      // Written at the new session number, removed from the old one - both
+      // under the class, not under whoever is signed in.
+      expect(pathOf(0)).toBe('owner-uid-1---3')
+      expect(pathOf(1)).toBe('owner-uid-1---2')
       expect(firestore.deleteDoc).toHaveBeenCalled()
+    })
+
+    it('refuses to write a request whose class cannot be determined', async () => {
+      const subReq = { id: '', classNumber: 2 } as Data.SubRequest
+
+      await expect(substituteService.saveSubRequest(subReq)).rejects.toThrow(
+        /without a class/,
+      )
+      expect(firestore.setDoc).not.toHaveBeenCalled()
     })
   })
 
   describe('deleteSubRequest', () => {
-    it('deletes request document from Firestore', async () => {
+    it('deletes exactly the document it is given', async () => {
       ;(firestore.deleteDoc as jest.Mock).mockResolvedValueOnce(undefined)
-      await substituteService.deleteSubRequest('user123', 2)
+
+      await substituteService.deleteSubRequest('owner-uid-1---2')
+
+      expect(pathOf()).toBe('owner-uid-1---2')
       expect(firestore.deleteDoc).toHaveBeenCalled()
     })
   })

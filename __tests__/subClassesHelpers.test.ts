@@ -4,10 +4,32 @@ import {
   filterCheckedOffSubClasses,
   buildSubstituteApiPayload,
   parseSubStudentDoc,
+  subRequestClassId,
+  subRequestDocId,
 } from '$lib/helpers/subClasses'
 import { SubRequestStatus } from '$lib/components/helpers/SubRequestStatus'
 
 describe('SubClasses Helpers', () => {
+  describe('sub request document ids', () => {
+    test('round-trips a class id through the document id', () => {
+      const classId = 'owner-uid-1'
+      const docId = subRequestDocId(classId, 3)
+
+      expect(docId).toBe('owner-uid-1---3')
+      expect(subRequestClassId(docId)).toBe(classId)
+    })
+
+    test('recovers the class from ids that already exist', () => {
+      // A seeded or hand-written class id need not follow `${uid}-${n}`...
+      expect(subRequestClassId('class-python1---1')).toBe('class-python1')
+      // ...and a uid contains single dashes, which is why the separator is
+      // three of them and why splitting on the first dash would be wrong.
+      expect(subRequestClassId('instructor-demo-uid-1---12')).toBe(
+        'instructor-demo-uid-1',
+      )
+    })
+  })
+
   describe('parseSubRequestDocs', () => {
     test('categorizes substitute request documents properly', () => {
       const docs = [

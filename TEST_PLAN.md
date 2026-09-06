@@ -407,6 +407,55 @@ graph TD
   - A success toast `"Sub request sent!"` is displayed.
   - The page reloads, and the sub request is saved in the database under `subRequests/{classId}---{classNumber}`.
 
+### The Sub Request Lifecycle (Test Cases 15b-15d, 13r)
+
+A sub request lives at `subRequests/{classId}---{classNumber}` for its whole
+life. Test Case 15 covers filing one; these cover what happens to it
+afterwards, and are written so that the instructor who asks and the instructor
+who covers are different people - the configuration Test Case 15 cannot
+exercise, since there the same account does both.
+
+- **15b - Editing changes the request that exists**: editing the notes and
+  moving the request to another session updates the document under the class,
+  removes the one it moved from, and writes nothing under the signed-in
+  instructor's own uid.
+- **15c - Deleting removes it**: the document is gone from Firestore, not just
+  from the card. (Deleting a document that does not exist succeeds silently, so
+  a delete aimed at the wrong path reported success and left the request
+  standing.)
+- **13r - A co-instructor can cancel the request they filed**: same path, and
+  the sharpest case for it - a co-instructor's uid appears nowhere in the
+  class's id.
+- **15d - A substitute signs up and is recorded on it**: the request records
+  `subInstructorId`/`FirstName`/`Email` and flips to `SubstituteFound`; the
+  confirmation email goes to the substitute, cc's the class's instructor
+  (deduplicated when they are also the person who asked) and replies to them;
+  the class appears under the substitute's "Your Classes To Substitute" with
+  the prep notes the requester wrote.
+
+#### Known gap: a substitute cannot teach the class they signed up for
+
+Not covered, because it does not currently work. Once a substitute has signed
+up, "Join" (`recordSubstituteClassSession`) and their feedback submission both
+write to the **class** document - `completedClassDates`, `classStatuses`,
+`feedbackCompleted` - and `firestore.rules`'s `isInstructorOfClass()` only
+admits the class's own instructor and its co-instructors. A substitute is
+neither, so both writes are refused (verified directly against the emulator: a
+`PATCH` of `classStatuses` on another instructor's class returns 403).
+
+The consequences run past the two buttons: the feedback document itself is
+written, but the class update after it throws, so the sub request is never
+marked `NoSubstituteNeeded` - and `countCompletedSubClasses` only counts
+requests in that state, so the substitute's 1.5 community service hours per
+covered class are never credited either.
+
+Test Case 15 does not catch it because there the class's own instructor
+answers their own request, which is the one case where the substitute is
+already an instructor of the class. Fixing it means either widening the rule
+or moving those two writes to an Admin-SDK endpoint that authorises them
+against the sub request - a decision worth making deliberately rather than in
+passing.
+
 ### Co-Instructors (Test Cases 13h-13q)
 
 A class stores its co-instructors as `otherInstructorUids`. That list is what

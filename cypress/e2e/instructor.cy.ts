@@ -529,6 +529,64 @@ function assertRosterVisible() {
   cy.get('[role="dialog"]').should('not.exist')
 }
 
+/**
+ * Moves the clock past instructor orientation, which is what makes
+ * `ClassSchedule` (and so the "Request Sub" buttons) render at all.
+ */
+function afterOrientation(): Date {
+  const frozenNow = new Date(
+    new Date(semesterDates.instructorOrientation).getTime() +
+      24 * 60 * 60 * 1000,
+  )
+  cy.clock(frozenNow.getTime(), ['Date'])
+  return frozenNow
+}
+
+/**
+ * Files a sub request for the first session offering one and yields its class
+ * number, which is what names the document (`${classId}---${classNumber}`).
+ *
+ * The signed-in instructor is whoever the caller signed in as - the flow is
+ * the same for the class's own instructor and for a co-instructor.
+ */
+function fileSubRequest(notes: string): Cypress.Chainable<number> {
+  cy.contains('button', 'Request Sub').first().click()
+  cy.get('[role="dialog"]').should('contain', 'Submit A Sub Request')
+  cy.get('[role="dialog"]').find('input[type="text"]').clear().type(notes)
+  return cy
+    .get('[role="dialog"]')
+    .find('input[type="number"]')
+    .invoke('val')
+    .then((raw) => {
+      const classNumber = Number(raw)
+      cy.contains('button', 'Confirm Request').click({ force: true })
+      cy.waitForNotification('Sub request sent!')
+      // `sendSubRequest` calls location.reload() 1000ms later, and "Your Sub
+      // Requests" only lists the new request once that reload has refetched.
+      // The wait is pinned to that literal timer, not guesswork.
+      cy.wait(2000)
+      cy.contains('h2', 'Your Sub Requests', { timeout: 10000 }).should(
+        'be.visible',
+      )
+      return cy.wrap(classNumber)
+    })
+}
+
+/** One row of the "Your Sub Requests" card, by the session it covers. */
+function subRequestRow(classNumber: number) {
+  return cy
+    .contains('h2', 'Your Sub Requests')
+    .parent()
+    .contains('div', `class #${classNumber}`, { timeout: 10000 })
+}
+
+/** Asserts whether a document exists, straight through the Admin SDK. */
+function expectDocExists(docPath: string, exists: boolean, label: string) {
+  cy.task('checkFirestoreDocExists', docPath).then((found) => {
+    expect(found, label).to.equal(exists)
+  })
+}
+
 describe('Section C & E: Instructor Applications & Community Service', () => {
   it('Test Case 8: Instructor Application Submission', () => {
     const input: ApplicationInput = {
@@ -1484,6 +1542,164 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
     cy.waitForNotification('Signup successful!')
     cy.verifyEmailSent('instructor@gbstem.org', 'Class Substitute Confirmation')
   })
+
+  it('Test Case 15b: Sub Request - Editing Changes The Request That Exists', () => {
+    // The edit and delete buttons built a document id out of the *signed-in
+    // uid* (`${uid}---${classNumber}`) while requests are created under the
+    // class (`${classId}---${classNumber}`). Those name different documents
+    // for every real class, so an edit wrote a phantom request to a path
+    // nothing reads and left the real one untouched. Nothing covered either
+    // button, which is how it survived.
+    const notes = 'Original notes: lists and loops.'
+    const editedNotes = 'Edited notes: recursion, slides in Drive.'
+    afterOrientation()
+    cy.signedInSession('instructor')
+
+    fileSubRequest(notes).then((classNumber) => {
+      const movedTo = classNumber + 1
+      subRequestRow(classNumber).within(() => {
+        cy.contains('button', 'Edit').click()
+      })
+
+      cy.get('[role="dialog"]').within(() => {
+        cy.get('input[type="number"]').clear().type(String(movedTo))
+        cy.get('input[type="text"]').clear().type(editedNotes)
+        cy.contains('button', 'Save Edits').click()
+      })
+      cy.waitForNotification('Sub request updated!')
+
+      cy.getFirebaseAuthToken().then((authToken: string) => {
+        cy.getFirestoreDoc(
+          authToken,
+          substituteRequestsCollection,
+          `${SEEDED_CLASS_ID}---${movedTo}`,
+        ).then((moved: any) => {
+          expect(moved, 'the request at its new session').to.not.equal(null)
+          expect(moved.notes).to.equal(editedNotes)
+          expect(moved.classNumber).to.equal(movedTo)
+          // Still the class's request, and still filed by the same person.
+          expect(moved.originalInstructorUid).to.equal(OWNER_UID)
+          expect(moved.requestedByUid).to.equal(OWNER_UID)
+        })
+      })
+
+      // Moving it to another session moves the document...
+      expectDocExists(
+        `${substituteRequestsCollection}/${SEEDED_CLASS_ID}---${classNumber}`,
+        false,
+        'the request left behind at the old session',
+      )
+      // ...and no phantom is written under the instructor's own uid, which is
+      // where every edit used to land.
+      expectDocExists(
+        `${substituteRequestsCollection}/${OWNER_UID}---${movedTo}`,
+        false,
+        'a phantom request keyed by the signed-in uid',
+      )
+
+      // The card reflects it rather than still showing the old session.
+      subRequestRow(movedTo).should('contain', 'Substitute Needed')
+      cy.contains('h2', 'Your Sub Requests')
+        .parent()
+        .should('not.contain', `class #${classNumber} `)
+    })
+  })
+
+  it('Test Case 15c: Sub Request - Deleting One Actually Removes It', () => {
+    // Deleting hit the same wrong path, and deleting a document that does not
+    // exist succeeds silently - so the toast said "Sub request deleted!" while
+    // the request stayed exactly where it was, still asking for a substitute.
+    afterOrientation()
+    cy.signedInSession('instructor')
+    cy.captureConfirms().as('confirms')
+
+    fileSubRequest('Cancelling this one shortly.').then((classNumber) => {
+      const docPath = `${substituteRequestsCollection}/${SEEDED_CLASS_ID}---${classNumber}`
+      expectDocExists(docPath, true, 'the request that was just filed')
+
+      subRequestRow(classNumber).within(() => {
+        // The delete control is the trash icon, which has no text of its own.
+        cy.get('button').last().click()
+      })
+      cy.get('@confirms')
+        .its(0)
+        .should('contain', 'Are you sure you want to delete this sub request?')
+      cy.waitForNotification('Sub request deleted!')
+
+      expectDocExists(docPath, false, 'the request after deleting it')
+      cy.contains('h2', 'Your Sub Requests')
+        .parent()
+        .should('not.contain', `class #${classNumber} `)
+    })
+  })
+
+  it('Test Case 15d: Sub Request - A Substitute Signs Up And Is Recorded On It', () => {
+    // Test Case 15 has the class's own instructor answer their own request,
+    // which is the one configuration where every uid in the flow is the same
+    // person. This is the real shape: one instructor asks, a different one
+    // covers it.
+    const notes = 'Prep: finish the loops worksheet, slides are in Drive.'
+    afterOrientation()
+    cy.signedInSession('instructor')
+
+    fileSubRequest(notes).then((classNumber) => {
+      afterOrientation()
+      cy.signedInSession('instructor', { email: COHOST_EMAIL })
+
+      cy.contains('h2', 'Sign Up To Substitute A Class')
+        .parent()
+        .within(() => {
+          cy.contains('label', `class #${classNumber}`)
+            .find('input[type="checkbox"]')
+            .check({ force: true })
+          cy.contains('button', 'Submit').click({ force: true })
+        })
+      cy.waitForNotification('Signup successful!')
+
+      // The confirmation goes to the substitute, copying the class's
+      // instructor - who is also the person who asked here, so they are
+      // copied once rather than twice - and replies reach them rather than
+      // the donotreply address.
+      cy.verifyEmailSent(COHOST_EMAIL, 'Class Substitute Confirmation', {
+        to: [COHOST_EMAIL],
+        cc: [OWNER_EMAIL],
+        replyTo: OWNER_EMAIL,
+        from: 'donotreply@gbstem.org',
+      })
+
+      cy.getFirebaseAuthToken().then((authToken: string) => {
+        cy.getFirestoreDoc(
+          authToken,
+          substituteRequestsCollection,
+          `${SEEDED_CLASS_ID}---${classNumber}`,
+        ).then((request: any) => {
+          expect(request, 'sub request document').to.not.equal(null)
+          expect(request.subRequestStatus).to.equal('SubstituteFound')
+          expect(request.subInstructorId).to.equal(COHOST_UID)
+          expect(request.subInstructorFirstName).to.equal('Cohost')
+          expect(request.subInstructorEmail).to.equal(COHOST_EMAIL)
+          // Whose class it is, and who asked, are both untouched by somebody
+          // else picking the session up.
+          expect(request.originalInstructorUid).to.equal(OWNER_UID)
+          expect(request.requestedByUid).to.equal(OWNER_UID)
+        })
+      })
+
+      // It moves onto the substitute's own dashboard, carrying the notes the
+      // requester wrote and the address to ask questions at.
+      cy.contains('h2', 'Your Classes To Substitute')
+        .parent()
+        .within(() => {
+          cy.contains(`class #${classNumber}`).should('be.visible')
+          cy.contains('button', 'View Prep Notes').click()
+        })
+      cy.get('[role="dialog"]').within(() => {
+        cy.contains(notes).should('be.visible')
+        cy.contains(OWNER_EMAIL).should('be.visible')
+        cy.contains('button', 'Close').click()
+      })
+    })
+  })
 })
 
 /**
@@ -1855,5 +2071,34 @@ describe('Section G: Co-Instructor Access To A Shared Class', () => {
     readClassDoc().then((after: any) => {
       expect(after, 'nothing was written').to.deep.equal(before)
     })
+  })
+  it('Test Case 13r: Co-Instructor - Can Cancel The Request They Filed', () => {
+    // The sharpest case for the document id, because a co-instructor's uid
+    // appears nowhere in the class's id: cancelling used to delete
+    // `${cohostUid}---${n}`, a document that has never existed, and report
+    // success while the request stood. They could not withdraw a request for
+    // cover they no longer needed - only the class's owner could.
+    grantCoInstructorAccess()
+    signInAsCoInstructorAfterOrientation()
+    cy.captureConfirms().as('confirms')
+
+    fileSubRequest('Filed by the co-instructor, cancelling shortly.').then(
+      (classNumber) => {
+        const docPath = `${substituteRequestsCollection}/${SEEDED_CLASS_ID}---${classNumber}`
+        expectDocExists(docPath, true, 'the co-instructor’s request')
+
+        subRequestRow(classNumber).within(() => {
+          cy.get('button').last().click()
+        })
+        cy.waitForNotification('Sub request deleted!')
+
+        expectDocExists(docPath, false, 'the request after cancelling it')
+        expectDocExists(
+          `${substituteRequestsCollection}/${COHOST_UID}---${classNumber}`,
+          false,
+          'a phantom request keyed by the co-instructor’s uid',
+        )
+      },
+    )
   })
 })
