@@ -407,6 +407,48 @@ graph TD
   - A success toast `"Sub request sent!"` is displayed.
   - The page reloads, and the sub request is saved in the database under `subRequests/{classId}---{classNumber}`.
 
+### Co-Instructors (Test Cases 13h-13q)
+
+A class stores its co-instructors as `otherInstructorUids`. That list is what
+`firestore.rules`'s `isInstructorOfClass()` reads to allow a write, and the
+uid-keyed `instructorClasses` mapping is what puts the class on a
+co-instructor's dashboard. Test Cases 13h-13j cover adding and removing them;
+13k-13q cover what one can then see and do, and where a co-instructor
+deliberately differs from the class's primary instructor.
+
+- **13h - Only accepted instructors can be added**: an address is only resolved
+  by `/api/lookupCoInstructor` when it belongs to an instructor with an
+  `accepted` decision. A rejected instructor, one still awaiting a decision, and
+  an address with no gbSTEM account are all refused with the _same_ message, so
+  the field can't be used to probe for accounts.
+- **13i / 13p - Removal revokes access**: whether the primary removes them or
+  they remove themselves, the uid leaves the class document (ending write
+  access) _and_ the class leaves their `instructorClasses` mapping (ending
+  dashboard access).
+- **13j - A co-instructor never becomes the owner**: saving the class details
+  form does not restamp `instructorUid`/`instructorEmail`, which would lock the
+  real owner out of their own class.
+- **13k - Full access to the shared class**: it appears under "Your Classes",
+  the student roster (with parent contact details) is readable, and the weekly
+  feedback form can be filed - which also writes `feedbackCompleted` and
+  `classStatuses` back onto somebody else's class document. The stored
+  reflection names the co-instructor who wrote it.
+- **13l - Community service hours**: sessions of a shared class count toward the
+  co-instructor's hours, and the confirmation email goes to their own address.
+- **13m - Schedule editing**: sessions can be moved, added and deleted.
+- **13n - Sub requests are filed in the primary's name** (limitation): the
+  request is built from the class document, so `originalInstructorUid`/`Email`
+  are the primary's, and `/api/substitute` replies to and cc's them - a
+  co-instructor who asks for a sub does not hear back directly.
+- **13o - Reminders are signed by the primary** (limitation): the reminder email
+  is signed with the class's stored instructor name, and its cc list is the
+  class's `otherInstructorUids` - so a co-instructor sending one cc's themselves
+  and does not copy the primary.
+- **13q - Revocation is enforced, not just recorded**: with a stale dashboard
+  mapping (its update is best-effort), a removed co-instructor can still open
+  the class details form, but Firestore refuses the save and the UI surfaces
+  `"Permission denied."` rather than silently doing nothing.
+
 ---
 
 ## Section H: Student / Parent Dashboard Actions (Student/Parent Role)
