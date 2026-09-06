@@ -18,7 +18,7 @@
   import TextInput from './TextInput.svelte'
   import InstructorFeedbackForm from './forms/InstructorFeedbackForm.svelte'
   import { SubRequestStatus } from './helpers/SubRequestStatus'
-  import { curriculums } from './helpers/curriculum'
+  import { generateCurriculumLink } from './helpers/curriculumLink'
   import sendClassReminder from './helpers/sendClassReminder'
 
   interface Props {
@@ -147,7 +147,18 @@
           classesMissingSubs = classesMissingSubs.filter(
             (classMissingSub) => classMissingSub.id !== classToSub.id,
           )
-          userSubClassesList.push(classToSub)
+          // The claim's own fields, not the request as it was read a moment
+          // ago: pushing the stale copy left the card describing a class with
+          // no substitute on it until the reload a second later, and anything
+          // acting on it in between - "Send Reminder", which signs the email
+          // with `subInstructorFirstName` - had an empty name to work with.
+          userSubClassesList.push({
+            ...classToSub,
+            subRequestStatus: SubRequestStatus.SubstituteFound,
+            subInstructorId: currentUser.object.uid,
+            subInstructorFirstName: currentUser.profile.firstName,
+            subInstructorEmail: currentUser.object.email ?? '',
+          })
           alert.trigger('success', 'Signup successful!')
           setTimeout(() => {
             window.location.reload()
@@ -163,9 +174,23 @@
   }
 
   async function sendReminder(subRequest: Data.SubRequest) {
-    let { course, subInstructorFirstName, dateOfClass, id } = subRequest
+    const { course, subInstructorFirstName, dateOfClass, id } = subRequest
     try {
-      const studentList = await classService.fetchStudentListForClass(id)
+      // The *class*, not the request: `id` is `${classId}---${classNumber}`,
+      // which names no class document. The lookup came back empty, and an
+      // empty roster is a silent no-op in sendClassReminder - it loops over
+      // the students and there are none - so the confirm appeared and then
+      // nothing at all happened: no email, no error, no toast.
+      const studentList = await classService.fetchStudentListForClass(
+        subRequestClassId(id),
+      )
+      if (studentList.length === 0) {
+        alert.trigger(
+          'error',
+          'That class has no students to remind. Please reload and try again.',
+        )
+        return
+      }
       sendClassReminder({
         studentList: studentList,
         className: course,
@@ -312,7 +337,8 @@
             class="mt-2"
             onclick={() =>
               window.open(
-                `${curriculums.filter((curriculum) => curriculum.class === classBeingSubbed.course)[0].url}`,
+                `${generateCurriculumLink(classBeingSubbed.course)}`,
+                '_blank',
               )}>Curriculum</Button
           >
           <Button

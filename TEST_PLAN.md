@@ -407,13 +407,12 @@ graph TD
   - A success toast `"Sub request sent!"` is displayed.
   - The page reloads, and the sub request is saved in the database under `subRequests/{classId}---{classNumber}`.
 
-### The Sub Request Lifecycle (Test Cases 15b-15d, 13r)
+### The Sub Request Lifecycle (`cypress/e2e/substitute.cy.ts`)
 
 A sub request lives at `subRequests/{classId}---{classNumber}` for its whole
-life. Test Case 15 covers filing one; these cover what happens to it
-afterwards, and are written so that the instructor who asks and the instructor
-who covers are different people - the configuration Test Case 15 cannot
-exercise, since there the same account does both.
+life. The flow spans three accounts and two dashboards, so it has a spec of its
+own; Test Case 15 (filing one) moved there with it. Every case below was
+written against a defect.
 
 - **15b - Editing changes the request that exists**: editing the notes and
   moving the request to another session updates the document under the class,
@@ -423,9 +422,6 @@ exercise, since there the same account does both.
   from the card. (Deleting a document that does not exist succeeds silently, so
   a delete aimed at the wrong path reported success and left the request
   standing.)
-- **13r - A co-instructor can cancel the request they filed**: same path, and
-  the sharpest case for it - a co-instructor's uid appears nowhere in the
-  class's id.
 - **15d - A substitute signs up and is recorded on it**: the request records
   `subInstructorId`/`FirstName`/`Email` and flips to `SubstituteFound`; the
   confirmation email goes to the substitute, cc's the class's instructor
@@ -439,6 +435,26 @@ exercise, since there the same account does both.
   read from the request rather than from the form.
 - **15f - A covered class earns the substitute their hours**: the covered class
   shows up as 1.5 hours of substitute instruction on `/community-service`.
+- **15g - The substitute can remind the class**: the reminder reaches the
+  roster and is signed by the substitute - for that session they are who the
+  students are meeting. (It looked the roster up by the sub request's id rather
+  than the class's, found nobody, and sent nothing at all: no email, no error,
+  no toast.)
+- **15h - A substitute-only instructor gets the substitute dashboard**: an
+  instructor whose decision is `substitute` rather than `accepted` sees the
+  "Substitute Classes" card and the sessions needing cover, and none of the
+  class schedule, class details form or sub requests of their own. That account
+  type had never been signed in as; it is seeded as `substitute@gbstem.org`.
+- **15i - One substitute can take several sessions at once**: the signup list
+  is a checkbox group over whole request objects with a single Submit, so two
+  boxes have to fan out into two claims and two confirmations.
+- **15j - Cancelling one that already has a substitute**: a different delete
+  branch from 15c's, and the one where a wrong document id would have left a
+  substitute expecting to teach a class the instructor thought they had called
+  off.
+- **15k - A failed signup says so**: the claim is written before the
+  confirmation email is sent, so a failure there has to be visible or the
+  substitute is left unsure whether they are covering the class.
 
 Both halves of 15e go through `/api/substituteSession` and
 `/api/substituteFeedback` rather than the client SDK, and that is the only way
@@ -459,6 +475,9 @@ way to know), so the endpoints check it with the Admin SDK instead, and
 substitute, a request nobody has signed up for, a request or class since
 deleted, feedback filed against a different session than the request covers,
 and a session that has fallen off the end of the schedule.
+
+Co-instructors file and cancel sub requests too; that half stays in
+`instructor.cy.ts` as Test Cases 13n and 13r.
 
 ### Co-Instructors (Test Cases 13h-13q)
 
