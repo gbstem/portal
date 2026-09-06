@@ -97,9 +97,15 @@ const mockCollection = {
   startAfter: jest.fn().mockReturnThis(),
 }
 
+const mockBatch = {
+  set: jest.fn(),
+  update: jest.fn(),
+  commit: jest.fn().mockResolvedValue(undefined),
+}
 const mockAdminDb = {
   collection: jest.fn().mockReturnValue(mockCollection),
   doc: jest.fn().mockImplementation((id) => mockDoc(id)),
+  batch: jest.fn(() => mockBatch),
 }
 
 jest.mock('firebase-admin', () => ({
@@ -167,11 +173,17 @@ import { POST as interviewPOST } from '../src/routes/api/interview/+server'
 import { POST as registrationPOST } from '../src/routes/api/registration/+server'
 import { POST as lookupCoInstructorPOST } from '../src/routes/api/lookupCoInstructor/+server'
 import { NOT_AN_ACCEPTED_INSTRUCTOR } from '$lib/server/instructorDirectory'
-import { decisionsCollection } from '$lib/data/collections'
+import {
+  classesCollection,
+  decisionsCollection,
+  substituteRequestsCollection,
+} from '$lib/data/collections'
 import { POST as remindStudentsPOST } from '../src/routes/api/remindStudents/+server'
 import { POST as resolveCoInstructorsPOST } from '../src/routes/api/resolveCoInstructors/+server'
 import { POST as slotRequestPOST } from '../src/routes/api/slotRequest/+server'
 import { POST as substitutePOST } from '../src/routes/api/substitute/+server'
+import { POST as substituteFeedbackPOST } from '../src/routes/api/substituteFeedback/+server'
+import { POST as substituteSessionPOST } from '../src/routes/api/substituteSession/+server'
 import { POST as tokenPOST } from '../src/routes/api/token/+server'
 import MailService from '@sendgrid/mail'
 
@@ -1536,6 +1548,322 @@ describe('API routes POST endpoints', () => {
     it('tokenPOST propagates the auth error when the user is not signed in', async () => {
       await expect(tokenPOST({ locals: {} } as any)).rejects.toEqual(
         expect.objectContaining({ status: 401, __isSvelteKitError: true }),
+      )
+    })
+  })
+})
+
+/**
+ * The two endpoints that exist because a substitute cannot write to the class
+ * they are covering: firestore.rules opens a class document to its own
+ * instructors and its co-instructors, and a substitute is neither. Their
+ * claim to write lives in the sub request naming them, which rules cannot
+ * follow - so the Admin SDK checks it here, and these are the tests of that
+ * check.
+ */
+describe('substitute session endpoints', () => {
+  let mockRequest: any
+
+  const SUB_REQUEST_ID = 'owner-uid-1---2'
+  const substituteLocals = {
+    user: { uid: 'sub-uid', email: 'sub@gbstem.org', role: 'instructor' },
+  }
+
+  /**
+   * Points adminDb.doc() at a sub request and the class it belongs to.
+   * `overrides` edits either document for the case under test.
+   */
+  function mockSubRequestAndClass(overrides: {
+    subRequest?: Record<string, unknown>
+    classData?: Record<string, unknown>
+    missing?: 'subRequest' | 'class'
+  }) {
+    const subRequest = {
+      classNumber: 2,
+      course: 'Python 1',
+      dateOfClass: 'timestamp-for-week-2',
+      subInstructorId: 'sub-uid',
+      subInstructorFirstName: 'Sub',
+      subRequestStatus: 'SubstituteFound',
+      ...overrides.subRequest,
+    }
+    const classData = {
+      meetingLink: 'https://zoom.us/j/1',
+      completedClassDates: ['timestamp-for-week-1'],
+      classStatuses: ['EverythingComplete', 'ClassInFuture', 'ClassInFuture'],
+      feedbackCompleted: [true, false, false],
+      ...overrides.classData,
+    }
+    mockAdminDb.doc.mockImplementation((path: string) => {
+      if (path === `${substituteRequestsCollection}/${SUB_REQUEST_ID}`) {
+        return {
+          get: async () => ({
+            exists: overrides.missing !== 'subRequest',
+            data: () => subRequest,
+          }),
+        }
+      }
+      if (path.startsWith(`${classesCollection}/`)) {
+        return {
+          get: async () => ({
+            exists: overrides.missing !== 'class',
+            data: () => classData,
+          }),
+        }
+      }
+      return { get: async () => ({ exists: false, data: () => undefined }) }
+    })
+    return { subRequest, classData }
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    mockRequest = { json: jest.fn() }
+    mockBatch.commit.mockResolvedValue(undefined)
+  })
+
+  afterEach(() => {
+    mockAdminDb.doc.mockImplementation((id: string) => mockDoc(id))
+  })
+
+  describe('/api/substituteSession', () => {
+    it('marks the session held and asks the substitute for feedback', async () => {
+      mockSubRequestAndClass({})
+      mockRequest.json.mockResolvedValue({ subRequestId: SUB_REQUEST_ID })
+
+      const res: any = await substituteSessionPOST({
+        request: mockRequest as any,
+        locals: substituteLocals,
+      } as any)
+
+      expect(res.body).toEqual({
+        meetingLink: 'https://zoom.us/j/1',
+        alreadyRecorded: false,
+      })
+      // The class is written once, the request once, in one batch - the pair
+      // used to be two sequential client writes, either of which could land
+      // without the other.
+      const [, classPayload] = mockBatch.update.mock.calls[0]
+      expect(classPayload.completedClassDates).toEqual([
+        'timestamp-for-week-1',
+        'timestamp-for-week-2',
+      ])
+      // Indexed by classNumber - 1: week 2, leaving weeks 1 and 3 alone.
+      expect(classPayload.classStatuses).toEqual([
+        'EverythingComplete',
+        'FeedbackIncomplete',
+        'ClassInFuture',
+      ])
+      const [, subRequestPayload] = mockBatch.update.mock.calls[1]
+      expect(subRequestPayload).toEqual({
+        subRequestStatus: 'SubstituteFeedbackNeeded',
+      })
+      expect(mockBatch.commit).toHaveBeenCalledTimes(1)
+    })
+
+    it('is idempotent - joining twice records the date once', async () => {
+      mockSubRequestAndClass({
+        subRequest: { subRequestStatus: 'SubstituteFeedbackNeeded' },
+      })
+      mockRequest.json.mockResolvedValue({ subRequestId: SUB_REQUEST_ID })
+
+      const res: any = await substituteSessionPOST({
+        request: mockRequest as any,
+        locals: substituteLocals,
+      } as any)
+
+      // The link still comes back, so a dropped call can be rejoined.
+      expect(res.body).toEqual({
+        meetingLink: 'https://zoom.us/j/1',
+        alreadyRecorded: true,
+      })
+      expect(mockBatch.commit).not.toHaveBeenCalled()
+    })
+
+    it('refuses an instructor who is not the substitute for that class', async () => {
+      mockSubRequestAndClass({
+        subRequest: { subInstructorId: 'someone-else' },
+      })
+      mockRequest.json.mockResolvedValue({ subRequestId: SUB_REQUEST_ID })
+
+      await expect(
+        substituteSessionPOST({
+          request: mockRequest as any,
+          locals: substituteLocals,
+        } as any),
+      ).rejects.toEqual(
+        expect.objectContaining({
+          status: 403,
+          message: 'You are not the substitute for that class.',
+        }),
+      )
+      expect(mockBatch.commit).not.toHaveBeenCalled()
+    })
+
+    it('refuses a request nobody has signed up for', async () => {
+      mockSubRequestAndClass({ subRequest: { subInstructorId: '' } })
+      mockRequest.json.mockResolvedValue({ subRequestId: SUB_REQUEST_ID })
+
+      await expect(
+        substituteSessionPOST({
+          request: mockRequest as any,
+          locals: substituteLocals,
+        } as any),
+      ).rejects.toEqual(expect.objectContaining({ status: 403 }))
+    })
+
+    it('404s a request or class that has since been deleted', async () => {
+      mockSubRequestAndClass({ missing: 'subRequest' })
+      mockRequest.json.mockResolvedValue({ subRequestId: SUB_REQUEST_ID })
+      await expect(
+        substituteSessionPOST({
+          request: mockRequest as any,
+          locals: substituteLocals,
+        } as any),
+      ).rejects.toEqual(
+        expect.objectContaining({
+          status: 404,
+          message: 'That substitute request no longer exists.',
+        }),
+      )
+
+      mockSubRequestAndClass({ missing: 'class' })
+      await expect(
+        substituteSessionPOST({
+          request: mockRequest as any,
+          locals: substituteLocals,
+        } as any),
+      ).rejects.toEqual(expect.objectContaining({ status: 404 }))
+    })
+
+    it('refuses a session that is off the end of the schedule', async () => {
+      // The per-session arrays are indexed by `classNumber - 1`, and writing
+      // past the end extends the array with holes rather than failing - so a
+      // request left pointing at a session the instructor has since deleted
+      // has to be caught before anything is written.
+      mockSubRequestAndClass({ subRequest: { classNumber: 9 } })
+      mockRequest.json.mockResolvedValue({ subRequestId: SUB_REQUEST_ID })
+
+      await expect(
+        substituteSessionPOST({
+          request: mockRequest as any,
+          locals: substituteLocals,
+        } as any),
+      ).rejects.toEqual(
+        expect.objectContaining({
+          status: 400,
+          message: expect.stringContaining('no longer on the schedule'),
+        }),
+      )
+      expect(mockBatch.commit).not.toHaveBeenCalled()
+    })
+
+    it('rejects a caller who is not an instructor at all', async () => {
+      mockSubRequestAndClass({})
+      mockRequest.json.mockResolvedValue({ subRequestId: SUB_REQUEST_ID })
+
+      await expect(
+        substituteSessionPOST({
+          request: mockRequest as any,
+          locals: { user: { uid: 's', email: 's@x.org', role: 'student' } },
+        } as any),
+      ).rejects.toEqual(expect.objectContaining({ status: 403 }))
+    })
+  })
+
+  describe('/api/substituteFeedback', () => {
+    const feedbackBody = {
+      subRequestId: SUB_REQUEST_ID,
+      date: '2026-10-02',
+      feedback: 'Covered lists and loops.',
+      attendanceList: { 'Ada Lovelace': { present: true } },
+      classNumber: 2,
+    }
+
+    it('files the feedback, completes the session and closes the request', async () => {
+      mockSubRequestAndClass({})
+      mockRequest.json.mockResolvedValue(feedbackBody)
+
+      const res: any = await substituteFeedbackPOST({
+        request: mockRequest as any,
+        locals: substituteLocals,
+      } as any)
+
+      expect(res.body.feedbackId).toMatch(/^owner-uid-1-\d+$/)
+      const [, feedbackDoc] = mockBatch.set.mock.calls[0]
+      expect(feedbackDoc).toEqual(
+        expect.objectContaining({
+          date: '2026-10-02',
+          feedback: 'Covered lists and loops.',
+          attendanceList: { 'Ada Lovelace': { present: true } },
+          classNumber: 2,
+          // Both read off the request rather than taken from the browser.
+          courseName: 'Python 1',
+          instructorName: 'Sub',
+        }),
+      )
+      const [, classPayload] = mockBatch.update.mock.calls[0]
+      expect(classPayload.feedbackCompleted).toEqual([true, true, false])
+      expect(classPayload.classStatuses).toEqual([
+        'EverythingComplete',
+        'EverythingComplete',
+        'ClassInFuture',
+      ])
+      // Closing the request out is what credits the substitute's hours, so it
+      // has to be in the same batch as the feedback.
+      const [, subRequestPayload] = mockBatch.update.mock.calls[1]
+      expect(subRequestPayload).toEqual({
+        subRequestStatus: 'NoSubstituteNeeded',
+      })
+    })
+
+    it('refuses feedback filed against a different session', async () => {
+      mockSubRequestAndClass({})
+      mockRequest.json.mockResolvedValue({ ...feedbackBody, classNumber: 3 })
+
+      await expect(
+        substituteFeedbackPOST({
+          request: mockRequest as any,
+          locals: substituteLocals,
+        } as any),
+      ).rejects.toEqual(
+        expect.objectContaining({
+          status: 400,
+          message: expect.stringContaining('That request is for class #2'),
+        }),
+      )
+      expect(mockBatch.commit).not.toHaveBeenCalled()
+    })
+
+    it('refuses an instructor who is not the substitute for that class', async () => {
+      mockSubRequestAndClass({
+        subRequest: { subInstructorId: 'someone-else' },
+      })
+      mockRequest.json.mockResolvedValue(feedbackBody)
+
+      await expect(
+        substituteFeedbackPOST({
+          request: mockRequest as any,
+          locals: substituteLocals,
+        } as any),
+      ).rejects.toEqual(expect.objectContaining({ status: 403 }))
+      expect(mockBatch.commit).not.toHaveBeenCalled()
+    })
+
+    it('rejects an empty reflection rather than storing one', async () => {
+      mockSubRequestAndClass({})
+      mockRequest.json.mockResolvedValue({ ...feedbackBody, feedback: '' })
+
+      await expect(
+        substituteFeedbackPOST({
+          request: mockRequest as any,
+          locals: substituteLocals,
+        } as any),
+      ).rejects.toEqual(
+        expect.objectContaining({
+          status: 400,
+          message: expect.stringContaining('Reflection/feedback is required'),
+        }),
       )
     })
   })
