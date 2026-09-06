@@ -436,10 +436,12 @@ deliberately differs from the class's primary instructor.
 - **13l - Community service hours**: sessions of a shared class count toward the
   co-instructor's hours, and the confirmation email goes to their own address.
 - **13m - Schedule editing**: sessions can be moved, added and deleted.
-- **13n - Sub requests are filed in the primary's name** (limitation): the
-  request is built from the class document, so `originalInstructorUid`/`Email`
-  are the primary's, and `/api/substitute` replies to and cc's them - a
-  co-instructor who asks for a sub does not hear back directly.
+- **13n - Sub requests are filed for the class and credited to the asker**: the
+  request still names the class's instructor of record
+  (`originalInstructorUid`/`Email`), and `/api/substitute` still replies to
+  them - a substitute is covering the class, not the person who asked. It also
+  records `requestedByUid`, so a co-instructor is cc'd when a substitute signs
+  up and the request shows up under their own "Your Sub Requests".
 - **13o - Reminders copy the rest of the teaching staff**: the cc list is every
   instructor on the class except the sender (resolved server-side from uids, so
   always to current addresses), which means a co-instructor's reminder copies

@@ -16,6 +16,9 @@ const substituteSchema = z.object({
     .string()
     .email('Invalid original instructor email address')
     .optional(),
+  // Who asked for the sub. The same person as the original instructor unless
+  // a co-instructor filed the request - see buildSubRequestPayload.
+  requestedByUid: z.string().optional(),
   subInstructorEmail: z
     .string()
     .email('Invalid substitute instructor email address')
@@ -23,6 +26,19 @@ const substituteSchema = z.object({
 })
 
 export type SubstituteRequestBody = z.infer<typeof substituteSchema>
+
+/**
+ * An account's current address, or undefined if the uid names none. A deleted
+ * or mistyped uid drops out of the cc rather than failing the send.
+ */
+async function resolveEmailByUid(uid: string): Promise<string | undefined> {
+  try {
+    return (await adminAuth.getUser(uid)).email
+  } catch (err) {
+    console.error(`Failed to resolve an email for uid ${uid}:`, err)
+    return undefined
+  }
+}
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   try {
@@ -56,6 +72,24 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       )
     }
 
+    // The class's instructor of record is always told a substitute turned up.
+    // So is whoever actually asked for the sub, when that is somebody else: a
+    // request filed by a co-instructor is stamped with the *class's*
+    // instructor, so before this they got no confirmation at all for a
+    // session they arranged cover for. The caller is the substitute and is
+    // already the `to`, so they never appear in the cc.
+    const ccEmails = [originalInstructorEmail]
+    if (body.requestedByUid) {
+      const requesterEmail = await resolveEmailByUid(body.requestedByUid)
+      if (
+        requesterEmail &&
+        requesterEmail !== originalInstructorEmail &&
+        requesterEmail !== user.email
+      ) {
+        ccEmails.push(requesterEmail)
+      }
+    }
+
     const template = {
       name: 'interviewSlotRequest',
       data: {
@@ -76,7 +110,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     try {
       await sendEmail({
         to: user.email,
-        cc: originalInstructorEmail,
+        cc: ccEmails,
         subject: String(template.data.subject),
         html: htmlBody,
         replyTo: originalInstructorEmail,

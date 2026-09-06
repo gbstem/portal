@@ -203,6 +203,11 @@ export function buildSubRequestPayload(params: {
   course: string
   instructorEmail: string
   instructorUid?: string
+  // The signed-in instructor, who may be a co-instructor rather than the
+  // class's owner. `originalInstructor*` below is the class's instructor of
+  // record whoever asks, so without this the request names nobody who can be
+  // told a substitute turned up.
+  requestedByUid?: string
   meetingLink: string
 }): Data.SubRequest {
   // New sub requests will have an instructorUid, but legacy ones may not, and in that case
@@ -218,6 +223,7 @@ export function buildSubRequestPayload(params: {
     course: params.course,
     originalInstructorEmail: params.instructorEmail,
     originalInstructorUid,
+    requestedByUid: params.requestedByUid ?? originalInstructorUid,
     subInstructorFirstName: '',
     subInstructorEmail: '',
     subInstructorId: '',

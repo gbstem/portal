@@ -1293,6 +1293,114 @@ describe('API routes POST endpoints', () => {
     expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
   })
 
+  // Whoever asked for the sub has to hear that one turned up. For a class
+  // with co-instructors that is not always the instructor the request is
+  // filed against, and before this they were told nothing at all.
+  it('substitutePOST cc’s the requester alongside the original instructor', async () => {
+    mockAdminAuth.getUser
+      .mockResolvedValueOnce({ uid: 'orig-uid-1', email: 'orig@gbstem.org' })
+      .mockResolvedValueOnce({ uid: 'co-uid-1', email: 'co@gbstem.org' })
+    mockRequest.json.mockResolvedValue({
+      firstName: 'Alice',
+      course: 'Math',
+      classNumber: 1,
+      date: '2026-09-10',
+      originalInstructorUid: 'orig-uid-1',
+      requestedByUid: 'co-uid-1',
+    })
+
+    await substitutePOST({
+      request: mockRequest as any,
+      locals: { user: { email: 'sub@gbstem.org', role: 'instructor' } },
+    } as any)
+
+    expect(MailService.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: ['sub@gbstem.org'],
+        cc: ['orig@gbstem.org', 'co@gbstem.org'],
+        // Replies still go to the class's instructor of record.
+        replyTo: 'orig@gbstem.org',
+      }),
+    )
+  })
+
+  it('substitutePOST does not cc the requester twice, or the substitute at all', async () => {
+    // The ordinary case: the class's own instructor filed the request, so the
+    // two uids resolve to one address. And the substitute is already the
+    // recipient - a sub picking up a session they had asked cover for
+    // themselves (having swapped it with someone) must not be cc'd on it.
+    mockAdminAuth.getUser
+      .mockResolvedValueOnce({ uid: 'orig-uid-1', email: 'orig@gbstem.org' })
+      .mockResolvedValueOnce({ uid: 'orig-uid-1', email: 'orig@gbstem.org' })
+    mockRequest.json.mockResolvedValue({
+      firstName: 'Alice',
+      course: 'Math',
+      classNumber: 1,
+      date: '2026-09-10',
+      originalInstructorUid: 'orig-uid-1',
+      requestedByUid: 'orig-uid-1',
+    })
+
+    await substitutePOST({
+      request: mockRequest as any,
+      locals: { user: { email: 'sub@gbstem.org', role: 'instructor' } },
+    } as any)
+
+    expect(MailService.send).toHaveBeenCalledWith(
+      expect.objectContaining({ cc: ['orig@gbstem.org'] }),
+    )
+
+    ;(MailService.send as jest.Mock).mockClear()
+    mockAdminAuth.getUser
+      .mockResolvedValueOnce({ uid: 'orig-uid-1', email: 'orig@gbstem.org' })
+      .mockResolvedValueOnce({ uid: 'sub-uid-1', email: 'sub@gbstem.org' })
+    mockRequest.json.mockResolvedValue({
+      firstName: 'Alice',
+      course: 'Math',
+      classNumber: 1,
+      date: '2026-09-10',
+      originalInstructorUid: 'orig-uid-1',
+      requestedByUid: 'sub-uid-1',
+    })
+
+    await substitutePOST({
+      request: mockRequest as any,
+      locals: { user: { email: 'sub@gbstem.org', role: 'instructor' } },
+    } as any)
+
+    expect(MailService.send).toHaveBeenCalledWith(
+      expect.objectContaining({ cc: ['orig@gbstem.org'] }),
+    )
+  })
+
+  it('substitutePOST still sends when the requester’s account is gone', async () => {
+    // A deleted account drops out of the cc rather than failing the send, the
+    // same way a deleted co-instructor does on a reminder.
+    mockAdminAuth.getUser
+      .mockResolvedValueOnce({ uid: 'orig-uid-1', email: 'orig@gbstem.org' })
+      .mockRejectedValueOnce(new Error('no such user'))
+    mockRequest.json.mockResolvedValue({
+      firstName: 'Alice',
+      course: 'Math',
+      classNumber: 1,
+      date: '2026-09-10',
+      originalInstructorUid: 'orig-uid-1',
+      requestedByUid: 'deleted-uid',
+    })
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
+
+    const res = await substitutePOST({
+      request: mockRequest as any,
+      locals: { user: { email: 'sub@gbstem.org', role: 'instructor' } },
+    } as any)
+
+    expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
+    expect(MailService.send).toHaveBeenCalledWith(
+      expect.objectContaining({ cc: ['orig@gbstem.org'] }),
+    )
+    errorSpy.mockRestore()
+  })
+
   it('substitutePOST successfully falls back to originalInstructorEmail', async () => {
     mockRequest.json.mockResolvedValue({
       firstName: 'Alice',

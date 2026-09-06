@@ -27,7 +27,12 @@ export function parseSubRequestDocs(
 
     const classInfo = { ...data, id: docId } as Data.SubRequest
 
-    if (docId.includes(userId)) {
+    // The id match is how an owner finds their own requests: a class id is
+    // `${ownerUid}-${n}`, so the request id contains their uid. A
+    // co-instructor's uid appears nowhere in it, which left them unable to
+    // see - or cancel - a request they filed themselves; `requestedByUid`
+    // says who asked regardless of whose class it is.
+    if (docId.includes(userId) || classInfo.requestedByUid === userId) {
       userSubRequests.push(classInfo)
     }
 
@@ -89,6 +94,11 @@ export function buildSubstituteApiPayload(
     date: formatDate(timestampToDate(classToSub.dateOfClass)),
     originalInstructorUid: originalInstructorUid || undefined,
     originalInstructorEmail: classToSub.originalInstructorEmail,
+    // Whoever asked for the sub, so the confirmation copies them as well as
+    // the class's instructor of record. The two are the same person unless a
+    // co-instructor filed the request, and absent on requests written before
+    // the field existed.
+    requestedByUid: classToSub.requestedByUid || undefined,
   }
 }
 

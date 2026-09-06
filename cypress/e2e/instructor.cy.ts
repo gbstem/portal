@@ -1677,18 +1677,15 @@ describe('Section G: Co-Instructor Access To A Shared Class', () => {
     })
   })
 
-  it('Test Case 13n: Co-Instructor - A Sub Request Is Filed In The Primary’s Name', () => {
-    // A limitation rather than a bug, pinned so it stays a decision: the sub
-    // request is built from the *class document*, so it names the class's
-    // instructor of record no matter which of its instructors asked for the
-    // sub. /api/substitute then cc's and reply-to's that address when someone
-    // signs up, which means a co-instructor who requests a sub does not hear
-    // back directly - the primary does.
-    //
-    // TODO(co-instructor sub requests): if that trips people up in practice,
-    // the fix is to carry the requesting uid on the sub request as well and cc
-    // both, not to overwrite `originalInstructorUid` - substitutes need to
-    // reach whoever is accountable for the class.
+  it('Test Case 13n: Co-Instructor - A Sub Request Is Filed For The Class And Credited To Them', () => {
+    // Two things have to be true at once. The request is built from the
+    // *class document*, so it goes on naming the class's instructor of record
+    // whoever asks - a substitute is covering the class, and replies belong
+    // with the person accountable for it. But it also records who asked, so
+    // that a co-instructor is copied when a substitute signs up (see
+    // /api/substitute) and can find the request they filed: a request id is
+    // `${ownerUid}-${n}---${m}`, which contains the owner's uid and nobody
+    // else's, so before this their own request was invisible to them.
     const notes = 'Sub needed: covering loops and lists, slides are in Drive.'
     grantCoInstructorAccess()
     signInAsCoInstructorAfterOrientation()
@@ -1717,6 +1714,14 @@ describe('Section G: Co-Instructor Access To A Shared Class', () => {
             expect(request.notes).to.equal(notes)
             expect(request.originalInstructorUid).to.equal(OWNER_UID)
             expect(request.originalInstructorEmail).to.equal(OWNER_EMAIL)
+            expect(request.requestedByUid, 'who asked').to.equal(COHOST_UID)
+
+            // ...and it is theirs to manage: "Your Sub Requests" is keyed off
+            // the same field, so the co-instructor can see it, edit it or
+            // cancel it rather than having to ask the owner to.
+            cy.contains('h2', 'Your Sub Requests', { timeout: 10000 })
+              .parent()
+              .should('contain', `${request.course} class #${classNumber}`)
           })
         })
       })

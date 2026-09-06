@@ -236,6 +236,11 @@ declare global {
       dateOfClass: Date
       originalInstructorEmail: string
       originalInstructorUid?: string
+      // Who asked for the sub, which is not always the class's instructor of
+      // record: a co-instructor can request one too, and only this says so -
+      // `originalInstructor*` is read off the class document either way.
+      // Optional because requests written before it existed don't carry it.
+      requestedByUid?: string
       subInstructorId: string
       subInstructorFirstName: string
       subInstructorEmail: string

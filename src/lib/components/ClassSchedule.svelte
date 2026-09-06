@@ -224,6 +224,9 @@
         values.instructorEmail,
         values.meetingLink,
         values.instructorUid,
+        // Whoever is signed in, which for a co-taught class need not be the
+        // instructor the class document names.
+        $user?.object.uid,
       )
       .then(() => {
         alert.trigger('success', 'Sub request sent!')

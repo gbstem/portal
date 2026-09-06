@@ -151,6 +151,7 @@ export const classService = {
     instructorEmail: string,
     meetingLink: string,
     instructorUid?: string,
+    requestedByUid?: string,
   ): Promise<void> {
     const subRequest = buildSubRequestPayload({
       classId,
@@ -161,6 +162,7 @@ export const classService = {
       instructorEmail,
       meetingLink,
       instructorUid,
+      requestedByUid,
     })
 
     const docRef = doc(
