@@ -268,6 +268,11 @@ export const classService = {
    * list: the owner and every current co-instructor can reach the class, and
    * anyone dropped from the list stops seeing it.
    *
+   * `mainInstructorUid` must be the class's *owner*, not whoever is saving:
+   * this uid is the one exempted from removal, so passing a co-instructor
+   * would let them drop themselves from the class and keep it on their
+   * dashboard anyway.
+   *
    * This index is a convenience, not the authorization boundary. Write access
    * is decided by firestore.rules's isInstructorOfClass(), which reads the
    * class document's own `otherInstructorUids`; the class write that precedes
