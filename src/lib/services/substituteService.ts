@@ -8,6 +8,8 @@ import {
 import {
   buildSubstituteApiPayload,
   parseSubRequestDocs,
+  subRequestClassId,
+  subRequestDocId,
   type SubClassesDataResult,
 } from '$lib/helpers/subClasses'
 import {
@@ -58,34 +60,47 @@ export const substituteService = {
    * Creates or updates a substitute request doc.
    */
   async saveSubRequest(
-    userUid: string,
     subRequest: Data.SubRequest,
     originalClassNumber?: number,
   ): Promise<void> {
+    // Keyed by the class, never by whoever is signed in: an edit has to land
+    // on the document the request was created at, and a co-instructor editing
+    // a request is not the uid in that class's id anyway.
+    const classId = subRequestClassId(subRequest.id)
+    if (!classId) {
+      throw new Error(
+        `Cannot save a sub request without a class: id was "${subRequest.id}"`,
+      )
+    }
+
     const docRef = doc(
       db,
       substituteRequestsCollection,
-      `${userUid}---${subRequest.classNumber}`,
+      subRequestDocId(classId, subRequest.classNumber),
     )
-    await setDoc(docRef, subRequest)
+    // `id` is stored as the class id at creation (see buildSubRequestPayload)
+    // while the in-memory copy carries the document id, so it is restamped
+    // rather than written back as read.
+    await setDoc(docRef, { ...subRequest, id: classId })
 
+    // Moving a request to another session moves the document, so the one it
+    // came from has to go.
     if (
       originalClassNumber !== undefined &&
       subRequest.classNumber !== originalClassNumber
     ) {
-      await this.deleteSubRequest(userUid, originalClassNumber)
+      await this.deleteSubRequest(subRequestDocId(classId, originalClassNumber))
     }
   },
 
   /**
    * Deletes a substitute request doc.
    */
-  async deleteSubRequest(userUid: string, classNumber: number): Promise<void> {
-    const docRef = doc(
-      db,
-      substituteRequestsCollection,
-      `${userUid}---${classNumber}`,
-    )
+  async deleteSubRequest(subRequestId: string): Promise<void> {
+    // The document id as read, rather than one rebuilt from the signed-in
+    // user - deleting a document that does not exist succeeds silently, so
+    // getting this wrong reported success and left the request standing.
+    const docRef = doc(db, substituteRequestsCollection, subRequestId)
     await deleteDoc(docRef)
   },
 

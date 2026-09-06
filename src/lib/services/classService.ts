@@ -20,6 +20,7 @@ import {
   sortClassesBySpotsRemaining,
   type ClassInfo,
 } from '$lib/helpers/classesPage'
+import { subRequestDocId } from '$lib/helpers/subClasses'
 import { timestampToDate } from '$lib/utils'
 import {
   arrayRemove,
@@ -168,7 +169,7 @@ export const classService = {
     const docRef = doc(
       db,
       substituteRequestsCollection,
-      `${classId}---${subRequestClassNumber}`,
+      subRequestDocId(classId, subRequestClassNumber),
     )
     await setDoc(docRef, subRequest)
   },

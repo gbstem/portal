@@ -99,11 +99,7 @@
     const editingSubRequest = subRequestsFromUser[i]
     editingSubRequest.dateOfClass = new Date(stringSubRequestDates[i])
     substituteService
-      .saveSubRequest(
-        currentUser.object.uid,
-        editingSubRequest,
-        originalSubClassNumbers[i],
-      )
+      .saveSubRequest(editingSubRequest, originalSubClassNumbers[i])
       .then(() => {
         alert.trigger('success', 'Sub request updated!')
         getData(currentUser.object.uid)
@@ -116,13 +112,13 @@
       })
   }
 
-  function deleteSubRequest(classNumber: number, check: boolean) {
+  function deleteSubRequest(subRequestId: string, check: boolean) {
     if (
       check === false ||
       confirm('Are you sure you want to delete this sub request?')
     ) {
       substituteService
-        .deleteSubRequest(currentUser.object.uid, classNumber)
+        .deleteSubRequest(subRequestId)
         .then(() => {
           alert.trigger(
             'success',
@@ -387,8 +383,7 @@
                   >
                   <Button
                     color="red"
-                    onclick={() =>
-                      deleteSubRequest(originalSubClassNumbers[i], true)}
+                    onclick={() => deleteSubRequest(subRequest.id, true)}
                     >{@render trashIcon()}</Button
                   >
                 </div>
@@ -410,8 +405,7 @@
                   >
                   <Button
                     color="red"
-                    onclick={() =>
-                      deleteSubRequest(originalSubClassNumbers[i], true)}
+                    onclick={() => deleteSubRequest(subRequest.id, true)}
                     >{@render trashIcon()}</Button
                   >
                 </div>
@@ -437,8 +431,7 @@
                   >
                   <Button
                     color="red"
-                    onclick={() =>
-                      deleteSubRequest(originalSubClassNumbers[i], true)}
+                    onclick={() => deleteSubRequest(subRequest.id, true)}
                     >{@render trashIcon()}</Button
                   >
                 </div>
@@ -454,8 +447,7 @@
                   <p><strong>Status: Substituted Class Complete</strong></p>
                   <Button
                     color="red"
-                    onclick={() =>
-                      deleteSubRequest(originalSubClassNumbers[i], true)}
+                    onclick={() => deleteSubRequest(subRequest.id, true)}
                     >{@render trashIcon()}</Button
                   >
                 </div>
