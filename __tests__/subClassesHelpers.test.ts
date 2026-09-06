@@ -29,6 +29,35 @@ describe('SubClasses Helpers', () => {
       expect(result.classesMissingSubs.length).toBe(1)
       expect(result.userSubClasses.length).toBe(1)
     })
+
+    // A co-instructor's uid is nowhere in `${ownerUid}-${n}---${m}`, so the id
+    // match alone hid a request they had filed themselves - they could not see
+    // it, edit it or cancel it.
+    test('counts a request as yours when you are the one who asked', () => {
+      const docs = [
+        {
+          id: 'owner-uid-1---1',
+          subRequestStatus: SubRequestStatus.SubstituteNeeded,
+          course: 'Python 1',
+          requestedByUid: 'co-uid',
+        },
+        {
+          id: 'owner-uid-1---2',
+          subRequestStatus: SubRequestStatus.SubstituteNeeded,
+          course: 'Python 1',
+          requestedByUid: 'owner-uid',
+        },
+      ]
+
+      const coInstructor = parseSubRequestDocs(docs, 'co-uid')
+      expect(coInstructor.userSubRequests.map((one) => one.id)).toEqual([
+        'owner-uid-1---1',
+      ])
+      // The owner still sees both: their own request by either route, and the
+      // co-instructor's because the class id carries their uid.
+      const owner = parseSubRequestDocs(docs, 'owner-uid')
+      expect(owner.userSubRequests).toHaveLength(2)
+    })
   })
 
   describe('filterCheckedOffSubClasses', () => {
@@ -78,6 +107,29 @@ describe('SubClasses Helpers', () => {
       // Parsed uids are a guess, so the stored address must still travel as
       // the server's fallback.
       expect(payload.originalInstructorEmail).toBe('orig@example.com')
+    })
+
+    test('carries whoever asked for the sub, so the server can copy them', () => {
+      const base = {
+        course: 'Python 1',
+        classNumber: 3,
+        dateOfClass: { seconds: 1779900600 },
+        originalInstructorEmail: 'orig@example.com',
+        originalInstructorUid: 'orig-uid-1',
+      }
+
+      expect(
+        buildSubstituteApiPayload('Jane', {
+          ...base,
+          requestedByUid: 'co-uid',
+        } as unknown as Data.SubRequest).requestedByUid,
+      ).toBe('co-uid')
+      // A request written before the field existed sends nothing rather than
+      // an empty string, which would name no account.
+      expect(
+        buildSubstituteApiPayload('Jane', base as unknown as Data.SubRequest)
+          .requestedByUid,
+      ).toBeUndefined()
     })
   })
 

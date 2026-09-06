@@ -158,6 +158,26 @@ export function findNextClassDateIndex(
 }
 
 /**
+ * Every instructor uid on a class - its owner, then its co-instructors, with
+ * blanks and duplicates dropped.
+ *
+ * What the reminder endpoint cc's, minus whoever is sending it. It has to
+ * carry the owner as well as `otherInstructorUids`, or a reminder sent by a
+ * co-instructor copies their colleagues and not the person whose class it is.
+ */
+export function classInstructorUids(klass: {
+  instructorUid?: string
+  otherInstructorUids?: string[]
+}): string[] {
+  return [
+    ...new Set([
+      klass.instructorUid ?? '',
+      ...(klass.otherInstructorUids ?? []),
+    ]),
+  ].filter(Boolean)
+}
+
+/**
  * Normalizes student document data from Firestore into a Student object.
  */
 export function transformStudentDocData(data: any): Student | null {
@@ -183,6 +203,11 @@ export function buildSubRequestPayload(params: {
   course: string
   instructorEmail: string
   instructorUid?: string
+  // The signed-in instructor, who may be a co-instructor rather than the
+  // class's owner. `originalInstructor*` below is the class's instructor of
+  // record whoever asks, so without this the request names nobody who can be
+  // told a substitute turned up.
+  requestedByUid?: string
   meetingLink: string
 }): Data.SubRequest {
   // New sub requests will have an instructorUid, but legacy ones may not, and in that case
@@ -198,6 +223,7 @@ export function buildSubRequestPayload(params: {
     course: params.course,
     originalInstructorEmail: params.instructorEmail,
     originalInstructorUid,
+    requestedByUid: params.requestedByUid ?? originalInstructorUid,
     subInstructorFirstName: '',
     subInstructorEmail: '',
     subInstructorId: '',

@@ -8,8 +8,9 @@ import type { RemindStudentsRequestBody } from '../../../routes/api/remindStuden
  * @param studentName The name of the student to send the email to, use "all" if you want to send it ot all of them
  * @param studentEmail The email of the student to send the email to
  * @param instructorName The name of the instructor
- * @param otherInstructorUids The uids of the class's other instructors, resolved to
- *   current email addresses server-side and cc'd on the reminder
+ * @param instructorUids The uids of every instructor on the class, the sender
+ *   included; the server drops the sender, resolves the rest to their current
+ *   email addresses and cc's them on the reminder
  * @param className The name of the class
  * @param nextMeetingTime The time of the next class
  */
@@ -18,7 +19,7 @@ function sendClassReminder(opts: {
   studentName?: string
   studentEmail?: string
   instructorName: string
-  otherInstructorUids: string[]
+  instructorUids: string[]
   className: string
   nextMeetingTime: string
 }) {
@@ -28,7 +29,7 @@ function sendClassReminder(opts: {
     studentName,
     studentEmail,
     instructorName,
-    otherInstructorUids,
+    instructorUids,
     className,
     nextMeetingTime,
   } = opts
@@ -45,7 +46,7 @@ function sendClassReminder(opts: {
         const payload: RemindStudentsRequestBody = {
           name: normalizeCapitals(student.name),
           email: student.email,
-          otherInstructorUids: otherInstructorUids,
+          instructorUids: instructorUids,
           class: className,
           classTime: nextMeetingTime,
           instructorName: normalizeCapitals(instructorName),
@@ -78,7 +79,7 @@ function sendClassReminder(opts: {
       const payload: RemindStudentsRequestBody = {
         name: studentName || '',
         email: studentEmail || '',
-        otherInstructorUids: otherInstructorUids,
+        instructorUids: instructorUids,
         class: className,
         classTime: nextMeetingTime,
         instructorName: normalizeCapitals(instructorName),

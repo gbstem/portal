@@ -172,7 +172,10 @@
         className: course,
         instructorName: subInstructorFirstName,
         nextMeetingTime: formatDate(timestampToDate(dateOfClass)),
-        otherInstructorUids: [],
+        // Empty, as before: a substitute's reminder speaks only for the one
+        // session they are covering, and a sub request doesn't carry the
+        // class's instructor list.
+        instructorUids: [],
       })
     } catch (err) {
       console.error('Failed to send reminder:', err)

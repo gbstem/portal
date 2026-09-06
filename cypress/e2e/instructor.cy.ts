@@ -4,6 +4,7 @@ import {
   classesCollection,
   currentSemester,
   instructorFeedbackCollection,
+  substituteRequestsCollection,
 } from '../../src/lib/data/collections'
 import semesterDates from '../../src/lib/data/semesterDates.json'
 import { generateDateHash, prepareDocForCompare } from '../support/utils'
@@ -449,6 +450,83 @@ function readClassDoc(): Cypress.Chainable<any> {
     .then((authToken: string) =>
       cy.getFirestoreDoc(authToken, classesCollection, SEEDED_CLASS_ID),
     )
+}
+
+const COHOST_EMAIL = 'cohost@gbstem.org'
+const COHOST_UID = ACCEPTED_CO_INSTRUCTOR_UIDS[COHOST_EMAIL]
+const OWNER_UID = 'instructor-demo-uid'
+const OWNER_EMAIL = 'instructor@gbstem.org'
+/**
+ * Not semester-scoped, unlike every other collection here: it's the uid-keyed
+ * index of which classes to show an instructor on their dashboard. See
+ * classService's fetchInstructorClasses.
+ */
+const INSTRUCTOR_CLASSES_COLLECTION = 'instructorClasses'
+
+/**
+ * Puts the seeded class into exactly the state a completed "add a
+ * co-instructor" save leaves behind: the uid on the class document (which is
+ * what firestore.rules reads to allow writes) and the class on the
+ * co-instructor's dashboard index.
+ *
+ * Written straight through the Admin SDK rather than by driving the owner's
+ * form, because that flow is already what Test Cases 13h-13j cover - these
+ * tests are about what the co-instructor can then *do*, and paying for a
+ * second sign-in and form round-trip in each of them would only add ways for
+ * them to fail for reasons that have nothing to do with what they assert.
+ */
+function grantCoInstructorAccess() {
+  cy.task('mergeFirestoreDoc', {
+    docPath: `${classesCollection}/${SEEDED_CLASS_ID}`,
+    data: { otherInstructorUids: [COHOST_UID] },
+  })
+  cy.task('mergeFirestoreDoc', {
+    docPath: `${INSTRUCTOR_CLASSES_COLLECTION}/${COHOST_UID}`,
+    data: { classIds: [SEEDED_CLASS_ID] },
+  })
+}
+
+/**
+ * Signs the co-instructor in on a dashboard that renders `ClassSchedule`.
+ *
+ * That card is gated on the instructor orientation date having passed, so
+ * every test that touches the schedule, the feedback form, the roster or a sub
+ * request has to move the clock first - and has to do it before the visit, or
+ * the page has already decided not to render it.
+ *
+ * Two days after it, where Test Case 10b uses one, and deliberately:
+ * `submitInstructorFeedback` names the document it writes
+ * `${classId}-${Date.now()}`, so a frozen clock makes that id computable - and
+ * two tests sharing a frozen instant would overwrite each other's feedback
+ * document instead of each writing their own.
+ */
+function signInAsCoInstructorAfterOrientation(): Date {
+  const frozenNow = new Date(
+    new Date(semesterDates.instructorOrientation).getTime() +
+      2 * 24 * 60 * 60 * 1000,
+  )
+  cy.clock(frozenNow.getTime(), ['Date'])
+  cy.signedInSession('instructor', { email: COHOST_EMAIL })
+  return frozenNow
+}
+
+/**
+ * Opens the class's student list, checks the seeded roster is in it, and
+ * closes it again.
+ *
+ * Doubles as the wait for `getStudentList` to have resolved, which anything
+ * touching the roster needs: "Send Reminder" loops over that same array and,
+ * while it is still empty, sends nothing at all - no request, and so no toast
+ * either, which on screen is indistinguishable from a click that never landed.
+ */
+function assertRosterVisible() {
+  cy.contains('button', 'View Student List').click()
+  cy.get('[role="dialog"]').within(() => {
+    cy.contains('Demo Student One').should('be.visible')
+    cy.contains('student@gbstem.org').should('be.visible')
+    cy.contains('button', 'Close').click()
+  })
+  cy.get('[role="dialog"]').should('not.exist')
 }
 
 describe('Section C & E: Instructor Applications & Community Service', () => {
@@ -1405,5 +1483,377 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
       })
     cy.waitForNotification('Signup successful!')
     cy.verifyEmailSent('instructor@gbstem.org', 'Class Substitute Confirmation')
+  })
+})
+
+/**
+ * What a co-instructor can actually do once they've been added.
+ *
+ * Test Cases 13h-13j cover the adding and removing itself. Everything here is
+ * about the other side of that: being on `otherInstructorUids` is what
+ * firestore.rules reads to allow a write, and the uid-keyed `instructorClasses`
+ * index is what puts the class on their dashboard - so a co-instructor reaches
+ * the same schedule, roster, feedback form and sub-request flow the owner does,
+ * against a class whose document names somebody else as its instructor.
+ *
+ * The asymmetries are deliberate and are pinned here rather than left to be
+ * rediscovered: a co-instructor never becomes the class's instructor of record
+ * (13j), and the things the class document speaks for - who a sub request is
+ * filed against, whose name signs a reminder - stay the owner's.
+ */
+describe('Section G: Co-Instructor Access To A Shared Class', () => {
+  it('Test Case 13k: Co-Instructor - The Shared Class, Its Roster And Its Feedback Form', () => {
+    const feedback = 'Co-taught this session; the group project landed well.'
+    grantCoInstructorAccess()
+    const frozenNow = signInAsCoInstructorAfterOrientation()
+
+    // The co-instructor owns no class at all, so the only thing that can put
+    // one on this page is the instructorClasses mapping their uid being added
+    // wrote. "Your Classes" itself is gated on an accepted decision, which is
+    // also what let them be added in the first place.
+    cy.contains('h2', 'Your Classes').should('be.visible')
+    cy.contains('Next Upcoming Class:').should('be.visible')
+
+    // The roster is the sharpest read to check: registrations carry student
+    // and parent contact details, and firestore.rules only opens them to
+    // staff. Someone teaching the class is expected to have it.
+    assertRosterVisible()
+
+    // Filing the weekly feedback is the write that matters most here: it
+    // updates the *class* document (`feedbackCompleted`/`classStatuses`) with
+    // a plain updateDoc, a different path from the merge-write Test Case 13j
+    // exercises, and one only isInstructorOfClass()'s otherInstructorUids
+    // clause can allow for somebody who doesn't own the class.
+    readClassDoc().then((klass: any) => {
+      const pending = klass.feedbackCompleted.findIndex(
+        (done: boolean) => !done,
+      )
+      expect(pending, 'a session still awaiting feedback').to.be.greaterThan(-1)
+      const sessionNumber = pending + 1
+      const expectedAttendance: Record<string, { present: boolean }> = {}
+
+      cy.contains('button', 'Submit Feedback').click()
+      cy.get('[role="dialog"]').within(() => {
+        cy.contains(/class feedback form/i).should('be.visible')
+        cy.fillInput('input[name="classDate"]', '2026-10-02')
+        cy.fillInput('input[name="classNumber"]', String(sessionNumber))
+        cy.fillInput('input[name="feedback"]', feedback)
+        cy.get('input[name^="attendanceList."]').each(($el, index) => {
+          const student = ($el.attr('name') || '')
+            .replace(/^attendanceList\./, '')
+            .replace(/\.present$/, '')
+          expectedAttendance[student] = { present: index === 0 }
+        })
+        cy.get('input[name^="attendanceList."]').first().check({ force: true })
+        cy.contains('button', 'Submit').click({ force: true })
+      })
+      cy.waitForNotification('Class Feedback saved!')
+
+      // Same computable-id trick as Test Case 10b - `signInAsCoInstructor...`
+      // freezes a different instant precisely so the two don't collide.
+      const feedbackId = `${SEEDED_CLASS_ID}-${frozenNow.getTime()}`
+      cy.getFirebaseAuthToken().then((authToken: string) => {
+        cy.getFirestoreDoc(
+          authToken,
+          instructorFeedbackCollection,
+          feedbackId,
+        ).then((data: any) => {
+          expect(data, 'instructor feedback document').to.not.equal(null)
+          expect(prepareDocForCompare(data)).to.deep.equal({
+            semester: currentSemester,
+            date: '2026-10-02',
+            feedback,
+            attendanceList: expectedAttendance,
+            classNumber: sessionNumber,
+            courseName: '',
+            // The person who taught and reflected, not the class's instructor
+            // of record - the reflection is read by curriculum developers, so
+            // it has to name whoever actually wrote it.
+            instructorName: 'Cohost Instructor',
+          })
+        })
+        cy.getFirestoreDoc(authToken, classesCollection, SEEDED_CLASS_ID).then(
+          (after: any) => {
+            expect(
+              after.feedbackCompleted[pending],
+              'session marked complete',
+            ).to.equal(true)
+            expect(after.classStatuses[pending], 'session status').to.equal(
+              'EverythingComplete',
+            )
+            // ...and the class is still the owner's, exactly as in 13j.
+            expect(after.instructorUid).to.equal(OWNER_UID)
+          },
+        )
+      })
+    })
+  })
+
+  it('Test Case 13l: Co-Instructor - The Shared Class Counts Toward Their Service Hours', () => {
+    // Community service hours are what instructors actually take away from
+    // gbSTEM, and they're counted from `fetchInstructorClasses` - the same
+    // mapping the dashboard uses - so a co-instructor is credited for the
+    // sessions of a class they were added to rather than having to be its
+    // owner. Nothing outside this test covers that.
+    grantCoInstructorAccess()
+
+    let heldSessions = 0
+    readClassDoc().then((klass: any) => {
+      heldSessions = klass.classStatuses.filter(
+        (status: string) =>
+          status === 'EverythingComplete' || status === 'FeedbackIncomplete',
+      ).length
+      expect(
+        heldSessions,
+        'a held session to be credited for (see Test Case 13k)',
+      ).to.be.greaterThan(0)
+    })
+
+    cy.then(() => {
+      cy.signedInSession('instructor', {
+        email: COHOST_EMAIL,
+        initialPage: '/community-service',
+      })
+
+      cy.contains('h2', `You have completed ${heldSessions} classes`).should(
+        'be.visible',
+      )
+      cy.contains(`equaling ${heldSessions * 1.25} total hours`).should(
+        'be.visible',
+      )
+
+      cy.contains('button', 'Get Hours Confirmation Email')
+        .should('not.be.disabled')
+        .click()
+      cy.waitForNotification('Email sent successfully!')
+      // Addressed to the co-instructor from their own session, not to the
+      // class's stored instructorEmail.
+      cy.verifyEmailSent(
+        COHOST_EMAIL,
+        'gbSTEM Community Service Hours Confirmation',
+      )
+    })
+  })
+
+  it('Test Case 13m: Co-Instructor - Can Edit The Shared Class Schedule', () => {
+    // Moving and cancelling sessions is the other half of running a class, and
+    // it goes through `updateMeetingTimes` rather than the class details form,
+    // so it needs its own proof that the write is allowed.
+    grantCoInstructorAccess()
+    signInAsCoInstructorAfterOrientation()
+
+    let before: any
+    readClassDoc().then((data: any) => {
+      expect(data, 'class document').to.not.equal(null)
+      before = data
+    })
+
+    cy.contains('button', 'Edit Schedule').click()
+    cy.get('input[type="datetime-local"]').first().should('be.visible')
+    // The *last* session deliberately: an earlier one may already be marked
+    // complete, and `computeMeetingTimeChanges` splices the per-session arrays
+    // by index, so removing it would take that progress (and the hours Test
+    // Case 13l counts) with it.
+    cy.contains('button', 'Delete').last().click()
+    cy.contains('button', 'Save Changes').click()
+
+    // This toast is the proof the write actually landed: `updateMeetingTimes`
+    // only announces itself in the promise's success branch, so a rules
+    // rejection would leave the edited schedule on screen and never get here.
+    cy.waitForNotification('Meeting times updated!')
+
+    cy.get('[role="dialog"]').should('contain', "notify your student's parents")
+    cy.contains('button', 'Close').click()
+
+    readClassDoc().then((after: any) => {
+      expect(after.meetingTimes, 'one session removed').to.have.length(
+        before.meetingTimes.length - 1,
+      )
+      // The three per-session arrays have to stay the same length as each
+      // other, or the feedback form's `classNumber - 1` indexing walks off one.
+      expect(after.feedbackCompleted).to.have.length(after.meetingTimes.length)
+      expect(after.classStatuses).to.have.length(after.meetingTimes.length)
+      expect(after.instructorUid, 'still the owner’s class').to.equal(OWNER_UID)
+    })
+  })
+
+  it('Test Case 13n: Co-Instructor - A Sub Request Is Filed For The Class And Credited To Them', () => {
+    // Two things have to be true at once. The request is built from the
+    // *class document*, so it goes on naming the class's instructor of record
+    // whoever asks - a substitute is covering the class, and replies belong
+    // with the person accountable for it. But it also records who asked, so
+    // that a co-instructor is copied when a substitute signs up (see
+    // /api/substitute) and can find the request they filed: a request id is
+    // `${ownerUid}-${n}---${m}`, which contains the owner's uid and nobody
+    // else's, so before this their own request was invisible to them.
+    const notes = 'Sub needed: covering loops and lists, slides are in Drive.'
+    grantCoInstructorAccess()
+    signInAsCoInstructorAfterOrientation()
+
+    cy.contains('button', 'Request Sub').first().click()
+    cy.get('[role="dialog"]').should('contain', 'Submit A Sub Request')
+    cy.get('[role="dialog"]').find('input[type="text"]').type(notes)
+    cy.get('[role="dialog"]')
+      .find('input[type="number"]')
+      .invoke('val')
+      .then((raw) => {
+        // The document id is `${classId}---${classNumber}`, so the number the
+        // dialog prefilled from the session that was clicked is what makes it
+        // findable.
+        const classNumber = Number(raw)
+        cy.contains('button', 'Confirm Request').click({ force: true })
+        cy.waitForNotification('Sub request sent!')
+
+        cy.getFirebaseAuthToken().then((authToken: string) => {
+          cy.getFirestoreDoc(
+            authToken,
+            substituteRequestsCollection,
+            `${SEEDED_CLASS_ID}---${classNumber}`,
+          ).then((request: any) => {
+            expect(request, 'sub request document').to.not.equal(null)
+            expect(request.notes).to.equal(notes)
+            expect(request.originalInstructorUid).to.equal(OWNER_UID)
+            expect(request.originalInstructorEmail).to.equal(OWNER_EMAIL)
+            expect(request.requestedByUid, 'who asked').to.equal(COHOST_UID)
+
+            // ...and it is theirs to manage: "Your Sub Requests" is keyed off
+            // the same field, so the co-instructor can see it, edit it or
+            // cancel it rather than having to ask the owner to.
+            cy.contains('h2', 'Your Sub Requests', { timeout: 10000 })
+              .parent()
+              .should('contain', `${request.course} class #${classNumber}`)
+          })
+        })
+      })
+  })
+
+  it('Test Case 13o: Co-Instructor - Reminders Copy The Rest Of The Teaching Staff', () => {
+    // The cc list is every instructor on the class except whoever is sending,
+    // so a reminder always tells the other people teaching it what the
+    // students were told. It used to be the class's `otherInstructorUids`
+    // alone - the owner's colleagues - which is right when the owner sends and
+    // backwards when a co-instructor does: they cc'd themselves and copied the
+    // primary on nothing.
+    //
+    // The sign-off is a separate question and deliberately still the class's
+    // instructor of record: that is the name the class is listed under and the
+    // one parents will recognise, whichever of its instructors pressed send.
+    grantCoInstructorAccess()
+    signInAsCoInstructorAfterOrientation()
+    cy.captureConfirms().as('confirms')
+    assertRosterVisible()
+
+    cy.contains('button', 'Send Reminder').click()
+    cy.waitForNotification('Reminder emails were sent!')
+    cy.get('@confirms')
+      .its(0)
+      .should('contain', 'Send class reminder to all students?')
+
+    // Only one of the seeded roster's uids has a registration document, so
+    // exactly one reminder goes out - to the student, copying the primary
+    // (resolved from the class's `instructorUid` to whatever address that
+    // account holds now) and not the co-instructor who sent it.
+    cy.verifyEmailSent('student@gbstem.org', 'gbSTEM Class Reminder', {
+      to: ['student@gbstem.org'],
+      cc: [OWNER_EMAIL],
+      notCc: [COHOST_EMAIL],
+    }).then((reminder: any) => {
+      // Signed off with the class's instructor of record ("Demo"), not the
+      // co-instructor who pressed the button.
+      expect(reminder.html).to.contain('Demo')
+      expect(reminder.html).to.not.contain('Cohost')
+    })
+  })
+
+  it('Test Case 13p: Co-Instructor - Removing Themselves Gives The Class Up Entirely', () => {
+    // The self-service counterpart to Test Case 13i. The mappings used to be
+    // reconciled against *the signed-in user* as the class owner, which meant
+    // a co-instructor removing themselves gave up their write access and then
+    // had their own dashboard mapping added straight back - leaving them
+    // looking at a class every save on which would be refused. Ownership for
+    // that reconciliation comes from the class document now.
+    grantCoInstructorAccess()
+    cy.signedInSession('instructor', { email: COHOST_EMAIL })
+
+    cy.contains('h2', 'Class Details')
+      .closest('.rounded-xl')
+      .within(() => {
+        cy.contains('button', 'Edit class details').click()
+      })
+    cy.get('input[name="course"]')
+      .should('not.be.disabled')
+      .and('not.have.value', '')
+
+    cy.get(`[data-co-instructor="${COHOST_EMAIL}"]`)
+      .contains('button', 'Remove')
+      .click()
+    cy.get(`[data-co-instructor="${COHOST_EMAIL}"]`).should('not.exist')
+    cy.get('input[name="confirmation"]').check({ force: true })
+    saveClassDetails()
+
+    readClassDoc().then((after: any) => {
+      expect(after.otherInstructorUids, 'write access given up').to.deep.equal(
+        [],
+      )
+      // Leaving must not disturb whose class it is.
+      expect(after.instructorUid).to.equal(OWNER_UID)
+      expect(after.instructorEmail).to.equal(OWNER_EMAIL)
+    })
+    cy.getFirebaseAuthToken().then((authToken: string) => {
+      cy.getFirestoreDoc(
+        authToken,
+        INSTRUCTOR_CLASSES_COLLECTION,
+        COHOST_UID,
+      ).then((mapping: any) => {
+        expect(
+          mapping.classIds ?? [],
+          'class taken off their dashboard too',
+        ).to.not.include(SEEDED_CLASS_ID)
+      })
+    })
+  })
+
+  it('Test Case 13q: Co-Instructor - A Revoked Co-Instructor’s Save Is Refused', () => {
+    // Test Case 13i asserts the removal is written down; this asserts it is
+    // *enforced*, by Firestore rather than by the UI. The state is the one
+    // classService warns about: the class no longer lists the uid, but the
+    // dashboard mapping is stale (its update is best-effort and only warns on
+    // failure), so the class is still on screen and openable for edit.
+    grantCoInstructorAccess()
+    cy.task('mergeFirestoreDoc', {
+      docPath: `${classesCollection}/${SEEDED_CLASS_ID}`,
+      data: { otherInstructorUids: [] },
+    })
+
+    cy.signedInSession('instructor', { email: COHOST_EMAIL })
+
+    let before: any
+    readClassDoc().then((data: any) => {
+      expect(data, 'class document').to.not.equal(null)
+      before = data
+    })
+
+    cy.contains('h2', 'Class Details')
+      .closest('.rounded-xl')
+      .within(() => {
+        cy.contains('button', 'Edit class details').click()
+      })
+    cy.get('input[name="course"]')
+      .should('not.be.disabled')
+      .and('not.have.value', '')
+
+    cy.fillInput('input[name="classCap"]', '29')
+    cy.get('input[name="confirmation"]').check({ force: true })
+    cy.get('button[type="submit"]').click()
+
+    // The rejection has to be surfaced rather than swallowed: a save that
+    // silently does nothing is how the ownership bug in 13j went unnoticed for
+    // so long. The wording is the Firestore error code run through
+    // `alert.trigger`'s auto-formatting, which lower-cases and sentence-cases
+    // it - so "permission-denied" reaches the user as "Permission denied."
+    cy.waitForNotification('Permission denied', 'bg-red-200')
+    readClassDoc().then((after: any) => {
+      expect(after, 'nothing was written').to.deep.equal(before)
+    })
   })
 })

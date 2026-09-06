@@ -8,10 +8,11 @@ import type { RequestHandler } from './$types'
 
 const remindStudentsSchema = z.object({
   email: z.string().email('Invalid email address'),
-  // Uids, not addresses: co-instructor emails are resolved here rather than
-  // sent up by the client, so a cc always goes to the account's current
+  // Every instructor on the class, the caller included - the server drops the
+  // caller below. Uids, not addresses: the emails are resolved here rather
+  // than sent up by the client, so a cc always goes to the account's current
   // address and a client can't dictate who gets copied on a reminder.
-  otherInstructorUids: z.array(z.string()).default([]),
+  instructorUids: z.array(z.string()).default([]),
   name: z.string().min(1, 'Name is required'),
   class: z.string().min(1, 'Class is required'),
   classTime: z.string().min(1, 'Class time is required'),
@@ -22,11 +23,19 @@ export type RemindStudentsRequestBody = z.infer<typeof remindStudentsSchema>
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   try {
-    verifyInstructor(locals)
+    const user = verifyInstructor(locals)
     const body = remindStudentsSchema.parse(await request.json())
 
     const email = body.email
-    const ccEmails = await resolveCoInstructorEmails(body.otherInstructorUids)
+    // Everyone teaching the class except whoever is sending it. The list used
+    // to be the class's `otherInstructorUids` alone, which is the owner's
+    // colleagues - correct when the owner sends, exactly backwards when a
+    // co-instructor does: they cc'd themselves and copied the primary on
+    // nothing. Dropping the caller by uid rather than by address means an
+    // account whose email has changed is still recognised as the sender.
+    const ccEmails = await resolveCoInstructorEmails(
+      body.instructorUids.filter((uid) => uid !== user.uid),
+    )
 
     const template = {
       name: 'classReminder',

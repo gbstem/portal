@@ -187,9 +187,18 @@
               withSemester(newValues),
             )
 
+            // The class's owner, not whoever is saving. `updateInstructorClassMappings`
+            // treats this uid as the one instructor whose mapping is always
+            // kept, so passing the signed-in user made a co-instructor's save
+            // exempt themselves: removing themselves from the class gave up
+            // their write access and then re-added their own dashboard entry,
+            // leaving them looking at a class every save on which is refused.
+            // After the ownership stamp above, `instructorUid` is the owner for
+            // an owner's or creator's save too; the fallback only covers a
+            // legacy class that records no owner at all.
             await classService.updateInstructorClassMappings(
               classId,
-              frozenUser.object.uid,
+              newValues.instructorUid || frozenUser.object.uid,
               values.otherInstructorUids ?? [],
               newValues.otherInstructorUids,
             )

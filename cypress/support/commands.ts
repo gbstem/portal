@@ -199,9 +199,41 @@ Cypress.Commands.add('clearTestEmails', () => {
   return cy.request('DELETE', '/api/test/emails')
 })
 
+/**
+ * Asserts an email was sent to `email` whose subject contains
+ * `subjectSubstring`, and yields the recorded message so a caller can make
+ * further assertions on it.
+ *
+ * `expected` covers the envelope rather than the body, because who else an
+ * email reaches is a behaviour in its own right and one no assertion on the
+ * recipient can see: a reminder copies the rest of a class's teaching staff,
+ * a substitute confirmation copies the instructors it concerns, and replies
+ * have to land on a person rather than the donotreply address. Every field is
+ * optional and unnamed ones aren't checked.
+ *
+ * - `cc` / `to`: the exact set, order-insensitive - an address that should not
+ *   be copied is a failure, which `notCc` alone wouldn't catch when the list
+ *   grows.
+ * - `notCc`: addresses that must be absent. Use alongside `cc` only to say
+ *   something a reader would otherwise miss, e.g. that the sender is dropped
+ *   from a list they appear in.
+ * - `from` / `replyTo`: exact addresses. The simulated send records both the
+ *   way the real one resolves them, so an unset replyTo reads as the default
+ *   contact address rather than as absent.
+ */
 Cypress.Commands.add(
   'verifyEmailSent',
-  (email: string, subjectSubstring: string) => {
+  (
+    email: string,
+    subjectSubstring: string,
+    expected?: {
+      to?: string[]
+      cc?: string[]
+      notCc?: string[]
+      from?: string
+      replyTo?: string
+    },
+  ) => {
     return cy.request('GET', '/api/test/emails').then((response) => {
       const sentEmails = response.body || []
       const match = sentEmails
@@ -217,6 +249,25 @@ Cypress.Commands.add(
         match,
         `Expected an email sent to ${email} with subject containing "${subjectSubstring}"`,
       ).to.not.equal(undefined)
+
+      const sorted = (addresses: string[] | undefined) =>
+        [...(addresses ?? [])].sort()
+
+      if (expected?.to) {
+        expect(sorted(match.to), 'to').to.deep.equal(sorted(expected.to))
+      }
+      if (expected?.cc) {
+        expect(sorted(match.cc), 'cc').to.deep.equal(sorted(expected.cc))
+      }
+      expected?.notCc?.forEach((address) => {
+        expect(match.cc ?? [], `${address} not cc'd`).to.not.include(address)
+      })
+      if (expected?.from) {
+        expect(match.from, 'from').to.equal(expected.from)
+      }
+      if (expected?.replyTo) {
+        expect(match.replyTo, 'replyTo').to.equal(expected.replyTo)
+      }
       return match
     })
   },
