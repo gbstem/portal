@@ -432,29 +432,33 @@ exercise, since there the same account does both.
   (deduplicated when they are also the person who asked) and replies to them;
   the class appears under the substitute's "Your Classes To Substitute" with
   the prep notes the requester wrote.
+- **15e - The substitute holds the class and files its feedback**: "Join"
+  records the session as held on the class and moves the request to "feedback
+  needed"; the feedback then completes the session and closes the request out.
+  The stored feedback names the substitute and the course they covered, both
+  read from the request rather than from the form.
+- **15f - A covered class earns the substitute their hours**: the covered class
+  shows up as 1.5 hours of substitute instruction on `/community-service`.
 
-#### Known gap: a substitute cannot teach the class they signed up for
+Both halves of 15e go through `/api/substituteSession` and
+`/api/substituteFeedback` rather than the client SDK, and that is the only way
+they can work. They write to the **class** document - `completedClassDates`,
+`classStatuses`, `feedbackCompleted` - and `firestore.rules`'s
+`isInstructorOfClass()` admits only the class's own instructor and its
+co-instructors. A substitute is neither, so both writes were refused (403)
+from the browser: "Join" failed to the console and nowhere else, and the
+feedback failed halfway - the feedback document saved, so the form said "Class
+Feedback saved!", while the class was never updated and the request never left
+"feedback needed", which is also the state 15f's hours are counted from.
 
-Not covered, because it does not currently work. Once a substitute has signed
-up, "Join" (`recordSubstituteClassSession`) and their feedback submission both
-write to the **class** document - `completedClassDates`, `classStatuses`,
-`feedbackCompleted` - and `firestore.rules`'s `isInstructorOfClass()` only
-admits the class's own instructor and its co-instructors. A substitute is
-neither, so both writes are refused (verified directly against the emulator: a
-`PATCH` of `classStatuses` on another instructor's class returns 403).
-
-The consequences run past the two buttons: the feedback document itself is
-written, but the class update after it throws, so the sub request is never
-marked `NoSubstituteNeeded` - and `countCompletedSubClasses` only counts
-requests in that state, so the substitute's 1.5 community service hours per
-covered class are never credited either.
-
-Test Case 15 does not catch it because there the class's own instructor
-answers their own request, which is the one case where the substitute is
-already an instructor of the class. Fixing it means either widening the rule
-or moving those two writes to an Admin-SDK endpoint that authorises them
-against the sub request - a decision worth making deliberately rather than in
-passing.
+A substitute's authority to make those writes lives in the sub request naming
+them as `subInstructorId`. Security rules cannot follow that link (the
+request's path depends on the session being recorded, which the rule has no
+way to know), so the endpoints check it with the Admin SDK instead, and
+`__tests__/routes.test.ts` covers the refusals: a caller who is not the
+substitute, a request nobody has signed up for, a request or class since
+deleted, feedback filed against a different session than the request covers,
+and a session that has fallen off the end of the schedule.
 
 ### Co-Instructors (Test Cases 13h-13q)
 
