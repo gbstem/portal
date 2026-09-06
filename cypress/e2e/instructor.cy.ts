@@ -8,6 +8,22 @@ import {
 } from '../../src/lib/data/collections'
 import semesterDates from '../../src/lib/data/semesterDates.json'
 import { generateDateHash, prepareDocForCompare } from '../support/utils'
+import {
+  COHOST_EMAIL,
+  COHOST_UID,
+  INSTRUCTOR_CLASSES_COLLECTION,
+  OWNER_EMAIL,
+  OWNER_UID,
+  SEEDED_CLASS_ID,
+  SEEDED_MEETING_LINK,
+  SEEDED_STUDENTS,
+  SEEDED_STUDENT_EMAIL,
+  SEEDED_STUDENT_NAME,
+  expectDocExists,
+  fileSubRequest,
+  readClassDoc,
+  subRequestRow,
+} from '../support/fixtures'
 
 /** Every field the instructor application form renders. */
 interface ApplicationInput {
@@ -270,11 +286,6 @@ function expectedCoInstructorUids(emails: string[]): string[] {
     .filter(Boolean)
 }
 
-/** The class the admin seed gives instructor@gbstem.org. */
-const SEEDED_CLASS_ID = 'class-python1'
-const SEEDED_MEETING_LINK = 'https://zoom.us/j/123456789'
-const SEEDED_STUDENTS = ['student-demo-uid-1', 'student1', 'student2']
-
 /**
  * `meetingTimes` and `completedClassDates` hold Firestore timestamps, which
  * `getFirestoreDoc`'s converter returns as raw wrappers; `feedbackCompleted`
@@ -443,26 +454,6 @@ function saveClassDetails() {
   cy.waitForNotification('Class details saved!')
 }
 
-/** Reads the seeded class document straight out of Firestore. */
-function readClassDoc(): Cypress.Chainable<any> {
-  return cy
-    .getFirebaseAuthToken()
-    .then((authToken: string) =>
-      cy.getFirestoreDoc(authToken, classesCollection, SEEDED_CLASS_ID),
-    )
-}
-
-const COHOST_EMAIL = 'cohost@gbstem.org'
-const COHOST_UID = ACCEPTED_CO_INSTRUCTOR_UIDS[COHOST_EMAIL]
-const OWNER_UID = 'instructor-demo-uid'
-const OWNER_EMAIL = 'instructor@gbstem.org'
-/**
- * Not semester-scoped, unlike every other collection here: it's the uid-keyed
- * index of which classes to show an instructor on their dashboard. See
- * classService's fetchInstructorClasses.
- */
-const INSTRUCTOR_CLASSES_COLLECTION = 'instructorClasses'
-
 /**
  * Puts the seeded class into exactly the state a completed "add a
  * co-instructor" save leaves behind: the uid on the class document (which is
@@ -522,69 +513,11 @@ function signInAsCoInstructorAfterOrientation(): Date {
 function assertRosterVisible() {
   cy.contains('button', 'View Student List').click()
   cy.get('[role="dialog"]').within(() => {
-    cy.contains('Demo Student One').should('be.visible')
-    cy.contains('student@gbstem.org').should('be.visible')
+    cy.contains(SEEDED_STUDENT_NAME).should('be.visible')
+    cy.contains(SEEDED_STUDENT_EMAIL).should('be.visible')
     cy.contains('button', 'Close').click()
   })
   cy.get('[role="dialog"]').should('not.exist')
-}
-
-/**
- * Moves the clock past instructor orientation, which is what makes
- * `ClassSchedule` (and so the "Request Sub" buttons) render at all.
- */
-function afterOrientation(): Date {
-  const frozenNow = new Date(
-    new Date(semesterDates.instructorOrientation).getTime() +
-      24 * 60 * 60 * 1000,
-  )
-  cy.clock(frozenNow.getTime(), ['Date'])
-  return frozenNow
-}
-
-/**
- * Files a sub request for the first session offering one and yields its class
- * number, which is what names the document (`${classId}---${classNumber}`).
- *
- * The signed-in instructor is whoever the caller signed in as - the flow is
- * the same for the class's own instructor and for a co-instructor.
- */
-function fileSubRequest(notes: string): Cypress.Chainable<number> {
-  cy.contains('button', 'Request Sub').first().click()
-  cy.get('[role="dialog"]').should('contain', 'Submit A Sub Request')
-  cy.get('[role="dialog"]').find('input[type="text"]').clear().type(notes)
-  return cy
-    .get('[role="dialog"]')
-    .find('input[type="number"]')
-    .invoke('val')
-    .then((raw) => {
-      const classNumber = Number(raw)
-      cy.contains('button', 'Confirm Request').click({ force: true })
-      cy.waitForNotification('Sub request sent!')
-      // `sendSubRequest` calls location.reload() 1000ms later, and "Your Sub
-      // Requests" only lists the new request once that reload has refetched.
-      // The wait is pinned to that literal timer, not guesswork.
-      cy.wait(2000)
-      cy.contains('h2', 'Your Sub Requests', { timeout: 10000 }).should(
-        'be.visible',
-      )
-      return cy.wrap(classNumber)
-    })
-}
-
-/** One row of the "Your Sub Requests" card, by the session it covers. */
-function subRequestRow(classNumber: number) {
-  return cy
-    .contains('h2', 'Your Sub Requests')
-    .parent()
-    .contains('div', `class #${classNumber}`, { timeout: 10000 })
-}
-
-/** Asserts whether a document exists, straight through the Admin SDK. */
-function expectDocExists(docPath: string, exists: boolean, label: string) {
-  cy.task('checkFirestoreDocExists', docPath).then((found) => {
-    expect(found, label).to.equal(exists)
-  })
 }
 
 describe('Section C & E: Instructor Applications & Community Service', () => {
@@ -1498,400 +1431,6 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
     // Verify it worked
     cy.get('body').should('contain', 'June 20')
   })
-
-  it('Test Case 15: Request Sub', () => {
-    // Set system clock to 1 day after instructor orientation date so ClassSchedule is rendered
-    const orientationDate = new Date(semesterDates.instructorOrientation)
-    const postOrientationDate = new Date(
-      orientationDate.getTime() + 24 * 60 * 60 * 1000,
-    )
-    cy.clock(postOrientationDate.getTime(), ['Date'])
-
-    cy.signedInSession('instructor')
-
-    // Request Sub
-    cy.contains('button', 'Request Sub').first().click()
-    cy.get('[role="dialog"]').should('contain', 'Submit A Sub Request')
-    cy.get('[role="dialog"]')
-      .find('input[type="text"]')
-      .type('Sub to cover lists and loops')
-    cy.contains('button', 'Confirm Request').click({ force: true })
-    cy.waitForNotification('Sub request sent!')
-    cy.get('[role="dialog"]').should('not.exist')
-
-    // window.location.reload() fires ~1000ms after the sub request -- give the
-    // lookup extra retry budget to span that instead of a fixed pre-wait.
-    cy.contains('h2', 'Sign Up To Substitute A Class', {
-      timeout: 8000,
-    }).should('be.visible')
-    // A full page reload resets the whole document, so unlike the lookup
-    // above (which only needs the content to exist and retries fine), the
-    // checkbox/submit click below needs the reloaded page to actually be
-    // interactive again -- verified via a real test run: without this,
-    // clicking immediately after the h2 appears occasionally lands before
-    // hydration finishes and the signup never fires.
-    cy.wait(500)
-
-    // Sign up to substitute a class session and verify confirmation email (/api/substitute)
-    cy.contains('h2', 'Sign Up To Substitute A Class')
-      .parent()
-      .within(() => {
-        cy.get('input[type="checkbox"]').first().check({ force: true })
-        cy.contains('button', 'Submit').click({ force: true })
-      })
-    cy.waitForNotification('Signup successful!')
-    cy.verifyEmailSent('instructor@gbstem.org', 'Class Substitute Confirmation')
-  })
-
-  it('Test Case 15b: Sub Request - Editing Changes The Request That Exists', () => {
-    // The edit and delete buttons built a document id out of the *signed-in
-    // uid* (`${uid}---${classNumber}`) while requests are created under the
-    // class (`${classId}---${classNumber}`). Those name different documents
-    // for every real class, so an edit wrote a phantom request to a path
-    // nothing reads and left the real one untouched. Nothing covered either
-    // button, which is how it survived.
-    const notes = 'Original notes: lists and loops.'
-    const editedNotes = 'Edited notes: recursion, slides in Drive.'
-    afterOrientation()
-    cy.signedInSession('instructor')
-
-    fileSubRequest(notes).then((classNumber) => {
-      const movedTo = classNumber + 1
-      subRequestRow(classNumber).within(() => {
-        cy.contains('button', 'Edit').click()
-      })
-
-      cy.get('[role="dialog"]').within(() => {
-        cy.get('input[type="number"]').clear().type(String(movedTo))
-        cy.get('input[type="text"]').clear().type(editedNotes)
-        cy.contains('button', 'Save Edits').click()
-      })
-      cy.waitForNotification('Sub request updated!')
-
-      cy.getFirebaseAuthToken().then((authToken: string) => {
-        cy.getFirestoreDoc(
-          authToken,
-          substituteRequestsCollection,
-          `${SEEDED_CLASS_ID}---${movedTo}`,
-        ).then((moved: any) => {
-          expect(moved, 'the request at its new session').to.not.equal(null)
-          expect(moved.notes).to.equal(editedNotes)
-          expect(moved.classNumber).to.equal(movedTo)
-          // Still the class's request, and still filed by the same person.
-          expect(moved.originalInstructorUid).to.equal(OWNER_UID)
-          expect(moved.requestedByUid).to.equal(OWNER_UID)
-        })
-      })
-
-      // Moving it to another session moves the document...
-      expectDocExists(
-        `${substituteRequestsCollection}/${SEEDED_CLASS_ID}---${classNumber}`,
-        false,
-        'the request left behind at the old session',
-      )
-      // ...and no phantom is written under the instructor's own uid, which is
-      // where every edit used to land.
-      expectDocExists(
-        `${substituteRequestsCollection}/${OWNER_UID}---${movedTo}`,
-        false,
-        'a phantom request keyed by the signed-in uid',
-      )
-
-      // The card reflects it rather than still showing the old session.
-      subRequestRow(movedTo).should('contain', 'Substitute Needed')
-      cy.contains('h2', 'Your Sub Requests')
-        .parent()
-        .should('not.contain', `class #${classNumber} `)
-    })
-  })
-
-  it('Test Case 15c: Sub Request - Deleting One Actually Removes It', () => {
-    // Deleting hit the same wrong path, and deleting a document that does not
-    // exist succeeds silently - so the toast said "Sub request deleted!" while
-    // the request stayed exactly where it was, still asking for a substitute.
-    afterOrientation()
-    cy.signedInSession('instructor')
-    cy.captureConfirms().as('confirms')
-
-    fileSubRequest('Cancelling this one shortly.').then((classNumber) => {
-      const docPath = `${substituteRequestsCollection}/${SEEDED_CLASS_ID}---${classNumber}`
-      expectDocExists(docPath, true, 'the request that was just filed')
-
-      subRequestRow(classNumber).within(() => {
-        // The delete control is the trash icon, which has no text of its own.
-        cy.get('button').last().click()
-      })
-      cy.get('@confirms')
-        .its(0)
-        .should('contain', 'Are you sure you want to delete this sub request?')
-      cy.waitForNotification('Sub request deleted!')
-
-      expectDocExists(docPath, false, 'the request after deleting it')
-      cy.contains('h2', 'Your Sub Requests')
-        .parent()
-        .should('not.contain', `class #${classNumber} `)
-    })
-  })
-
-  it('Test Case 15d: Sub Request - A Substitute Signs Up And Is Recorded On It', () => {
-    // Test Case 15 has the class's own instructor answer their own request,
-    // which is the one configuration where every uid in the flow is the same
-    // person. This is the real shape: one instructor asks, a different one
-    // covers it.
-    const notes = 'Prep: finish the loops worksheet, slides are in Drive.'
-    afterOrientation()
-    cy.signedInSession('instructor')
-
-    fileSubRequest(notes).then((classNumber) => {
-      afterOrientation()
-      cy.signedInSession('instructor', { email: COHOST_EMAIL })
-
-      cy.contains('h2', 'Sign Up To Substitute A Class')
-        .parent()
-        .within(() => {
-          cy.contains('label', `class #${classNumber}`)
-            .find('input[type="checkbox"]')
-            .check({ force: true })
-          cy.contains('button', 'Submit').click({ force: true })
-        })
-      cy.waitForNotification('Signup successful!')
-
-      // The confirmation goes to the substitute, copying the class's
-      // instructor - who is also the person who asked here, so they are
-      // copied once rather than twice - and replies reach them rather than
-      // the donotreply address.
-      cy.verifyEmailSent(COHOST_EMAIL, 'Class Substitute Confirmation', {
-        to: [COHOST_EMAIL],
-        cc: [OWNER_EMAIL],
-        replyTo: OWNER_EMAIL,
-        from: 'donotreply@gbstem.org',
-      })
-
-      cy.getFirebaseAuthToken().then((authToken: string) => {
-        cy.getFirestoreDoc(
-          authToken,
-          substituteRequestsCollection,
-          `${SEEDED_CLASS_ID}---${classNumber}`,
-        ).then((request: any) => {
-          expect(request, 'sub request document').to.not.equal(null)
-          expect(request.subRequestStatus).to.equal('SubstituteFound')
-          expect(request.subInstructorId).to.equal(COHOST_UID)
-          expect(request.subInstructorFirstName).to.equal('Cohost')
-          expect(request.subInstructorEmail).to.equal(COHOST_EMAIL)
-          // Whose class it is, and who asked, are both untouched by somebody
-          // else picking the session up.
-          expect(request.originalInstructorUid).to.equal(OWNER_UID)
-          expect(request.requestedByUid).to.equal(OWNER_UID)
-        })
-      })
-
-      // It moves onto the substitute's own dashboard, carrying the notes the
-      // requester wrote and the address to ask questions at.
-      cy.contains('h2', 'Your Classes To Substitute')
-        .parent()
-        .within(() => {
-          cy.contains(`class #${classNumber}`).should('be.visible')
-          cy.contains('button', 'View Prep Notes').click()
-        })
-      cy.get('[role="dialog"]').within(() => {
-        cy.contains(notes).should('be.visible')
-        cy.contains(OWNER_EMAIL).should('be.visible')
-        cy.contains('button', 'Close').click()
-      })
-    })
-  })
-
-  it('Test Case 15e: Sub Request - The Substitute Holds The Class And Files Its Feedback', () => {
-    // Continues from Test Case 15d, which left this substitute signed up for
-    // a session of the seeded class.
-    //
-    // Neither half of this worked before: both write to the *class* document
-    // (`completedClassDates`, `classStatuses`, `feedbackCompleted`) and
-    // firestore.rules opens that only to the class's own instructors, which a
-    // substitute is not. "Join" failed to the console and nowhere else, and
-    // the feedback failed halfway - the feedback document saved, so the form
-    // said "Class Feedback saved!", while the class was never updated and the
-    // request never left "feedback needed". Both go through the server now.
-    const feedback = 'Covered lists and loops; the group got through it all.'
-    afterOrientation()
-    cy.signedInSession('instructor', { email: COHOST_EMAIL })
-    cy.captureConfirms().as('confirms')
-    cy.window().then((win) => {
-      // "Join" opens the meeting in a new tab; the stub keeps that out of the
-      // run and lets the link itself be asserted.
-      cy.stub(win, 'open').as('windowOpen')
-    })
-
-    // The card renders before its data arrives ("You are not currently
-    // substituting any classes."), and `invoke('text')` reads whatever is
-    // there at that moment rather than retrying - so wait for the row itself.
-    cy.contains('h2', 'Your Classes To Substitute')
-      .parent()
-      .should('contain', 'class #')
-    cy.contains('h2', 'Your Classes To Substitute')
-      .parent()
-      .invoke('text')
-      .then((cardText) => {
-        const match = cardText.match(/class #(\d+)/)
-        expect(match, 'a class to substitute').to.not.equal(null)
-        const classNumber = Number((match as RegExpMatchArray)[1])
-        const sessionIndex = classNumber - 1
-
-        let before: any
-        readClassDoc().then((data: any) => {
-          before = data
-        })
-
-        cy.contains('h2', 'Your Classes To Substitute')
-          .parent()
-          .within(() => {
-            cy.contains('button', 'Join').click()
-          })
-        cy.get('@confirms')
-          .its(0)
-          .should('contain', 'confirm you are holding class now')
-        cy.get('@windowOpen').should(
-          'have.been.calledWith',
-          SEEDED_MEETING_LINK,
-        )
-
-        // The session is marked held on the class - a write the substitute
-        // could not make from the browser at all.
-        readClassDoc().then((after: any) => {
-          expect(
-            after.completedClassDates.length,
-            'the session was recorded as held',
-          ).to.equal((before.completedClassDates ?? []).length + 1)
-          expect(after.classStatuses[sessionIndex]).to.equal(
-            'FeedbackIncomplete',
-          )
-        })
-        cy.getFirebaseAuthToken().then((authToken: string) => {
-          cy.getFirestoreDoc(
-            authToken,
-            substituteRequestsCollection,
-            `${SEEDED_CLASS_ID}---${classNumber}`,
-          ).then((request: any) => {
-            expect(request.subRequestStatus).to.equal(
-              'SubstituteFeedbackNeeded',
-            )
-          })
-        })
-
-        // ...and then the feedback, which completes the session and closes the
-        // request out. The document id is server-generated, so it comes back
-        // from the endpoint rather than being computed from a frozen clock.
-        cy.intercept('POST', '/api/substituteFeedback').as('substituteFeedback')
-        cy.contains('h2', 'Your Classes To Substitute')
-          .parent()
-          .within(() => {
-            cy.contains('button', 'Submit Feedback').click()
-          })
-
-        const expectedAttendance: Record<string, { present: boolean }> = {}
-        cy.get('[role="dialog"]').within(() => {
-          cy.contains(/substitute class feedback form/i).should('be.visible')
-          cy.fillInput('input[name="classDate"]', '2026-10-09')
-          cy.fillInput('input[name="feedback"]', feedback)
-          cy.get('input[name^="attendanceList."]').each(($el, index) => {
-            const student = ($el.attr('name') || '')
-              .replace(/^attendanceList\./, '')
-              .replace(/\.present$/, '')
-            expectedAttendance[student] = { present: index === 0 }
-          })
-          cy.get('input[name^="attendanceList."]')
-            .first()
-            .check({ force: true })
-          cy.contains('button', 'Submit').click({ force: true })
-        })
-        cy.waitForNotification('Class Feedback saved!')
-
-        cy.wait('@substituteFeedback')
-          .its('response.body.feedbackId')
-          .then((feedbackId: string) => {
-            cy.getFirebaseAuthToken().then((authToken: string) => {
-              cy.getFirestoreDoc(
-                authToken,
-                instructorFeedbackCollection,
-                feedbackId,
-              ).then((data: any) => {
-                expect(data, 'substitute feedback document').to.not.equal(null)
-                expect(prepareDocForCompare(data)).to.deep.equal({
-                  semester: currentSemester,
-                  date: '2026-10-09',
-                  feedback,
-                  attendanceList: expectedAttendance,
-                  classNumber,
-                  // Both taken from the sub request rather than the form: the
-                  // course the substitute covered, and their own name.
-                  courseName: before.course,
-                  instructorName: 'Cohost',
-                })
-              })
-
-              cy.getFirestoreDoc(
-                authToken,
-                substituteRequestsCollection,
-                `${SEEDED_CLASS_ID}---${classNumber}`,
-              ).then((request: any) => {
-                // What credits the substitute's community service hours.
-                expect(request.subRequestStatus).to.equal('NoSubstituteNeeded')
-              })
-            })
-            readClassDoc().then((after: any) => {
-              expect(after.feedbackCompleted[sessionIndex]).to.equal(true)
-              expect(after.classStatuses[sessionIndex]).to.equal(
-                'EverythingComplete',
-              )
-            })
-          })
-      })
-  })
-
-  it('Test Case 15f: Sub Request - A Covered Class Earns The Substitute Their Hours', () => {
-    // The end of the line for the sub request from 15d/15e, and the reason any
-    // of it matters to an instructor: hours are counted from requests in the
-    // `NoSubstituteNeeded` state, which nothing could reach before, so a
-    // substitute's 1.5 hours per covered class were never credited at all.
-    //
-    // The substitute is also a co-instructor of the same class by this point
-    // (Test Case 13j added them), so the page shows both kinds of hour and the
-    // expectation is computed from the class rather than hard-coded - the
-    // point being the 1.5 in the substitute half, which used to be 0.
-    const SUBSTITUTED_CLASSES = 1
-    let taughtSessions = 0
-    readClassDoc().then((klass: any) => {
-      taughtSessions = klass.classStatuses.filter(
-        (status: string) =>
-          status === 'EverythingComplete' || status === 'FeedbackIncomplete',
-      ).length
-    })
-
-    cy.then(() => {
-      const substituteHours = SUBSTITUTED_CLASSES * 1.5
-      const instructionHours = taughtSessions * 1.25
-
-      cy.signedInSession('instructor', {
-        email: COHOST_EMAIL,
-        initialPage: '/community-service',
-      })
-
-      cy.contains(
-        'h2',
-        `You have completed ${taughtSessions + SUBSTITUTED_CLASSES} classes`,
-      ).should('be.visible')
-      cy.contains(
-        `equaling ${instructionHours + substituteHours} total hours`,
-      ).should('be.visible')
-      // The half that was always zero before, whatever the substitute did.
-      // The two <strong>s in that line are instruction hours then substitute
-      // hours, so the second one is the one this test exists for.
-      cy.contains('div', 'as a substitute instructor')
-        .find('strong')
-        .eq(1)
-        .should('have.text', String(substituteHours))
-    })
-  })
 })
 
 /**
@@ -2161,8 +1700,8 @@ describe('Section G: Co-Instructor Access To A Shared Class', () => {
     // exactly one reminder goes out - to the student, copying the primary
     // (resolved from the class's `instructorUid` to whatever address that
     // account holds now) and not the co-instructor who sent it.
-    cy.verifyEmailSent('student@gbstem.org', 'gbSTEM Class Reminder', {
-      to: ['student@gbstem.org'],
+    cy.verifyEmailSent(SEEDED_STUDENT_EMAIL, 'gbSTEM Class Reminder', {
+      to: [SEEDED_STUDENT_EMAIL],
       cc: [OWNER_EMAIL],
       notCc: [COHOST_EMAIL],
     }).then((reminder: any) => {
