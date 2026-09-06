@@ -1,4 +1,3 @@
-import { SubRequestStatus } from '$lib/components/helpers/SubRequestStatus'
 import { classService } from '$lib/services/classService'
 import * as firestore from 'firebase/firestore'
 import type {} from '../src/data.d.ts'
@@ -731,7 +730,11 @@ describe('portal classService (Data Access Layer)', () => {
       expect(firestore.updateDoc).toHaveBeenCalledTimes(1)
     })
 
-    it('also closes out the substitute request when subRequestId is provided', async () => {
+    // The substitute half of this used to live here and could not work: the
+    // class update above is refused for anyone who is not an instructor of the
+    // class, which a substitute never is. It moved to /api/substituteFeedback,
+    // so this writes the class and nothing else.
+    it('does not touch any substitute request', async () => {
       ;(firestore.setDoc as jest.Mock).mockResolvedValueOnce(undefined)
       ;(firestore.updateDoc as jest.Mock).mockResolvedValue(undefined)
 
@@ -740,14 +743,9 @@ describe('portal classService (Data Access Layer)', () => {
         feedback,
         [true],
         ['Everything Complete'],
-        'sub-req-1',
       )
 
-      expect(firestore.updateDoc).toHaveBeenCalledTimes(2)
-      const [, subReqPayload] = (firestore.updateDoc as jest.Mock).mock.calls[1]
-      expect(subReqPayload).toEqual({
-        subRequestStatus: SubRequestStatus.NoSubstituteNeeded,
-      })
+      expect(firestore.updateDoc).toHaveBeenCalledTimes(1)
     })
 
     it('propagates errors from setDoc', async () => {

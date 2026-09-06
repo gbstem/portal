@@ -1,7 +1,10 @@
 <script lang="ts">
   import { enhance } from '$app/forms'
   import { user } from '$lib/client/firebase'
-  import { filterCheckedOffSubClasses } from '$lib/helpers/subClasses'
+  import {
+    filterCheckedOffSubClasses,
+    subRequestClassId,
+  } from '$lib/helpers/subClasses'
   import { classService } from '$lib/services/classService'
   import { substituteService } from '$lib/services/substituteService'
   import { alert } from '$lib/stores'
@@ -179,25 +182,35 @@
   }
 
   async function recordClass(subRequest: Data.SubRequest) {
-    let { classNumber, dateOfClass, id } = subRequest
-    const classId = id.split('---')[0]
+    const classValues = await classService.fetchClassDetails(
+      subRequestClassId(subRequest.id),
+    )
+    if (!classValues) {
+      alert.trigger('error', 'That class could not be found. Please reload.')
+      return
+    }
+    const confirmHoldClass = confirm(
+      `Please confirm you are holding class now. Confirming will redirect you to ${classValues.meetingLink}`,
+    )
+    if (!confirmHoldClass) return
+
     try {
-      const classValues = await classService.fetchClassDetails(classId)
-      if (!classValues) return
-      const confirmHoldClass = confirm(
-        `Please confirm you are holding class now. Confirming will redirect you to ${classValues.meetingLink}`,
+      // The recording itself happens server-side, where a substitute is
+      // allowed to touch the class - see /api/substituteSession. The link
+      // comes back from there rather than being reused from the read above,
+      // so what opens is what the server actually recorded against.
+      const { meetingLink } = await substituteService.recordSubstituteSession(
+        subRequest.id,
       )
-      if (confirmHoldClass) {
-        await substituteService.recordSubstituteClassSession(
-          id,
-          classId,
-          classNumber,
-          dateOfClass,
-        )
-        window.open(classValues.meetingLink)
-      }
-    } catch (err) {
+      window.open(meetingLink)
+    } catch (err: any) {
+      // Failures used to reach the console and nowhere else, so a substitute
+      // whose class could not be recorded saw a page that had done nothing.
       console.error('Failed to record class session:', err)
+      alert.trigger(
+        'error',
+        err?.message || 'Could not start that class. Please try again.',
+      )
     }
   }
 </script>
