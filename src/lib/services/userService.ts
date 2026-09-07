@@ -9,7 +9,7 @@ import {
   updateProfile,
   type User,
 } from 'firebase/auth'
-import { deleteDoc, doc, setDoc, updateDoc } from 'firebase/firestore'
+import { deleteDoc, doc, updateDoc } from 'firebase/firestore'
 
 /**
  * Service providing Data Access Layer for user account records.
@@ -21,26 +21,32 @@ import { deleteDoc, doc, setDoc, updateDoc } from 'firebase/firestore'
  */
 export const userService = {
   /**
-   * Creates an account end-to-end: the Auth user, its display name, and the
-   * `users` profile document. Throws on any failure — callers are responsible
-   * for calling `rollbackNewUser` from their error handler, since a failure
-   * further downstream (session sync, say) should tear the account down too.
+   * Creates the Auth account and its display name. Throws on any failure —
+   * callers are responsible for calling `rollbackNewUser` from their error
+   * handler, since a failure further downstream (the profile write, the
+   * session sync) should tear the account down too.
+   *
+   * Deliberately does *not* write `users/{uid}`. That document carries the
+   * role, and a role written from the browser is a role an attacker chooses:
+   * `firestore.rules` now refuses any client write that changes the field, and
+   * `/api/signup` writes both the document and the matching custom claim with
+   * the Admin SDK. The account therefore exists for a moment with no profile,
+   * which is why the caller must treat a failed `/api/signup` as fatal and
+   * roll back.
    */
   async createUser(profile: {
     email: string
     password: string
     firstName: string
     lastName: string
-    role: 'instructor' | 'student'
   }): Promise<User> {
-    const { firstName, lastName, role } = profile
+    const { firstName, lastName } = profile
     const { user } = await createUserWithEmailAndPassword(
       auth,
       profile.email,
       profile.password,
     )
     await updateProfile(user, { displayName: `${firstName} ${lastName}` })
-    await setDoc(doc(db, 'users', user.uid), { role, firstName, lastName })
     return user
   },
 
