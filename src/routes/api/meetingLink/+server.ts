@@ -1,15 +1,68 @@
 import { classesCollection, semesterDates } from '$lib/data/collections'
 import { handleApiError, verifyInstructor } from '$lib/server/apiHelpers'
 import { adminDb } from '$lib/server/firebase'
-import {
-  MS_CLIENT_ID,
-  MS_CLIENT_SECRET,
-  MS_TENANT_ID,
-  MS_CALENDAR_USER,
-} from '$env/static/private'
+import { env } from '$env/dynamic/private'
 import { error, json } from '@sveltejs/kit'
 import { z } from 'zod'
 import type { RequestHandler } from './$types'
+
+// The Entra credentials, preferring the MS_* names.
+//
+// `$env/dynamic/private` rather than `$env/static/private` because the static
+// form inlines at build time and fails the build outright for a name that is
+// not set - which is exactly the state Vercel is in while both sets exist.
+//
+// TODO(remove-vite-fallback): drop the VITE_* half, and this whole block in
+// favour of a static import, once the MS_* variables are set in Vercel. The
+// old values are in Vercel as secrets nobody can currently read, so they can't
+// be copied across yet; the client secret has to be rotated regardless (it was
+// reachable by every account that ever signed in via the old /api/token), and
+// rotating is the natural moment to set the new names and delete the old ones.
+// Every use of a VITE_* value logs `[legacy-vite-env-fallback]`, so the switch
+// is done when that line stops appearing - the same signal the API-route
+// migration uses for `[legacy-email-fallback]`.
+function graphCredentials() {
+  const clientId = env.MS_CLIENT_ID || env.VITE_CLIENT_ID
+  const clientSecret = env.MS_CLIENT_SECRET || env.VITE_CLIENT_SECRET
+  // NOTE: `VITE_TENTANT_ID` is spelled the way the existing Vercel variable is,
+  // typo and all. A tenant id is not a secret - it is discoverable from any
+  // domain in the tenant through OIDC discovery, and this one sat in this
+  // repository's history - so the known value is the last fallback rather than
+  // letting a misspelling take the feature down.
+  const tenantId =
+    env.MS_TENANT_ID ||
+    env.VITE_TENTANT_ID ||
+    'c9f983d8-6c86-4534-8471-99c48eaab882'
+  const calendarUser = env.MS_CALENDAR_USER
+
+  if (!env.MS_CLIENT_ID || !env.MS_CLIENT_SECRET || !env.MS_TENANT_ID) {
+    console.warn(
+      '[legacy-vite-env-fallback] /api/meetingLink read at least one Entra ' +
+        'credential from a VITE_* variable or a built-in default. Set ' +
+        'MS_CLIENT_ID, MS_CLIENT_SECRET and MS_TENANT_ID to silence this.',
+    )
+  }
+
+  if (!clientId || !clientSecret || !calendarUser) {
+    // Named individually so a misconfiguration is one glance to diagnose
+    // rather than a 500 with nothing behind it.
+    const missing = [
+      !clientId && 'MS_CLIENT_ID (or VITE_CLIENT_ID)',
+      !clientSecret && 'MS_CLIENT_SECRET (or VITE_CLIENT_SECRET)',
+      !calendarUser && 'MS_CALENDAR_USER',
+    ].filter(Boolean)
+    console.error(
+      `[API /api/meetingLink] Not configured; missing: ${missing.join(', ')}`,
+    )
+    throw error(
+      503,
+      'Meeting links are not configured. Please add your own link, or ask ' +
+        'gbSTEM leadership.',
+    )
+  }
+
+  return { clientId, clientSecret, tenantId, calendarUser }
+}
 
 const meetingLinkSchema = z.object({
   // The class the link is for. A class being created doesn't exist in
@@ -65,16 +118,18 @@ function formatIntlDate(date: Date): string {
   return [date.getFullYear(), month, day].join('-')
 }
 
-async function fetchGraphToken(): Promise<string> {
+async function fetchGraphToken(
+  credentials: ReturnType<typeof graphCredentials>,
+): Promise<string> {
   const res = await fetch(
-    `https://login.microsoftonline.com/${MS_TENANT_ID}/oauth2/v2.0/token`,
+    `https://login.microsoftonline.com/${credentials.tenantId}/oauth2/v2.0/token`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
-        client_id: MS_CLIENT_ID,
+        client_id: credentials.clientId,
         scope: 'https://graph.microsoft.com/.default',
-        client_secret: MS_CLIENT_SECRET,
+        client_secret: credentials.clientSecret,
         grant_type: 'client_credentials',
       }).toString(),
     },
@@ -101,6 +156,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   try {
     const user = verifyInstructor(locals)
     const body = meetingLinkSchema.parse(await request.json())
+    const credentials = graphCredentials()
 
     if (!(await callerMayCreateLinkFor(user.uid, body.classId))) {
       throw error(403, 'You do not teach that class.')
@@ -138,9 +194,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       onlineMeetingProvider: 'teamsForBusiness',
     }
 
-    const token = await fetchGraphToken()
+    const token = await fetchGraphToken(credentials)
     const eventRes = await fetch(
-      `https://graph.microsoft.com/v1.0/users/${MS_CALENDAR_USER}/calendar/events`,
+      `https://graph.microsoft.com/v1.0/users/${credentials.calendarUser}/calendar/events`,
       {
         method: 'POST',
         headers: {

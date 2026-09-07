@@ -171,6 +171,8 @@ There is a sixth rule that only applies here, because portal is the only repo ho
 
 If you add another route in front of a third-party credential, keep the credential and everything minted from it on the server, and return the narrowest result the page actually needs. Note the environment variables are named `MS_*`, not `VITE_*`: a `VITE_` prefix reads as "public" in a Vite project, and these never were.
 
+The route still falls back to the old `VITE_CLIENT_ID` / `VITE_CLIENT_SECRET` / `VITE_TENTANT_ID` (spelled as the production variable is) names, and reads all of them through `$env/dynamic/private` rather than the static form — the static form inlines at build time and would fail the build for a name that isn't set, which is the state production is in while both sets exist. Those old values are held in Vercel as secrets that can't be read back and copied across, so they stay until the client secret is rotated. Any use of one logs `[legacy-vite-env-fallback]`; the fallback and the dynamic import both come out when that line stops appearing, the same way the `[legacy-email-fallback]` parameters do.
+
 The route also shows the shape to copy for authorizing an action on a class that **may not exist yet**. A meeting link is created before the class is first saved, so `callerMayCreateLinkFor` applies the same two-part test `firestore.rules` applies to the class document — the caller is the class's `instructorUid` or one of its `otherInstructorUids`, or, for an id with no document, the id is `${uid}-${n}` under the caller's own uid. Don't fall back to "any instructor may" just because there is no document to check.
 
 ## Adding a New Semester

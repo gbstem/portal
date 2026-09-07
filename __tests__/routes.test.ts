@@ -1504,6 +1504,25 @@ describe('API routes POST endpoints', () => {
 
   describe('meetingLinkPOST', () => {
     const originalFetch = (global as any).fetch
+    const { env } = require('$env/dynamic/private')
+    const originalEnv = { ...env }
+
+    /** Replaces the Entra credentials in $env/dynamic/private for one test. */
+    function setEnv(vars: Record<string, string | undefined>) {
+      for (const key of [
+        'MS_CLIENT_ID',
+        'MS_CLIENT_SECRET',
+        'MS_TENANT_ID',
+        'MS_CALENDAR_USER',
+        'VITE_CLIENT_ID',
+        'VITE_CLIENT_SECRET',
+        'VITE_TENTANT_ID',
+      ]) {
+        delete env[key]
+      }
+      Object.assign(env, vars)
+    }
+
     const instructorLocals = {
       user: { uid: 'uid-owner', email: 'owner@gbstem.org', role: 'instructor' },
     }
@@ -1546,6 +1565,7 @@ describe('API routes POST endpoints', () => {
     afterEach(() => {
       ;(global as any).fetch = originalFetch
       mockAdminDb.doc.mockImplementation((id: string) => mockDoc(id))
+      setEnv(originalEnv)
     })
 
     it('returns only the join URL, never the Graph token', async () => {
@@ -1714,6 +1734,162 @@ describe('API routes POST endpoints', () => {
       ).rejects.toEqual(
         expect.objectContaining({ status: 400, __isSvelteKitError: true }),
       )
+    })
+
+    describe('Entra credentials', () => {
+      const owned = { instructorUid: 'uid-owner' }
+
+      it('prefers the MS_* variables', async () => {
+        setEnv({
+          MS_CLIENT_ID: 'ms-id',
+          MS_CLIENT_SECRET: 'ms-secret',
+          MS_TENANT_ID: 'ms-tenant',
+          MS_CALENDAR_USER: 'classes@gbstem.test',
+          VITE_CLIENT_ID: 'vite-id',
+          VITE_CLIENT_SECRET: 'vite-secret',
+          VITE_TENTANT_ID: 'vite-tenant',
+        })
+        const fetchMock = mockGraphSuccess()
+        mockClasses({ [`${classesCollection}/uid-owner-1`]: owned })
+        mockRequest.json.mockResolvedValue(body)
+
+        await meetingLinkPOST({
+          request: mockRequest,
+          locals: instructorLocals,
+        } as any)
+
+        const [tokenUrl, tokenInit] = fetchMock.mock.calls[0]
+        expect(tokenUrl).toContain('/ms-tenant/')
+        expect(tokenInit.body).toContain('client_id=ms-id')
+        expect(tokenInit.body).toContain('client_secret=ms-secret')
+      })
+
+      it('falls back to the VITE_* variables when the MS_* ones are unset', async () => {
+        // The transitional state: production holds the old values as secrets
+        // that cannot be read back and copied to the new names.
+        setEnv({
+          MS_CALENDAR_USER: 'classes@gbstem.test',
+          VITE_CLIENT_ID: 'vite-id',
+          VITE_CLIENT_SECRET: 'vite-secret',
+          VITE_TENTANT_ID: 'vite-tenant',
+        })
+        const fetchMock = mockGraphSuccess()
+        mockClasses({ [`${classesCollection}/uid-owner-1`]: owned })
+        mockRequest.json.mockResolvedValue(body)
+
+        const res: any = await meetingLinkPOST({
+          request: mockRequest,
+          locals: instructorLocals,
+        } as any)
+
+        expect(res.body).toEqual({ joinUrl: 'https://teams.example/join' })
+        const [tokenUrl, tokenInit] = fetchMock.mock.calls[0]
+        expect(tokenUrl).toContain('/vite-tenant/')
+        expect(tokenInit.body).toContain('client_id=vite-id')
+        expect(tokenInit.body).toContain('client_secret=vite-secret')
+      })
+
+      it('logs [legacy-vite-env-fallback] whenever an old name is used', async () => {
+        // The signal for when the fallback can be deleted: it is done when
+        // this line stops appearing in the logs.
+        const warn = jest.spyOn(console, 'warn').mockImplementation(() => {})
+        setEnv({
+          MS_CALENDAR_USER: 'classes@gbstem.test',
+          VITE_CLIENT_ID: 'vite-id',
+          VITE_CLIENT_SECRET: 'vite-secret',
+          VITE_TENTANT_ID: 'vite-tenant',
+        })
+        mockGraphSuccess()
+        mockClasses({ [`${classesCollection}/uid-owner-1`]: owned })
+        mockRequest.json.mockResolvedValue(body)
+
+        await meetingLinkPOST({
+          request: mockRequest,
+          locals: instructorLocals,
+        } as any)
+
+        expect(warn).toHaveBeenCalledWith(
+          expect.stringContaining('[legacy-vite-env-fallback]'),
+        )
+        warn.mockRestore()
+      })
+
+      it('does not log the fallback warning when every MS_* name is set', async () => {
+        const warn = jest.spyOn(console, 'warn').mockImplementation(() => {})
+        mockGraphSuccess()
+        mockClasses({ [`${classesCollection}/uid-owner-1`]: owned })
+        mockRequest.json.mockResolvedValue(body)
+
+        await meetingLinkPOST({
+          request: mockRequest,
+          locals: instructorLocals,
+        } as any)
+
+        expect(warn).not.toHaveBeenCalledWith(
+          expect.stringContaining('[legacy-vite-env-fallback]'),
+        )
+        warn.mockRestore()
+      })
+
+      it('uses the known tenant id when neither tenant variable is set', async () => {
+        // A tenant id is not a secret, so a missing or misspelled variable
+        // should not take the feature down.
+        setEnv({
+          MS_CLIENT_ID: 'ms-id',
+          MS_CLIENT_SECRET: 'ms-secret',
+          MS_CALENDAR_USER: 'classes@gbstem.test',
+        })
+        const fetchMock = mockGraphSuccess()
+        mockClasses({ [`${classesCollection}/uid-owner-1`]: owned })
+        mockRequest.json.mockResolvedValue(body)
+
+        await meetingLinkPOST({
+          request: mockRequest,
+          locals: instructorLocals,
+        } as any)
+
+        expect(fetchMock.mock.calls[0][0]).toContain(
+          '/c9f983d8-6c86-4534-8471-99c48eaab882/',
+        )
+      })
+
+      it('returns a 503 naming what is missing when no credential is set', async () => {
+        setEnv({ MS_CALENDAR_USER: 'classes@gbstem.test' })
+        const fetchMock = mockGraphSuccess()
+        mockClasses({ [`${classesCollection}/uid-owner-1`]: owned })
+        mockRequest.json.mockResolvedValue(body)
+
+        await expect(
+          meetingLinkPOST({
+            request: mockRequest,
+            locals: instructorLocals,
+          } as any),
+        ).rejects.toEqual(
+          expect.objectContaining({ status: 503, __isSvelteKitError: true }),
+        )
+        // Never reached Microsoft with an undefined secret.
+        expect(fetchMock).not.toHaveBeenCalled()
+      })
+
+      it('returns a 503 when the calendar mailbox is unset', async () => {
+        setEnv({
+          MS_CLIENT_ID: 'ms-id',
+          MS_CLIENT_SECRET: 'ms-secret',
+          MS_TENANT_ID: 'ms-tenant',
+        })
+        mockGraphSuccess()
+        mockClasses({ [`${classesCollection}/uid-owner-1`]: owned })
+        mockRequest.json.mockResolvedValue(body)
+
+        await expect(
+          meetingLinkPOST({
+            request: mockRequest,
+            locals: instructorLocals,
+          } as any),
+        ).rejects.toEqual(
+          expect.objectContaining({ status: 503, __isSvelteKitError: true }),
+        )
+      })
     })
   })
 })
