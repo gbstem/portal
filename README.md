@@ -159,7 +159,11 @@ Whenever you add or change a service or helper function, add or update its test 
 
 ## Firestore Schema
 
-See the **[Firebase Firestore Database schema in the Admin Repository's README.md](https://github.com/gbstem/admin/blob/main/README.md#firestore-database-schema)**.
+See the **[Firebase Firestore Database schema in the Admin Repository's README.md](https://github.com/gbstem/admin/blob/main/README.md#firestore-schema)**.
+
+## API Routes (`+server.ts`)
+
+Portal's `src/routes/api/*/+server.ts` handlers follow the same rules as admin's, and several of them are the reason those rules exist: portal's routes are reachable by any signed-in user, where most of admin's are behind an `admin` or `reviewer` role. Before adding or changing one, read the **[API Routes section in the Admin Repository's README.md](https://github.com/gbstem/admin/blob/main/README.md#api-routes-serverts)** — gate narrowly (`verifyInstructor`, not `verifyAuthenticated`, when the caller must be an instructor), take a document ID or `uid` rather than an email address, and resolve recipients server-side.
 
 ## Adding a New Semester
 
