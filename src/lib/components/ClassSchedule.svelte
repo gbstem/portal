@@ -27,7 +27,7 @@
   import ClassDetailsForm from './forms/ClassDetailsForm.svelte'
   import InstructorFeedbackForm from './forms/InstructorFeedbackForm.svelte'
   import { ClassStatus } from './helpers/ClassStatus'
-  import { generateCurriculumLink } from './helpers/curriculumLink'
+  import { curriculumLink } from '$lib/helpers/curriculumLink'
   import sendClassReminder from './helpers/sendClassReminder'
   import type Student from './types/Student'
 
@@ -54,6 +54,10 @@
     meetingTimes: [],
     completedClassDates: [],
   })
+
+  // null when this class's course has no page on the curriculum site, which
+  // hides the button rather than opening a URL that would 404.
+  const courseCurriculumLink = $derived(curriculumLink(values.course))
 
   // index of the next class date from the list of meeting times
   let nextClassIndex = $state(-1)
@@ -549,12 +553,13 @@
             formatDateString(editedMeetingTimes[nextClassIndex])}
       </div>
       <div class="mt-4 flex flex-wrap gap-2">
-        <Button
-          color="blue"
-          onclick={() =>
-            window.open(`${generateCurriculumLink(values.course)}`, '_blank')}
-          >Curriculum</Button
-        >
+        {#if courseCurriculumLink}
+          <Button
+            color="blue"
+            onclick={() => window.open(courseCurriculumLink, '_blank')}
+            >Curriculum</Button
+          >
+        {/if}
         <Button
           color="blue"
           onclick={() => {
