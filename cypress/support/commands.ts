@@ -83,9 +83,6 @@ Cypress.Commands.add(
       cy.get('h1').should('contain', 'Community Service Hours Tracker', {
         timeout: 10000,
       })
-    } else if (initialPage === '/curriculum') {
-      cy.title().should('contain', 'Curriculum')
-      cy.get('h1').should('contain', 'Curriculum', { timeout: 10000 })
     } else if (initialPage === '/dashboard') {
       cy.title().should('contain', 'Dashboard')
       cy.get('h1').should('contain', 'Dashboard', { timeout: 10000 })

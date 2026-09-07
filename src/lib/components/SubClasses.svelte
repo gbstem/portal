@@ -18,7 +18,7 @@
   import TextInput from './TextInput.svelte'
   import InstructorFeedbackForm from './forms/InstructorFeedbackForm.svelte'
   import { SubRequestStatus } from './helpers/SubRequestStatus'
-  import { generateCurriculumLink } from './helpers/curriculumLink'
+  import { curriculumLink } from '$lib/helpers/curriculumLink'
   import sendClassReminder from './helpers/sendClassReminder'
 
   interface Props {
@@ -268,6 +268,8 @@
       <h2 class="mt-4 mb-2 text-xl font-bold">Your Classes To Substitute</h2>
       {#if userSubClassesList.length > 0}
         {#each userSubClassesList as classBeingSubbed, i (classBeingSubbed.id)}
+          <!-- null when this course has no page on the curriculum site -->
+          {@const subCurriculumLink = curriculumLink(classBeingSubbed.course)}
           <Dialog bind:open={feedbackOpenStates[i]} size="min" alert>
             {#snippet title()}
               <div class="flex items-center justify-between">
@@ -332,15 +334,14 @@
               notesOpenStates[i] = true
             }}>View Prep Notes</Button
           >
-          <Button
-            color="blue"
-            class="mt-2"
-            onclick={() =>
-              window.open(
-                `${generateCurriculumLink(classBeingSubbed.course)}`,
-                '_blank',
-              )}>Curriculum</Button
-          >
+          {#if subCurriculumLink}
+            <Button
+              color="blue"
+              class="mt-2"
+              onclick={() => window.open(subCurriculumLink, '_blank')}
+              >Curriculum</Button
+            >
+          {/if}
           <Button
             color="blue"
             class="mt-2"

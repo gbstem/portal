@@ -161,8 +161,9 @@ jest.mock('$lib/stores', () => ({
 import { alert } from '$lib/stores'
 import { getDoc } from 'firebase/firestore'
 import { user } from '../src/lib/client/firebase'
-import { curriculums } from '../src/lib/components/helpers/curriculum'
-import { generateCurriculumLink } from '../src/lib/components/helpers/curriculumLink'
+import { currentSemester } from '../src/lib/data/collections'
+import courses from '../src/lib/data/courses.json'
+import { curriculumLink } from '../src/lib/helpers/curriculumLink'
 import generateMeetingTimeChangeEmail from '../src/lib/components/helpers/generateMeetingTimeChangeEmail'
 import sendClassReminder from '../src/lib/components/helpers/sendClassReminder'
 
@@ -178,35 +179,58 @@ import { onlineClassEnrolledEmailTemplate } from '../src/lib/data/emailTemplates
 import { registrationSubmittedEmailTemplate } from '../src/lib/data/emailTemplates/registrationSubmittedEmailTemplate'
 import { substituteClassEmailTemplate } from '../src/lib/data/emailTemplates/substituteClassEmailTemplate'
 ;(global as any).Student = {}
-;(global as any).Curriculum = {}
 
-import '../src/lib/components/types/Curriculum'
 import '../src/lib/components/types/Student'
 import '../src/lib/data/collections'
 import '../src/lib/data/index'
 import '../src/lib/server/firebase'
 
-describe('curriculum', () => {
-  it('defines curriculums list', () => {
-    expect(curriculums.length).toBeGreaterThan(0)
+describe('curriculumLink', () => {
+  const half = currentSemester.startsWith('Fall') ? 'fall' : 'spring'
+  const offered = courses.filter((course) => course.semester === half)
+  const nameOf = (id: string) => courses.find((c) => c.id === id)!.name
+
+  it('builds the link from the catalog, not from the course name', () => {
+    // The helper this replaced munged the name into a URL and produced
+    // `https://curriculum.gbstem.org/cs/webdev A` - with a space, which the
+    // old test pinned as expected. Every offered course now resolves to a
+    // real `/{track}/{id}` page.
+    offered.forEach((course) => {
+      expect(curriculumLink(course.name)).toBe(
+        `https://curriculum.gbstem.org/${course.track}/${course.id}`,
+      )
+    })
   })
 
-  it('generateCurriculumLink generates valid urls', () => {
-    expect(generateCurriculumLink('Mathematics 1a')).toBe(
-      'https://curriculum.gbstem.org/math/math1A',
+  it('leaves no space in any link', () => {
+    offered.forEach((course) => {
+      expect(curriculumLink(course.name)).not.toContain(' ')
+    })
+  })
+
+  it('picks the half of the year the class is actually in', () => {
+    // The trailing A/B on a curriculum id is the semester half, so the same
+    // stored name resolves to a different page in fall than in spring. A
+    // string transform of the name could never tell them apart - this is the
+    // case the old helper structurally could not handle.
+    const expectedId = half === 'fall' ? 'scratch1A' : 'scratch1B'
+    expect(curriculumLink(nameOf(expectedId))).toBe(
+      `https://curriculum.gbstem.org/cs/${expectedId}`,
     )
-    expect(generateCurriculumLink('Web Development A')).toBe(
-      'https://curriculum.gbstem.org/cs/webdev A',
-    )
-    expect(generateCurriculumLink('Environmental Science A')).toBe(
-      'https://curriculum.gbstem.org/science/environmental A',
-    )
-    expect(generateCurriculumLink('Physics A')).toBe(
-      'https://curriculum.gbstem.org/science/physicsA',
-    )
-    expect(generateCurriculumLink('Engineering 1a')).toBe(
-      'https://curriculum.gbstem.org/engineering/engineering1A',
-    )
+  })
+
+  it('preserves the case of the course id', () => {
+    // curriculum's route lowercases the track segment but not the course, so
+    // `/cs/webdeva` throws where `/cs/webdevA` resolves.
+    const link = curriculumLink(nameOf(half === 'fall' ? 'webdevA' : 'webdevB'))
+    expect(link).toMatch(/\/cs\/webdev[AB]$/)
+  })
+
+  it('returns null for a course that is not on offer', () => {
+    // A class carried over from an earlier semester, or holding a retired
+    // name. Callers hide the button rather than opening a dead URL.
+    expect(curriculumLink('Python II')).toBeNull()
+    expect(curriculumLink('')).toBeNull()
   })
 })
 
