@@ -167,6 +167,7 @@ import {
   DELETE as authDELETE,
   POST as authPOST,
 } from '../src/routes/api/auth/+server'
+import { POST as signupPOST } from '../src/routes/api/signup/+server'
 import { POST as communityServicePOST } from '../src/routes/api/communityService/+server'
 import { POST as enrollPOST } from '../src/routes/api/enroll/+server'
 import { POST as interviewPOST } from '../src/routes/api/interview/+server'
@@ -681,46 +682,22 @@ describe('API routes POST endpoints', () => {
     )
   })
 
-  it('authPOST backfills the role from the users doc when the custom claim is missing', async () => {
+  it('authPOST never reads a role out of the users document', async () => {
+    // The escalation this closes: signup used to write users/{uid}.role from
+    // the browser and this route minted a custom claim from it, so the claim
+    // the whole system authorizes against was a value the client chose. A
+    // document saying `instructor` must now count for nothing.
     mockRequest.json.mockResolvedValue({ idToken: 'idToken123' })
     mockAdminAuth.verifyIdToken.mockResolvedValue({
       uid: 'uid123',
       auth_time: new Date().getTime() / 1000 - 10,
     })
     mockAdminAuth.getUser.mockResolvedValue({ uid: 'uid123', customClaims: {} })
-    mockAdminAuth.createSessionCookie.mockResolvedValue('sessionCookieVal')
     const usersDoc = mockDoc('uid123')
     usersDoc.get = jest.fn().mockResolvedValue({
       exists: true,
       data: () => ({ role: 'instructor' }),
     })
-    mockAdminDb.collection.mockImplementation((name: string) =>
-      name === 'users'
-        ? ({ doc: () => usersDoc } as any)
-        : (mockCollection as any),
-    )
-
-    const res = await authPOST({
-      request: mockRequest,
-      cookies: mockCookies,
-    } as any)
-
-    expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
-    expect(mockAdminAuth.setCustomUserClaims).toHaveBeenCalledWith('uid123', {
-      role: 'instructor',
-    })
-    mockAdminDb.collection.mockReturnValue(mockCollection)
-  })
-
-  it('authPOST fails when no role can be determined at all', async () => {
-    mockRequest.json.mockResolvedValue({ idToken: 'idToken123' })
-    mockAdminAuth.verifyIdToken.mockResolvedValue({
-      uid: 'uid123',
-      auth_time: new Date().getTime() / 1000 - 10,
-    })
-    mockAdminAuth.getUser.mockResolvedValue({ uid: 'uid123', customClaims: {} })
-    const usersDoc = mockDoc('uid123')
-    usersDoc.get = jest.fn().mockResolvedValue({ exists: false })
     mockAdminDb.collection.mockImplementation((name: string) =>
       name === 'users'
         ? ({ doc: () => usersDoc } as any)
@@ -735,7 +712,153 @@ describe('API routes POST endpoints', () => {
         message: 'Users must sign in on the admin site.',
       }),
     )
+    expect(mockAdminAuth.setCustomUserClaims).not.toHaveBeenCalled()
+    expect(usersDoc.get).not.toHaveBeenCalled()
     mockAdminDb.collection.mockReturnValue(mockCollection)
+  })
+
+  it('authPOST fails when the account carries no role claim', async () => {
+    mockRequest.json.mockResolvedValue({ idToken: 'idToken123' })
+    mockAdminAuth.verifyIdToken.mockResolvedValue({
+      uid: 'uid123',
+      auth_time: new Date().getTime() / 1000 - 10,
+    })
+    mockAdminAuth.getUser.mockResolvedValue({ uid: 'uid123', customClaims: {} })
+
+    await expect(
+      authPOST({ request: mockRequest, cookies: mockCookies } as any),
+    ).rejects.toEqual(
+      expect.objectContaining({
+        status: 403,
+        message: 'Users must sign in on the admin site.',
+      }),
+    )
+  })
+
+  describe('signupPOST', () => {
+    const body = {
+      idToken: 'idToken123',
+      firstName: 'Timmy',
+      lastName: 'Turner',
+      accountType: 'instructor' as const,
+    }
+
+    /** Points adminDb.doc('users/uid') at a document that may or may not exist. */
+    function mockProfile(exists: boolean) {
+      const set = jest.fn().mockResolvedValue(undefined)
+      mockAdminDb.doc.mockImplementation(() => ({
+        get: async () => ({ exists }),
+        set,
+      }))
+      return set
+    }
+
+    beforeEach(() => {
+      jest.clearAllMocks()
+      mockRequest = { json: jest.fn() }
+      mockAdminAuth.verifyIdToken.mockResolvedValue({ uid: 'uid123' })
+      mockAdminAuth.getUser.mockResolvedValue({ uid: 'uid123' })
+    })
+
+    afterEach(() => {
+      mockAdminDb.doc.mockImplementation((id: string) => mockDoc(id))
+    })
+
+    it('writes the profile and the matching role claim', async () => {
+      const set = mockProfile(false)
+      mockRequest.json.mockResolvedValue(body)
+
+      const res: any = await signupPOST({ request: mockRequest } as any)
+
+      expect(res.body).toEqual({ role: 'instructor' })
+      expect(set).toHaveBeenCalledWith({
+        role: 'instructor',
+        firstName: 'Timmy',
+        lastName: 'Turner',
+      })
+      expect(mockAdminAuth.setCustomUserClaims).toHaveBeenCalledWith('uid123', {
+        role: 'instructor',
+      })
+    })
+
+    it('acts on the uid in the verified token, never one from the body', async () => {
+      // The token is the whole authorization: a caller can only ever set up
+      // the account they hold a token for.
+      const set = mockProfile(false)
+      mockRequest.json.mockResolvedValue({ ...body, uid: 'uid-victim' })
+
+      await signupPOST({ request: mockRequest } as any)
+
+      expect(mockAdminAuth.setCustomUserClaims).toHaveBeenCalledWith(
+        'uid123',
+        expect.anything(),
+      )
+      expect(set).toHaveBeenCalledTimes(1)
+    })
+
+    it('maps the student account type to the student role', async () => {
+      mockProfile(false)
+      mockRequest.json.mockResolvedValue({ ...body, accountType: 'student' })
+
+      const res: any = await signupPOST({ request: mockRequest } as any)
+
+      expect(res.body).toEqual({ role: 'student' })
+    })
+
+    it('refuses an account that already has a profile', async () => {
+      // What stops this being a role-reassignment endpoint.
+      mockProfile(true)
+      mockRequest.json.mockResolvedValue(body)
+
+      await expect(signupPOST({ request: mockRequest } as any)).rejects.toEqual(
+        expect.objectContaining({ status: 409, __isSvelteKitError: true }),
+      )
+      expect(mockAdminAuth.setCustomUserClaims).not.toHaveBeenCalled()
+    })
+
+    it('refuses a role the client tries to name directly', async () => {
+      mockProfile(false)
+      mockRequest.json.mockResolvedValue({
+        idToken: 'idToken123',
+        firstName: 'Timmy',
+        lastName: 'Turner',
+        accountType: 'admin',
+      })
+
+      await expect(signupPOST({ request: mockRequest } as any)).rejects.toEqual(
+        expect.objectContaining({ status: 400, __isSvelteKitError: true }),
+      )
+      expect(mockAdminAuth.setCustomUserClaims).not.toHaveBeenCalled()
+    })
+
+    it('refuses an unverifiable token', async () => {
+      mockProfile(false)
+      mockAdminAuth.verifyIdToken.mockRejectedValueOnce(
+        new Error('Decoding Firebase ID token failed'),
+      )
+      mockRequest.json.mockResolvedValue(body)
+
+      await expect(signupPOST({ request: mockRequest } as any)).rejects.toEqual(
+        expect.objectContaining({ __isSvelteKitError: true }),
+      )
+      expect(mockAdminAuth.setCustomUserClaims).not.toHaveBeenCalled()
+    })
+
+    it('preserves claims the account already carries', async () => {
+      mockProfile(false)
+      mockAdminAuth.getUser.mockResolvedValue({
+        uid: 'uid123',
+        customClaims: { somethingElse: true },
+      })
+      mockRequest.json.mockResolvedValue(body)
+
+      await signupPOST({ request: mockRequest } as any)
+
+      expect(mockAdminAuth.setCustomUserClaims).toHaveBeenCalledWith('uid123', {
+        somethingElse: true,
+        role: 'instructor',
+      })
+    })
   })
 
   it('authPOST fails when the sign-in is not recent enough', async () => {

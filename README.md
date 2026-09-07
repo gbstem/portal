@@ -161,6 +161,16 @@ Whenever you add or change a service or helper function, add or update its test 
 
 See the **[Firebase Firestore Database schema in the Admin Repository's README.md](https://github.com/gbstem/admin/blob/main/README.md#firestore-schema)**.
 
+## Roles and Authorization
+
+The full account of how roles work lives in the **[Roles and Authorization section in the Admin Repository's README.md](https://github.com/gbstem/admin/blob/main/README.md#roles-and-authorization)** — `firestore.rules` is mastered there, and both sites share it. Two things are specific to this repo.
+
+**Signup does not choose the role.** The form asks whether someone is applying to teach or registering a child, and sends that answer to [`/api/signup`](src/routes/api/signup/+server.ts), which decides the role in one function (`roleForSignup`) and writes both the `users` document and the Auth custom claim with the Admin SDK. `userService.createUser` deliberately writes no profile document at all.
+
+It used to. `createUser` wrote `users/{uid}` with a role of the browser's choosing, and `/api/auth` then minted a real custom claim from that document whenever one was missing — so the claim the entire system authorizes against was ultimately a value the client picked, and `firestore.rules` read the instructor role straight out of a document its owner could rewrite at any time. `/api/auth` is now claim-only, and refuses an account carrying no claim rather than going looking for one.
+
+**A new account must refresh its ID token before doing anything.** `SignUpForm`'s `createProfile` ends with `await createdUser.getIdToken(true)`, and that call is load-bearing. `firestore.rules` reads the role from `request.auth.token`, and the token the client is holding was minted by `createUserWithEmailAndPassword` moments before the claim existed. Without the refresh, a brand-new instructor carries a role-less token for up to an hour and every instructor action fails with a bare permission-denied. Anything else that changes a role has the same obligation — refresh, or revoke refresh tokens server-side.
+
 ## API Routes (`+server.ts`)
 
 Portal's `src/routes/api/*/+server.ts` handlers follow the same rules as admin's, and several of them are the reason those rules exist: portal's routes are reachable by any signed-in user, where most of admin's are behind an `admin` or `reviewer` role. Before adding or changing one, read the **[API Routes section in the Admin Repository's README.md](https://github.com/gbstem/admin/blob/main/README.md#api-routes-serverts)** — gate narrowly (`verifyInstructor`, not `verifyAuthenticated`, when the caller must be an instructor), take a document ID or `uid` rather than an email address, and resolve recipients server-side.

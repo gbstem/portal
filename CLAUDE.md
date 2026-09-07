@@ -38,6 +38,16 @@ There are **no `+page.server.ts` form actions anywhere in this repo**. Every for
 - A cross-cutting idiom worth preserving: some client code imports request/response types straight from a route's `+server.ts` (e.g. `ApplicationRequestBody`) via relative paths rather than duplicating the type — keep doing this instead of redefining server payload shapes client-side.
 - `src/lib/server/apiHelpers.ts` also exports `verifyInstructor(locals)` (401 unsigned, 403 for anyone else). Reach for it, not `verifyAuthenticated`, on any endpoint that exposes something about _another_ user — an `/api/*` route sits outside the route-group layouts, so without it every signed-in student can call it.
 
+## Roles come from the Auth claim, and signup does not pick one
+
+A user's role is the Firebase Auth **custom claim**; `users/{uid}.role` is a display copy that `firestore.rules` refuses to let a client change. `hooks.server.ts` reads the claim off the Auth record per request, and `verifyInstructor` reads `locals.user.role`.
+
+`userService.createUser` creates the Auth account and nothing else. The profile document and the claim are written together by `/api/signup`, whose `roleForSignup` is the single place role assignment is decided — the form only reports what the person said they were there to do. `/api/auth` is claim-only and refuses an account with no claim; **do not reintroduce a users-document fallback there**, that fallback is how a browser-chosen role became a real custom claim.
+
+`SignUpForm`'s `createProfile` ends with `getIdToken(true)`. That forced refresh is required, not defensive: rules read `request.auth.token`, and the client's token predates the claim, so without it a new instructor gets ~1h of silent permission-denied. Any future code that changes a role owes the same refresh.
+
+`instructor` means "applied to teach" — it is granted at signup, before any interview. `isAcceptedInstructor(uid)` in `src/lib/server/instructorDirectory.ts` is what means "teaches"; `firestore.rules` makes the same check with `isAcceptedInstructor(semesterId)` / `isTeachingInstructor(semesterId)`. See admin's README for the whole picture.
+
 ## Co-instructors are uids, and only accepted instructors
 
 Classes store co-instructors as `otherInstructorUids: string[]`. There is deliberately no email equivalent: the `otherInstructorEmails` free-text string this replaced was honoured directly by `firestore.rules`'s `isInstructorOfClass()`, so a class owner could type any address at all and hand that person write access. gbSTEM leadership's rule is that nobody teaches a class they weren't interviewed and accepted for, so a uid only gets onto a class through `/api/lookupCoInstructor`, which resolves an address only when the account holds the `instructor` role **and** has an `accepted` decision (`decisions/{uid}.type`) — the role claim alone means nothing here, since it is set at signup, long before any interview.

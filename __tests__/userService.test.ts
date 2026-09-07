@@ -32,7 +32,6 @@ const signUpValues = {
   password: 'hunter2',
   firstName: 'Timmy',
   lastName: 'Turner',
-  role: 'instructor' as const,
 }
 
 describe('userService (Data Access Layer)', () => {
@@ -49,7 +48,7 @@ describe('userService (Data Access Layer)', () => {
       ;(firestore.setDoc as jest.Mock).mockResolvedValue(undefined)
     })
 
-    it('creates the auth user, sets the display name, and writes the profile', async () => {
+    it('creates the auth user and sets the display name', async () => {
       const user = await userService.createUser(signUpValues)
 
       expect(user).toBe(newUser)
@@ -60,22 +59,19 @@ describe('userService (Data Access Layer)', () => {
       expect(auth.updateProfile).toHaveBeenCalledWith(newUser, {
         displayName: 'Timmy Turner',
       })
-      expectDocPaths(['users', 'uid-1'])
     })
 
-    it('writes only role and name to the profile - no second identifier', async () => {
+    it('writes no profile document, because that document carries the role', async () => {
+      // The role is authorization, and a role written from the browser is a
+      // role an attacker picks. /api/signup writes users/{uid} and the
+      // matching custom claim with the Admin SDK; firestore.rules refuses any
+      // client write that changes the field.
       await userService.createUser(signUpValues)
 
-      expect(firestore.setDoc).toHaveBeenCalledTimes(1)
-      const [, payload] = (firestore.setDoc as jest.Mock).mock.calls[0]
-      expect(payload).toEqual({
-        role: 'instructor',
-        firstName: 'Timmy',
-        lastName: 'Turner',
-      })
+      expect(firestore.setDoc).not.toHaveBeenCalled()
     })
 
-    it('propagates auth failures without writing a profile document', async () => {
+    it('propagates auth failures without writing anything', async () => {
       ;(auth.createUserWithEmailAndPassword as jest.Mock).mockRejectedValueOnce(
         new Error('auth/email-already-in-use'),
       )
@@ -86,13 +82,13 @@ describe('userService (Data Access Layer)', () => {
       expect(firestore.setDoc).not.toHaveBeenCalled()
     })
 
-    it('propagates setDoc failures so the caller can roll back', async () => {
-      ;(firestore.setDoc as jest.Mock).mockRejectedValueOnce(
-        new Error('permission-denied'),
+    it('propagates display-name failures so the caller can roll back', async () => {
+      ;(auth.updateProfile as jest.Mock).mockRejectedValueOnce(
+        new Error('auth/network-request-failed'),
       )
 
       await expect(userService.createUser(signUpValues)).rejects.toThrow(
-        'permission-denied',
+        'auth/network-request-failed',
       )
     })
   })
