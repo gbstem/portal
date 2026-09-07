@@ -165,6 +165,14 @@ See the **[Firebase Firestore Database schema in the Admin Repository's README.m
 
 Portal's `src/routes/api/*/+server.ts` handlers follow the same rules as admin's, and several of them are the reason those rules exist: portal's routes are reachable by any signed-in user, where most of admin's are behind an `admin` or `reviewer` role. Before adding or changing one, read the **[API Routes section in the Admin Repository's README.md](https://github.com/gbstem/admin/blob/main/README.md#api-routes-serverts)** — gate narrowly (`verifyInstructor`, not `verifyAuthenticated`, when the caller must be an instructor), take a document ID or `uid` rather than an email address, and resolve recipients server-side.
 
+There is a sixth rule that only applies here, because portal is the only repo holding a credential for a _third_ party: **a token minted from a gbSTEM secret never reaches the browser.**
+
+`/api/meetingLink` is the one route that talks to Microsoft Graph. It exchanges `MS_CLIENT_ID`/`MS_CLIENT_SECRET` for a **client-credentials** access token — which carries the whole app registration's application permissions across the gbSTEM tenant, not the calling instructor's — uses it server-side to book the class's recurring Teams meeting, and returns only the `joinUrl`. It replaced `/api/token`, which returned that access token to the page so the browser could call Graph itself. `verifyAuthenticated` was its only gate and email verification isn't required for a session, so anyone who could sign up could take the token and use it against Graph directly.
+
+If you add another route in front of a third-party credential, keep the credential and everything minted from it on the server, and return the narrowest result the page actually needs. Note the environment variables are named `MS_*`, not `VITE_*`: a `VITE_` prefix reads as "public" in a Vite project, and these never were.
+
+The route also shows the shape to copy for authorizing an action on a class that **may not exist yet**. A meeting link is created before the class is first saved, so `callerMayCreateLinkFor` applies the same two-part test `firestore.rules` applies to the class document — the caller is the class's `instructorUid` or one of its `otherInstructorUids`, or, for an id with no document, the id is `${uid}-${n}` under the caller's own uid. Don't fall back to "any instructor may" just because there is no document to check.
+
 ## Adding a New Semester
 
 To transition the gbSTEM system to a new semester, configuration and course catalog updates must be applied.

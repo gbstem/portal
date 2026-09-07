@@ -63,6 +63,10 @@ jest.mock(
     FIREBASE_CLIENT_EMAIL: 'clientEmail',
     FIREBASE_PRIVATE_KEY: 'privateKey',
     SENDGRID_API_TOKEN: 'sgToken',
+    MS_CLIENT_ID: 'msClientId',
+    MS_CLIENT_SECRET: 'msClientSecret',
+    MS_TENANT_ID: 'msTenantId',
+    MS_CALENDAR_USER: 'classes@gbstem.test',
   }),
   { virtual: true },
 )

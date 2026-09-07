@@ -32,6 +32,7 @@
   import FormSelect from '../FormSelect.svelte'
   import Loading from '../Loading.svelte'
   import { ClassStatus } from '../helpers/ClassStatus'
+  import type { MeetingLinkRequestBody } from '../../../routes/api/meetingLink/+server'
 
   interface Props {
     semesterDates: Data.SemesterDates
@@ -173,14 +174,14 @@
                 (uid: string) => !droppedUids.has(uid),
               )
 
-            if (newValues.online && newValues.meetingLink === '') {
-              newValues.meetingLink = await createLink(newValues)
-            }
+            // Determined before the meeting link, not after: /api/meetingLink
+            // authorizes on the class id, applying the same test firestore.rules
+            // applies to the class document.
+            const classId = currentClassId()
 
-            // Determine class ID for new classes
-            const classId =
-              selectedClassId ||
-              generateNewClassId(availableClassIds, frozenUser.object.uid)
+            if (newValues.online && newValues.meetingLink === '') {
+              newValues.meetingLink = await createLink(classId, newValues)
+            }
 
             await classService.saveClassDetails(
               classId,
@@ -289,18 +290,31 @@
     })
   })
 
-  function formatIntlDate(date: Date) {
-    var month = '' + (date.getMonth() + 1)
-    var day = '' + date.getDate()
-    var year = date.getFullYear()
-
-    if (month.length < 2) month = '0' + month
-    if (day.length < 2) day = '0' + day
-
-    return [year, month, day].join('-')
+  /**
+   * The id the class is saved under: the one being edited, or the next free
+   * one for a class that doesn't exist yet. `generateNewClassId` is a pure
+   * function of `availableClassIds`, so calling it here and again at save
+   * time yields the same id.
+   */
+  function currentClassId(): string {
+    return (
+      selectedClassId ||
+      generateNewClassId(availableClassIds, $user?.object.uid ?? '')
+    )
   }
 
-  async function createLink(newValues: Data.Class): Promise<string> {
+  /**
+   * Books the recurring Teams meeting for a class and returns its join URL.
+   *
+   * The Graph call itself lives in `/api/meetingLink`. This used to fetch a
+   * client-credentials token from `/api/token` and call Graph from the
+   * browser, which meant handing every signed-in visitor a token carrying the
+   * app registration's tenant-wide application permissions.
+   */
+  async function createLink(
+    classId: string,
+    newValues: Data.Class,
+  ): Promise<string> {
     if (newValues.classDay1 === '') {
       alert.trigger(
         'error',
@@ -311,75 +325,29 @@
 
     isCreatingLink = true
 
-    const daysOfWeek = [newValues.classDay1]
-    if (newValues.classDay2) {
-      daysOfWeek.push(newValues.classDay2)
-    }
-
-    const event = {
-      subject: `${newValues.course} Class Meeting`,
-      body: {
-        contentType: 'HTML',
-        content: `${newValues.course} Class Meeting`,
-      },
-      start: {
-        dateTime: new Date().toISOString(),
-        timeZone: 'UTC',
-      },
-      end: {
-        dateTime: new Date().toISOString(),
-        timeZone: 'UTC',
-      },
-      recurrence: {
-        pattern: {
-          type: 'weekly',
-          interval: 1,
-          daysOfWeek: daysOfWeek,
-        },
-        range: {
-          type: 'numbered',
-          startDate: formatIntlDate(new Date(semesterDates.classesStart)),
-          numberOfOccurrences: 100,
-        },
-      },
-      location: {
-        displayName: 'Online',
-      },
-      attendees: [],
-      isOnlineMeeting: true,
-      onlineMeetingProvider: 'teamsForBusiness',
-    }
-
     try {
-      const tokenRes = await fetch('/api/token', {
+      const res = await fetch('/api/meetingLink', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          classId,
+          course: newValues.course,
+          classDay1: newValues.classDay1,
+          classDay2: newValues.classDay2 ?? '',
+        } satisfies MeetingLinkRequestBody),
       })
-      const tokenData = await tokenRes.json()
-      const token = tokenData.access_token
-
-      const eventRes = await fetch(
-        'https://graph.microsoft.com/v1.0/users/kendree@gbstem.onmicrosoft.com/calendar/events',
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(event),
-        },
-      )
-      const eventData = await eventRes.json()
+      if (!res.ok) {
+        throw new Error(`Meeting link request failed: ${res.status}`)
+      }
+      const { joinUrl } = await res.json()
       alert.trigger('success', 'Meeting link created!')
-      isCreatingLink = false
-      return eventData.onlineMeeting.joinUrl
+      return joinUrl
     } catch (err) {
       console.error('[ClassDetailsForm] Meeting link creation error:', err)
       alert.trigger('error', 'Failed to create meeting link. Please try again.')
-      isCreatingLink = false
       return ''
+    } finally {
+      isCreatingLink = false
     }
   }
 
@@ -942,7 +910,10 @@
             type="button"
             disabled={isCreatingLink || $delayed}
             onclick={async () =>
-              ($form.meetingLink = await createLink({ ...values, ...$form }))}
+              ($form.meetingLink = await createLink(currentClassId(), {
+                ...values,
+                ...$form,
+              }))}
           >
             {#if isCreatingLink}
               Creating link...
