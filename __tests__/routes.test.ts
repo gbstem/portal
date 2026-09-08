@@ -648,6 +648,19 @@ describe('API routes POST endpoints', () => {
       cookies: mockCookies,
     } as any)
     expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
+    expect(mockCookies.set).toHaveBeenCalledWith(
+      '__session',
+      'sessionCookieVal',
+      // cookies.set()'s option is maxAge in *seconds*, not expiresIn in ms -
+      // passing expiresIn silently did nothing, so the cookie was never
+      // persisted for the intended 7 days.
+      {
+        maxAge: 60 * 60 * 24 * 7,
+        httpOnly: true,
+        secure: true,
+        path: '/',
+      },
+    )
 
     const delRes = await authDELETE({ cookies: mockCookies } as any)
     expect(delRes).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))

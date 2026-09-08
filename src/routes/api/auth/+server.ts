@@ -33,7 +33,16 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
     const cookie = await adminAuth.createSessionCookie(idToken, {
       expiresIn,
     })
-    const options = { expiresIn, httpOnly: true, secure: true, path: '/' }
+    // cookies.set()'s option is maxAge (seconds), not expiresIn (ms, the
+    // Firebase Admin SDK option used above for the session cookie itself) -
+    // the mismatched key was silently dropped, so the browser treated this
+    // as a session cookie and the intended 7-day persistence never applied.
+    const options = {
+      maxAge: expiresIn / 1000,
+      httpOnly: true,
+      secure: true,
+      path: '/',
+    }
     cookies.set('__session', cookie, options)
     return json({ status: 'signedIn' })
   } else {
