@@ -520,6 +520,25 @@ describe('API routes POST endpoints', () => {
     )
   })
 
+  it('actionPOST resetPassword ignores a signed-in caller-supplied email and uses their own', async () => {
+    // A signed-in caller can only reset their own password - otherwise a
+    // logged-in attacker could target any other account by supplying its
+    // email here, the same hole changeEmail/verifyEmail don't have because
+    // they read the email off the session rather than the request body.
+    mockRequest.json.mockResolvedValue({
+      type: 'resetPassword',
+      email: 'victim@test.com',
+    })
+    const res = await actionPOST({
+      request: mockRequest as any,
+      locals: { user: { email: 'attacker@test.com' } },
+    } as any)
+    expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
+    expect(mockAdminAuth.generatePasswordResetLink).toHaveBeenCalledWith(
+      'attacker@test.com',
+    )
+  })
+
   it('actionPOST resetPassword fails without an email', async () => {
     mockRequest.json.mockResolvedValue({ type: 'resetPassword' })
     await expect(

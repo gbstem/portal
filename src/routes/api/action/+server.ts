@@ -69,11 +69,18 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         break
       }
       case 'resetPassword': {
-        if (!body.email) {
+        // A signed-in caller can only reset *their own* password - the
+        // client-supplied email is otherwise how a logged-in attacker could
+        // target any other account's inbox. An anonymous caller (this
+        // action's actual use: the signed-out /reset-password "forgot
+        // password" page) has no session to take an email from, so it still
+        // supplies one itself.
+        const email = locals.user ? locals.user.email : body.email
+        if (!email) {
           throw error(400, 'Email is required for password reset.')
         }
-        const link = await adminAuth.generatePasswordResetLink(body.email)
-        to = body.email
+        const link = await adminAuth.generatePasswordResetLink(email)
+        to = email
         data = {
           subject: 'Reset Password for gbSTEM Account',
           action: {
