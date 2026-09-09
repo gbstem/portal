@@ -127,11 +127,11 @@ describe('Section D: Class Roster and Details View', () => {
       cy.contains('td', 'student@gbstem.org').should('be.visible')
       cy.contains('td', 'Demo Student One').parent('tr').find('button').click()
     })
-    cy.waitForNotification('Reminder emails were sent!')
+    cy.waitForNotification('Reminder email was sent to Demo Student One!')
     cy.get('@confirms').should('have.length', 2)
     cy.get('@confirms')
       .its(1)
-      .should('contain', 'Send class reminder to Demo Student One?')
+      .should('contain', 'Send class reminder to student Demo Student One?')
     cy.verifyEmailSent('student@gbstem.org', 'gbSTEM Class Reminder', {
       to: ['student@gbstem.org'],
       cc: [],
