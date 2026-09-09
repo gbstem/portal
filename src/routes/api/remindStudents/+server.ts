@@ -1,12 +1,22 @@
-import { verifyInstructor, handleApiError } from '$lib/server/apiHelpers'
+import { renderEmail } from '$lib/emails/render'
+import { handleApiError, verifyInstructor } from '$lib/server/apiHelpers'
+import { getAuthorizedClass, getStudentSnaps } from '$lib/server/classDirectory'
 import { sendEmail } from '$lib/server/email'
 import { resolveCoInstructorEmails } from '$lib/server/instructorDirectory'
-import { renderEmail } from '$lib/emails/render'
-import { json } from '@sveltejs/kit'
+import { authorizeSubstituteSession } from '$lib/server/substituteSessions'
+import { error, json } from '@sveltejs/kit'
 import { z } from 'zod'
 import type { RequestHandler } from './$types'
 
-const remindStudentsSchema = z.object({
+const classRemindStudentsSchema = z.object({
+  classId: z.string().min(1, 'Class ID is required'),
+  classTime: z.string().min(1, 'Class time is required'),
+  studentUid: z.string().optional(),
+  subRequestId: z.string().optional(),
+})
+
+// TODO(rip-out-compat): Remove legacy remindStudents schema once older clients have upgraded (~1 week soak)
+const legacyRemindStudentsSchema = z.object({
   email: z.string().email('Invalid email address'),
   // Every instructor on the class, the caller included - the server drops the
   // caller below. Uids, not addresses: the emails are resolved here rather
@@ -19,6 +29,17 @@ const remindStudentsSchema = z.object({
   instructorName: z.string().min(1, 'Instructor name is required'),
 })
 
+const remindStudentsSchema = z.union([
+  classRemindStudentsSchema,
+  legacyRemindStudentsSchema,
+])
+
+export type ClassRemindStudentsRequestBody = z.infer<
+  typeof classRemindStudentsSchema
+>
+export type LegacyRemindStudentsRequestBody = z.infer<
+  typeof legacyRemindStudentsSchema
+>
 export type RemindStudentsRequestBody = z.infer<typeof remindStudentsSchema>
 
 export const POST: RequestHandler = async ({ request, locals }) => {
@@ -26,13 +47,113 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     const user = verifyInstructor(locals)
     const body = remindStudentsSchema.parse(await request.json())
 
+    if ('classId' in body) {
+      //
+      // --- NEW CLASS-BASED DISPATCH ---
+      // Verifies class authorization and resolves all student emails & names server-side
+      //
+      let classData: Data.Class
+      let instructorName = ''
+      let ccEmails: string[] = []
+
+      if (body.subRequestId) {
+        const authorizedSub = await authorizeSubstituteSession(
+          user.uid,
+          body.subRequestId,
+        )
+        classData = authorizedSub.classData
+        instructorName =
+          authorizedSub.subRequest.subInstructorFirstName || 'Instructor'
+        // A substitute's reminder speaks only for the session they cover; no co-instructor CCs
+        ccEmails = []
+      } else {
+        classData = await getAuthorizedClass(body.classId, user)
+
+        instructorName = classData.instructorFirstName || 'Instructor'
+        const instructorUids = [
+          classData.instructorUid ?? '',
+          ...(classData.otherInstructorUids ?? []),
+        ].filter(Boolean)
+
+        ccEmails = await resolveCoInstructorEmails(
+          instructorUids.filter((uid) => uid !== user.uid),
+        )
+      }
+
+      let targetUids: string[] = []
+      if (body.studentUid) {
+        if (!classData.students?.includes(body.studentUid)) {
+          throw error(400, 'Student is not enrolled in this class.')
+        }
+        targetUids = [body.studentUid]
+      } else {
+        targetUids = classData.students ?? []
+      }
+
+      if (targetUids.length === 0) {
+        return json(
+          { message: 'That class has no students to remind.', count: 0 },
+          { status: 400 },
+        )
+      }
+
+      const studentSnaps = await getStudentSnaps(targetUids)
+
+      let sentCount = 0
+      for (const snap of studentSnaps) {
+        if (!snap.exists) continue
+        const data = snap.data() as any
+        const personal = data?.personal || {}
+        const studentEmail = personal.email
+        if (!studentEmail) continue
+
+        const firstName = personal.studentFirstName || 'Student'
+        const template = {
+          name: 'classReminder',
+          data: {
+            subject: 'gbSTEM Class Reminder',
+            app: {
+              firstName,
+              name: 'Portal',
+              class: classData.course || '',
+              classTime: body.classTime,
+              instructor: instructorName,
+              link: 'https://portal.gbstem.org',
+            },
+          },
+        }
+
+        const htmlBody = renderEmail(
+          'classReminderEmailTemplate',
+          template.data,
+        )
+
+        try {
+          await sendEmail({
+            to: studentEmail,
+            cc: ccEmails,
+            subject: String(template.data.subject),
+            html: htmlBody,
+          })
+          sentCount++
+        } catch (mailError) {
+          console.error(
+            `Failed to send reminder email to ${studentEmail}:`,
+            mailError,
+          )
+        }
+      }
+
+      return json({
+        message: 'Reminder emails were sent!',
+        count: sentCount,
+      })
+    }
+
+    //
+    // TODO(rip-out-compat): Remove this legacy branch once older clients have upgraded (~1 week soak)
+    //
     const email = body.email
-    // Everyone teaching the class except whoever is sending it. The list used
-    // to be the class's `otherInstructorUids` alone, which is the owner's
-    // colleagues - correct when the owner sends, exactly backwards when a
-    // co-instructor does: they cc'd themselves and copied the primary on
-    // nothing. Dropping the caller by uid rather than by address means an
-    // account whose email has changed is still recognised as the sender.
     const ccEmails = await resolveCoInstructorEmails(
       body.instructorUids.filter((uid) => uid !== user.uid),
     )

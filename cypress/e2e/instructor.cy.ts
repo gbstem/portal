@@ -7,7 +7,6 @@ import {
   substituteRequestsCollection,
 } from '../../src/lib/data/collections'
 import semesterDates from '../../src/lib/data/semesterDates.json'
-import { generateDateHash, prepareDocForCompare } from '../support/utils'
 import {
   COHOST_EMAIL,
   COHOST_UID,
@@ -24,6 +23,7 @@ import {
   readClassDoc,
   subRequestRow,
 } from '../support/fixtures'
+import { generateDateHash, prepareDocForCompare } from '../support/utils'
 
 /** Every field the instructor application form renders. */
 interface ApplicationInput {
@@ -853,7 +853,7 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
           attendanceList: expectedAttendance,
           classNumber: 1,
           // Empty unless this is a substitute filing the feedback, which this
-          // test isn't - it comes from `classBeingSubbed`, not the class.
+          // test isn't - it comes from `subRequest`, not the class.
           courseName: '',
           instructorName: 'Demo Instructor',
         })
@@ -1696,8 +1696,7 @@ describe('Section G: Co-Instructor Access To A Shared Class', () => {
       .its(0)
       .should('contain', 'Send class reminder to all students?')
 
-    // Only one of the seeded roster's uids has a registration document, so
-    // exactly one reminder goes out - to the student, copying the primary
+    // Reminders go out to the class roster, copying the primary
     // (resolved from the class's `instructorUid` to whatever address that
     // account holds now) and not the co-instructor who sent it.
     cy.verifyEmailSent(SEEDED_STUDENT_EMAIL, 'gbSTEM Class Reminder', {

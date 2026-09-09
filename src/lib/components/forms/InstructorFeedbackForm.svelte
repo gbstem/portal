@@ -16,12 +16,12 @@
   import { ClassStatus } from '../helpers/ClassStatus'
 
   interface Props {
-    classBeingSubbed: Data.SubRequest | undefined
+    subRequest: Data.SubRequest | undefined
     sessionNumber: number
     classId?: string | undefined
   }
 
-  let { classBeingSubbed, sessionNumber, classId = undefined }: Props = $props()
+  let { subRequest, sessionNumber, classId = undefined }: Props = $props()
 
   let showValidation = false
   let currentUser: Data.User.Store
@@ -49,9 +49,9 @@
         classNumber: untrack(() =>
           sessionNumber !== undefined
             ? sessionNumber
-            : classBeingSubbed === undefined
+            : subRequest === undefined
               ? 1
-              : classBeingSubbed.classNumber,
+              : subRequest.classNumber,
         ),
         feedback: '',
         attendanceList: {},
@@ -67,18 +67,18 @@
         if ($user) {
           const frozenUser = $user
           let id =
-            classBeingSubbed === undefined
+            subRequest === undefined
               ? classId || frozenUser.object.uid
-              : classBeingSubbed.id.split('---')[0]
+              : subRequest.id.split('---')[0]
 
           try {
-            if (classBeingSubbed !== undefined) {
+            if (subRequest !== undefined) {
               // A substitute's feedback goes through the server, which owns
               // the writes to the class document that firestore.rules will
               // not let them make from here, and derives the course and the
               // session from the request rather than from this form.
               await substituteService.submitSubstituteFeedback({
-                subRequestId: classBeingSubbed.id,
+                subRequestId: subRequest.id,
                 date: formVal.data.classDate,
                 feedback: formVal.data.feedback,
                 attendanceList: formVal.data.attendanceList,
@@ -154,16 +154,19 @@
 
   async function getData() {
     let id =
-      classBeingSubbed === undefined
+      subRequest === undefined
         ? classId || currentUser.object.uid
-        : classBeingSubbed.id.split('---')[0]
+        : subRequest.id.split('---')[0]
     const data = await classService.fetchClassDetails(id)
     if (data) {
-      const { students, feedbackCompleted, classStatuses } = data
+      const { feedbackCompleted, classStatuses } = data
       feedbackCompletedArray = feedbackCompleted
       classStatusesArray = classStatuses
       try {
-        const list = await classService.fetchStudentNames(students)
+        const list = await classService.fetchStudentNamesForClass(
+          id,
+          subRequest?.id,
+        )
         classList = list
         const initialAttendance: Record<string, { present: boolean }> = {}
         classList.forEach((student: string) => {

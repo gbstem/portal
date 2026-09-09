@@ -24,27 +24,6 @@ describe('portal classService (Data Access Layer)', () => {
     global.fetch = jest.fn() as jest.Mock
   })
 
-  describe('fetchStudentList', () => {
-    it('fetches and transforms student records from Firestore', async () => {
-      const mockData = {
-        personal: {
-          studentFirstName: 'Timmy',
-          studentLastName: 'Turner',
-          email: 'timmy@example.com',
-        },
-        academic: { school: 'Dimmsdale', grade: 5 },
-      }
-      ;(firestore.getDoc as jest.Mock).mockResolvedValueOnce({
-        exists: () => true,
-        data: () => mockData,
-      })
-
-      const res = await classService.fetchStudentList(['uid-1'])
-      expect(res.length).toBe(1)
-      expect(res[0].name).toBe('Timmy Turner')
-    })
-  })
-
   describe('fetchClassDetails', () => {
     it('returns class data when the document exists', async () => {
       const mockData = { course: 'Python 1', students: ['s-1'] }
@@ -74,49 +53,6 @@ describe('portal classService (Data Access Layer)', () => {
       await expect(classService.fetchClassDetails('c-1')).rejects.toThrow(
         'permission-denied',
       )
-    })
-  })
-
-  describe('fetchStudentListForClass', () => {
-    it('fetches enrolled students for a class', async () => {
-      ;(firestore.getDoc as jest.Mock)
-        .mockResolvedValueOnce({
-          exists: () => true,
-          data: () => ({ course: 'Python 1', students: ['s-1'] }),
-        })
-        .mockResolvedValueOnce({
-          exists: () => true,
-          data: () => ({
-            personal: {
-              studentFirstName: 'Timmy',
-              studentLastName: 'Turner',
-              email: 'timmy@example.com',
-            },
-          }),
-        })
-
-      const res = await classService.fetchStudentListForClass('c-1')
-      expect(res).toHaveLength(1)
-      expect(res[0].name).toBe('Timmy Turner')
-    })
-
-    it('returns an empty array when the class does not exist', async () => {
-      ;(firestore.getDoc as jest.Mock).mockResolvedValueOnce({
-        exists: () => false,
-      })
-
-      const res = await classService.fetchStudentListForClass('c-1')
-      expect(res).toEqual([])
-    })
-
-    it('returns an empty array when the class has no students field', async () => {
-      ;(firestore.getDoc as jest.Mock).mockResolvedValueOnce({
-        exists: () => true,
-        data: () => ({ course: 'Python 1' }),
-      })
-
-      const res = await classService.fetchStudentListForClass('c-1')
-      expect(res).toEqual([])
     })
   })
 
@@ -671,40 +607,6 @@ describe('portal classService (Data Access Layer)', () => {
     })
   })
 
-  describe('fetchStudentNames', () => {
-    it('fetches names in input order', async () => {
-      ;(firestore.getDoc as jest.Mock)
-        .mockResolvedValueOnce({
-          data: () => ({
-            personal: { studentFirstName: 'Alice', studentLastName: 'A' },
-          }),
-        })
-        .mockResolvedValueOnce({
-          data: () => ({
-            personal: { studentFirstName: 'Bob', studentLastName: 'B' },
-          }),
-        })
-
-      const res = await classService.fetchStudentNames(['s-1', 's-2'])
-      expect(res).toEqual(['Alice A', 'Bob B'])
-    })
-
-    it("resolves individual lookup failures to 'Error' rather than rejecting the whole batch", async () => {
-      ;(firestore.getDoc as jest.Mock)
-        .mockResolvedValueOnce({
-          data: () => ({
-            personal: { studentFirstName: 'Alice', studentLastName: 'A' },
-          }),
-        })
-        .mockRejectedValueOnce(new Error('permission-denied'))
-      const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
-
-      const res = await classService.fetchStudentNames(['s-1', 's-2'])
-      expect(res).toEqual(['Alice A', 'Error'])
-      errorSpy.mockRestore()
-    })
-  })
-
   describe('submitInstructorFeedback', () => {
     const feedback = {
       date: '2026-01-01',
@@ -785,6 +687,70 @@ describe('portal classService (Data Access Layer)', () => {
       await expect(
         classService.submitStudentFeedback('c-1', {} as any),
       ).rejects.toThrow('permission-denied')
+    })
+  })
+
+  describe('fetchClassRoster', () => {
+    it('fetches roster from /api/classRoster', async () => {
+      const mockStudents = [
+        {
+          uid: 's-1',
+          name: 'Ada Lovelace',
+          email: 'ada@example.com',
+          secondaryEmail: '',
+          phone: '1234567890',
+          grade: 5,
+          school: 'STEM School',
+        },
+      ]
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ students: mockStudents }),
+      })
+
+      const res = await classService.fetchClassRoster('c-1')
+      expect(global.fetch).toHaveBeenCalledWith('/api/classRoster?classId=c-1')
+      expect(res).toEqual(mockStudents)
+    })
+
+    it('passes subRequestId when provided', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ students: [] }),
+      })
+
+      await classService.fetchClassRoster('c-1', 'sub-123')
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/classRoster?classId=c-1&subRequestId=sub-123',
+      )
+    })
+
+    it('throws error when response is not ok', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        statusText: 'Forbidden',
+        json: async () => ({ message: 'Not authorized' }),
+      })
+
+      await expect(classService.fetchClassRoster('c-1')).rejects.toThrow(
+        'Not authorized',
+      )
+    })
+  })
+
+  describe('fetchStudentNamesForClass', () => {
+    it('maps student names from the roster', async () => {
+      const mockStudents = [
+        { uid: 's-1', name: 'Ada Lovelace' },
+        { uid: 's-2', name: 'Grace Hopper' },
+      ]
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ students: mockStudents }),
+      })
+
+      const res = await classService.fetchStudentNamesForClass('c-1')
+      expect(res).toEqual(['Ada Lovelace', 'Grace Hopper'])
     })
   })
 })

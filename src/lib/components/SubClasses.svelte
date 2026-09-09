@@ -1,6 +1,7 @@
 <script lang="ts">
   import { enhance } from '$app/forms'
   import { user } from '$lib/client/firebase'
+  import { curriculumLink } from '$lib/helpers/curriculumLink'
   import {
     filterCheckedOffSubClasses,
     subRequestClassId,
@@ -18,7 +19,6 @@
   import TextInput from './TextInput.svelte'
   import InstructorFeedbackForm from './forms/InstructorFeedbackForm.svelte'
   import { SubRequestStatus } from './helpers/SubRequestStatus'
-  import { curriculumLink } from '$lib/helpers/curriculumLink'
   import sendClassReminder from './helpers/sendClassReminder'
 
   interface Props {
@@ -174,32 +174,12 @@
   }
 
   async function sendReminder(subRequest: Data.SubRequest) {
-    const { course, subInstructorFirstName, dateOfClass, id } = subRequest
+    const { dateOfClass, id } = subRequest
     try {
-      // The *class*, not the request: `id` is `${classId}---${classNumber}`,
-      // which names no class document. The lookup came back empty, and an
-      // empty roster is a silent no-op in sendClassReminder - it loops over
-      // the students and there are none - so the confirm appeared and then
-      // nothing at all happened: no email, no error, no toast.
-      const studentList = await classService.fetchStudentListForClass(
-        subRequestClassId(id),
-      )
-      if (studentList.length === 0) {
-        alert.trigger(
-          'error',
-          'That class has no students to remind. Please reload and try again.',
-        )
-        return
-      }
       sendClassReminder({
-        studentList: studentList,
-        className: course,
-        instructorName: subInstructorFirstName,
+        classId: subRequestClassId(id),
+        subRequestId: id,
         nextMeetingTime: formatDate(timestampToDate(dateOfClass)),
-        // Empty, as before: a substitute's reminder speaks only for the one
-        // session they are covering, and a sub request doesn't carry the
-        // class's instructor list.
-        instructorUids: [],
       })
     } catch (err) {
       console.error('Failed to send reminder:', err)
@@ -267,13 +247,13 @@
     <Card>
       <h2 class="mt-4 mb-2 text-xl font-bold">Your Classes To Substitute</h2>
       {#if userSubClassesList.length > 0}
-        {#each userSubClassesList as classBeingSubbed, i (classBeingSubbed.id)}
+        {#each userSubClassesList as subRequest, i (subRequest.id)}
           <!-- null when this course has no page on the curriculum site -->
-          {@const subCurriculumLink = curriculumLink(classBeingSubbed.course)}
+          {@const subCurriculumLink = curriculumLink(subRequest.course)}
           <Dialog bind:open={feedbackOpenStates[i]} size="min" alert>
             {#snippet title()}
               <div class="flex items-center justify-between">
-                {classBeingSubbed.course} Substitute Class Feedback Form <Button
+                {subRequest.course} Substitute Class Feedback Form <Button
                   color="red"
                   class="font-light"
                   onclick={() => (feedbackOpenStates[i] = false)}>Close</Button
@@ -283,8 +263,8 @@
             {#snippet description()}
               <div>
                 <InstructorFeedbackForm
-                  {classBeingSubbed}
-                  sessionNumber={classBeingSubbed.classNumber}
+                  {subRequest}
+                  sessionNumber={subRequest.classNumber}
                 />
               </div>
             {/snippet}
@@ -300,10 +280,10 @@
             {/snippet}
             {#snippet description()}
               <Card>
-                <p>{classBeingSubbed.notes}</p>
+                <p>{subRequest.notes}</p>
                 <br />
                 <p>
-                  Please reach out to the class's usual instructor at {classBeingSubbed.originalInstructorEmail}
+                  Please reach out to the class's usual instructor at {subRequest.originalInstructorEmail}
                   if you have questions!
                 </p>
               </Card>
@@ -311,19 +291,19 @@
           </Dialog>
           <hr />
           <div
-            class={`mt-3 flex items-center justify-between rounded-lg ${classBeingSubbed.subRequestStatus === SubRequestStatus.SubstituteFeedbackNeeded ? 'bg-green-100' : timestampToDate(classBeingSubbed.dateOfClass) < new Date() ? 'bg-red-100' : 'bg-yellow-100'} p-4`}
+            class={`mt-3 flex items-center justify-between rounded-lg ${subRequest.subRequestStatus === SubRequestStatus.SubstituteFeedbackNeeded ? 'bg-green-100' : timestampToDate(subRequest.dateOfClass) < new Date() ? 'bg-red-100' : 'bg-yellow-100'} p-4`}
           >
             <p>
-              {classBeingSubbed.course} class #{classBeingSubbed.classNumber} at {formatDate(
-                timestampToDate(classBeingSubbed.dateOfClass),
+              {subRequest.course} class #{subRequest.classNumber} at {formatDate(
+                timestampToDate(subRequest.dateOfClass),
               )}
             </p>
           </div>
           <div class="text-sm italic">
-            {classBeingSubbed.subRequestStatus ===
+            {subRequest.subRequestStatus ===
             SubRequestStatus.SubstituteFeedbackNeeded
               ? 'Please remember to fill out the feedback form for this class!'
-              : timestampToDate(classBeingSubbed.dateOfClass) > new Date()
+              : timestampToDate(subRequest.dateOfClass) > new Date()
                 ? 'Please remember to review the notes and prep for the class. Thank you for substituting!'
                 : 'Looks like the substitute class was not held! Please reach out to the usual instructor to let them know.'}
           </div>
@@ -345,9 +325,9 @@
           <Button
             color="blue"
             class="mt-2"
-            onclick={() => recordClass(classBeingSubbed)}>Join</Button
+            onclick={() => recordClass(subRequest)}>Join</Button
           >
-          <Button color="blue" onclick={() => sendReminder(classBeingSubbed)}>
+          <Button color="blue" onclick={() => sendReminder(subRequest)}>
             Send Reminder</Button
           >
           <Button

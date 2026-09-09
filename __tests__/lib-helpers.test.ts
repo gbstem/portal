@@ -269,23 +269,61 @@ describe('sendClassReminder', () => {
     jest.clearAllMocks()
   })
 
-  it('sends student reminders successfully', async () => {
+  it('handles "No Upcoming Classes" without sending', () => {
     ;(global.confirm as jest.Mock).mockReturnValue(true)
-    ;(global.fetch as jest.Mock).mockResolvedValue({
-      ok: true,
-      json: async () => ({}),
-    })
 
     sendClassReminder({
-      studentList: [{ name: 'john doe', email: 'john@test.com' }] as any,
-      instructorName: 'test instructor',
-      instructorUids: [],
-      className: 'Math',
-      nextMeetingTime: 'Monday at 2:00 PM',
+      classId: 'c-1',
+      nextMeetingTime: 'No Upcoming Classes',
     })
 
     expect(global.confirm).toHaveBeenCalled()
-    expect(global.fetch).toHaveBeenCalledTimes(1)
+    expect(global.fetch).not.toHaveBeenCalled()
+    expect(alert.trigger).toHaveBeenCalledWith(
+      'error',
+      'No upcoming classes found!',
+    )
+  })
+
+  it('handles server error gracefully', async () => {
+    ;(global.confirm as jest.Mock).mockReturnValue(true)
+    ;(global.fetch as jest.Mock).mockResolvedValue({
+      ok: false,
+      json: async () => ({ message: 'Server error occurred' }),
+    })
+
+    sendClassReminder({
+      classId: 'c-1',
+      nextMeetingTime: 'Monday at 2:00 PM',
+    })
+
+    await new Promise(process.nextTick)
+    expect(alert.trigger).toHaveBeenCalledWith('error', 'Server error occurred')
+  })
+
+  it('sends class-based reminder to all students via classId', async () => {
+    ;(global.confirm as jest.Mock).mockReturnValue(true)
+    ;(global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: async () => ({ message: 'Reminder emails were sent!', count: 2 }),
+    })
+
+    sendClassReminder({
+      classId: 'c-1',
+      nextMeetingTime: 'Monday at 2:00 PM',
+    })
+
+    expect(global.confirm).toHaveBeenCalledWith(
+      'Send class reminder to all students?',
+    )
+    expect(global.fetch).toHaveBeenCalledWith('/api/remindStudents', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        classId: 'c-1',
+        classTime: 'Monday at 2:00 PM',
+      }),
+    })
 
     await new Promise(process.nextTick)
     expect(alert.trigger).toHaveBeenCalledWith(
@@ -294,27 +332,40 @@ describe('sendClassReminder', () => {
     )
   })
 
-  it('handles single student send successfully', async () => {
+  it('sends class-based reminder to a single student via studentUid', async () => {
     ;(global.confirm as jest.Mock).mockReturnValue(true)
     ;(global.fetch as jest.Mock).mockResolvedValue({
       ok: true,
-      json: async () => ({}),
+      json: async () => ({
+        message: 'Reminder email was sent to Ada!',
+        count: 1,
+      }),
     })
 
     sendClassReminder({
-      studentList: [{ name: 'john doe', email: 'john@test.com' }] as any,
-      studentName: 'john doe',
-      studentEmail: 'john@test.com',
-      instructorName: 'test instructor',
-      instructorUids: [],
-      className: 'Math',
+      classId: 'c-1',
+      studentUid: 'student-1',
+      studentName: 'Ada',
       nextMeetingTime: 'Monday at 2:00 PM',
+    })
+
+    expect(global.confirm).toHaveBeenCalledWith(
+      'Send class reminder to student Ada?',
+    )
+    expect(global.fetch).toHaveBeenCalledWith('/api/remindStudents', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        classId: 'c-1',
+        classTime: 'Monday at 2:00 PM',
+        studentUid: 'student-1',
+      }),
     })
 
     await new Promise(process.nextTick)
     expect(alert.trigger).toHaveBeenCalledWith(
       'success',
-      'Reminder email was sent to john doe!',
+      'Reminder email was sent to Ada!',
     )
   })
 })

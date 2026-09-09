@@ -1,5 +1,4 @@
 import { db } from '$lib/client/firebase'
-import type Student from '$lib/components/types/Student'
 import {
   classesCollection,
   instructorFeedbackCollection,
@@ -8,17 +7,14 @@ import {
   substituteRequestsCollection,
   withSemester,
 } from '$lib/data/collections'
-import {
-  buildSubRequestPayload,
-  transformStudentDocData,
-} from '$lib/helpers/classSchedule'
-import { instructorClassMappingDiff } from '$lib/helpers/classDetailsForm'
 import type { CoInstructor } from '$lib/helpers/classDetailsForm'
+import { instructorClassMappingDiff } from '$lib/helpers/classDetailsForm'
 import {
   parseClassInfoDoc,
   sortClassesBySpotsRemaining,
   type ClassInfo,
 } from '$lib/helpers/classesPage'
+import { buildSubRequestPayload } from '$lib/helpers/classSchedule'
 import { subRequestDocId } from '$lib/helpers/subClasses'
 import { timestampToDate } from '$lib/utils'
 import {
@@ -55,27 +51,52 @@ export interface StudentFeedbackSubmission {
   course: string
 }
 
+export interface RosterStudent {
+  uid: string
+  name: string
+  email: string
+  secondaryEmail: string
+  phone: string
+  grade: string | number
+  school: string
+}
+
 /**
  * Service providing Data Access Layer for Class Schedule management.
  */
 export const classService = {
   /**
-   * Fetches student profile details for a list of student UIDs.
+   * Fetches the sanitized student roster for an authorized class via the backend API.
+   * Enforces server-side authorization and never exposes sensitive demographics.
    */
-  async fetchStudentList(studentUids: string[]): Promise<Student[]> {
-    const students: Student[] = []
-    const promises = studentUids.map(async (uid) => {
-      const studentDocRef = doc(db, registrationsCollection, uid)
-      const snap = await getDoc(studentDocRef)
-      if (snap.exists()) {
-        const student = transformStudentDocData(snap.data())
-        if (student) {
-          students.push(student)
-        }
-      }
-    })
-    await Promise.all(promises)
-    return students
+  async fetchClassRoster(
+    classId: string,
+    subRequestId?: string,
+  ): Promise<RosterStudent[]> {
+    const params = new URLSearchParams({ classId })
+    if (subRequestId) {
+      params.set('subRequestId', subRequestId)
+    }
+    const res = await fetch(`/api/classRoster?${params.toString()}`)
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}))
+      throw new Error(
+        errData.message || `Failed to fetch class roster: ${res.statusText}`,
+      )
+    }
+    const data = await res.json()
+    return data.students || []
+  },
+
+  /**
+   * Fetches student display names for an authorized class via the backend API.
+   */
+  async fetchStudentNamesForClass(
+    classId: string,
+    subRequestId?: string,
+  ): Promise<string[]> {
+    const roster = await this.fetchClassRoster(classId, subRequestId)
+    return roster.map((s) => s.name)
   },
 
   /**
@@ -85,15 +106,6 @@ export const classService = {
     const snap = await getDoc(doc(db, classesCollection, classId))
     if (!snap.exists()) return null
     return snap.data() as Data.Class
-  },
-
-  /**
-   * Fetches student list enrolled in a class given the classId.
-   */
-  async fetchStudentListForClass(classId: string): Promise<Student[]> {
-    const classDetails = await this.fetchClassDetails(classId)
-    if (!classDetails || !classDetails.students) return []
-    return this.fetchStudentList(classDetails.students)
   },
 
   /**
@@ -477,25 +489,6 @@ export const classService = {
     await updateDoc(registrationDocRef, {
       enrolled: remainingClasses.length > 0,
     })
-  },
-
-  /**
-   * Fetches student display names for a list of UIDs, preserving input order.
-   * Individual lookup failures resolve to 'Error' rather than rejecting the batch.
-   */
-  async fetchStudentNames(studentUids: string[]): Promise<string[]> {
-    return Promise.all(
-      studentUids.map(async (uid) => {
-        try {
-          const userDoc = await getDoc(doc(db, registrationsCollection, uid))
-          const userData = userDoc.data()?.personal
-          return `${userData?.studentFirstName} ${userData?.studentLastName}`
-        } catch (error) {
-          console.error('Error fetching student data:', error)
-          return 'Error'
-        }
-      }),
-    )
   },
 
   /**

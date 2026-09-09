@@ -177,8 +177,10 @@ import { NOT_AN_ACCEPTED_INSTRUCTOR } from '$lib/server/instructorDirectory'
 import {
   classesCollection,
   decisionsCollection,
+  registrationsCollection,
   substituteRequestsCollection,
 } from '$lib/data/collections'
+import { GET as classRosterGET } from '../src/routes/api/classRoster/+server'
 import { POST as remindStudentsPOST } from '../src/routes/api/remindStudents/+server'
 import { POST as resolveCoInstructorsPOST } from '../src/routes/api/resolveCoInstructors/+server'
 import { POST as slotRequestPOST } from '../src/routes/api/slotRequest/+server'
@@ -199,24 +201,34 @@ async function withRejectedSend(fn: () => Promise<void>) {
   await fn()
 }
 
+/**
+ * Points every adminDb.doc() read at `docs`. Anything unlisted reads as a missing document.
+ */
+function mockFirestoreDocs(docs: Record<string, any>) {
+  mockAdminDb.doc.mockImplementation((path: string) => ({
+    get: async () => ({ exists: path in docs, data: () => docs[path] }),
+  }))
+}
+
+const instructorLocals = {
+  user: { uid: 'caller-uid', email: 'caller@gbstem.org', role: 'instructor' },
+}
+
+beforeEach(() => {
+  jest.spyOn(console, 'error').mockImplementation(() => {})
+  jest.spyOn(console, 'warn').mockImplementation(() => {})
+})
+
+afterAll(() => {
+  ;(console.error as any).mockRestore?.()
+  ;(console.warn as any).mockRestore?.()
+})
+
 describe('co-instructor directory routes', () => {
   let mockRequest: any
 
-  /**
-   * Points every adminDb.doc() read at `docs`, so a test can say who is an
-   * accepted instructor. Anything unlisted reads as a missing document.
-   */
-  function mockFirestoreDocs(docs: Record<string, any>) {
-    mockAdminDb.doc.mockImplementation((path: string) => ({
-      get: async () => ({ exists: path in docs, data: () => docs[path] }),
-    }))
-  }
-
   const acceptedCaller = {
     [`${decisionsCollection}/caller-uid`]: { type: 'accepted' },
-  }
-  const instructorLocals = {
-    user: { uid: 'caller-uid', email: 'caller@gbstem.org', role: 'instructor' },
   }
 
   beforeEach(() => {
@@ -1390,6 +1402,331 @@ describe('API routes POST endpoints', () => {
     )
   })
 
+  it('remindStudentsPOST class-based mode sends reminders to all enrolled students and CCs co-instructors', async () => {
+    mockAdminAuth.getUsers.mockResolvedValueOnce({
+      users: [{ uid: 'co-inst-1', email: 'coinst@gbstem.org' }],
+      notFound: [],
+    })
+    mockFirestoreDocs({
+      [`${classesCollection}/c-1`]: {
+        instructorUid: 'caller-uid',
+        instructorFirstName: 'Lead',
+        otherInstructorUids: ['co-inst-1'],
+        course: 'Python 1',
+        students: ['s-1', 's-2'],
+      },
+      [`${registrationsCollection}/s-1`]: {
+        personal: {
+          studentFirstName: 'Ada',
+          email: 'ada@example.com',
+        },
+      },
+      [`${registrationsCollection}/s-2`]: {
+        personal: {
+          studentFirstName: 'Charles',
+          email: 'charles@example.com',
+        },
+      },
+    })
+
+    mockRequest.json.mockResolvedValue({
+      classId: 'c-1',
+      classTime: 'Friday at 4:00 PM',
+    })
+
+    ;(MailService.send as jest.Mock).mockClear()
+    const res: any = await remindStudentsPOST({
+      request: mockRequest as any,
+      locals: instructorLocals,
+    } as any)
+
+    expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
+    expect(res.body.count).toBe(2)
+    expect(MailService.send).toHaveBeenCalledTimes(2)
+    expect(MailService.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: ['ada@example.com'],
+        cc: ['coinst@gbstem.org'],
+        subject: 'gbSTEM Class Reminder',
+      }),
+    )
+    expect(MailService.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: ['charles@example.com'],
+        cc: ['coinst@gbstem.org'],
+        subject: 'gbSTEM Class Reminder',
+      }),
+    )
+  })
+
+  it('remindStudentsPOST class-based mode sends to a single enrolled student when studentUid is specified', async () => {
+    mockAdminAuth.getUsers.mockResolvedValueOnce({
+      users: [],
+      notFound: [],
+    })
+    mockFirestoreDocs({
+      [`${classesCollection}/c-1`]: {
+        instructorUid: 'caller-uid',
+        instructorFirstName: 'Lead',
+        course: 'Python 1',
+        students: ['s-1', 's-2'],
+      },
+      [`${registrationsCollection}/s-1`]: {
+        personal: {
+          studentFirstName: 'Ada',
+          email: 'ada@example.com',
+        },
+      },
+    })
+
+    mockRequest.json.mockResolvedValue({
+      classId: 'c-1',
+      classTime: 'Friday at 4:00 PM',
+      studentUid: 's-1',
+    })
+
+    ;(MailService.send as jest.Mock).mockClear()
+    const res: any = await remindStudentsPOST({
+      request: mockRequest as any,
+      locals: instructorLocals,
+    } as any)
+
+    expect(res.body.count).toBe(1)
+    expect(MailService.send).toHaveBeenCalledTimes(1)
+    expect(MailService.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: ['ada@example.com'],
+      }),
+    )
+  })
+
+  it('remindStudentsPOST class-based mode rejects student not in class with 400', async () => {
+    mockFirestoreDocs({
+      [`${classesCollection}/c-1`]: {
+        instructorUid: 'caller-uid',
+        students: ['s-1'],
+      },
+    })
+
+    mockRequest.json.mockResolvedValue({
+      classId: 'c-1',
+      classTime: 'Friday at 4:00 PM',
+      studentUid: 'unregistered-student',
+    })
+
+    await expect(
+      remindStudentsPOST({
+        request: mockRequest as any,
+        locals: instructorLocals,
+      } as any),
+    ).rejects.toEqual(
+      expect.objectContaining({
+        status: 400,
+        message: 'Student is not enrolled in this class.',
+      }),
+    )
+  })
+
+  it('remindStudentsPOST class-based mode returns 400 when class has no students', async () => {
+    mockFirestoreDocs({
+      [`${classesCollection}/c-1`]: {
+        instructorUid: 'caller-uid',
+        students: [],
+      },
+    })
+
+    mockRequest.json.mockResolvedValue({
+      classId: 'c-1',
+      classTime: 'Friday at 4:00 PM',
+    })
+
+    const res: any = await remindStudentsPOST({
+      request: mockRequest as any,
+      locals: instructorLocals,
+    } as any)
+
+    expect(res.init.status).toBe(400)
+    expect(res.body.message).toBe('That class has no students to remind.')
+  })
+
+  describe('GET /api/classRoster', () => {
+    it('rejects unauthenticated caller with 401', async () => {
+      const url = new URL('http://localhost/api/classRoster?classId=c-1')
+      await expect(classRosterGET({ url, locals: {} } as any)).rejects.toEqual(
+        expect.objectContaining({ status: 401, __isSvelteKitError: true }),
+      )
+    })
+
+    it('rejects student role with 403', async () => {
+      const url = new URL('http://localhost/api/classRoster?classId=c-1')
+      await expect(
+        classRosterGET({
+          url,
+          locals: { user: { uid: 's-1', role: 'student' } },
+        } as any),
+      ).rejects.toEqual(
+        expect.objectContaining({ status: 403, __isSvelteKitError: true }),
+      )
+    })
+
+    it('returns 404 when class does not exist', async () => {
+      mockFirestoreDocs({})
+      const url = new URL(
+        'http://localhost/api/classRoster?classId=nonexistent',
+      )
+      await expect(
+        classRosterGET({
+          url,
+          locals: instructorLocals,
+        } as any),
+      ).rejects.toEqual(
+        expect.objectContaining({ status: 404, message: 'Class not found.' }),
+      )
+    })
+
+    it('returns 403 when instructor is neither owner, co-instructor, nor admin', async () => {
+      mockFirestoreDocs({
+        [`${classesCollection}/c-1`]: {
+          instructorUid: 'other-instructor',
+          otherInstructorUids: [],
+          students: ['student-1'],
+        },
+      })
+      const url = new URL('http://localhost/api/classRoster?classId=c-1')
+      await expect(
+        classRosterGET({
+          url,
+          locals: instructorLocals,
+        } as any),
+      ).rejects.toEqual(
+        expect.objectContaining({
+          status: 403,
+          message: 'You are not an instructor of that class.',
+        }),
+      )
+    })
+
+    it('returns sanitized student roster for class owner, stripping demographics/PII', async () => {
+      mockFirestoreDocs({
+        [`${classesCollection}/c-1`]: {
+          instructorUid: 'caller-uid',
+          otherInstructorUids: [],
+          students: ['student-1', 'student-missing'],
+        },
+        [`${registrationsCollection}/student-1`]: {
+          personal: {
+            studentFirstName: 'Ada',
+            studentLastName: 'Lovelace',
+            email: 'ada@example.com',
+            secondaryEmail: 'parent@example.com',
+            phoneNumber: '555-1234',
+            dateOfBirth: '2014-01-01',
+            gender: 'Female',
+            race: ['White'],
+            frlp: 'Yes',
+            parentEducation: 'College',
+          },
+          academic: {
+            grade: 5,
+            school: 'Test Academy',
+          },
+          inPerson: {
+            allergies: 'Peanuts',
+          },
+        },
+      })
+
+      const url = new URL('http://localhost/api/classRoster?classId=c-1')
+      const res: any = await classRosterGET({
+        url,
+        locals: instructorLocals,
+      } as any)
+
+      expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
+      expect(res.body.students).toEqual([
+        {
+          uid: 'student-1',
+          name: 'Ada Lovelace',
+          email: 'ada@example.com',
+          secondaryEmail: 'parent@example.com',
+          phone: '555-1234',
+          grade: 5,
+          school: 'Test Academy',
+        },
+        {
+          uid: 'student-missing',
+          name: 'Unknown Student',
+          email: '',
+          secondaryEmail: '',
+          phone: '',
+          grade: '',
+          school: '',
+        },
+      ])
+      expect(res.body.students[0]).not.toHaveProperty('dateOfBirth')
+      expect(res.body.students[0]).not.toHaveProperty('gender')
+      expect(res.body.students[0]).not.toHaveProperty('race')
+      expect(res.body.students[0]).not.toHaveProperty('frlp')
+      expect(res.body.students[0]).not.toHaveProperty('allergies')
+    })
+
+    it('returns roster for co-instructor', async () => {
+      mockFirestoreDocs({
+        [`${classesCollection}/c-1`]: {
+          instructorUid: 'owner-uid',
+          otherInstructorUids: ['caller-uid'],
+          students: ['student-1'],
+        },
+        [`${registrationsCollection}/student-1`]: {
+          personal: {
+            studentFirstName: 'Charles',
+            studentLastName: 'Babbage',
+            email: 'charles@example.com',
+          },
+          academic: { grade: 6, school: 'London School' },
+        },
+      })
+
+      const url = new URL('http://localhost/api/classRoster?classId=c-1')
+      const res: any = await classRosterGET({
+        url,
+        locals: instructorLocals,
+      } as any)
+      expect(res.body.students[0].name).toBe('Charles Babbage')
+    })
+
+    it('returns roster for substitute when subRequestId is valid', async () => {
+      mockFirestoreDocs({
+        [`${substituteRequestsCollection}/c-1---1`]: {
+          subInstructorId: 'caller-uid',
+          classNumber: 1,
+        },
+        [`${classesCollection}/c-1`]: {
+          instructorUid: 'owner-uid',
+          students: ['student-1'],
+          classStatuses: ['substitute needed'],
+          meetingTimes: ['2026-10-01T10:00:00.000Z'],
+        },
+        [`${registrationsCollection}/student-1`]: {
+          personal: {
+            studentFirstName: 'Grace',
+            studentLastName: 'Hopper',
+            email: 'grace@example.com',
+          },
+        },
+      })
+
+      const url = new URL(
+        'http://localhost/api/classRoster?classId=c-1&subRequestId=c-1---1',
+      )
+      const res: any = await classRosterGET({
+        url,
+        locals: instructorLocals,
+      } as any)
+      expect(res.body.students[0].name).toBe('Grace Hopper')
+    })
+  })
+
   it('slotRequestPOST successfully uses authenticated user email', async () => {
     mockRequest.json.mockResolvedValue({
       firstName: 'Student',
@@ -1554,8 +1891,6 @@ describe('API routes POST endpoints', () => {
       originalInstructorUid: 'orig-uid-1',
       requestedByUid: 'deleted-uid',
     })
-    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
-
     const res = await substitutePOST({
       request: mockRequest as any,
       locals: { user: { email: 'sub@gbstem.org', role: 'instructor' } },
@@ -1565,7 +1900,6 @@ describe('API routes POST endpoints', () => {
     expect(MailService.send).toHaveBeenCalledWith(
       expect.objectContaining({ cc: ['orig@gbstem.org'] }),
     )
-    errorSpy.mockRestore()
   })
 
   it('substitutePOST successfully falls back to originalInstructorEmail', async () => {

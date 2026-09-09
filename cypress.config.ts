@@ -1,9 +1,9 @@
+import { exec as execCallback } from 'child_process'
 import { defineConfig } from 'cypress'
 import installLogsPrinter from 'cypress-terminal-report/src/installLogsPrinter'
 import { getApps, initializeApp } from 'firebase-admin/app'
 import { getAuth } from 'firebase-admin/auth'
 import { getFirestore } from 'firebase-admin/firestore'
-import { exec as execCallback } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
@@ -70,6 +70,7 @@ export default defineConfig({
     scrollBehavior: 'center',
     viewportWidth: 1920,
     viewportHeight: 1080,
+    retries: { runMode: 1, openMode: 0 },
     setupNodeEvents(on, config) {
       installLogsPrinter(on, {
         printLogsToConsole: 'onFail',
