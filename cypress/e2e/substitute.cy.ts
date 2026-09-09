@@ -514,6 +514,7 @@ describe('Section I: Substitute Requests And Cover', () => {
       // this one session they are who the students are meeting.
       cy.verifyEmailSent(SEEDED_STUDENT_EMAIL, 'gbSTEM Class Reminder', {
         to: [SEEDED_STUDENT_EMAIL],
+        cc: [],
       }).then((reminder: any) => {
         expect(reminder.html).to.contain('Cohost')
       })

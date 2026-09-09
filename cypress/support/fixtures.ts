@@ -16,7 +16,7 @@ import semesterDates from '../../src/lib/data/semesterDates.json'
 export const SEEDED_CLASS_ID = 'class-python1'
 export const SEEDED_MEETING_LINK = 'https://zoom.us/j/123456789'
 export const SEEDED_STUDENTS = ['student-demo-uid-1', 'student1', 'student2']
-/** The only one of `SEEDED_STUDENTS` with a registration document. */
+/** The primary demo student among `SEEDED_STUDENTS`. */
 export const SEEDED_STUDENT_NAME = 'Demo Student One'
 export const SEEDED_STUDENT_EMAIL = 'student@gbstem.org'
 

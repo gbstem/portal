@@ -114,6 +114,27 @@ describe('Section D: Class Roster and Details View', () => {
     // The all-students wording specifically: `sendClassReminder` has a
     // second, per-student prompt, and this button must not be taking it.
     cy.get('@confirms').its(0).should('contain', 'all students')
-    cy.verifyEmailSent('student@gbstem.org', 'gbSTEM Class Reminder')
+    cy.verifyEmailSent('student@gbstem.org', 'gbSTEM Class Reminder', {
+      to: ['student@gbstem.org'],
+      cc: [],
+    })
+
+    // Verify individual student reminder from the roster dialog
+    cy.contains('button', 'View Student List').click()
+    cy.get('[role="dialog"]').should('be.visible')
+    cy.get('[role="dialog"]').within(() => {
+      cy.contains('td', 'Demo Student One').should('be.visible')
+      cy.contains('td', 'student@gbstem.org').should('be.visible')
+      cy.contains('td', 'Demo Student One').parent('tr').find('button').click()
+    })
+    cy.waitForNotification('Reminder emails were sent!')
+    cy.get('@confirms').should('have.length', 2)
+    cy.get('@confirms')
+      .its(1)
+      .should('contain', 'Send class reminder to Demo Student One?')
+    cy.verifyEmailSent('student@gbstem.org', 'gbSTEM Class Reminder', {
+      to: ['student@gbstem.org'],
+      cc: [],
+    })
   })
 })

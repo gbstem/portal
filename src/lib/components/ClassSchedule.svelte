@@ -4,11 +4,12 @@
   import Dialog from '$lib/components/Dialog.svelte'
   import DialogActions from '$lib/components/DialogActions.svelte'
   import {
-    classInstructorUids,
     computeMeetingTimeChanges,
     computeUpdatedClassStatuses,
     findNextClassDateIndex,
   } from '$lib/helpers/classSchedule'
+  import { curriculumLink } from '$lib/helpers/curriculumLink'
+  import type { RosterStudent } from '$lib/services/classService'
   import { classService } from '$lib/services/classService'
   import { alert } from '$lib/stores'
   import {
@@ -27,9 +28,7 @@
   import ClassDetailsForm from './forms/ClassDetailsForm.svelte'
   import InstructorFeedbackForm from './forms/InstructorFeedbackForm.svelte'
   import { ClassStatus } from './helpers/ClassStatus'
-  import { curriculumLink } from '$lib/helpers/curriculumLink'
   import sendClassReminder from './helpers/sendClassReminder'
-  import type Student from './types/Student'
 
   interface Props {
     semesterDates: Data.SemesterDates
@@ -71,7 +70,7 @@
   let showStudentListDialog = $state(false)
   let showSubRequestDialog = $state(false)
   let emailHtmlContent = $state('')
-  let studentList: Student[] = $state([])
+  let studentList: RosterStudent[] = $state([])
   let addingClass = $state(false)
 
   let classToBeAdded = $state('')
@@ -80,12 +79,12 @@
   let subRequestNotes: string = $state('')
 
   /**
-   * Iterates through each student UID to get student info
-   * @param studentUids
+   * Fetches student roster for the active class via the backend API.
+   * @param targetClassId
    */
-  const getStudentList = async (studentUids: string[]) => {
+  const getStudentList = async (targetClassId: string) => {
     try {
-      const fetchedStudents = await classService.fetchStudentList(studentUids)
+      const fetchedStudents = await classService.fetchClassRoster(targetClassId)
       studentList = fetchedStudents
     } catch (err) {
       console.error('Failed to load student list:', err)
@@ -249,10 +248,10 @@
     values = instructorClasses[newClassId]
     studentList = [] // Reset student list
 
-    let { students, meetingTimes } = values
-    if (students) {
-      getStudentList(students)
+    if (newClassId) {
+      getStudentList(newClassId)
     }
+    let { meetingTimes } = values
     if (values && meetingTimes) {
       meetingTimes.sort((a, b) => {
         return a.getTime() - b.getTime()
@@ -371,7 +370,7 @@
   {#snippet description()}
     <div>
       <InstructorFeedbackForm
-        classBeingSubbed={undefined}
+        subRequest={undefined}
         sessionNumber={nextClassIndex + 1}
         {classId}
       />
@@ -465,7 +464,7 @@
               </tr>
             </thead>
             <tbody>
-              {#each studentList as student (student.email)}
+              {#each studentList as student (student.uid)}
                 <tr style="border-bottom: 1px solid #ccc;">
                   <td style="padding: 8px;"
                     >{normalizeCapitals(student.name)}</td
@@ -480,15 +479,9 @@
                       color="blue"
                       onclick={() =>
                         sendClassReminder({
-                          studentList,
+                          classId,
+                          studentUid: student.uid,
                           studentName: normalizeCapitals(student.name),
-                          studentEmail: student.email,
-                          instructorName:
-                            values.instructorFirstName +
-                            ' ' +
-                            values.instructorLastName,
-                          instructorUids: classInstructorUids(values),
-                          className: values.course,
                           nextMeetingTime:
                             nextClassIndex === -1
                               ? 'No Upcoming Classes'
@@ -570,10 +563,7 @@
           color="blue"
           onclick={() =>
             sendClassReminder({
-              studentList,
-              instructorName: values.instructorFirstName,
-              instructorUids: classInstructorUids(values),
-              className: values.course,
+              classId,
               nextMeetingTime:
                 nextClassIndex === -1
                   ? 'No Upcoming Classes'
