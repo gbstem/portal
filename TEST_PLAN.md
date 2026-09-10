@@ -283,6 +283,47 @@ graph TD
   - Clicking "Show all enrolled classes" hides all classes that the student's children are not enrolled in.
   - Clicking "Show all classes" displays all available classes again.
 
+#### Test Case 9b: Student Enroll in a Class
+
+- **Description**: Verify that a parent can enroll their student in a class, and that the enrollment is recorded on both the class and the student's registration, not just announced.
+- **Steps**:
+  1. Log in as a parent whose student is enrolled in one class.
+  2. Navigate to `/classes`, open **"Add/Drop Class"** on a class the student is not in (e.g. `"Mathematics 2a"`), and click **"Enroll Student"**.
+- **Expected Results (Assertions)**:
+  - A success toast is shown and the dialog closes.
+  - In Firestore, the student's registration lists the new class alongside the original one and is `enrolled`, and the class's `students` includes the student. Both are written together by `/api/enroll` in one transaction.
+  - A class-details email is sent to the parent, copying the class's instructor.
+
+#### Test Case 9c: Student Unenroll from a Class
+
+- **Description**: Verify that unenrolling removes the student from both the class and their registration.
+- **Steps**:
+  1. Log in as a parent whose student is enrolled in exactly one class.
+  2. Navigate to `/classes`, click **"Show all enrolled classes"**, open **"Add/Drop Class"** on that class, and click **"Unenroll Student"**.
+- **Expected Results (Assertions)**:
+  - A success toast is shown and the dialog closes.
+  - In Firestore, the class's `students` no longer includes the student (other students are untouched), and the registration has no classes and is no longer `enrolled`.
+
+#### Test Case 9d: Student Cannot Enroll in a Full Class
+
+- **Description**: Verify that `/api/enroll` refuses a class at its cap.
+- **Steps**:
+  1. Fill a class to its `classCap` without the parent's student in it.
+  2. Log in as the parent, open **"Add/Drop Class"** on that class, and click **"Enroll Student"**.
+- **Expected Results (Assertions)**:
+  - An error toast reads "That class is full."
+  - In Firestore, neither the class's `students` nor the registration's `classes` changed.
+
+#### Test Case 9e: Student Cannot Enroll in a Third Class
+
+- **Description**: Verify that `/api/enroll` refuses a student already in two classes.
+- **Steps**:
+  1. Give the parent's student two classes on their registration.
+  2. Log in as the parent, open **"Add/Drop Class"** on a third class, and click **"Enroll Student"**.
+- **Expected Results (Assertions)**:
+  - An error toast reads "Each student may only enroll in a maximum of 2 classes."
+  - In Firestore, neither the class's `students` nor the registration's `classes` changed.
+
 #### Test Case 10: Instructor View Taught Classes
 
 - Description: Verify that instructors can see their roster, meeting details, and use the course filter.

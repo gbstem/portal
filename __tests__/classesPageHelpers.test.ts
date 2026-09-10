@@ -3,7 +3,6 @@ import {
   parseClassInfoDoc,
   sortClassesBySpotsRemaining,
   isGradeEligible,
-  buildPortalEnrollApiPayload,
   type ClassInfo,
 } from '$lib/helpers/classesPage'
 
@@ -83,43 +82,6 @@ describe('ClassesPage Helpers', () => {
 
       const res5th = isGradeEligible('Python 1', '5', false)
       expect(res5th.eligible).toBe(true)
-    })
-  })
-
-  describe('buildPortalEnrollApiPayload', () => {
-    test('constructs API payload for enrollment', () => {
-      const classInfo: ClassInfo = {
-        id: 'c1',
-        className: 'Python 1',
-        classDays: ['Mon', 'Wed'],
-        classTimes: ['4pm', '4pm'],
-        course: 'Python 1',
-        instructorFirstName: 'Alice',
-        instructorLastName: 'Smith',
-        instructorUid: 'inst-uid-1',
-        instructorEmail: 'alice@example.com',
-        spotsRemaining: 5,
-        meetingLink: 'link',
-        gradeRecommendation: '3+',
-        online: true,
-      }
-
-      const payload = buildPortalEnrollApiPayload('Parent', classInfo, 'Child')
-      expect(payload).toEqual({
-        firstName: 'Parent',
-        instructor: 'Alice',
-        instructorUid: 'inst-uid-1',
-        instructorEmail: 'alice@example.com',
-        classTimes: ['4pm', '4pm'],
-        classDays: ['Mon', 'Wed'],
-        course: 'Python 1',
-        meetingLink: 'link',
-        online: true,
-        studentName: 'Child',
-      })
-      // The address rides along only as the server's fallback: it prefers
-      // instructorUid and resolves the current address from Auth, so a student
-      // cannot redirect the cc by supplying one. Phase 4 removes the parameter.
     })
   })
 })

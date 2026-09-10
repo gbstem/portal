@@ -130,15 +130,15 @@ A **pure function** only looks at the inputs you give it and returns an output â
 
 ### 2. Firestore reads/writes â†’ the Data Access Layer (`src/lib/services/*.ts`)
 
-A **Data Access Layer (DAL)** is just a name for "the one place in the app allowed to talk directly to the database." Instead of every `.svelte` file calling Firestore functions like `getDoc`, `setDoc`, or `updateDoc` directly, those calls live in `src/lib/services/<name>Service.ts` files (`classService.ts`, `applicationService.ts`, `registrationService.ts`, `substituteService.ts`, `interviewService.ts`, `announcementService.ts`, `userService.ts`), each exporting an object of `async` functions named for _what_ they do (`enrollStudentInClass`, `fetchDecisionType`) rather than _how_ they do it.
+A **Data Access Layer (DAL)** is just a name for "the one place in the app allowed to talk directly to the database." Instead of every `.svelte` file calling Firestore functions like `getDoc`, `setDoc`, or `updateDoc` directly, those calls live in `src/lib/services/<name>Service.ts` files (`classService.ts`, `applicationService.ts`, `registrationService.ts`, `substituteService.ts`, `interviewService.ts`, `announcementService.ts`, `userService.ts`), each exporting an object of `async` functions named for _what_ they do (`updateClassStatuses`, `fetchDecisionType`) rather than _how_ they do it.
 
 A `.svelte` component then just calls something like:
 
 ```ts
-await classService.enrollStudentInClass(classId, studentUid)
+await classService.updateClassStatuses(classId, updatedStatuses)
 ```
 
-instead of constructing a raw `updateDoc(doc(db, classesCollection, classId), { students: arrayUnion(studentUid) })` call inline, mixed in with template markup and UI state.
+instead of constructing a raw `updateDoc(doc(db, classesCollection, classId), { classStatuses: updatedStatuses })` call inline, mixed in with template markup and UI state.
 
 **Why this matters, especially for a small, rotating volunteer team:**
 

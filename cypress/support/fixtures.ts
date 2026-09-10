@@ -19,9 +19,22 @@ import semesterDates from '../../src/lib/data/semesterDates.json'
 export const SEEDED_CLASS_ID = 'class-python1'
 export const SEEDED_MEETING_LINK = 'https://zoom.us/j/123456789'
 export const SEEDED_STUDENTS = ['student-demo-uid-1', 'student1', 'student2']
-/** The primary demo student among `SEEDED_STUDENTS`. */
+/**
+ * The primary demo student among `SEEDED_STUDENTS`: the registration id of
+ * student@gbstem.org's first child, enrolled in `SEEDED_CLASS_ID` alone.
+ */
+export const SEEDED_STUDENT_UID = 'student-demo-uid-1'
 export const SEEDED_STUDENT_NAME = 'Demo Student One'
 export const SEEDED_STUDENT_EMAIL = 'student@gbstem.org'
+
+/**
+ * A second class the demo student is not in, findable on the classes page by
+ * its instructor's name - no generated class shares it.
+ */
+export const SCRATCH_CLASS_ID = 'class-scratch'
+export const SCRATCH_INSTRUCTOR_NAME = 'Bob Jones'
+export const SCRATCH_STUDENTS = ['student3']
+export const SCRATCH_CLASS_CAP = 12
 
 /** The class's own instructor. */
 export const OWNER_UID = 'instructor-demo-uid'

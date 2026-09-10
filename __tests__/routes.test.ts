@@ -148,6 +148,15 @@ jest.mock('$lib/server/substituteRequests', () => ({
   claimSubRequest: (...args: any[]) => mockClaimSubRequest(...args),
 }))
 
+// And the enrollment transactions (classEnrollments.test.ts).
+const mockEnrollStudent = jest.fn()
+const mockUnenrollStudent = jest.fn()
+jest.mock('$lib/server/classEnrollments', () => ({
+  ...jest.requireActual('$lib/server/classEnrollments'),
+  enrollStudent: (...args: any[]) => mockEnrollStudent(...args),
+  unenrollStudent: (...args: any[]) => mockUnenrollStudent(...args),
+}))
+
 // And the booking transaction (interviewSlots.test.ts).
 const mockFetchInterviewData = jest.fn()
 const mockBookInterviewSlot = jest.fn()
@@ -199,7 +208,10 @@ import {
 } from '../src/routes/api/auth/+server'
 import { POST as signupPOST } from '../src/routes/api/signup/+server'
 import { POST as communityServicePOST } from '../src/routes/api/communityService/+server'
-import { POST as enrollPOST } from '../src/routes/api/enroll/+server'
+import {
+  DELETE as enrollDELETE,
+  POST as enrollPOST,
+} from '../src/routes/api/enroll/+server'
 import {
   GET as interviewGET,
   POST as interviewPOST,
@@ -1019,121 +1031,234 @@ describe('API routes POST endpoints', () => {
     )
   })
 
-  it('enrollPOST successfully', async () => {
-    mockRequest.json.mockResolvedValue({
-      email: 'student@test.com',
-      firstName: 'Student',
-      instructor: 'Instructor',
-      instructorEmail: 'inst@test.com',
-      classTimes: ['14:00', '16:00'],
-      classDays: ['Monday', 'Wednesday'],
-      course: 'Math',
-      studentName: 'StudentFull',
-      online: true,
-    })
-    const res = await enrollPOST({
-      request: mockRequest as any,
-      locals: { user: { email: 'test@test.com' } },
-    } as any)
-    expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
-  })
+  describe('/api/enroll', () => {
+    const CLASS_ID = 'teacher-uid-1'
+    const STUDENT_UID = 'parent-uid-1'
+    const parentLocals = {
+      user: { uid: 'parent-uid', email: 'parent@test.com', role: 'student' },
+    }
 
-  it('enrollPOST resolves instructor email via instructorUid', async () => {
-    mockAdminAuth.getUser.mockResolvedValueOnce({
-      uid: 'inst-uid-1',
-      email: 'resolved-inst@test.com',
-    })
-    mockRequest.json.mockResolvedValue({
-      email: 'student@test.com',
-      firstName: 'Student',
-      instructor: 'Instructor',
-      instructorUid: 'inst-uid-1',
-      classTimes: ['14:00', '16:00'],
-      classDays: ['Monday', 'Wednesday'],
-      course: 'Math',
-      studentName: 'StudentFull',
-      online: true,
-    })
-    const res = await enrollPOST({
-      request: mockRequest as any,
-      locals: { user: { email: 'test@test.com' } },
-    } as any)
-    expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
-    expect(mockAdminAuth.getUser).toHaveBeenCalledWith('inst-uid-1')
-    expect(MailService.send).toHaveBeenCalledWith(
-      expect.objectContaining({
-        to: ['test@test.com'],
-        cc: ['resolved-inst@test.com'],
-      }),
-    )
-  })
-
-  it('enrollPOST returns 400 when instructor email cannot be resolved', async () => {
-    mockRequest.json.mockResolvedValue({
-      email: 'student@test.com',
-      firstName: 'Student',
-      instructor: 'Instructor',
-      classTimes: ['14:00', '16:00'],
-      classDays: ['Monday', 'Wednesday'],
-      course: 'Math',
-      studentName: 'StudentFull',
-      online: true,
-    })
-    const res = await enrollPOST({
-      request: mockRequest as any,
-      locals: { user: { email: 'test@test.com' } },
-    } as any)
-    expect(res).toEqual(
-      expect.objectContaining({
-        body: { error: 'Instructor email could not be resolved.' },
-        init: { status: 400 },
-      }),
-    )
-  })
-
-  it('enrollPOST returns a 500 json response when sending the email fails', async () => {
-    await withRejectedSend(async () => {
-      mockRequest.json.mockResolvedValue({
-        email: 'student@test.com',
-        firstName: 'Student',
-        instructor: 'Instructor',
-        instructorEmail: 'inst@test.com',
-        classTimes: ['14:00', '16:00'],
-        classDays: ['Monday', 'Wednesday'],
-        course: 'Math',
-        studentName: 'StudentFull',
+    /** The documents as enrollStudent returns them; `classOverrides` edits the class. */
+    const enrollment = (classOverrides: Record<string, unknown> = {}) => ({
+      classData: {
+        course: 'Python 1',
+        classDay1: 'Monday',
+        classTime1: '16:00',
+        classDay2: 'Wednesday',
+        classTime2: '16:30',
+        instructorFirstName: 'Grace',
+        instructorUid: 'teacher-uid',
+        instructorEmail: 'stored-teacher@test.com',
+        meetingLink: 'https://zoom.us/j/1',
         online: true,
+        classCap: 10,
+        students: [STUDENT_UID],
+        ...classOverrides,
+      },
+      registration: {
+        personal: { studentFirstName: 'Ada', studentLastName: 'Lovelace' },
+        classes: [CLASS_ID],
+        enrolled: true,
+      },
+    })
+
+    const call = (
+      handler: typeof enrollPOST | typeof enrollDELETE,
+      body: unknown = { classId: CLASS_ID, studentUid: STUDENT_UID },
+      locals: any = parentLocals,
+    ) => {
+      mockRequest.json.mockResolvedValue(body)
+      return handler({ request: mockRequest as any, locals } as any)
+    }
+
+    beforeEach(() => {
+      jest.clearAllMocks()
+      mockFirestoreDocs({ 'users/parent-uid': { firstName: 'Pat' } })
+    })
+
+    it("POST enrolls as the caller and emails them, copying the instructor's current address", async () => {
+      mockEnrollStudent.mockResolvedValueOnce(enrollment())
+      mockAdminAuth.getUser.mockResolvedValueOnce({
+        uid: 'teacher-uid',
+        email: 'current-teacher@test.com',
       })
-      const res = await enrollPOST({
-        request: mockRequest as any,
-        locals: { user: { email: 'test@test.com' } },
-      } as any)
-      expect(res).toEqual(
+
+      const res: any = await call(enrollPOST)
+
+      expect(mockEnrollStudent).toHaveBeenCalledWith(
+        { uid: 'parent-uid' },
+        CLASS_ID,
+        STUDENT_UID,
+      )
+      expect(mockAdminAuth.getUser).toHaveBeenCalledWith('teacher-uid')
+      expect(MailService.send).toHaveBeenCalledWith(
         expect.objectContaining({
-          body: { error: 'Failed to send email. Please try again later.' },
-          init: { status: 500 },
+          to: ['parent@test.com'],
+          cc: ['current-teacher@test.com'],
+          subject: 'Python 1 class details for Ada Lovelace',
         }),
       )
+      const [message] = (MailService.send as jest.Mock).mock.calls[0]
+      // The details come from the stored documents, not from the caller.
+      expect(message.html).toContain('Pat')
+      expect(message.html).toContain('Monday at 4:00 PM')
+      expect(message.html).toContain('Wednesday at 4:30 PM')
+      expect(message.html).toContain('https://zoom.us/j/1')
+      expect(message.html).toContain('current-teacher@test.com')
+      expect(res.body).toEqual({ emailSent: true })
     })
-  })
 
-  it('enrollPOST propagates the auth error when the user is not signed in', async () => {
-    mockRequest.json.mockResolvedValue({
-      email: 'student@test.com',
-      firstName: 'Student',
-      instructor: 'Instructor',
-      instructorEmail: 'inst@test.com',
-      classTimes: ['14:00', '16:00'],
-      classDays: ['Monday', 'Wednesday'],
-      course: 'Math',
-      studentName: 'StudentFull',
-      online: true,
+    it('POST ignores a recipient the caller tries to name', async () => {
+      mockEnrollStudent.mockResolvedValueOnce(enrollment())
+      mockAdminAuth.getUser.mockResolvedValueOnce({
+        uid: 'teacher-uid',
+        email: 'current-teacher@test.com',
+      })
+
+      await call(enrollPOST, {
+        classId: CLASS_ID,
+        studentUid: STUDENT_UID,
+        instructorUid: 'victim-uid',
+        instructorEmail: 'victim@test.com',
+      })
+
+      expect(mockAdminAuth.getUser).not.toHaveBeenCalledWith('victim-uid')
+      expect(MailService.send).toHaveBeenCalledWith(
+        expect.objectContaining({ cc: ['current-teacher@test.com'] }),
+      )
     })
-    await expect(
-      enrollPOST({ request: mockRequest as any, locals: {} } as any),
-    ).rejects.toEqual(
-      expect.objectContaining({ status: 401, __isSvelteKitError: true }),
-    )
+
+    it("POST falls back to the class's stored address when it has no instructorUid, and logs it", async () => {
+      mockEnrollStudent.mockResolvedValueOnce(
+        enrollment({ instructorUid: undefined }),
+      )
+
+      const res: any = await call(enrollPOST)
+
+      expect(mockAdminAuth.getUser).not.toHaveBeenCalled()
+      expect(MailService.send).toHaveBeenCalledWith(
+        expect.objectContaining({ cc: ['stored-teacher@test.com'] }),
+      )
+      expect(console.warn).toHaveBeenCalledWith(
+        expect.stringContaining('[legacy-email-fallback] /api/enroll'),
+      )
+      expect(res.body).toEqual({ emailSent: true })
+    })
+
+    it('POST falls back to the stored address when the instructorUid names no account, and logs it', async () => {
+      mockEnrollStudent.mockResolvedValueOnce(enrollment())
+      mockAdminAuth.getUser.mockRejectedValueOnce(new Error('user-not-found'))
+
+      await call(enrollPOST)
+
+      expect(MailService.send).toHaveBeenCalledWith(
+        expect.objectContaining({ cc: ['stored-teacher@test.com'] }),
+      )
+      expect(console.warn).toHaveBeenCalledWith(
+        expect.stringContaining('resolved to no Auth account'),
+        expect.anything(),
+      )
+    })
+
+    it('POST uses the in-person template for an in-person class', async () => {
+      mockEnrollStudent.mockResolvedValueOnce(enrollment({ online: false }))
+      mockAdminAuth.getUser.mockResolvedValueOnce({
+        uid: 'teacher-uid',
+        email: 'current-teacher@test.com',
+      })
+
+      await call(enrollPOST)
+
+      const [message] = (MailService.send as jest.Mock).mock.calls[0]
+      expect(message.html).toContain('in-person')
+    })
+
+    it('POST reports the enrollment without an email when no instructor address resolves', async () => {
+      mockEnrollStudent.mockResolvedValueOnce(
+        enrollment({ instructorUid: undefined, instructorEmail: '' }),
+      )
+
+      const res: any = await call(enrollPOST)
+
+      expect(MailService.send).not.toHaveBeenCalled()
+      expect(res.body).toEqual({ emailSent: false })
+    })
+
+    it('POST reports the enrollment without an email when sending fails', async () => {
+      await withRejectedSend(async () => {
+        mockEnrollStudent.mockResolvedValueOnce(enrollment())
+        mockAdminAuth.getUser.mockResolvedValueOnce({
+          uid: 'teacher-uid',
+          email: 'current-teacher@test.com',
+        })
+
+        const res: any = await call(enrollPOST)
+
+        expect(res.body).toEqual({ emailSent: false })
+      })
+    })
+
+    it('POST passes a refused enrollment through, and sends nothing', async () => {
+      mockEnrollStudent.mockRejectedValueOnce({
+        status: 409,
+        message: 'That class is full.',
+        __isSvelteKitError: true,
+      })
+
+      await expect(call(enrollPOST)).rejects.toEqual(
+        expect.objectContaining({
+          status: 409,
+          message: 'That class is full.',
+        }),
+      )
+      expect(MailService.send).not.toHaveBeenCalled()
+    })
+
+    it('POST rejects a payload without a student', async () => {
+      await expect(call(enrollPOST, { classId: CLASS_ID })).rejects.toEqual(
+        expect.objectContaining({ status: 400 }),
+      )
+      expect(mockEnrollStudent).not.toHaveBeenCalled()
+    })
+
+    it('POST rejects an instructor with a 403', async () => {
+      await expect(
+        call(enrollPOST, undefined, {
+          user: { uid: 'i', email: 'i@x.org', role: 'instructor' },
+        }),
+      ).rejects.toEqual(expect.objectContaining({ status: 403 }))
+      expect(mockEnrollStudent).not.toHaveBeenCalled()
+    })
+
+    it('POST propagates the auth error when the user is not signed in', async () => {
+      await expect(call(enrollPOST, undefined, {})).rejects.toEqual(
+        expect.objectContaining({ status: 401, __isSvelteKitError: true }),
+      )
+      expect(mockEnrollStudent).not.toHaveBeenCalled()
+    })
+
+    it('DELETE unenrolls as the caller', async () => {
+      mockUnenrollStudent.mockResolvedValueOnce(undefined)
+
+      const res: any = await call(enrollDELETE)
+
+      expect(mockUnenrollStudent).toHaveBeenCalledWith(
+        { uid: 'parent-uid' },
+        CLASS_ID,
+        STUDENT_UID,
+      )
+      expect(res.body).toEqual({ message: 'Unenrolled from class.' })
+      expect(MailService.send).not.toHaveBeenCalled()
+    })
+
+    it('DELETE rejects an instructor with a 403', async () => {
+      await expect(
+        call(enrollDELETE, undefined, {
+          user: { uid: 'i', email: 'i@x.org', role: 'instructor' },
+        }),
+      ).rejects.toEqual(expect.objectContaining({ status: 403 }))
+      expect(mockUnenrollStudent).not.toHaveBeenCalled()
+    })
   })
 
   describe('/api/interview', () => {

@@ -2,7 +2,6 @@ import { db } from '$lib/client/firebase'
 import {
   classesCollection,
   instructorFeedbackCollection,
-  registrationsCollection,
   studentFeedbackCollection,
   substituteRequestsCollection,
   withSemester,
@@ -16,8 +15,6 @@ import {
 import { buildSubRequestPayload } from '$lib/helpers/classSchedule'
 import { subRequestDocId } from '$lib/helpers/subClasses'
 import {
-  arrayRemove,
-  arrayUnion,
   collection,
   doc,
   getDoc,
@@ -29,6 +26,10 @@ import type {
   ClassDetailsRequestBody,
   ClassDetailsResponse,
 } from '../../routes/api/classDetails/+server'
+import type {
+  EnrollRequestBody,
+  EnrollResponse,
+} from '../../routes/api/enroll/+server'
 
 export interface InstructorFeedbackSubmission {
   date: string
@@ -328,79 +329,45 @@ export const classService = {
   },
 
   /**
-   * Fetches a class's current enrollment count and capacity.
+   * Enrolls one of the signed-in parent's students in a class. The class
+   * roster and the student's registration are written together in a
+   * transaction server-side, where capacity, the two-class limit and grade
+   * eligibility are checked too - see /api/enroll. Throws with the server's
+   * message on refusal.
    */
-  async fetchClassCapacityInfo(
+  async enrollStudent(
     classId: string,
-  ): Promise<{ numStudents: number; classCap: number }> {
-    const classDoc = await getDoc(doc(db, classesCollection, classId))
-    const classData = classDoc.data()
-    return {
-      numStudents: classData?.students?.length ?? 0,
-      classCap: classData?.classCap ?? 0,
+    studentUid: string,
+  ): Promise<EnrollResponse> {
+    const payload: EnrollRequestBody = { classId, studentUid }
+    const res = await fetch('/api/enroll', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    const body = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      throw new Error(body?.message || 'Error enrolling in class!')
     }
+    return body as EnrollResponse
   },
 
   /**
-   * Fetches whether a student's registration has the age-limit bypass enabled.
+   * Takes one of the signed-in parent's students out of a class, from both the
+   * class roster and their registration in one transaction - see /api/enroll.
+   * Throws with the server's message on refusal.
    */
-  async fetchBypassAgeLimits(studentUid: string): Promise<boolean> {
-    const snap = await getDoc(doc(db, registrationsCollection, studentUid))
-    return Boolean(snap.data()?.agreements.bypassAgeLimits)
-  },
-
-  /**
-   * Adds a student to a class's roster.
-   */
-  async enrollStudentInClass(
-    classId: string,
-    studentUid: string,
-  ): Promise<void> {
-    await updateDoc(doc(db, classesCollection, classId), {
-      students: arrayUnion(studentUid),
+  async unenrollStudent(classId: string, studentUid: string): Promise<void> {
+    const payload: EnrollRequestBody = { classId, studentUid }
+    const res = await fetch('/api/enroll', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
     })
-  },
-
-  /**
-   * Records a class enrollment on the student's own registration document.
-   */
-  async confirmStudentClassEnrollment(
-    studentUid: string,
-    classId: string,
-  ): Promise<void> {
-    await updateDoc(doc(db, registrationsCollection, studentUid), {
-      classes: arrayUnion(classId),
-      enrolled: true,
-    })
-  },
-
-  /**
-   * Removes a student from a class's roster.
-   */
-  async unenrollStudentFromClass(
-    classId: string,
-    studentUid: string,
-  ): Promise<void> {
-    await updateDoc(doc(db, classesCollection, classId), {
-      students: arrayRemove(studentUid),
-    })
-  },
-
-  /**
-   * Removes a class from the student's registration document and updates
-   * `enrolled` based on whether any classes remain.
-   */
-  async confirmStudentClassUnenrollment(
-    studentUid: string,
-    classId: string,
-  ): Promise<void> {
-    const registrationDocRef = doc(db, registrationsCollection, studentUid)
-    await updateDoc(registrationDocRef, { classes: arrayRemove(classId) })
-    const regSnap = await getDoc(registrationDocRef)
-    const remainingClasses = (regSnap.data()?.classes || []) as string[]
-    await updateDoc(registrationDocRef, {
-      enrolled: remainingClasses.length > 0,
-    })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body?.message || 'Error unenrolling from class!')
+    }
   },
 
   /**
