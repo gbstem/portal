@@ -1,31 +1,34 @@
 import { handleApiError, verifyInstructor } from '$lib/server/apiHelpers'
 import { sendEmail } from '$lib/server/email'
 import { renderEmail } from '$lib/emails/render'
+import { formatDateInGbstemTime } from '$lib/utils'
 import { adminAuth } from '$lib/server/firebase'
+import {
+  claimSubRequest,
+  fetchOpenSubRequests,
+  serializeSubRequest,
+  type OpenSubRequest,
+  type SerializedSubRequest,
+} from '$lib/server/substituteRequests'
 import { json } from '@sveltejs/kit'
 import { z } from 'zod'
 import type { RequestHandler } from './$types'
 
 const substituteSchema = z.object({
-  firstName: z.string().min(1, 'First name is required'),
-  course: z.string().min(1, 'Course is required'),
-  classNumber: z.union([z.string(), z.number()]),
-  date: z.string().min(1, 'Date is required'),
-  originalInstructorUid: z.string().optional(),
-  originalInstructorEmail: z
-    .string()
-    .email('Invalid original instructor email address')
-    .optional(),
-  // Who asked for the sub. The same person as the original instructor unless
-  // a co-instructor filed the request - see buildSubRequestPayload.
-  requestedByUid: z.string().optional(),
-  subInstructorEmail: z
-    .string()
-    .email('Invalid substitute instructor email address')
-    .optional(),
+  // Everything else the claim and its email need is read from the stored
+  // request, not taken from the caller.
+  subRequestId: z.string().min(1, 'A substitute request is required'),
 })
 
 export type SubstituteRequestBody = z.infer<typeof substituteSchema>
+
+export interface OpenSubRequestsResponse {
+  subRequests: OpenSubRequest[]
+}
+
+export interface SubstituteClaimResponse {
+  subRequest: SerializedSubRequest
+}
 
 /**
  * An account's current address, or undefined if the uid names none. A deleted
@@ -40,28 +43,44 @@ async function resolveEmailByUid(uid: string): Promise<string | undefined> {
   }
 }
 
+/**
+ * The sessions the signed-in instructor could cover: still needing a
+ * substitute, still to come, and asked for by somebody else.
+ */
+export const GET: RequestHandler = async ({ locals }) => {
+  try {
+    const user = verifyInstructor(locals)
+    const response: OpenSubRequestsResponse = {
+      subRequests: await fetchOpenSubRequests(user.uid),
+    }
+    return json(response)
+  } catch (err) {
+    throw handleApiError('/api/substitute', err)
+  }
+}
+
+/**
+ * Signs the caller up to cover one session (see claimSubRequest), then sends
+ * them the confirmation.
+ */
 export const POST: RequestHandler = async ({ request, locals }) => {
   try {
     const user = verifyInstructor(locals)
-    const body = substituteSchema.parse(await request.json())
+    const { subRequestId } = substituteSchema.parse(await request.json())
+    const claimed = await claimSubRequest(
+      { uid: user.uid, email: user.email },
+      subRequestId,
+    )
 
-    let originalInstructorEmail = body.originalInstructorEmail
-    if (body.originalInstructorUid) {
-      try {
-        const originalUser = await adminAuth.getUser(body.originalInstructorUid)
-        if (originalUser.email) {
-          originalInstructorEmail = originalUser.email
-        }
-      } catch (err) {
-        console.error(
-          'Failed to resolve original instructor email by uid, falling back to passed email:',
-          err,
-        )
-      }
-    } else if (body.originalInstructorEmail) {
+    let originalInstructorEmail = claimed.originalInstructorEmail || undefined
+    if (claimed.originalInstructorUid) {
+      originalInstructorEmail =
+        (await resolveEmailByUid(claimed.originalInstructorUid)) ??
+        originalInstructorEmail
+    } else if (originalInstructorEmail) {
       console.warn(
-        '[legacy-email-fallback] /api/substitute: no originalInstructorUid in ' +
-          'payload, using the client-supplied original instructor email',
+        `[legacy-email-fallback] /api/substitute: sub request ${subRequestId} ` +
+          'has no originalInstructorUid, using its stored original instructor email',
       )
     }
 
@@ -73,14 +92,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     }
 
     // The class's instructor of record is always told a substitute turned up.
-    // So is whoever actually asked for the sub, when that is somebody else: a
-    // request filed by a co-instructor is stamped with the *class's*
-    // instructor, so before this they got no confirmation at all for a
-    // session they arranged cover for. The caller is the substitute and is
-    // already the `to`, so they never appear in the cc.
+    // So is whoever actually asked for the sub, when that is somebody else - a
+    // co-instructor's request still names the *class's* instructor. The caller
+    // is the substitute and is already the `to`, so they never appear in the
+    // cc.
     const ccEmails = [originalInstructorEmail]
-    if (body.requestedByUid) {
-      const requesterEmail = await resolveEmailByUid(body.requestedByUid)
+    if (claimed.requestedByUid) {
+      const requesterEmail = await resolveEmailByUid(claimed.requestedByUid)
       if (
         requesterEmail &&
         requesterEmail !== originalInstructorEmail &&
@@ -90,29 +108,24 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       }
     }
 
-    const template = {
-      name: 'interviewSlotRequest',
-      data: {
-        subject: 'Class Substitute Confirmation',
-        app: {
-          firstName: body.firstName,
-          course: body.course,
-          classNumber: body.classNumber,
-          date: body.date,
-          name: 'Portal',
-          link: 'https://portal.gbstem.org',
-        },
+    const emailData = {
+      subject: 'Class Substitute Confirmation',
+      app: {
+        firstName: claimed.subInstructorFirstName,
+        course: claimed.course,
+        classNumber: claimed.classNumber,
+        date: formatDateInGbstemTime(claimed.dateOfClass, 'short'),
+        name: 'Portal',
+        link: 'https://portal.gbstem.org',
       },
     }
-
-    const htmlBody = renderEmail('substituteClassEmailTemplate', template.data)
 
     try {
       await sendEmail({
         to: user.email,
         cc: ccEmails,
-        subject: String(template.data.subject),
-        html: htmlBody,
+        subject: emailData.subject,
+        html: renderEmail('substituteClassEmailTemplate', emailData),
         replyTo: originalInstructorEmail,
       })
     } catch (mailError) {
@@ -122,7 +135,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       )
     }
 
-    return json({ message: 'Email sent successfully.' })
+    const response: SubstituteClaimResponse = {
+      subRequest: serializeSubRequest(claimed),
+    }
+    return json(response)
   } catch (err) {
     throw handleApiError('/api/substitute', err)
   }

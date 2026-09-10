@@ -205,8 +205,8 @@ declare global {
       instructorUid: string
       // Co-instructors, by uid only. The retired `otherInstructorEmails`
       // string this replaced was free text, so any address at all could be
-      // given write access to a class; a uid only lands here after
-      // /api/lookupCoInstructor confirms it belongs to an accepted instructor.
+      // given write access to a class; a uid only lands here through
+      // /api/classDetails, which confirms it belongs to an accepted instructor.
       otherInstructorUids: string[]
       classCap: number
       students: string[]

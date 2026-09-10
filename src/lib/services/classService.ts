@@ -8,7 +8,6 @@ import {
   withSemester,
 } from '$lib/data/collections'
 import type { CoInstructor } from '$lib/helpers/classDetailsForm'
-import { instructorClassMappingDiff } from '$lib/helpers/classDetailsForm'
 import {
   parseClassInfoDoc,
   sortClassesBySpotsRemaining,
@@ -16,20 +15,20 @@ import {
 } from '$lib/helpers/classesPage'
 import { buildSubRequestPayload } from '$lib/helpers/classSchedule'
 import { subRequestDocId } from '$lib/helpers/subClasses'
-import { timestampToDate } from '$lib/utils'
 import {
   arrayRemove,
   arrayUnion,
   collection,
-  deleteField,
   doc,
   getDoc,
   getDocs,
   setDoc,
   updateDoc,
 } from 'firebase/firestore'
-
-const instructorClassesCollection = 'instructorClasses'
+import type {
+  ClassDetailsRequestBody,
+  ClassDetailsResponse,
+} from '../../routes/api/classDetails/+server'
 
 export interface InstructorFeedbackSubmission {
   date: string
@@ -186,139 +185,52 @@ export const classService = {
   },
 
   /**
-   * Updates full class details document (used in ClassDetailsForm).
+   * Creates or updates a class from ClassDetailsForm. Ownership, co-instructor
+   * eligibility and which dashboards list the class are decided server-side;
+   * see /api/classDetails. Throws with the server's message on refusal.
    */
-  async saveClassDetails(
-    classId: string,
-    classDetails: Partial<Data.ClassDetails>,
-  ): Promise<void> {
-    const classRef = doc(db, classesCollection, classId)
-    await setDoc(
-      classRef,
-      {
-        ...classDetails,
-        // This is a `{ merge: true }` write, so omitting the retired
-        // `otherInstructorEmails` field would leave the stale string sitting
-        // on the document forever. Deleting it explicitly means every save
-        // cleans up a document the backfill hasn't reached yet.
-        //
-        // TODO(otherInstructorEmails migration, remove ~2026-12-01): drop
-        // this once `yarn backfill:coinstructors --drop-legacy-field` has run
-        // against production and no class document carries the field.
-        otherInstructorEmails: deleteField(),
-      },
-      { merge: true },
-    )
-  },
-
-  /**
-   * Gets all classes an instructor has access to, both classes explicitly
-   * shared with them (via the uid-keyed instructorClasses mapping) and
-   * classes they own (class ID prefixed with their UID).
-   * Returns an empty object (rather than throwing) on fetch failure, since
-   * callers treat "no accessible classes" and "fetch failed" the same way.
-   */
-  async fetchInstructorClasses(
-    instructorUID: string,
-  ): Promise<{ [classId: string]: Data.Class }> {
-    try {
-      const instructorClassesDoc = await getDoc(
-        doc(db, instructorClassesCollection, instructorUID),
+  async saveClassDetails(body: ClassDetailsRequestBody): Promise<void> {
+    const res = await fetch('/api/classDetails', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}))
+      throw new Error(
+        errData?.message || 'Could not save class details. Please try again.',
       )
-      let accessibleClassIds: string[] = []
-
-      if (instructorClassesDoc.exists()) {
-        accessibleClassIds = instructorClassesDoc.data()?.classIds || []
-      }
-
-      const allClassesSnapshot = await getDocs(
-        collection(db, classesCollection),
-      )
-      const ownedClassIds: string[] = []
-
-      allClassesSnapshot.forEach((classDoc) => {
-        if (classDoc.id.startsWith(instructorUID + '-')) {
-          ownedClassIds.push(classDoc.id)
-        }
-      })
-
-      const allClassIds = [
-        ...new Set([...accessibleClassIds, ...ownedClassIds]),
-      ]
-
-      const classDocs = await Promise.all(
-        allClassIds.map((classId) =>
-          getDoc(doc(db, classesCollection, classId)),
-        ),
-      )
-      const classes: { [classId: string]: Data.Class } = {}
-
-      classDocs.forEach((classDoc, index) => {
-        if (classDoc.exists()) {
-          const classData = classDoc.data() as Data.Class
-          if (classData.meetingTimes) {
-            classData.meetingTimes = classData.meetingTimes.map((time) =>
-              timestampToDate(time),
-            )
-          }
-          if (classData.completedClassDates) {
-            classData.completedClassDates = classData.completedClassDates.map(
-              (time) => timestampToDate(time),
-            )
-          }
-          classes[allClassIds[index]] = classData
-        }
-      })
-
-      return classes
-    } catch (error) {
-      console.error('Error fetching instructor classes:', error)
-      return {}
     }
   },
 
   /**
-   * Brings the instructorClasses index in line with a class's co-instructor
-   * list: the owner and every current co-instructor can reach the class, and
-   * anyone dropped from the list stops seeing it.
-   *
-   * `mainInstructorUid` must be the class's *owner*, not whoever is saving:
-   * this uid is the one exempted from removal, so passing a co-instructor
-   * would let them drop themselves from the class and keep it on their
-   * dashboard anyway.
-   *
-   * This index is a convenience, not the authorization boundary. Write access
-   * is decided by firestore.rules's isInstructorOfClass(), which reads the
-   * class document's own `otherInstructorUids`; the class write that precedes
-   * this call is what actually grants or revokes it. So a failure here leaves
-   * a removed co-instructor still seeing the class on their dashboard, but
-   * unable to edit it - which is why it warns rather than throwing.
+   * Gets every class the signed-in instructor can reach: the ones they own
+   * and the ones shared with them as a co-instructor.
+   * Returns an empty object (rather than throwing) on fetch failure, since
+   * callers treat "no accessible classes" and "fetch failed" the same way.
    */
-  async updateInstructorClassMappings(
-    classId: string,
-    mainInstructorUid: string,
-    previousOtherUids: string[],
-    nextOtherUids: string[],
-  ): Promise<void> {
-    const { added, removed } = instructorClassMappingDiff(
-      previousOtherUids,
-      nextOtherUids,
-      mainInstructorUid,
-    )
-
-    // allSettled, not a sequential loop: one instructor's mapping failing
-    // shouldn't decide whether the rest get updated.
-    const results = await Promise.allSettled([
-      addInstructorToClass(mainInstructorUid, classId),
-      ...added.map((uid) => addInstructorToClass(uid, classId)),
-      ...removed.map((uid) => removeInstructorFromClass(uid, classId)),
-    ])
-    const failures = results.filter((result) => result.status === 'rejected')
-    if (failures.length > 0) {
-      console.error(
-        `Failed to update ${failures.length} instructorClasses mapping(s) for ${classId}:`,
-        failures,
+  async fetchInstructorClasses(): Promise<{ [classId: string]: Data.Class }> {
+    try {
+      const res = await fetch('/api/classDetails')
+      if (!res.ok) {
+        throw new Error(`Failed to load classes (${res.status})`)
+      }
+      const { classes } = (await res.json()) as ClassDetailsResponse
+      return Object.fromEntries(
+        Object.entries(classes).map(([classId, classData]) => [
+          classId,
+          {
+            ...classData,
+            meetingTimes: classData.meetingTimes.map((time) => new Date(time)),
+            completedClassDates: classData.completedClassDates.map(
+              (time) => new Date(time),
+            ),
+          },
+        ]),
       )
+    } catch (error) {
+      console.error('Error fetching instructor classes:', error)
+      return {}
     }
   },
 
@@ -530,59 +442,4 @@ export const classService = {
       withSemester(feedback),
     )
   },
-}
-
-/**
- * Grants an instructor access to a class via the instructorClasses mapping,
- * creating the mapping document if it doesn't exist yet.
- */
-async function addInstructorToClass(
-  instructorUid: string,
-  classId: string,
-): Promise<void> {
-  const instructorClassesRef = doc(
-    db,
-    instructorClassesCollection,
-    instructorUid,
-  )
-
-  try {
-    await updateDoc(instructorClassesRef, {
-      classIds: arrayUnion(classId),
-    })
-  } catch {
-    await setDoc(instructorClassesRef, {
-      classIds: [classId],
-    })
-  }
-}
-
-/**
- * Revokes an instructor's access to a class in the instructorClasses mapping.
- *
- * Unlike `addInstructorToClass` there's no create-on-missing fallback: if the
- * mapping document doesn't exist there is nothing to revoke, and `updateDoc`
- * failing on a missing document is the expected outcome rather than an error
- * worth surfacing.
- */
-async function removeInstructorFromClass(
-  instructorUid: string,
-  classId: string,
-): Promise<void> {
-  const instructorClassesRef = doc(
-    db,
-    instructorClassesCollection,
-    instructorUid,
-  )
-
-  try {
-    await updateDoc(instructorClassesRef, {
-      classIds: arrayRemove(classId),
-    })
-  } catch (error) {
-    console.error(
-      `Could not revoke ${instructorUid}'s mapping for class ${classId}:`,
-      error,
-    )
-  }
 }

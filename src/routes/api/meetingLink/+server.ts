@@ -1,6 +1,7 @@
 import { classesCollection, semesterDates } from '$lib/data/collections'
 import { handleApiError, verifyInstructor } from '$lib/server/apiHelpers'
 import { adminDb } from '$lib/server/firebase'
+import { isOwnClassId } from '$lib/server/instructorClasses'
 import { env } from '$env/dynamic/private'
 import { error, json } from '@sveltejs/kit'
 import { z } from 'zod'
@@ -80,14 +81,14 @@ export type MeetingLinkRequestBody = z.infer<typeof meetingLinkSchema>
  * Whether this caller is entitled to put a Teams meeting on gbSTEM's calendar
  * for this class.
  *
- * Deliberately the same test `firestore.rules` applies to the class document
- * itself, because the link is created *before* the class is saved and there
- * may be no document to check yet:
+ * Deliberately the same test /api/classDetails applies to saving the class,
+ * because the link is created *before* the class is saved and there may be no
+ * document to check yet:
  *
  *   - an existing class: the caller is its `instructorUid` or one of its
- *     `otherInstructorUids` (rules' `isInstructorOfClass`)
- *   - a new class: the id is `${uid}-${n}` and the uid is the caller's
- *     (rules' `isInstructorOwnerOrAdmin`, via `belongsToSameUser`)
+ *     `otherInstructorUids`
+ *   - a new class: the id is `${uid}-${n}` under the caller's own uid
+ *     (`isOwnClassId`)
  *
  * Anything else is refused. Without this an endpoint that books time on a
  * real gbSTEM mailbox would be reachable by every instructor for every class,
@@ -101,7 +102,7 @@ async function callerMayCreateLinkFor(
 ): Promise<boolean> {
   const snap = await adminDb.doc(`${classesCollection}/${classId}`).get()
   if (!snap.exists) {
-    return classId.startsWith(`${uid}-`)
+    return isOwnClassId(classId, uid)
   }
   const data = snap.data() ?? {}
   return (

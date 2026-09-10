@@ -1,6 +1,10 @@
 <script lang="ts">
   import { user } from '$lib/client/firebase'
-  import { interviewService } from '$lib/services/interviewService'
+  import {
+    interviewService,
+    type BookedInterviewDetails,
+    type InterviewSlotOption,
+  } from '$lib/services/interviewService'
   import { alert } from '$lib/stores'
   import { validateRequestedInterviewTime } from '$lib/helpers/interviewForm'
   import { cn, toLocalISOString } from '$lib/utils'
@@ -21,11 +25,10 @@
   let { semesterDates }: Props = $props()
 
   let showValidation = false
-  let valuesJson: Data.InterviewSlot[] = []
-  let scheduledInterview: Data.InterviewSlot | undefined = $state()
+  let scheduledInterview: BookedInterviewDetails | undefined = $state()
   let currentUser: Data.User.Store
   let scheduled = $state(false)
-  let data: Data.InterviewSlot[] = $state([])
+  let data: InterviewSlotOption[] = $state([])
   let loading = $state(true)
   let showRequestNewTime = $state(false)
 
@@ -44,27 +47,14 @@
       validators: zod(bookingSchema as any) as any,
       async onUpdate({ form: formVal }: { form: any }) {
         if (!formVal.valid) return
-        const slot = valuesJson.find((s) => s.id === formVal.data.slotId)
-        if (!slot) return
 
         try {
-          // Confirm the slot is still available (guards against a race with another applicant)
-          const isAvailable = await interviewService.confirmSlotAvailable(
-            slot.id,
+          // Booked in a transaction server-side, so a slot another applicant
+          // has just taken is refused with a message rather than double-booked.
+          scheduledInterview = await interviewService.bookInterviewSlot(
+            formVal.data.slotId,
           )
-          if (!isAvailable) {
-            alert.trigger(
-              'error',
-              'The interview slot you selected is no longer available. Please select another slot.',
-            )
-            return
-          }
-
-          slot.interviewSlotStatus = 'pending'
-          scheduledInterview = slot
           scheduled = true
-
-          await interviewService.bookInterviewSlot(slot, currentUser)
           window.scrollTo({
             top: 0,
             behavior: 'smooth',
@@ -76,6 +66,8 @@
         } catch (err: any) {
           console.error('[InterviewForm] Booking error:', err)
           alert.trigger('error', err.message || 'Failed to book interview')
+          // Whatever was refused, the list on screen may be out of date.
+          data = await getData()
         }
       },
     },
@@ -161,16 +153,12 @@
   })
 
   async function getData() {
-    const result = await interviewService.fetchInterviewData(
-      currentUser.object.uid,
-      semesterDates,
-    )
+    const result = await interviewService.fetchInterviewData()
     if (result.scheduledInterview) {
       scheduledInterview = result.scheduledInterview
       scheduled = true
     }
-    valuesJson = result.availableSlots
-    return valuesJson
+    return result.availableSlots
   }
 </script>
 

@@ -97,234 +97,112 @@ describe('portal classService (Data Access Layer)', () => {
   })
 
   describe('saveClassDetails', () => {
-    it('sets class details in Firestore with merge: true', async () => {
-      ;(firestore.setDoc as jest.Mock).mockResolvedValueOnce(undefined)
-      await classService.saveClassDetails('c-1', { course: 'Python 1' })
-      expect(firestore.setDoc).toHaveBeenCalled()
+    const body = {
+      classId: 'uid-1-1',
+      details: {
+        course: 'Python 1',
+        gradeRecommendation: '',
+        classCap: 7,
+        meetingLink: '',
+        classDay1: 'Monday' as const,
+        classTime1: '16:00',
+        classDay2: '' as const,
+        classTime2: '',
+        online: true,
+        otherInstructorUids: [],
+      },
+    }
+
+    it('posts the class to /api/classDetails rather than writing Firestore', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ classId: 'uid-1-1' }),
+      })
+
+      await classService.saveClassDetails(body)
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/classDetails',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify(body),
+        }),
+      )
+      expect(firestore.setDoc).not.toHaveBeenCalled()
+    })
+
+    it("throws the server's message when the save is refused", async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({
+          message: 'You are not an instructor of that class.',
+        }),
+      })
+
+      await expect(classService.saveClassDetails(body)).rejects.toThrow(
+        'You are not an instructor of that class.',
+      )
+    })
+
+    it('falls back to a generic message when the refusal has no body', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        json: async () => {
+          throw new Error('not json')
+        },
+      })
+
+      await expect(classService.saveClassDetails(body)).rejects.toThrow(
+        'Could not save class details. Please try again.',
+      )
     })
   })
 
   describe('fetchInstructorClasses', () => {
-    it('combines mapped-access and owned classes, converting timestamps', async () => {
-      ;(firestore.getDoc as jest.Mock)
-        .mockResolvedValueOnce({
-          exists: () => true,
-          data: () => ({ classIds: ['inst-1-a'] }),
-        })
-        .mockResolvedValueOnce({
-          exists: () => true,
-          data: () => ({
-            course: 'Python 1',
-            meetingTimes: [{ seconds: 1779900600 }],
-            completedClassDates: [{ seconds: 1779900600 }],
-          }),
-        })
-        .mockResolvedValueOnce({
-          exists: () => true,
-          data: () => ({ course: 'Python 2' }),
-        })
-      ;(firestore.getDocs as jest.Mock).mockResolvedValueOnce(
-        mockQuerySnapshot([{ id: 'uid-1-owned' }, { id: 'other-owner-1' }]),
-      )
-
-      const res = await classService.fetchInstructorClasses('uid-1')
-
-      expect(Object.keys(res).sort()).toEqual(['inst-1-a', 'uid-1-owned'])
-      expect(res['inst-1-a'].meetingTimes[0]).toBeInstanceOf(Date)
-      expect(res['inst-1-a'].completedClassDates[0]).toBeInstanceOf(Date)
-    })
-
-    it('falls back to an empty accessible list when the mapping doc exists but has no classIds field', async () => {
-      ;(firestore.getDoc as jest.Mock).mockResolvedValueOnce({
-        exists: () => true,
-        data: () => ({}),
+    it('loads classes from /api/classDetails, turning session dates back into Dates', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          classes: {
+            'uid-1-1': {
+              course: 'Python 1',
+              meetingTimes: ['2026-10-05T20:00:00.000Z'],
+              completedClassDates: [],
+            },
+          },
+        }),
       })
-      ;(firestore.getDocs as jest.Mock).mockResolvedValueOnce(
-        mockQuerySnapshot([]),
-      )
 
-      const res = await classService.fetchInstructorClasses('uid-1')
-      expect(res).toEqual({})
+      const res = await classService.fetchInstructorClasses()
+
+      expect(global.fetch).toHaveBeenCalledWith('/api/classDetails')
+      expect(res['uid-1-1'].course).toBe('Python 1')
+      expect(res['uid-1-1'].meetingTimes).toEqual([
+        new Date('2026-10-05T20:00:00.000Z'),
+      ])
+      expect(res['uid-1-1'].completedClassDates).toEqual([])
     })
 
-    it('falls back to an empty accessible list when no mapping doc exists', async () => {
-      ;(firestore.getDoc as jest.Mock).mockResolvedValueOnce({
-        exists: () => false,
+    it('returns an empty object and logs when the request is refused', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 403,
       })
-      ;(firestore.getDocs as jest.Mock).mockResolvedValueOnce(
-        mockQuerySnapshot([]),
-      )
-
-      const res = await classService.fetchInstructorClasses('uid-1')
-      expect(res).toEqual({})
-    })
-
-    it('skips class ids whose document no longer exists', async () => {
-      ;(firestore.getDoc as jest.Mock)
-        .mockResolvedValueOnce({
-          exists: () => true,
-          data: () => ({ classIds: ['gone-1'] }),
-        })
-        .mockResolvedValueOnce({ exists: () => false })
-      ;(firestore.getDocs as jest.Mock).mockResolvedValueOnce(
-        mockQuerySnapshot([]),
-      )
-
-      const res = await classService.fetchInstructorClasses('uid-1')
-      expect(res).toEqual({})
-    })
-
-    it('returns an empty object and logs on fetch failure rather than throwing', async () => {
-      ;(firestore.getDoc as jest.Mock).mockRejectedValueOnce(
-        new Error('permission-denied'),
-      )
       const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
 
-      const res = await classService.fetchInstructorClasses('uid-1')
-      expect(res).toEqual({})
+      await expect(classService.fetchInstructorClasses()).resolves.toEqual({})
       expect(errorSpy).toHaveBeenCalledWith(
         'Error fetching instructor classes:',
         expect.any(Error),
       )
       errorSpy.mockRestore()
     })
-  })
 
-  describe('updateInstructorClassMappings', () => {
-    it('updates the mapping for the main instructor when the doc already exists', async () => {
-      ;(firestore.updateDoc as jest.Mock).mockResolvedValueOnce(undefined)
-
-      await classService.updateInstructorClassMappings(
-        'c-1',
-        'main-uid',
-        [],
-        [],
-      )
-
-      expect(firestore.updateDoc).toHaveBeenCalledTimes(1)
-      expect(firestore.setDoc).not.toHaveBeenCalled()
-    })
-
-    it('creates the mapping doc via setDoc when updateDoc fails (doc missing)', async () => {
-      ;(firestore.updateDoc as jest.Mock).mockRejectedValueOnce(
-        new Error('not-found'),
-      )
-      ;(firestore.setDoc as jest.Mock).mockResolvedValueOnce(undefined)
-
-      await classService.updateInstructorClassMappings(
-        'c-1',
-        'main-uid',
-        [],
-        [],
-      )
-
-      expect(firestore.setDoc).toHaveBeenCalledWith(expect.anything(), {
-        classIds: ['c-1'],
-      })
-    })
-
-    it('grants access to each newly added co-instructor uid', async () => {
-      ;(firestore.updateDoc as jest.Mock).mockResolvedValue(undefined)
-
-      await classService.updateInstructorClassMappings(
-        'c-1',
-        'main-uid',
-        [],
-        ['co-uid-1', 'co-uid-2'],
-      )
-
-      expect(firestore.updateDoc).toHaveBeenCalledTimes(3)
-      expect(firestore.arrayUnion).toHaveBeenCalledTimes(3)
-      expect(firestore.arrayRemove).not.toHaveBeenCalled()
-    })
-
-    // Before this, a uid dropped from a class's co-instructor list kept the
-    // class on their dashboard forever - there was no removal path at all.
-    it('revokes the mapping of a co-instructor who was removed', async () => {
-      ;(firestore.updateDoc as jest.Mock).mockResolvedValue(undefined)
-
-      await classService.updateInstructorClassMappings(
-        'c-1',
-        'main-uid',
-        ['co-uid-1', 'co-uid-2'],
-        ['co-uid-2'],
-      )
-
-      expect(firestore.arrayRemove).toHaveBeenCalledTimes(1)
-      expect(firestore.arrayRemove).toHaveBeenCalledWith('c-1')
-      // Two writes: the owner's mapping (rewritten every save) and the
-      // revoke. The co-instructor who didn't move is left alone.
-      expect(firestore.updateDoc).toHaveBeenCalledTimes(2)
-    })
-
-    it('leaves an unchanged co-instructor alone', async () => {
-      ;(firestore.updateDoc as jest.Mock).mockResolvedValue(undefined)
-
-      await classService.updateInstructorClassMappings(
-        'c-1',
-        'main-uid',
-        ['co-uid-1'],
-        ['co-uid-1'],
-      )
-
-      // The owner's mapping, and nothing else.
-      expect(firestore.updateDoc).toHaveBeenCalledTimes(1)
-      expect(firestore.arrayRemove).not.toHaveBeenCalled()
-    })
-
-    // The owner reaches the class through the `${uid}-${n}` ID prefix as well,
-    // so revoking their mapping would be both wrong and useless.
-    it('never revokes the class owner, even if they are listed as a co-instructor', async () => {
-      ;(firestore.updateDoc as jest.Mock).mockResolvedValue(undefined)
-
-      await classService.updateInstructorClassMappings(
-        'c-1',
-        'main-uid',
-        ['main-uid'],
-        [],
-      )
-
-      expect(firestore.arrayRemove).not.toHaveBeenCalled()
-      expect(firestore.arrayUnion).toHaveBeenCalledTimes(1)
-    })
-
-    it('logs and does not throw if a mapping write fails entirely', async () => {
-      ;(firestore.updateDoc as jest.Mock).mockRejectedValue(
-        new Error('update failed'),
-      )
-      ;(firestore.setDoc as jest.Mock).mockRejectedValue(
-        new Error('set failed'),
-      )
+    it('returns an empty object rather than throwing when fetch rejects', async () => {
+      ;(global.fetch as jest.Mock).mockRejectedValueOnce(new Error('offline'))
       const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
 
-      await expect(
-        classService.updateInstructorClassMappings('c-1', 'main-uid', [], []),
-      ).resolves.toBeUndefined()
-
-      expect(errorSpy).toHaveBeenCalled()
-      errorSpy.mockRestore()
-    })
-
-    // One instructor's mapping failing must not decide whether the rest get
-    // written - hence allSettled rather than a sequential loop.
-    it('still writes the other mappings when one of them fails', async () => {
-      ;(firestore.updateDoc as jest.Mock)
-        .mockRejectedValueOnce(new Error('update failed'))
-        .mockRejectedValueOnce(new Error('update failed'))
-        .mockResolvedValue(undefined)
-      ;(firestore.setDoc as jest.Mock).mockRejectedValue(
-        new Error('set failed'),
-      )
-      const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
-
-      await classService.updateInstructorClassMappings(
-        'c-1',
-        'main-uid',
-        [],
-        ['co-uid-1', 'co-uid-2'],
-      )
-
-      expect(firestore.updateDoc).toHaveBeenCalledTimes(3)
+      await expect(classService.fetchInstructorClasses()).resolves.toEqual({})
       errorSpy.mockRestore()
     })
   })

@@ -39,6 +39,22 @@ export async function isAcceptedInstructor(uid: string): Promise<boolean> {
 }
 
 /**
+ * Whether this account may cover other instructors' sessions: accepted to
+ * teach this semester, or accepted as a substitute. Unlike
+ * `isAcceptedInstructor`, the `substitute` decision counts here - covering
+ * individual sessions is exactly what it is for.
+ */
+export async function canSubstitute(uid: string): Promise<boolean> {
+  try {
+    const snap = await adminDb.doc(`${decisionsCollection}/${uid}`).get()
+    return snap.exists && ['accepted', 'substitute'].includes(snap.data()?.type)
+  } catch (err) {
+    console.error(`Failed to read the decision for uid ${uid}:`, err)
+    return false
+  }
+}
+
+/**
  * Builds an identity from an Auth record. Names live in the `users` document
  * (see Data.User.Profile) rather than on the Auth record, and a client can't
  * read another user's `users` document under firestore.rules, which is why
@@ -103,6 +119,23 @@ export async function lookupAcceptedInstructorByEmail(
   if (!isInstructorAccount(user)) return null
   const identity = await toIdentity(user)
   return identity.accepted ? identity : null
+}
+
+/**
+ * Whether a uid names an instructor account with an `accepted` decision - the
+ * uid counterpart of `lookupAcceptedInstructorByEmail`, for co-instructor uids
+ * a client submits rather than an address someone typed.
+ */
+export async function isAcceptedInstructorAccount(
+  uid: string,
+): Promise<boolean> {
+  let user: UserRecord
+  try {
+    user = await adminAuth.getUser(uid)
+  } catch {
+    return false
+  }
+  return isInstructorAccount(user) && (await isAcceptedInstructor(uid))
 }
 
 /**

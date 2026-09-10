@@ -257,7 +257,7 @@ graph TD
   6. Verify that the interview status updates to show the scheduled date, interviewer name, and meeting link.
   7. (Alternative flow) If no slot works, click **"Request A Time"**, fill out a date/time, and click the **"Submit"** button.
 - Expected Results (Assertions):
-  - Selecting and booking a slot successfully saves the slot reservation to Firestore (updates `interviewCollection`) and displays the scheduled interview details.
+  - Selecting and booking a slot books it through `/api/interview` (a transaction, so a slot somebody else has just booked is refused) and displays the scheduled interview details.
   - Requesting a timeslot successfully saves a request to Firestore (creates a document under `interviewTimeRequests`) and displays a success toast.
 
 ---
@@ -452,9 +452,19 @@ written against a defect.
   branch from 15c's, and the one where a wrong document id would have left a
   substitute expecting to teach a class the instructor thought they had called
   off.
-- **15k - A failed signup says so**: the claim is written before the
-  confirmation email is sent, so a failure there has to be visible or the
-  substitute is left unsure whether they are covering the class.
+- **15k - A failed signup says so**: signing up is one request to
+  `/api/substitute`, which claims the session and sends the confirmation, so a
+  failure there has to be visible or the substitute is left unsure whether they
+  are covering the class.
+- **15l - Filing over a covered session is refused**: a session's request is
+  one document, so filing again for a session that already has a substitute is
+  refused and says so, leaving the substitute on it.
+
+Signing up goes through `/api/substitute`: it lists only sessions still needing
+a substitute, still to come, and asked for by somebody else (Test Case 15
+checks an instructor isn't offered their own), and claims one in a transaction.
+A request's own people - whoever filed it, the class's instructor of record and
+its substitute - read it directly, keyed by those uid fields.
 
 Both halves of 15e go through `/api/substituteSession` and
 `/api/substituteFeedback` rather than the client SDK, and that is the only way

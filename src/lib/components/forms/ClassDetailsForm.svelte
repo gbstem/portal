@@ -2,10 +2,8 @@
   import { user } from '$lib/client/firebase'
   import { classDetailsFormSchema } from '$lib/components/forms/schemas'
   import { coursesJson, daysOfWeekJson } from '$lib/data'
-  import { withSemester } from '$lib/data/collections'
   import {
     addCoInstructor,
-    canClaimClassOwnership,
     coInstructorAddError,
     coInstructorDisplayName,
     coInstructorUids,
@@ -88,7 +86,6 @@
         disabled = true
         if ($user) {
           try {
-            const frozenUser = $user
             // `confirmation` is validated but deliberately not part of the
             // class document, so it is dropped here rather than riding the
             // spread into Firestore.
@@ -148,61 +145,51 @@
               )
             }
 
-            // Only the owner restamps these. A co-instructor saving the
-            // class would otherwise make themselves its instructor and lock
-            // the actual owner out - see canClaimClassOwnership.
-            if (
-              canClaimClassOwnership(values, {
-                uid: frozenUser.object.uid,
-                email: frozenUser.object.email ?? '',
-              })
-            ) {
-              newValues.instructorFirstName = frozenUser.profile.firstName
-              newValues.instructorLastName = frozenUser.profile.lastName
-              newValues.instructorEmail = frozenUser.object.email as string
-              newValues.instructorUid = frozenUser.object.uid
-            }
-
             // Every uid in the form was vouched for by
-            // /api/lookupCoInstructor when it was added, so there is nothing
-            // to re-resolve here. `droppedUids` are the ones whose accounts
-            // have since been deleted; they're the only ones removed without
-            // the owner asking, and only because there is nobody left to ask
-            // about. See `loadCoInstructors`.
+            // /api/lookupCoInstructor when it was added, and /api/classDetails
+            // checks any newly added one again. `droppedUids` are the ones
+            // whose accounts have since been deleted; they're the only ones
+            // removed without the owner asking, and only because there is
+            // nobody left to ask about. See `loadCoInstructors`.
             newValues.otherInstructorUids =
               newValues.otherInstructorUids.filter(
                 (uid: string) => !droppedUids.has(uid),
               )
 
             // Determined before the meeting link, not after: /api/meetingLink
-            // authorizes on the class id, applying the same test firestore.rules
-            // applies to the class document.
+            // authorizes on the class id, applying the same test
+            // /api/classDetails applies to the save.
             const classId = currentClassId()
 
             if (newValues.online && newValues.meetingLink === '') {
               newValues.meetingLink = await createLink(classId, newValues)
             }
 
-            await classService.saveClassDetails(
+            // Only what the class should look like. Who owns it, whether an
+            // added co-instructor is eligible, and which dashboards list it
+            // are settled server-side, in one transaction.
+            await classService.saveClassDetails({
               classId,
-              withSemester(newValues),
-            )
-
-            // The class's owner, not whoever is saving. `updateInstructorClassMappings`
-            // treats this uid as the one instructor whose mapping is always
-            // kept, so passing the signed-in user made a co-instructor's save
-            // exempt themselves: removing themselves from the class gave up
-            // their write access and then re-added their own dashboard entry,
-            // leaving them looking at a class every save on which is refused.
-            // After the ownership stamp above, `instructorUid` is the owner for
-            // an owner's or creator's save too; the fallback only covers a
-            // legacy class that records no owner at all.
-            await classService.updateInstructorClassMappings(
-              classId,
-              newValues.instructorUid || frozenUser.object.uid,
-              values.otherInstructorUids ?? [],
-              newValues.otherInstructorUids,
-            )
+              details: {
+                course: newValues.course,
+                gradeRecommendation: newValues.gradeRecommendation,
+                classCap: newValues.classCap,
+                meetingLink: newValues.meetingLink,
+                classDay1: newValues.classDay1,
+                classTime1: newValues.classTime1,
+                classDay2: newValues.classDay2,
+                classTime2: newValues.classTime2,
+                online: newValues.online,
+                otherInstructorUids: newValues.otherInstructorUids,
+              },
+              schedule: rebuildSchedule
+                ? {
+                    meetingTimes: newValues.meetingTimes,
+                    feedbackCompleted: newValues.feedbackCompleted,
+                    classStatuses: newValues.classStatuses,
+                  }
+                : undefined,
+            })
 
             disabled = true
             alert.trigger(
@@ -264,9 +251,7 @@
     return user.subscribe(async (user) => {
       if (user) {
         try {
-          const userClasses = await classService.fetchInstructorClasses(
-            user.object.uid,
-          )
+          const userClasses = await classService.fetchInstructorClasses()
 
           instructorClasses = userClasses
           availableClassIds = Object.keys(instructorClasses).sort()
