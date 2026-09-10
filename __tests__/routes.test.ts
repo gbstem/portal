@@ -1357,7 +1357,7 @@ describe('API routes POST endpoints', () => {
     )
   })
 
-  it('remindStudentsPOST successfully', async () => {
+  it('remindStudentsPOST rejects payload missing required class fields with 400', async () => {
     mockRequest.json.mockResolvedValue({
       name: 'Student',
       email: 'student@test.com',
@@ -1367,21 +1367,21 @@ describe('API routes POST endpoints', () => {
       class: 'Math',
       classTime: 'Monday at 2:00 PM',
     })
-    const res = await remindStudentsPOST({
-      request: mockRequest as any,
-      locals: { user: { email: 'test@test.com', role: 'instructor' } },
-    } as any)
-    expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
+    await expect(
+      remindStudentsPOST({
+        request: mockRequest as any,
+        locals: instructorLocals,
+      } as any),
+    ).rejects.toEqual(
+      expect.objectContaining({
+        status: 400,
+      }),
+    )
   })
 
   it('remindStudentsPOST rejects a non-instructor with a 403', async () => {
     mockRequest.json.mockResolvedValue({
-      name: 'Student',
-      email: 'student@test.com',
-      instructorName: 'Instructor',
-      instructorEmail: 'inst@test.com',
-      instructorUids: [],
-      class: 'Math',
+      classId: 'c-1',
       classTime: 'Monday at 2:00 PM',
     })
     await expect(
@@ -1397,49 +1397,64 @@ describe('API routes POST endpoints', () => {
     )
   })
 
-  it('remindStudentsPOST returns a 500 json response when sending the email fails', async () => {
+  it('remindStudentsPOST logs and continues when sending an email fails', async () => {
     await withRejectedSend(async () => {
-      mockRequest.json.mockResolvedValue({
-        name: 'Student',
-        email: 'student@test.com',
-        instructorName: 'Instructor',
-        instructorEmail: 'inst@test.com',
-        instructorUids: [],
-        class: 'Math',
-        classTime: 'Monday at 2:00 PM',
+      mockFirestoreDocs({
+        [`${classesCollection}/c-1`]: {
+          instructorUid: 'caller-uid',
+          students: ['s-1'],
+        },
+        [`${registrationsCollection}/s-1`]: {
+          personal: {
+            studentFirstName: 'Ada',
+            email: 'ada@example.com',
+          },
+        },
       })
-      const res = await remindStudentsPOST({
+      mockRequest.json.mockResolvedValue({
+        classId: 'c-1',
+        classTime: 'Friday at 4:00 PM',
+      })
+      const res: any = await remindStudentsPOST({
         request: mockRequest as any,
-        locals: { user: { email: 'test@test.com', role: 'instructor' } },
+        locals: instructorLocals,
       } as any)
-      expect(res).toEqual(
-        expect.objectContaining({
-          body: { error: 'Failed to send email. Please try again later.' },
-          init: { status: 500 },
-        }),
-      )
+      expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
+      expect(res.body.count).toBe(0)
     })
   })
 
-  // The point of storing uids instead of addresses: the cc goes to whatever
+  // The point of resolving uids server-side: the cc goes to whatever
   // address the account has right now, and the client never gets to name it.
   it('remindStudentsPOST resolves co-instructor uids to current emails server-side', async () => {
     mockAdminAuth.getUsers.mockResolvedValueOnce({
       users: [{ uid: 'co-uid-1', email: 'renamed@gbstem.org' }],
       notFound: [{ uid: 'co-uid-deleted' }],
     })
+    mockFirestoreDocs({
+      [`${classesCollection}/c-1`]: {
+        instructorUid: 'caller-uid',
+        instructorFirstName: 'Lead',
+        otherInstructorUids: ['co-uid-1', 'co-uid-deleted'],
+        course: 'Python 1',
+        students: ['s-1'],
+      },
+      [`${registrationsCollection}/s-1`]: {
+        personal: {
+          studentFirstName: 'Ada',
+          email: 'ada@example.com',
+        },
+      },
+    })
     mockRequest.json.mockResolvedValue({
-      name: 'Student',
-      email: 'student@test.com',
-      instructorName: 'Instructor',
-      instructorUids: ['co-uid-1', 'co-uid-deleted'],
-      class: 'Math',
+      classId: 'c-1',
       classTime: 'Monday at 2:00 PM',
     })
 
+    ;(MailService.send as jest.Mock).mockClear()
     await remindStudentsPOST({
       request: mockRequest as any,
-      locals: { user: { email: 'test@test.com', role: 'instructor' } },
+      locals: instructorLocals,
     } as any)
 
     // The deleted account is dropped rather than bouncing the whole send.
@@ -1448,25 +1463,35 @@ describe('API routes POST endpoints', () => {
     )
   })
 
-  // The list the client sends is the class's whole teaching staff, so the
-  // sender is in it. Whoever pressed the button doesn't need a copy of their
-  // own reminder - everyone else teaching the class does, which is what a
-  // co-instructor sending one used to miss: they cc'd themselves and left the
-  // class's primary instructor off entirely.
+  // The class's whole teaching staff is checked, but the caller is dropped
+  // by uid so whoever pressed the button doesn't get a copy of their own
+  // reminder - everyone else teaching the class does.
   it('remindStudentsPOST cc’s the class’s other instructors but not the sender', async () => {
     mockAdminAuth.getUsers.mockResolvedValueOnce({
       users: [{ uid: 'owner-uid', email: 'owner@gbstem.org' }],
       notFound: [],
     })
+    mockFirestoreDocs({
+      [`${classesCollection}/c-1`]: {
+        instructorUid: 'owner-uid',
+        instructorFirstName: 'Owner',
+        otherInstructorUids: ['caller-uid'],
+        course: 'Python 1',
+        students: ['s-1'],
+      },
+      [`${registrationsCollection}/s-1`]: {
+        personal: {
+          studentFirstName: 'Ada',
+          email: 'ada@example.com',
+        },
+      },
+    })
     mockRequest.json.mockResolvedValue({
-      name: 'Student',
-      email: 'student@test.com',
-      instructorName: 'Instructor',
-      instructorUids: ['owner-uid', 'caller-uid'],
-      class: 'Math',
+      classId: 'c-1',
       classTime: 'Monday at 2:00 PM',
     })
 
+    ;(MailService.send as jest.Mock).mockClear()
     await remindStudentsPOST({
       request: mockRequest as any,
       locals: {
@@ -1488,12 +1513,7 @@ describe('API routes POST endpoints', () => {
 
   it('remindStudentsPOST propagates the auth error when the user is not signed in', async () => {
     mockRequest.json.mockResolvedValue({
-      name: 'Student',
-      email: 'student@test.com',
-      instructorName: 'Instructor',
-      instructorEmail: 'inst@test.com',
-      instructorUids: [],
-      class: 'Math',
+      classId: 'c-1',
       classTime: 'Monday at 2:00 PM',
     })
     await expect(
@@ -1503,7 +1523,7 @@ describe('API routes POST endpoints', () => {
     )
   })
 
-  it('remindStudentsPOST class-based mode sends reminders to all enrolled students and CCs co-instructors', async () => {
+  it('remindStudentsPOST sends reminders to all enrolled students and CCs co-instructors', async () => {
     mockAdminAuth.getUsers.mockResolvedValueOnce({
       users: [{ uid: 'co-inst-1', email: 'coinst@gbstem.org' }],
       notFound: [],
@@ -1560,7 +1580,7 @@ describe('API routes POST endpoints', () => {
     )
   })
 
-  it('remindStudentsPOST class-based mode sends to a single enrolled student when studentUid is specified', async () => {
+  it('remindStudentsPOST sends to a single enrolled student when studentUid is specified', async () => {
     mockAdminAuth.getUsers.mockResolvedValueOnce({
       users: [],
       notFound: [],
@@ -1601,7 +1621,52 @@ describe('API routes POST endpoints', () => {
     )
   })
 
-  it('remindStudentsPOST class-based mode rejects student not in class with 400', async () => {
+  it('remindStudentsPOST sends reminders when called by authorized substitute without co-instructor CCs', async () => {
+    mockFirestoreDocs({
+      [`${substituteRequestsCollection}/c-1---1`]: {
+        subInstructorId: 'caller-uid',
+        subInstructorFirstName: 'Substitute',
+        classNumber: 1,
+      },
+      [`${classesCollection}/c-1`]: {
+        instructorUid: 'owner-uid',
+        otherInstructorUids: ['co-inst-1'],
+        course: 'Python 1',
+        students: ['s-1'],
+        classStatuses: ['substitute needed'],
+        meetingTimes: ['2026-10-01T10:00:00.000Z'],
+      },
+      [`${registrationsCollection}/s-1`]: {
+        personal: {
+          studentFirstName: 'Ada',
+          email: 'ada@example.com',
+        },
+      },
+    })
+
+    mockRequest.json.mockResolvedValue({
+      classId: 'c-1',
+      classTime: 'Friday at 4:00 PM',
+      subRequestId: 'c-1---1',
+    })
+
+    ;(MailService.send as jest.Mock).mockClear()
+    const res: any = await remindStudentsPOST({
+      request: mockRequest as any,
+      locals: instructorLocals,
+    } as any)
+
+    expect(res.body.count).toBe(1)
+    expect(MailService.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: ['ada@example.com'],
+        subject: 'gbSTEM Class Reminder',
+      }),
+    )
+    expect((MailService.send as jest.Mock).mock.calls[0][0].cc).toBeUndefined()
+  })
+
+  it('remindStudentsPOST rejects student not in class with 400', async () => {
     mockFirestoreDocs({
       [`${classesCollection}/c-1`]: {
         instructorUid: 'caller-uid',
@@ -1628,7 +1693,7 @@ describe('API routes POST endpoints', () => {
     )
   })
 
-  it('remindStudentsPOST class-based mode returns 400 when class has no students', async () => {
+  it('remindStudentsPOST returns 400 when class has no students', async () => {
     mockFirestoreDocs({
       [`${classesCollection}/c-1`]: {
         instructorUid: 'caller-uid',
