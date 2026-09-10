@@ -1,6 +1,7 @@
 import { handleApiError, verifyInstructor } from '$lib/server/apiHelpers'
 import { sendEmail } from '$lib/server/email'
 import { renderEmail } from '$lib/emails/render'
+import { formatDateInGbstemTime } from '$lib/utils'
 import { adminAuth } from '$lib/server/firebase'
 import {
   claimSubRequest,
@@ -40,23 +41,6 @@ async function resolveEmailByUid(uid: string): Promise<string | undefined> {
     console.error(`Failed to resolve an email for uid ${uid}:`, err)
     return undefined
   }
-}
-
-/**
- * A session's date for the confirmation email. The server's own time zone
- * means nothing to the people reading it, so this names gbSTEM's.
- */
-function formatSessionDate(date: Date): string {
-  return date.toLocaleString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: 'numeric',
-    hour12: true,
-    timeZone: 'America/New_York',
-    timeZoneName: 'short',
-  })
 }
 
 /**
@@ -130,7 +114,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         firstName: claimed.subInstructorFirstName,
         course: claimed.course,
         classNumber: claimed.classNumber,
-        date: formatSessionDate(claimed.dateOfClass),
+        date: formatDateInGbstemTime(claimed.dateOfClass, 'short'),
         name: 'Portal',
         link: 'https://portal.gbstem.org',
       },

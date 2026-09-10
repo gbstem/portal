@@ -118,6 +118,31 @@ export function formatDateLocal(date: Date) {
   })
 }
 
+/** Where gbSTEM runs its classes and interviews. */
+export const GBSTEM_TIME_ZONE = 'America/New_York'
+
+/**
+ * Formats a date in gbSTEM's time zone, naming the zone - for text built on
+ * the server, such as emails, where the server's own time zone means nothing
+ * to the reader. In the browser, `formatDate` and `formatDateLocal` use the
+ * viewer's zone instead; `style` matches their lengths.
+ */
+export function formatDateInGbstemTime(
+  date: Date,
+  style: 'short' | 'long',
+): string {
+  return date.toLocaleString('en-US', {
+    weekday: style,
+    month: style,
+    day: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+    hour12: true,
+    timeZone: GBSTEM_TIME_ZONE,
+    timeZoneName: style,
+  })
+}
+
 export function formatDateStringLocal(time: string) {
   const date = new Date(time)
   return date.toLocaleString('en-US', {

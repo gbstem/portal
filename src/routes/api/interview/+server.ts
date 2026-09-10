@@ -1,6 +1,7 @@
 import { handleApiError, verifyInstructor } from '$lib/server/apiHelpers'
 import { sendEmail } from '$lib/server/email'
 import { renderEmail } from '$lib/emails/render'
+import { formatDateInGbstemTime } from '$lib/utils'
 import { resolveCurrentInterviewerEmail } from '$lib/server/interviewerIdentity'
 import {
   bookInterviewSlot,
@@ -27,23 +28,6 @@ export interface InterviewBookingResponse {
   interview: ScheduledInterview
   /** False when the slot was booked but its confirmation email wasn't sent. */
   emailSent: boolean
-}
-
-/**
- * An interview's date for the confirmation email. The server's own time zone
- * means nothing to the people reading it, so this names gbSTEM's.
- */
-function formatInterviewDate(date: Date): string {
-  return date.toLocaleString('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: 'numeric',
-    hour12: true,
-    timeZone: 'America/New_York',
-    timeZoneName: 'long',
-  })
 }
 
 /**
@@ -77,7 +61,7 @@ async function sendBookingConfirmation(
     interview: {
       interviewee: booked.intervieweeFirstName,
       name: booked.interviewerName,
-      date: formatInterviewDate(booked.date),
+      date: formatDateInGbstemTime(booked.date, 'long'),
       link: booked.meetingLink,
     },
   })

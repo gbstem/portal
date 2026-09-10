@@ -34,6 +34,7 @@ import {
   copyEmails,
   copyToClipboard,
   formatDate,
+  formatDateInGbstemTime,
   formatDateLocal,
   formatDateString,
   formatDateStringLocal,
@@ -249,6 +250,23 @@ describe('utils', () => {
       expect(formatDateLocal(date)).toBe(
         'Thursday, May 28 at 3:30 PM Eastern Daylight Time',
       )
+    })
+
+    // UTC instants, the way a server holds them.
+    it('formatDateInGbstemTime names the time in gbSTEM’s zone, short or long', () => {
+      const date = new Date('2026-05-28T19:30:00Z')
+      expect(formatDateInGbstemTime(date, 'short')).toBe(
+        'Thu, May 28, 3:30 PM EDT',
+      )
+      expect(formatDateInGbstemTime(date, 'long')).toBe(
+        'Thursday, May 28 at 3:30 PM Eastern Daylight Time',
+      )
+    })
+
+    it('formatDateInGbstemTime follows daylight saving time', () => {
+      expect(
+        formatDateInGbstemTime(new Date('2026-12-03T20:00:00Z'), 'short'),
+      ).toBe('Thu, Dec 3, 3:00 PM EST')
     })
 
     it('formatDateStringLocal formats Date string with long timezone name', () => {
