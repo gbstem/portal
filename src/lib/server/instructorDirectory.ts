@@ -106,6 +106,23 @@ export async function lookupAcceptedInstructorByEmail(
 }
 
 /**
+ * Whether a uid names an instructor account with an `accepted` decision - the
+ * uid counterpart of `lookupAcceptedInstructorByEmail`, for co-instructor uids
+ * a client submits rather than an address someone typed.
+ */
+export async function isAcceptedInstructorAccount(
+  uid: string,
+): Promise<boolean> {
+  let user: UserRecord
+  try {
+    user = await adminAuth.getUser(uid)
+  } catch {
+    return false
+  }
+  return isInstructorAccount(user) && (await isAcceptedInstructor(uid))
+}
+
+/**
  * Resolves stored `otherInstructorUids` to identities for display.
  *
  * A uid whose Auth account no longer exists is dropped: accounts get deleted,

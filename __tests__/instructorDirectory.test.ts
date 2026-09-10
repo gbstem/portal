@@ -1,9 +1,11 @@
+const mockGetUser = jest.fn()
 const mockGetUsers = jest.fn()
 const mockGetUserByEmail = jest.fn()
 const mockDoc = jest.fn()
 
 jest.mock('$lib/server/firebase', () => ({
   adminAuth: {
+    getUser: (...args: any[]) => mockGetUser(...args),
     getUsers: (...args: any[]) => mockGetUsers(...args),
     getUserByEmail: (...args: any[]) => mockGetUserByEmail(...args),
   },
@@ -14,6 +16,7 @@ jest.mock('$lib/server/firebase', () => ({
 
 import {
   isAcceptedInstructor,
+  isAcceptedInstructorAccount,
   lookupAcceptedInstructorByEmail,
   resolveCoInstructorEmails,
   resolveCoInstructorIdentities,
@@ -48,6 +51,7 @@ const acceptedAda = {
 
 describe('instructorDirectory', () => {
   beforeEach(() => {
+    mockGetUser.mockReset()
     mockGetUsers.mockReset()
     mockGetUserByEmail.mockReset()
     mockDoc.mockReset()
@@ -239,6 +243,37 @@ describe('instructorDirectory', () => {
 
     test('is empty for an empty uid list', async () => {
       await expect(resolveCoInstructorEmails([])).resolves.toEqual([])
+    })
+  })
+
+  describe('isAcceptedInstructorAccount', () => {
+    test('is true for an instructor account with an accepted decision', async () => {
+      mockGetUser.mockResolvedValue(instructorRecord)
+      mockFirestore(acceptedAda)
+      await expect(isAcceptedInstructorAccount('uid-ada')).resolves.toBe(true)
+    })
+
+    test('is false for a uid with no account', async () => {
+      mockGetUser.mockRejectedValue(new Error('auth/user-not-found'))
+      mockFirestore(acceptedAda)
+      await expect(isAcceptedInstructorAccount('uid-ada')).resolves.toBe(false)
+    })
+
+    test('is false for an account without the instructor role', async () => {
+      mockGetUser.mockResolvedValue({
+        ...instructorRecord,
+        customClaims: { role: 'student' },
+      })
+      mockFirestore(acceptedAda)
+      await expect(isAcceptedInstructorAccount('uid-ada')).resolves.toBe(false)
+    })
+
+    test('is false for an instructor who has not been accepted', async () => {
+      mockGetUser.mockResolvedValue(instructorRecord)
+      mockFirestore({
+        [`${decisionsCollection}/uid-ada`]: { type: 'interview' },
+      })
+      await expect(isAcceptedInstructorAccount('uid-ada')).resolves.toBe(false)
     })
   })
 })

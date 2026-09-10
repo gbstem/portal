@@ -127,6 +127,17 @@ jest.mock('$lib/server/firebase', () => ({
   adminDb: mockAdminDb,
 }))
 
+// The transactional logic has its own suite (instructorClasses.test.ts); the
+// route tests here cover authentication, validation and delegation.
+const mockFetchInstructorClasses = jest.fn()
+const mockSaveClassDetails = jest.fn()
+jest.mock('$lib/server/instructorClasses', () => ({
+  ...jest.requireActual('$lib/server/instructorClasses'),
+  fetchInstructorClasses: (...args: any[]) =>
+    mockFetchInstructorClasses(...args),
+  saveClassDetails: (...args: any[]) => mockSaveClassDetails(...args),
+}))
+
 // Mocks for firebase/app, auth, firestore, storage
 jest.mock('firebase/app', () => ({ initializeApp: jest.fn() }))
 jest.mock('firebase/auth', () => ({
@@ -188,6 +199,10 @@ import { POST as substitutePOST } from '../src/routes/api/substitute/+server'
 import { POST as substituteFeedbackPOST } from '../src/routes/api/substituteFeedback/+server'
 import { POST as substituteSessionPOST } from '../src/routes/api/substituteSession/+server'
 import { POST as meetingLinkPOST } from '../src/routes/api/meetingLink/+server'
+import {
+  GET as classDetailsGET,
+  POST as classDetailsPOST,
+} from '../src/routes/api/classDetails/+server'
 import MailService from '@sendgrid/mail'
 
 // Shared helper for exercising the `catch (mailError)` branch that every
@@ -2696,5 +2711,125 @@ describe('substitute session endpoints', () => {
         }),
       )
     })
+  })
+})
+
+describe('/api/classDetails', () => {
+  const classDetailsBody = {
+    classId: 'caller-uid-1',
+    details: {
+      course: 'Python 1',
+      gradeRecommendation: '6-8',
+      classCap: 7,
+      meetingLink: '',
+      classDay1: 'Monday',
+      classTime1: '16:00',
+      classDay2: '',
+      classTime2: '',
+      online: true,
+      otherInstructorUids: ['co-uid'],
+    },
+    schedule: {
+      meetingTimes: ['2026-10-05T20:00:00.000Z'],
+      feedbackCompleted: [false],
+      classStatuses: ['ClassInFuture'],
+    },
+  }
+
+  const postWith = (body: unknown, locals: any = instructorLocals) =>
+    classDetailsPOST({
+      request: { json: async () => body },
+      locals,
+    } as any)
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    mockSaveClassDetails.mockResolvedValue(undefined)
+  })
+
+  it("GET returns the signed-in instructor's classes", async () => {
+    mockFetchInstructorClasses.mockResolvedValue({
+      'caller-uid-1': { course: 'Python 1' },
+    })
+
+    const res: any = await classDetailsGET({ locals: instructorLocals } as any)
+
+    expect(mockFetchInstructorClasses).toHaveBeenCalledWith('caller-uid')
+    expect(res.body).toEqual({
+      classes: { 'caller-uid-1': { course: 'Python 1' } },
+    })
+  })
+
+  it('GET rejects a student with a 403 and a signed-out caller with a 401', async () => {
+    await expect(
+      classDetailsGET({
+        locals: { user: { uid: 's-1', role: 'student' } },
+      } as any),
+    ).rejects.toEqual(expect.objectContaining({ status: 403 }))
+    await expect(classDetailsGET({ locals: {} } as any)).rejects.toEqual(
+      expect.objectContaining({ status: 401 }),
+    )
+    expect(mockFetchInstructorClasses).not.toHaveBeenCalled()
+  })
+
+  it('POST saves as the signed-in instructor, with schedule dates as Dates', async () => {
+    const res: any = await postWith(classDetailsBody)
+
+    expect(res.body).toEqual({ classId: 'caller-uid-1' })
+    const [caller, classId, details, schedule] =
+      mockSaveClassDetails.mock.calls[0]
+    expect(caller).toEqual({ uid: 'caller-uid', email: 'caller@gbstem.org' })
+    expect(classId).toBe('caller-uid-1')
+    expect(details).toEqual(classDetailsBody.details)
+    expect(schedule.meetingTimes).toEqual([
+      new Date('2026-10-05T20:00:00.000Z'),
+    ])
+  })
+
+  it('POST drops ownership and roster fields rather than passing them on', async () => {
+    await postWith({
+      ...classDetailsBody,
+      details: {
+        ...classDetailsBody.details,
+        instructorUid: 'someone-else',
+        students: ['student-1'],
+      },
+    })
+
+    const [, , details] = mockSaveClassDetails.mock.calls[0]
+    expect(details).not.toHaveProperty('instructorUid')
+    expect(details).not.toHaveProperty('students')
+  })
+
+  it('POST refuses a schedule whose arrays disagree in length', async () => {
+    await expect(
+      postWith({
+        ...classDetailsBody,
+        schedule: { ...classDetailsBody.schedule, classStatuses: [] },
+      }),
+    ).rejects.toEqual(expect.objectContaining({ status: 400 }))
+    expect(mockSaveClassDetails).not.toHaveBeenCalled()
+  })
+
+  it('POST rejects a student with a 403', async () => {
+    await expect(
+      postWith(classDetailsBody, { user: { uid: 's-1', role: 'student' } }),
+    ).rejects.toEqual(expect.objectContaining({ status: 403 }))
+    expect(mockSaveClassDetails).not.toHaveBeenCalled()
+  })
+
+  it("POST passes the save's refusal straight through", async () => {
+    mockSaveClassDetails.mockRejectedValue({
+      status: 403,
+      message: 'You are not an instructor of that class.',
+      __isSvelteKitError: true,
+    })
+
+    await expect(postWith(classDetailsBody)).rejects.toEqual(
+      expect.objectContaining({
+        status: 403,
+        message: 'You are not an instructor of that class.',
+      }),
+    )
   })
 })

@@ -269,9 +269,7 @@
     return user.subscribe(async (user) => {
       if (user) {
         // Get all classes for this instructor using the DAL
-        const userClasses = await classService.fetchInstructorClasses(
-          user.object.uid,
-        )
+        const userClasses = await classService.fetchInstructorClasses()
 
         // Convert to ClassDetails format and add id field
         const classDetails: { [classId: string]: Data.ClassDetails } = {}

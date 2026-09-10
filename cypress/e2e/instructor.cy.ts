@@ -1152,10 +1152,9 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
     // bug (see admin's interviews.cy.ts "Section H"): the seeded instructor's
     // class doc is put into the state it would be in if she'd changed her
     // account's email after the class was created - a stale instructorEmail,
-    // but the correct (never-changing) instructorUid. Firestore's own
-    // isInstructorOfClass() rule has to allow this write on the uid match
-    // alone; the old email-only rule would reject it outright, so this test
-    // exercises the real rule, not just app logic.
+    // but the correct (never-changing) instructorUid. /api/classDetails has
+    // to allow this save on the uid match alone, so this test exercises the
+    // server's authorization, not just the form.
     cy.task('mergeFirestoreDoc', {
       docPath: `${classesCollection}/${SEEDED_CLASS_ID}`,
       data: {
@@ -1181,9 +1180,7 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
     cy.get('input[name="confirmation"]').check({ force: true })
     saveClassDetails()
 
-    // The write must have actually landed - a rule rejection would leave
-    // classCap at its prior value with no client-visible error, since
-    // permission-denied still resolves the promise `onUpdate` awaits.
+    // The write must have actually landed, not just the success toast.
     readClassDoc().then((after: any) => {
       expect(after.classCap, 'class cap').to.equal(19)
       // Self-healed back to the live signed-in email, same as every other save.
@@ -1192,13 +1189,10 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
   })
 
   it('Test Case 13g: Class Details - Create New Class', () => {
-    // "+ Create New Class" had no coverage at all before this test, which is
-    // how firestore.rules's isInstructorOwnerOrAdmin() went unnoticed doing an
-    // *exact* uid match against a classId that's always `${uid}-${n}` -
-    // meaning it could never actually match, and every instructor create was
-    // silently rejected by Firestore itself (only isAdmin() ever let one
-    // through). Confirmed directly against the emulator's REST API before
-    // this fix: a real instructor creating `${their uid}-99` got back a 403.
+    // A new class has no document to authorize against, so /api/classDetails
+    // authorizes on its id: exactly `${uid}-${n}` under the caller's own uid.
+    // The seeded class isn't keyed that way, so generateNewClassId starts
+    // this instructor's numbering at 1.
     const newClassId = 'instructor-demo-uid-1'
     // `online: false` so the save doesn't also try to create a real meeting
     // link - out of scope for what this test is checking.
@@ -1306,14 +1300,11 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
     cy.get('input[name="confirmation"]').check({ force: true })
     saveClassDetails()
 
-    cy.getFirebaseAuthToken().then((authToken: string) => {
-      cy.getFirestoreDoc(
-        authToken,
-        'instructorClasses',
-        'instructor-cohost-uid',
-      ).then((mapping: any) => {
-        expect(mapping.classIds, 'granted').to.include(SEEDED_CLASS_ID)
-      })
+    cy.task(
+      'readFirestoreDoc',
+      `${INSTRUCTOR_CLASSES_COLLECTION}/${COHOST_UID}`,
+    ).then((mapping: any) => {
+      expect(mapping.classIds, 'granted').to.include(SEEDED_CLASS_ID)
     })
 
     // Now take them off again.
@@ -1333,16 +1324,11 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
       expect(data.otherInstructorUids).to.deep.equal([])
     })
     // ...and the dashboard index has to stop listing it too.
-    cy.getFirebaseAuthToken().then((authToken: string) => {
-      cy.getFirestoreDoc(
-        authToken,
-        'instructorClasses',
-        'instructor-cohost-uid',
-      ).then((mapping: any) => {
-        expect(mapping.classIds ?? [], 'revoked').to.not.include(
-          SEEDED_CLASS_ID,
-        )
-      })
+    cy.task(
+      'readFirestoreDoc',
+      `${INSTRUCTOR_CLASSES_COLLECTION}/${COHOST_UID}`,
+    ).then((mapping: any) => {
+      expect(mapping.classIds ?? [], 'revoked').to.not.include(SEEDED_CLASS_ID)
     })
   })
 
@@ -1745,26 +1731,22 @@ describe('Section G: Co-Instructor Access To A Shared Class', () => {
       expect(after.instructorUid).to.equal(OWNER_UID)
       expect(after.instructorEmail).to.equal(OWNER_EMAIL)
     })
-    cy.getFirebaseAuthToken().then((authToken: string) => {
-      cy.getFirestoreDoc(
-        authToken,
-        INSTRUCTOR_CLASSES_COLLECTION,
-        COHOST_UID,
-      ).then((mapping: any) => {
-        expect(
-          mapping.classIds ?? [],
-          'class taken off their dashboard too',
-        ).to.not.include(SEEDED_CLASS_ID)
-      })
+    cy.task(
+      'readFirestoreDoc',
+      `${INSTRUCTOR_CLASSES_COLLECTION}/${COHOST_UID}`,
+    ).then((mapping: any) => {
+      expect(
+        mapping.classIds ?? [],
+        'class taken off their dashboard too',
+      ).to.not.include(SEEDED_CLASS_ID)
     })
   })
 
   it('Test Case 13q: Co-Instructor - A Revoked Co-Instructor’s Save Is Refused', () => {
     // Test Case 13i asserts the removal is written down; this asserts it is
-    // *enforced*, by Firestore rather than by the UI. The state is the one
-    // classService warns about: the class no longer lists the uid, but the
-    // dashboard mapping is stale (its update is best-effort and only warns on
-    // failure), so the class is still on screen and openable for edit.
+    // *enforced*, by the server rather than by the UI. The state is a stale
+    // dashboard mapping: the class no longer lists the uid but the mapping
+    // still does, so the class is still on screen and openable for edit.
     grantCoInstructorAccess()
     cy.task('mergeFirestoreDoc', {
       docPath: `${classesCollection}/${SEEDED_CLASS_ID}`,
@@ -1794,10 +1776,8 @@ describe('Section G: Co-Instructor Access To A Shared Class', () => {
 
     // The rejection has to be surfaced rather than swallowed: a save that
     // silently does nothing is how the ownership bug in 13j went unnoticed for
-    // so long. The wording is the Firestore error code run through
-    // `alert.trigger`'s auto-formatting, which lower-cases and sentence-cases
-    // it - so "permission-denied" reaches the user as "Permission denied."
-    cy.waitForNotification('Permission denied', 'bg-red-200')
+    // so long.
+    cy.waitForNotification('not an instructor of that class', 'bg-red-200')
     readClassDoc().then((after: any) => {
       expect(after, 'nothing was written').to.deep.equal(before)
     })
