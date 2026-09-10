@@ -1,4 +1,7 @@
-import { classesCollection } from '../../src/lib/data/collections'
+import {
+  classesCollection,
+  substituteRequestsCollection,
+} from '../../src/lib/data/collections'
 import semesterDates from '../../src/lib/data/semesterDates.json'
 
 /**
@@ -95,6 +98,14 @@ export function fileSubRequest(
     .invoke('val')
     .then((raw) => {
       const classNumber = Number(raw)
+      // Tests in a spec share the emulator and ask cover for the same
+      // sessions, and filing over a request that already exists is refused -
+      // a substitute may be on it (Test Case 15l). So an earlier test's
+      // request for this session is cleared first.
+      cy.task(
+        'deleteFirestoreDoc',
+        `${substituteRequestsCollection}/${SEEDED_CLASS_ID}---${classNumber}`,
+      )
       cy.contains('button', 'Confirm Request').click({ force: true })
       cy.waitForNotification('Sub request sent!')
       // `sendSubRequest` calls location.reload() 1000ms later, and "Your Sub

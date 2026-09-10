@@ -138,6 +138,16 @@ jest.mock('$lib/server/instructorClasses', () => ({
   saveClassDetails: (...args: any[]) => mockSaveClassDetails(...args),
 }))
 
+// Likewise the claim transaction (substituteRequests.test.ts); the route tests
+// cover authentication, validation and the confirmation email.
+const mockFetchOpenSubRequests = jest.fn()
+const mockClaimSubRequest = jest.fn()
+jest.mock('$lib/server/substituteRequests', () => ({
+  ...jest.requireActual('$lib/server/substituteRequests'),
+  fetchOpenSubRequests: (...args: any[]) => mockFetchOpenSubRequests(...args),
+  claimSubRequest: (...args: any[]) => mockClaimSubRequest(...args),
+}))
+
 // Mocks for firebase/app, auth, firestore, storage
 jest.mock('firebase/app', () => ({ initializeApp: jest.fn() }))
 jest.mock('firebase/auth', () => ({
@@ -195,7 +205,10 @@ import { GET as classRosterGET } from '../src/routes/api/classRoster/+server'
 import { POST as remindStudentsPOST } from '../src/routes/api/remindStudents/+server'
 import { POST as resolveCoInstructorsPOST } from '../src/routes/api/resolveCoInstructors/+server'
 import { POST as slotRequestPOST } from '../src/routes/api/slotRequest/+server'
-import { POST as substitutePOST } from '../src/routes/api/substitute/+server'
+import {
+  GET as substituteGET,
+  POST as substitutePOST,
+} from '../src/routes/api/substitute/+server'
 import { POST as substituteFeedbackPOST } from '../src/routes/api/substituteFeedback/+server'
 import { POST as substituteSessionPOST } from '../src/routes/api/substituteSession/+server'
 import { POST as meetingLinkPOST } from '../src/routes/api/meetingLink/+server'
@@ -1792,218 +1805,256 @@ describe('API routes POST endpoints', () => {
     )
   })
 
-  it('substitutePOST successfully resolves original instructor email via UID', async () => {
-    mockAdminAuth.getUser.mockResolvedValueOnce({
-      uid: 'orig-uid-1',
-      email: 'orig@gbstem.org',
-    })
-    mockRequest.json.mockResolvedValue({
-      firstName: 'Alice',
-      course: 'Math',
+  describe('/api/substitute', () => {
+    const SUB_REQUEST_ID = 'owner-uid-1---1'
+    const subLocals = {
+      user: { uid: 'sub-uid', email: 'sub@gbstem.org', role: 'instructor' },
+    }
+
+    /** The request as claimSubRequest returns it; `overrides` edits it. */
+    const claimed = (overrides: Record<string, unknown> = {}) => ({
+      id: SUB_REQUEST_ID,
       classNumber: 1,
-      date: '2026-09-10',
-      originalInstructorUid: 'orig-uid-1',
-    })
-    const res = await substitutePOST({
-      request: mockRequest as any,
-      locals: { user: { email: 'sub@gbstem.org', role: 'instructor' } },
-    } as any)
-    expect(mockAdminAuth.getUser).toHaveBeenCalledWith('orig-uid-1')
-    expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
-  })
-
-  // Whoever asked for the sub has to hear that one turned up. For a class
-  // with co-instructors that is not always the instructor the request is
-  // filed against, and before this they were told nothing at all.
-  it('substitutePOST cc’s the requester alongside the original instructor', async () => {
-    mockAdminAuth.getUser
-      .mockResolvedValueOnce({ uid: 'orig-uid-1', email: 'orig@gbstem.org' })
-      .mockResolvedValueOnce({ uid: 'co-uid-1', email: 'co@gbstem.org' })
-    mockRequest.json.mockResolvedValue({
-      firstName: 'Alice',
       course: 'Math',
-      classNumber: 1,
-      date: '2026-09-10',
-      originalInstructorUid: 'orig-uid-1',
-      requestedByUid: 'co-uid-1',
-    })
-
-    await substitutePOST({
-      request: mockRequest as any,
-      locals: { user: { email: 'sub@gbstem.org', role: 'instructor' } },
-    } as any)
-
-    expect(MailService.send).toHaveBeenCalledWith(
-      expect.objectContaining({
-        to: ['sub@gbstem.org'],
-        cc: ['orig@gbstem.org', 'co@gbstem.org'],
-        // Replies still go to the class's instructor of record.
-        replyTo: 'orig@gbstem.org',
-      }),
-    )
-  })
-
-  it('substitutePOST does not cc the requester twice, or the substitute at all', async () => {
-    // The ordinary case: the class's own instructor filed the request, so the
-    // two uids resolve to one address. And the substitute is already the
-    // recipient - a sub picking up a session they had asked cover for
-    // themselves (having swapped it with someone) must not be cc'd on it.
-    mockAdminAuth.getUser
-      .mockResolvedValueOnce({ uid: 'orig-uid-1', email: 'orig@gbstem.org' })
-      .mockResolvedValueOnce({ uid: 'orig-uid-1', email: 'orig@gbstem.org' })
-    mockRequest.json.mockResolvedValue({
-      firstName: 'Alice',
-      course: 'Math',
-      classNumber: 1,
-      date: '2026-09-10',
+      dateOfClass: new Date('2026-09-10T20:00:00.000Z'),
+      notes: 'Fractions.',
+      link: 'https://zoom.us/j/1',
+      originalInstructorEmail: 'stored-orig@gbstem.org',
       originalInstructorUid: 'orig-uid-1',
       requestedByUid: 'orig-uid-1',
+      subInstructorId: 'sub-uid',
+      subInstructorFirstName: 'Alice',
+      subInstructorEmail: 'sub@gbstem.org',
+      subRequestStatus: 'SubstituteFound',
+      ...overrides,
     })
 
-    await substitutePOST({
-      request: mockRequest as any,
-      locals: { user: { email: 'sub@gbstem.org', role: 'instructor' } },
-    } as any)
+    const claimAs = (locals: any = subLocals) => {
+      mockRequest.json.mockResolvedValue({ subRequestId: SUB_REQUEST_ID })
+      return substitutePOST({ request: mockRequest as any, locals } as any)
+    }
 
-    expect(MailService.send).toHaveBeenCalledWith(
-      expect.objectContaining({ cc: ['orig@gbstem.org'] }),
-    )
-
-    ;(MailService.send as jest.Mock).mockClear()
-    mockAdminAuth.getUser
-      .mockResolvedValueOnce({ uid: 'orig-uid-1', email: 'orig@gbstem.org' })
-      .mockResolvedValueOnce({ uid: 'sub-uid-1', email: 'sub@gbstem.org' })
-    mockRequest.json.mockResolvedValue({
-      firstName: 'Alice',
-      course: 'Math',
-      classNumber: 1,
-      date: '2026-09-10',
-      originalInstructorUid: 'orig-uid-1',
-      requestedByUid: 'sub-uid-1',
+    beforeEach(() => {
+      jest.clearAllMocks()
     })
 
-    await substitutePOST({
-      request: mockRequest as any,
-      locals: { user: { email: 'sub@gbstem.org', role: 'instructor' } },
-    } as any)
+    it('GET returns the sessions the caller could cover', async () => {
+      const open = [
+        {
+          id: 'a-1---1',
+          course: 'Math',
+          classNumber: 1,
+          dateOfClass: '2026-09-10T20:00:00.000Z',
+        },
+      ]
+      mockFetchOpenSubRequests.mockResolvedValueOnce(open)
 
-    expect(MailService.send).toHaveBeenCalledWith(
-      expect.objectContaining({ cc: ['orig@gbstem.org'] }),
-    )
-  })
+      const res: any = await substituteGET({ locals: subLocals } as any)
 
-  it('substitutePOST still sends when the requester’s account is gone', async () => {
-    // A deleted account drops out of the cc rather than failing the send, the
-    // same way a deleted co-instructor does on a reminder.
-    mockAdminAuth.getUser
-      .mockResolvedValueOnce({ uid: 'orig-uid-1', email: 'orig@gbstem.org' })
-      .mockRejectedValueOnce(new Error('no such user'))
-    mockRequest.json.mockResolvedValue({
-      firstName: 'Alice',
-      course: 'Math',
-      classNumber: 1,
-      date: '2026-09-10',
-      originalInstructorUid: 'orig-uid-1',
-      requestedByUid: 'deleted-uid',
+      expect(mockFetchOpenSubRequests).toHaveBeenCalledWith('sub-uid')
+      expect(res.body).toEqual({ subRequests: open })
     })
-    const res = await substitutePOST({
-      request: mockRequest as any,
-      locals: { user: { email: 'sub@gbstem.org', role: 'instructor' } },
-    } as any)
 
-    expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
-    expect(MailService.send).toHaveBeenCalledWith(
-      expect.objectContaining({ cc: ['orig@gbstem.org'] }),
-    )
-  })
-
-  it('substitutePOST successfully falls back to originalInstructorEmail', async () => {
-    mockRequest.json.mockResolvedValue({
-      firstName: 'Alice',
-      course: 'Math',
-      classNumber: 1,
-      date: '2026-09-10',
-      originalInstructorEmail: 'orig@gbstem.org',
+    it('GET rejects a student with a 403', async () => {
+      await expect(
+        substituteGET({
+          locals: { user: { uid: 's', email: 's@x.org', role: 'student' } },
+        } as any),
+      ).rejects.toEqual(expect.objectContaining({ status: 403 }))
+      expect(mockFetchOpenSubRequests).not.toHaveBeenCalled()
     })
-    const res = await substitutePOST({
-      request: mockRequest as any,
-      locals: { user: { email: 'sub@gbstem.org', role: 'instructor' } },
-    } as any)
-    expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
-  })
 
-  it('substitutePOST returns 400 when original instructor email cannot be resolved', async () => {
-    mockRequest.json.mockResolvedValue({
-      firstName: 'Alice',
-      course: 'Math',
-      classNumber: 1,
-      date: '2026-09-10',
-    })
-    const res = await substitutePOST({
-      request: mockRequest as any,
-      locals: { user: { email: 'sub@gbstem.org', role: 'instructor' } },
-    } as any)
-    expect(res).toEqual(
-      expect.objectContaining({
-        body: { error: 'Original instructor email could not be resolved.' },
-        init: { status: 400 },
-      }),
-    )
-  })
+    it('POST claims as the caller, emails from the stored request, and returns the claim', async () => {
+      mockClaimSubRequest.mockResolvedValueOnce(claimed())
+      mockAdminAuth.getUser
+        .mockResolvedValueOnce({ uid: 'orig-uid-1', email: 'orig@gbstem.org' })
+        .mockResolvedValueOnce({ uid: 'orig-uid-1', email: 'orig@gbstem.org' })
 
-  it('substitutePOST returns a 500 json response when sending the email fails', async () => {
-    await withRejectedSend(async () => {
-      mockRequest.json.mockResolvedValue({
-        firstName: 'Alice',
-        course: 'Math',
-        classNumber: 1,
-        date: '2026-09-10',
-        originalInstructorEmail: 'orig@gbstem.org',
-      })
-      const res = await substitutePOST({
-        request: mockRequest as any,
-        locals: { user: { email: 'sub@gbstem.org', role: 'instructor' } },
-      } as any)
-      expect(res).toEqual(
+      const res: any = await claimAs()
+
+      expect(mockClaimSubRequest).toHaveBeenCalledWith(
+        { uid: 'sub-uid', email: 'sub@gbstem.org' },
+        SUB_REQUEST_ID,
+      )
+      // The address on the account now, not the one stored on the request.
+      expect(mockAdminAuth.getUser).toHaveBeenCalledWith('orig-uid-1')
+      expect(MailService.send).toHaveBeenCalledWith(
         expect.objectContaining({
-          body: { error: 'Failed to send email. Please try again later.' },
-          init: { status: 500 },
+          to: ['sub@gbstem.org'],
+          cc: ['orig@gbstem.org'],
+          replyTo: 'orig@gbstem.org',
+        }),
+      )
+      expect(res.body.subRequest).toMatchObject({
+        id: SUB_REQUEST_ID,
+        notes: 'Fractions.',
+        dateOfClass: '2026-09-10T20:00:00.000Z',
+      })
+    })
+
+    it('POST names the session in gbSTEM’s time zone, not the server’s', async () => {
+      mockClaimSubRequest.mockResolvedValueOnce(claimed())
+      mockAdminAuth.getUser
+        .mockResolvedValueOnce({ uid: 'orig-uid-1', email: 'orig@gbstem.org' })
+        .mockResolvedValueOnce({ uid: 'orig-uid-1', email: 'orig@gbstem.org' })
+
+      await claimAs()
+
+      const [message] = (MailService.send as jest.Mock).mock.calls[0]
+      expect(message.html).toContain('4:00 PM EDT')
+    })
+
+    // Whoever asked for the sub has to hear that one turned up, and for a
+    // class with co-instructors that is not always the instructor the request
+    // is filed against.
+    it('POST cc’s the requester alongside the original instructor', async () => {
+      mockClaimSubRequest.mockResolvedValueOnce(
+        claimed({ requestedByUid: 'co-uid-1' }),
+      )
+      mockAdminAuth.getUser
+        .mockResolvedValueOnce({ uid: 'orig-uid-1', email: 'orig@gbstem.org' })
+        .mockResolvedValueOnce({ uid: 'co-uid-1', email: 'co@gbstem.org' })
+
+      await claimAs()
+
+      expect(MailService.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: ['sub@gbstem.org'],
+          cc: ['orig@gbstem.org', 'co@gbstem.org'],
+          // Replies still go to the class's instructor of record.
+          replyTo: 'orig@gbstem.org',
         }),
       )
     })
-  })
 
-  it('substitutePOST throws 403 when user is not an instructor', async () => {
-    mockRequest.json.mockResolvedValue({
-      firstName: 'Alice',
-      course: 'Math',
-      classNumber: 1,
-      date: '2026-09-10',
-      originalInstructorEmail: 'orig@gbstem.org',
-    })
-    await expect(
-      substitutePOST({
-        request: mockRequest as any,
-        locals: { user: { email: 'student@gbstem.org', role: 'student' } },
-      } as any),
-    ).rejects.toEqual(
-      expect.objectContaining({ status: 403, __isSvelteKitError: true }),
-    )
-  })
+    it('POST does not cc the substitute, even as the one who asked', async () => {
+      mockClaimSubRequest.mockResolvedValueOnce(
+        claimed({ requestedByUid: 'sub-uid' }),
+      )
+      mockAdminAuth.getUser
+        .mockResolvedValueOnce({ uid: 'orig-uid-1', email: 'orig@gbstem.org' })
+        .mockResolvedValueOnce({ uid: 'sub-uid', email: 'sub@gbstem.org' })
 
-  it('substitutePOST propagates the auth error when the user is not signed in', async () => {
-    mockRequest.json.mockResolvedValue({
-      firstName: 'Alice',
-      course: 'Math',
-      classNumber: 1,
-      date: '2026-09-10',
-      originalInstructorEmail: 'orig@gbstem.org',
+      await claimAs()
+
+      expect(MailService.send).toHaveBeenCalledWith(
+        expect.objectContaining({ cc: ['orig@gbstem.org'] }),
+      )
     })
-    await expect(
-      substitutePOST({ request: mockRequest as any, locals: {} } as any),
-    ).rejects.toEqual(
-      expect.objectContaining({ status: 401, __isSvelteKitError: true }),
-    )
+
+    it('POST still sends when the requester’s account is gone', async () => {
+      mockClaimSubRequest.mockResolvedValueOnce(
+        claimed({ requestedByUid: 'deleted-uid' }),
+      )
+      mockAdminAuth.getUser
+        .mockResolvedValueOnce({ uid: 'orig-uid-1', email: 'orig@gbstem.org' })
+        .mockRejectedValueOnce(new Error('no such user'))
+
+      const res = await claimAs()
+
+      expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
+      expect(MailService.send).toHaveBeenCalledWith(
+        expect.objectContaining({ cc: ['orig@gbstem.org'] }),
+      )
+    })
+
+    it('POST falls back to the stored address for a request with no instructor uid', async () => {
+      mockClaimSubRequest.mockResolvedValueOnce(
+        claimed({
+          originalInstructorUid: undefined,
+          requestedByUid: undefined,
+        }),
+      )
+
+      await claimAs()
+
+      expect(mockAdminAuth.getUser).not.toHaveBeenCalled()
+      expect(MailService.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cc: ['stored-orig@gbstem.org'],
+          replyTo: 'stored-orig@gbstem.org',
+        }),
+      )
+    })
+
+    it('POST returns 400 when no original instructor email can be resolved', async () => {
+      mockClaimSubRequest.mockResolvedValueOnce(
+        claimed({
+          originalInstructorUid: undefined,
+          originalInstructorEmail: '',
+          requestedByUid: undefined,
+        }),
+      )
+
+      const res = await claimAs()
+
+      expect(res).toEqual(
+        expect.objectContaining({
+          body: { error: 'Original instructor email could not be resolved.' },
+          init: { status: 400 },
+        }),
+      )
+    })
+
+    it('POST returns a 500 json response when sending the email fails', async () => {
+      await withRejectedSend(async () => {
+        mockClaimSubRequest.mockResolvedValueOnce(
+          claimed({
+            originalInstructorUid: undefined,
+            requestedByUid: undefined,
+          }),
+        )
+        const res = await claimAs()
+        expect(res).toEqual(
+          expect.objectContaining({
+            body: { error: 'Failed to send email. Please try again later.' },
+            init: { status: 500 },
+          }),
+        )
+      })
+    })
+
+    it('POST passes a refused claim straight through and sends nothing', async () => {
+      mockClaimSubRequest.mockRejectedValueOnce({
+        status: 409,
+        message: 'Somebody has already signed up to cover that class.',
+        __isSvelteKitError: true,
+      })
+
+      await expect(claimAs()).rejects.toEqual(
+        expect.objectContaining({ status: 409 }),
+      )
+      expect(MailService.send).not.toHaveBeenCalled()
+    })
+
+    it('POST rejects a body with no request id', async () => {
+      mockRequest.json.mockResolvedValue({ firstName: 'Alice', course: 'Math' })
+
+      await expect(
+        substitutePOST({
+          request: mockRequest as any,
+          locals: subLocals,
+        } as any),
+      ).rejects.toEqual(expect.objectContaining({ status: 400 }))
+      expect(mockClaimSubRequest).not.toHaveBeenCalled()
+    })
+
+    it('POST throws 403 when user is not an instructor', async () => {
+      await expect(
+        claimAs({
+          user: { uid: 's', email: 'student@gbstem.org', role: 'student' },
+        }),
+      ).rejects.toEqual(
+        expect.objectContaining({ status: 403, __isSvelteKitError: true }),
+      )
+      expect(mockClaimSubRequest).not.toHaveBeenCalled()
+    })
+
+    it('POST propagates the auth error when the user is not signed in', async () => {
+      await expect(claimAs({})).rejects.toEqual(
+        expect.objectContaining({ status: 401, __isSvelteKitError: true }),
+      )
+    })
   })
 
   describe('meetingLinkPOST', () => {

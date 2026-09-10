@@ -237,8 +237,16 @@
           location.reload()
         }, 1000)
       })
-      .catch(() => {
-        alert.trigger('error', 'Failed to send sub request, please try again.')
+      .catch((err) => {
+        // A session's request is a single document, so filing again for a
+        // session that already has one is refused rather than overwriting it
+        // - and whoever may already be covering it.
+        alert.trigger(
+          'error',
+          err?.code === 'permission-denied'
+            ? "That session already has a sub request, so it wasn't filed again."
+            : 'Failed to send sub request, please try again.',
+        )
       })
   }
 

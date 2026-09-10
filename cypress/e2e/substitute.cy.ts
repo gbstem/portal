@@ -130,18 +130,17 @@ describe('Section I: Substitute Requests And Cover', () => {
 
     // window.location.reload() fires ~1000ms after the sub request -- give the
     // lookup extra retry budget to span that instead of a fixed pre-wait.
+    // The signup list never offers an instructor their own request.
     cy.contains('h2', 'Sign Up To Substitute A Class', {
       timeout: 8000,
-    }).should('be.visible')
-    // A full page reload resets the whole document, so unlike the lookup
-    // above (which only needs the content to exist and retries fine), the
-    // checkbox/submit click below needs the reloaded page to actually be
-    // interactive again -- verified via a real test run: without this,
-    // clicking immediately after the h2 appears occasionally lands before
-    // hydration finishes and the signup never fires.
-    cy.wait(500)
+    })
+      .parent()
+      .should('contain', 'No current sub requests!')
 
-    // Sign up to substitute a class session and verify confirmation email (/api/substitute)
+    // Somebody else signs up to substitute the session, and gets the
+    // confirmation email (/api/substitute).
+    afterOrientation()
+    cy.signedInSession('instructor', { email: COHOST_EMAIL })
     cy.contains('h2', 'Sign Up To Substitute A Class')
       .parent()
       .within(() => {
@@ -149,7 +148,7 @@ describe('Section I: Substitute Requests And Cover', () => {
         cy.contains('button', 'Submit').click({ force: true })
       })
     cy.waitForNotification('Signup successful!')
-    cy.verifyEmailSent('instructor@gbstem.org', 'Class Substitute Confirmation')
+    cy.verifyEmailSent(COHOST_EMAIL, 'Class Substitute Confirmation')
   })
 
   it('Test Case 15b: Sub Request - Editing Changes The Request That Exists', () => {
@@ -658,11 +657,9 @@ describe('Section I: Substitute Requests And Cover', () => {
   })
 
   it('Test Case 15k: Sub Request - A Failed Signup Says So', () => {
-    // The confirmation email is sent by /api/substitute, and a failure there
-    // is the one thing between signing up and believing you have. The claim
-    // itself has already been written when it fires, so the error has to be
-    // visible or the substitute is left unsure whether they are covering the
-    // class.
+    // Signing up is one request to /api/substitute, which claims the session
+    // and sends the confirmation. When it fails the error has to be visible,
+    // or the substitute is left unsure whether they are covering the class.
     requestCoverForASession('Prep notes for a signup that fails.').then(
       (classNumber) => {
         cy.intercept('POST', '/api/substitute', {
@@ -679,5 +676,40 @@ describe('Section I: Substitute Requests And Cover', () => {
         )
       },
     )
+  })
+
+  it('Test Case 15l: Sub Request - Filing Over A Covered Session Is Refused', () => {
+    // A session's request is one document, so filing again for a session that
+    // already has a substitute would write over them. The request stays as it
+    // was, and the instructor is told why nothing was filed.
+    const notes = 'Covered once already.'
+    requestCoverForASession(notes).then((classNumber) => {
+      signUpToSubstitute(COHOST_EMAIL, classNumber)
+      cy.waitForNotification('Signup successful!')
+
+      signInAsOwner()
+      cy.get('button:contains("Request Sub")').first().click()
+      cy.get('[role="dialog"]')
+        .find('input[type="number"]')
+        .should('have.value', String(classNumber))
+      cy.get('[role="dialog"]')
+        .find('input[type="text"]')
+        .clear()
+        .type('Filed again by mistake.')
+      cy.contains('button', 'Confirm Request').click({ force: true })
+      cy.waitForNotification('already has a sub request', 'bg-red-200')
+
+      cy.getFirebaseAuthToken().then((authToken: string) => {
+        cy.getFirestoreDoc(
+          authToken,
+          substituteRequestsCollection,
+          `${SEEDED_CLASS_ID}---${classNumber}`,
+        ).then((request: any) => {
+          expect(request.subInstructorId).to.equal(COHOST_UID)
+          expect(request.subRequestStatus).to.equal('SubstituteFound')
+          expect(request.notes).to.equal(notes)
+        })
+      })
+    })
   })
 })

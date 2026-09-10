@@ -5,6 +5,7 @@
   import {
     filterCheckedOffSubClasses,
     subRequestClassId,
+    type OpenSubRequestSummary,
   } from '$lib/helpers/subClasses'
   import { classService } from '$lib/services/classService'
   import { substituteService } from '$lib/services/substituteService'
@@ -31,7 +32,7 @@
   let notesOpenStates: boolean[] = $state([])
   let subRequestOpenStates: boolean[] = $state([])
   let currentUser: Data.User.Store
-  let classesMissingSubs: Data.SubRequest[] = $state([])
+  let classesMissingSubs: OpenSubRequestSummary[] = $state([])
   let userSubClassesList: Data.SubRequest[] = $state([])
   let classesCheckedOff: any[] = $state([])
   let updating = $state(false)
@@ -142,33 +143,22 @@
     const classesToSub = filterCheckedOffSubClasses(classesCheckedOff)
     classesToSub.map((classToSub: Data.SubRequest) => {
       substituteService
-        .claimSubstituteSlot(classToSub, currentUser)
-        .then(() => {
+        .claimSubstituteSlot(classToSub.id)
+        .then((claimed) => {
           classesMissingSubs = classesMissingSubs.filter(
             (classMissingSub) => classMissingSub.id !== classToSub.id,
           )
-          // The claim's own fields, not the request as it was read a moment
-          // ago: pushing the stale copy left the card describing a class with
-          // no substitute on it until the reload a second later, and anything
-          // acting on it in between - "Send Reminder", which signs the email
-          // with `subInstructorFirstName` - had an empty name to work with.
-          userSubClassesList.push({
-            ...classToSub,
-            subRequestStatus: SubRequestStatus.SubstituteFound,
-            subInstructorId: currentUser.object.uid,
-            subInstructorFirstName: currentUser.profile.firstName,
-            subInstructorEmail: currentUser.object.email ?? '',
-          })
+          // The request as the server claimed it, so the card has the
+          // requester's notes and address - and "Send Reminder" the
+          // substitute's name - until the reload a second later.
+          userSubClassesList.push(claimed)
           alert.trigger('success', 'Signup successful!')
           setTimeout(() => {
             window.location.reload()
           }, 1000)
         })
-        .catch(() => {
-          alert.trigger(
-            'error',
-            'Error signing up to substitute, please try again.',
-          )
+        .catch((err: Error) => {
+          alert.trigger('error', err.message)
         })
     })
   }

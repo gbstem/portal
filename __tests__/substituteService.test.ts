@@ -7,12 +7,18 @@ jest.mock('firebase/firestore', () => ({
   collection: jest.fn(() => ({})),
   doc: jest.fn(() => ({})),
   query: jest.fn(() => ({})),
+  where: jest.fn(() => ({})),
   getDoc: jest.fn(),
   getDocs: jest.fn(),
+  getCountFromServer: jest.fn(),
   setDoc: jest.fn(),
   updateDoc: jest.fn(),
   deleteDoc: jest.fn(),
 }))
+
+function snapshot(docs: { id: string; data: Record<string, unknown> }[]) {
+  return { docs: docs.map(({ id, data }) => ({ id, data: () => data })) }
+}
 
 describe('substituteService (Data Access Layer)', () => {
   beforeEach(() => {
@@ -21,67 +27,116 @@ describe('substituteService (Data Access Layer)', () => {
   })
 
   describe('fetchUserSubRequests', () => {
-    it('queries substitute requests and returns categorized results', async () => {
-      const mockDocs = [
-        {
-          id: 'user123---1',
-          data: () => ({
-            subRequestStatus: SubRequestStatus.SubstituteNeeded,
-            course: 'Python 1',
-          }),
-        },
-      ]
-      ;(firestore.getDocs as jest.Mock).mockResolvedValueOnce({
-        docs: mockDocs,
+    it("reads the user's own requests and cover directly, and open sessions from /api/substitute", async () => {
+      ;(firestore.getDocs as jest.Mock)
+        .mockResolvedValueOnce(
+          snapshot([
+            {
+              id: 'c-1---1',
+              data: { course: 'Python 1', requestedByUid: 'u' },
+            },
+          ]),
+        )
+        .mockResolvedValueOnce(
+          snapshot([
+            {
+              id: 'c-1---1',
+              data: { course: 'Python 1', originalInstructorUid: 'u' },
+            },
+            {
+              id: 'c-1---2',
+              data: { course: 'Python 1', originalInstructorUid: 'u' },
+            },
+          ]),
+        )
+        .mockResolvedValueOnce(
+          snapshot([
+            {
+              id: 'o-1---3',
+              data: { course: 'Scratch', subInstructorId: 'u' },
+            },
+          ]),
+        )
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          subRequests: [
+            {
+              id: 'o-2---1',
+              course: 'Math',
+              classNumber: 1,
+              dateOfClass: '2026-10-05T20:00:00.000Z',
+            },
+          ],
+        }),
       })
 
-      const res = await substituteService.fetchUserSubRequests('user123')
-      expect(res.userSubRequests.length).toBe(1)
-      expect(res.classesMissingSubs.length).toBe(1)
+      const res = await substituteService.fetchUserSubRequests('u')
+
+      // Once each, even a request the user filed for their own class.
+      expect(res.userSubRequests.map((one) => one.id)).toEqual([
+        'c-1---1',
+        'c-1---2',
+      ])
+      expect(res.userSubClasses.map((one) => one.id)).toEqual(['o-1---3'])
+      expect(res.classesMissingSubs).toEqual([
+        {
+          id: 'o-2---1',
+          course: 'Math',
+          classNumber: 1,
+          dateOfClass: new Date('2026-10-05T20:00:00.000Z'),
+        },
+      ])
+      expect(firestore.where).toHaveBeenCalledWith('requestedByUid', '==', 'u')
+      expect(firestore.where).toHaveBeenCalledWith(
+        'originalInstructorUid',
+        '==',
+        'u',
+      )
+      expect(firestore.where).toHaveBeenCalledWith('subInstructorId', '==', 'u')
+      expect(global.fetch).toHaveBeenCalledWith('/api/substitute')
+    })
+
+    it('throws when the open sessions cannot be loaded', async () => {
+      ;(firestore.getDocs as jest.Mock)
+        .mockResolvedValueOnce(snapshot([]))
+        .mockResolvedValueOnce(snapshot([]))
+        .mockResolvedValueOnce(snapshot([]))
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+      })
+
+      await expect(substituteService.fetchUserSubRequests('u')).rejects.toThrow(
+        '403',
+      )
     })
   })
 
   describe('countCompletedSubClasses', () => {
-    it('counts only docs where this user completed a sub assignment', async () => {
-      const mockDocs = [
-        {
-          data: () => ({
-            subInstructorId: 'user123',
-            subRequestStatus: SubRequestStatus.NoSubstituteNeeded,
-          }),
-        },
-        {
-          data: () => ({
-            subInstructorId: 'user123',
-            subRequestStatus: SubRequestStatus.SubstituteFound,
-          }),
-        },
-        {
-          data: () => ({
-            subInstructorId: 'someone-else',
-            subRequestStatus: SubRequestStatus.NoSubstituteNeeded,
-          }),
-        },
-      ]
-      ;(firestore.getDocs as jest.Mock).mockResolvedValueOnce({
-        forEach: (cb: any) => mockDocs.forEach(cb),
+    it('counts server-side, only the sessions this user covered and closed out', async () => {
+      ;(firestore.getCountFromServer as jest.Mock).mockResolvedValueOnce({
+        data: () => ({ count: 3 }),
       })
 
       const count = await substituteService.countCompletedSubClasses('user123')
-      expect(count).toBe(1)
+
+      expect(count).toBe(3)
+      expect(firestore.where).toHaveBeenCalledWith(
+        'subInstructorId',
+        '==',
+        'user123',
+      )
+      expect(firestore.where).toHaveBeenCalledWith(
+        'subRequestStatus',
+        '==',
+        SubRequestStatus.NoSubstituteNeeded,
+      )
+      expect(firestore.getDocs).not.toHaveBeenCalled()
     })
 
-    it('returns 0 when there are no matching requests', async () => {
-      ;(firestore.getDocs as jest.Mock).mockResolvedValueOnce({
-        forEach: (cb: any) => [].forEach(cb),
-      })
-
-      const count = await substituteService.countCompletedSubClasses('user123')
-      expect(count).toBe(0)
-    })
-
-    it('propagates errors from getDocs', async () => {
-      ;(firestore.getDocs as jest.Mock).mockRejectedValueOnce(
+    it('propagates errors from the count', async () => {
+      ;(firestore.getCountFromServer as jest.Mock).mockRejectedValueOnce(
         new Error('permission-denied'),
       )
 
@@ -156,11 +211,10 @@ describe('substituteService (Data Access Layer)', () => {
     })
   })
 
-  // These two are the only writes in this service that do not touch Firestore
-  // from the browser: a substitute is not an instructor of the class they are
-  // covering, so firestore.rules refuses them there. The service's job is now
-  // to call the endpoint and to turn a failure into a message a component can
-  // show, which is what the old client-side version never did.
+  // These go through endpoints rather than the client SDK: a substitute is not
+  // an instructor of the class they are covering, so firestore.rules refuses
+  // those writes from the browser. The service's job is to call the endpoint
+  // and to turn a failure into a message a component can show.
   describe('recordSubstituteSession', () => {
     it('posts the request id and returns the meeting link', async () => {
       ;(global.fetch as jest.Mock).mockResolvedValueOnce({
@@ -254,78 +308,57 @@ describe('substituteService (Data Access Layer)', () => {
   })
 
   describe('claimSubstituteSlot', () => {
-    it('updates Firestore document and triggers API endpoint', async () => {
-      ;(firestore.updateDoc as jest.Mock).mockResolvedValueOnce(undefined)
-      ;(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true })
+    it('posts only the request id and returns the claimed request', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          subRequest: {
+            id: 'c-1---2',
+            course: 'Scratch',
+            dateOfClass: '2026-10-05T20:00:00.000Z',
+            subInstructorFirstName: 'Jane',
+          },
+        }),
+      })
 
-      const classToSub = {
-        id: 'sub-1',
-        course: 'Scratch',
-        classNumber: 1,
-        dateOfClass: { seconds: 1779900600 },
-        originalInstructorEmail: 'orig@example.com',
-      } as unknown as Data.SubRequest
+      const claimed = await substituteService.claimSubstituteSlot('c-1---2')
 
-      const user = {
-        object: { uid: 'u1', email: 'sub@example.com' },
-        profile: { firstName: 'Jane' },
-      } as Data.User.Store
-
-      await substituteService.claimSubstituteSlot(classToSub, user)
-      expect(firestore.updateDoc).toHaveBeenCalled()
       expect(global.fetch).toHaveBeenCalledWith(
-        'api/substitute',
-        expect.objectContaining({ method: 'POST' }),
+        '/api/substitute',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ subRequestId: 'c-1---2' }),
+        }),
       )
+      expect(claimed.dateOfClass).toEqual(new Date('2026-10-05T20:00:00.000Z'))
+      expect(claimed.subInstructorFirstName).toBe('Jane')
+      expect(firestore.updateDoc).not.toHaveBeenCalled()
     })
 
-    it('sends no substitute address - the handler uses the verified session email', async () => {
-      ;(firestore.updateDoc as jest.Mock).mockResolvedValueOnce(undefined)
-      ;(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true })
-
-      const classToSub = {
-        id: 'sub-1',
-        course: 'Scratch',
-        classNumber: 1,
-        dateOfClass: { seconds: 1779900600 },
-        originalInstructorEmail: 'orig@example.com',
-      } as unknown as Data.SubRequest
-
-      const user = {
-        object: { uid: 'u1', email: null },
-        profile: { firstName: 'Jane' },
-      } as unknown as Data.User.Store
-
-      await substituteService.claimSubstituteSlot(classToSub, user)
-      const [, options] = (global.fetch as jest.Mock).mock.calls[0]
-      const body = JSON.parse(options.body)
-      expect(body).not.toHaveProperty('subInstructorEmail')
-      expect(body.originalInstructorEmail).toBe('orig@example.com')
-      // Recovered from the `${uid}-${n}---${classNumber}` document id - a guess,
-      // which is exactly why the address above still travels with it.
-      expect(body.originalInstructorUid).toBe('sub')
-    })
-
-    it('throws if the substitute signup API responds not-ok', async () => {
-      ;(firestore.updateDoc as jest.Mock).mockResolvedValueOnce(undefined)
-      ;(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false })
-
-      const classToSub = {
-        id: 'sub-1',
-        course: 'Scratch',
-        classNumber: 1,
-        dateOfClass: { seconds: 1779900600 },
-        originalInstructorEmail: 'orig@example.com',
-      } as unknown as Data.SubRequest
-
-      const user = {
-        object: { uid: 'u1', email: 'sub@example.com' },
-        profile: { firstName: 'Jane' },
-      } as Data.User.Store
+    it('throws the server’s message, e.g. when somebody signed up first', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({
+          message: 'Somebody has already signed up to cover that class.',
+        }),
+      })
 
       await expect(
-        substituteService.claimSubstituteSlot(classToSub, user),
-      ).rejects.toThrow('Failed to submit substitute signup request')
+        substituteService.claimSubstituteSlot('c-1---2'),
+      ).rejects.toThrow('Somebody has already signed up to cover that class.')
+    })
+
+    it('falls back to a readable message when the server sends none', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({
+          error: 'Failed to send email. Please try again later.',
+        }),
+      })
+
+      await expect(
+        substituteService.claimSubstituteSlot('c-1---2'),
+      ).rejects.toThrow('Error signing up to substitute, please try again.')
     })
   })
 })

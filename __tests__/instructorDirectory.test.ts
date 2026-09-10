@@ -15,6 +15,7 @@ jest.mock('$lib/server/firebase', () => ({
 }))
 
 import {
+  canSubstitute,
   isAcceptedInstructor,
   isAcceptedInstructorAccount,
   lookupAcceptedInstructorByEmail,
@@ -274,6 +275,36 @@ describe('instructorDirectory', () => {
         [`${decisionsCollection}/uid-ada`]: { type: 'interview' },
       })
       await expect(isAcceptedInstructorAccount('uid-ada')).resolves.toBe(false)
+    })
+  })
+
+  describe('canSubstitute', () => {
+    // Unlike isAcceptedInstructor, a `substitute` decision counts: covering
+    // individual sessions is what it is for.
+    test.each(['accepted', 'substitute'])(
+      'is true for a %s decision',
+      async (type) => {
+        mockFirestore({ [`${decisionsCollection}/uid-ada`]: { type } })
+        await expect(canSubstitute('uid-ada')).resolves.toBe(true)
+      },
+    )
+
+    test.each(['rejected', 'waitlisted', 'interview'])(
+      'is false for a %s decision',
+      async (type) => {
+        mockFirestore({ [`${decisionsCollection}/uid-ada`]: { type } })
+        await expect(canSubstitute('uid-ada')).resolves.toBe(false)
+      },
+    )
+
+    test('is false with no decision, and when the read fails', async () => {
+      await expect(canSubstitute('uid-ada')).resolves.toBe(false)
+      mockDoc.mockImplementation(() => ({
+        get: async () => {
+          throw new Error('unavailable')
+        },
+      }))
+      await expect(canSubstitute('uid-ada')).resolves.toBe(false)
     })
   })
 })

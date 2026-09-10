@@ -2,8 +2,6 @@ import { db } from '$lib/client/firebase'
 import { SubRequestStatus } from '$lib/components/helpers/SubRequestStatus'
 import { substituteRequestsCollection } from '$lib/data/collections'
 import {
-  buildSubstituteApiPayload,
-  parseSubRequestDocs,
   subRequestClassId,
   subRequestDocId,
   type SubClassesDataResult,
@@ -12,11 +10,18 @@ import {
   collection,
   deleteDoc,
   doc,
+  getCountFromServer,
   getDocs,
   query,
   setDoc,
-  updateDoc,
+  where,
+  type QuerySnapshot,
 } from 'firebase/firestore'
+import type {
+  OpenSubRequestsResponse,
+  SubstituteClaimResponse,
+  SubstituteRequestBody,
+} from '../../routes/api/substitute/+server'
 import type {
   SubstituteFeedbackRequestBody,
   SubstituteFeedbackResponse,
@@ -26,17 +31,70 @@ import type {
   SubstituteSessionResponse,
 } from '../../routes/api/substituteSession/+server'
 
+/** Requests from one or more queries, each once, carrying its document id. */
+function toSubRequests(...snapshots: QuerySnapshot[]): Data.SubRequest[] {
+  const byId = new Map<string, Data.SubRequest>()
+  for (const snapshot of snapshots) {
+    for (const docSnap of snapshot.docs) {
+      byId.set(docSnap.id, {
+        ...(docSnap.data() as Data.SubRequest),
+        id: docSnap.id,
+      })
+    }
+  }
+  return [...byId.values()]
+}
+
 /**
  * Service providing Data Access Layer for substitute requests and class substitution.
  */
 export const substituteService = {
   /**
-   * Fetches and categorizes substitute requests for a user.
+   * Loads the three lists the substitute dashboard shows.
+   *
+   * The caller's own requests - filed by them, or for a class they are the
+   * instructor of record on - and the sessions they are covering are read
+   * directly, by the uid fields firestore.rules checks. The sessions they
+   * could sign up for belong to other instructors, so /api/substitute
+   * finds those.
    */
   async fetchUserSubRequests(userId: string): Promise<SubClassesDataResult> {
-    const q = query(collection(db, substituteRequestsCollection))
-    const querySnapshot = await getDocs(q)
-    return parseSubRequestDocs(querySnapshot.docs, userId)
+    const subRequests = collection(db, substituteRequestsCollection)
+    const [requestedByUser, forUsersClasses, coveredByUser, openRes] =
+      await Promise.all([
+        getDocs(query(subRequests, where('requestedByUid', '==', userId))),
+        getDocs(
+          query(subRequests, where('originalInstructorUid', '==', userId)),
+        ),
+        getDocs(
+          query(
+            subRequests,
+            where('subInstructorId', '==', userId),
+            where('subRequestStatus', 'in', [
+              SubRequestStatus.SubstituteFound,
+              SubRequestStatus.SubstituteFeedbackNeeded,
+            ]),
+          ),
+        ),
+        fetch('/api/substitute'),
+      ])
+
+    if (!openRes.ok) {
+      throw new Error(
+        `Failed to load classes needing a substitute (${openRes.status})`,
+      )
+    }
+    const { subRequests: open } =
+      (await openRes.json()) as OpenSubRequestsResponse
+
+    return {
+      userSubRequests: toSubRequests(requestedByUser, forUsersClasses),
+      userSubClasses: toSubRequests(coveredByUser),
+      classesMissingSubs: open.map((openRequest) => ({
+        ...openRequest,
+        dateOfClass: new Date(openRequest.dateOfClass),
+      })),
+    }
   },
 
   /**
@@ -44,19 +102,14 @@ export const substituteService = {
    * as the substitute instructor - used for community service hour tallies.
    */
   async countCompletedSubClasses(userId: string): Promise<number> {
-    const q = query(collection(db, substituteRequestsCollection))
-    const querySnapshot = await getDocs(q)
-    let count = 0
-    querySnapshot.forEach((docSnap) => {
-      const data = docSnap.data() as Data.SubRequest
-      if (
-        data.subInstructorId === userId &&
-        data.subRequestStatus === SubRequestStatus.NoSubstituteNeeded
-      ) {
-        count += 1
-      }
-    })
-    return count
+    const snapshot = await getCountFromServer(
+      query(
+        collection(db, substituteRequestsCollection),
+        where('subInstructorId', '==', userId),
+        where('subRequestStatus', '==', SubRequestStatus.NoSubstituteNeeded),
+      ),
+    )
+    return snapshot.data().count
   },
 
   /**
@@ -108,42 +161,28 @@ export const substituteService = {
   },
 
   /**
-   * Signs up a user to substitute for a class slot and calls API.
+   * Signs the signed-in user up to substitute one session. The claim and its
+   * confirmation email both happen server-side - see /api/substitute.
+   * Returns the request as claimed; throws with the server's message when it
+   * gives one (somebody else signed up first, say).
    */
-  async claimSubstituteSlot(
-    classToSub: Data.SubRequest,
-    user: Data.User.Store,
-  ): Promise<void> {
-    const classToSubDoc = doc(db, substituteRequestsCollection, classToSub.id)
-
-    await updateDoc(classToSubDoc, {
-      subRequestStatus: SubRequestStatus.SubstituteFound,
-      subInstructorId: user.object.uid,
-      subInstructorFirstName: user.profile.firstName,
-      subInstructorEmail: user.object.email,
-    })
-
-    const payload = buildSubstituteApiPayload(
-      user.profile.firstName,
-      classToSub,
-    )
-
-    const response = await fetch('api/substitute', {
+  async claimSubstituteSlot(subRequestId: string): Promise<Data.SubRequest> {
+    const payload: SubstituteRequestBody = { subRequestId }
+    const res = await fetch('/api/substitute', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     })
-
-    if (!response.ok) {
-      throw new Error('Failed to submit substitute signup request')
+    const body = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      throw new Error(
+        body?.message || 'Error signing up to substitute, please try again.',
+      )
     }
+    const { subRequest } = body as SubstituteClaimResponse
+    return { ...subRequest, dateOfClass: new Date(subRequest.dateOfClass) }
   },
 
-  /**
-   * Records completed class session date and updates substitute request status.
-   */
   /**
    * Records that this substitute is holding the class they signed up for, and
    * returns the meeting link to send them to.
