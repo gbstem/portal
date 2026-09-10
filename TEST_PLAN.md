@@ -257,7 +257,7 @@ graph TD
   6. Verify that the interview status updates to show the scheduled date, interviewer name, and meeting link.
   7. (Alternative flow) If no slot works, click **"Request A Time"**, fill out a date/time, and click the **"Submit"** button.
 - Expected Results (Assertions):
-  - Selecting and booking a slot successfully saves the slot reservation to Firestore (updates `interviewCollection`) and displays the scheduled interview details.
+  - Selecting and booking a slot books it through `/api/interview` (a transaction, so a slot somebody else has just booked is refused) and displays the scheduled interview details.
   - Requesting a timeslot successfully saves a request to Firestore (creates a document under `interviewTimeRequests`) and displays a success toast.
 
 ---

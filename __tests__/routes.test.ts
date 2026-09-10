@@ -148,6 +148,15 @@ jest.mock('$lib/server/substituteRequests', () => ({
   claimSubRequest: (...args: any[]) => mockClaimSubRequest(...args),
 }))
 
+// And the booking transaction (interviewSlots.test.ts).
+const mockFetchInterviewData = jest.fn()
+const mockBookInterviewSlot = jest.fn()
+jest.mock('$lib/server/interviewSlots', () => ({
+  ...jest.requireActual('$lib/server/interviewSlots'),
+  fetchInterviewData: (...args: any[]) => mockFetchInterviewData(...args),
+  bookInterviewSlot: (...args: any[]) => mockBookInterviewSlot(...args),
+}))
+
 // Mocks for firebase/app, auth, firestore, storage
 jest.mock('firebase/app', () => ({ initializeApp: jest.fn() }))
 jest.mock('firebase/auth', () => ({
@@ -191,7 +200,10 @@ import {
 import { POST as signupPOST } from '../src/routes/api/signup/+server'
 import { POST as communityServicePOST } from '../src/routes/api/communityService/+server'
 import { POST as enrollPOST } from '../src/routes/api/enroll/+server'
-import { POST as interviewPOST } from '../src/routes/api/interview/+server'
+import {
+  GET as interviewGET,
+  POST as interviewPOST,
+} from '../src/routes/api/interview/+server'
 import { POST as registrationPOST } from '../src/routes/api/registration/+server'
 import { POST as lookupCoInstructorPOST } from '../src/routes/api/lookupCoInstructor/+server'
 import { NOT_AN_ACCEPTED_INSTRUCTOR } from '$lib/server/instructorDirectory'
@@ -1124,130 +1136,191 @@ describe('API routes POST endpoints', () => {
     )
   })
 
-  it('interviewPOST successfully', async () => {
-    mockRequest.json.mockResolvedValue({
-      email: 'interviewer@test.com',
-      date: '2026-06-01',
-      link: 'http://zoom',
-      interviewer: 'Interviewer',
-      firstName: 'Student',
-    })
-    const res = await interviewPOST({
-      request: mockRequest as any,
-      locals: { user: { email: 'student@test.com' } },
-    } as any)
-    expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
-    expect(MailService.send).toHaveBeenCalledWith(
-      expect.objectContaining({
-        to: ['student@test.com'],
-        cc: ['interviewer@test.com'],
-      }),
-    )
-  })
+  describe('/api/interview', () => {
+    const applicantLocals = {
+      user: {
+        uid: 'applicant-uid',
+        email: 'applicant@test.com',
+        role: 'instructor',
+      },
+    }
 
-  it('interviewPOST resolves current email from interviewerUid when provided', async () => {
-    mockAdminAuth.getUser.mockResolvedValueOnce({
-      uid: 'interviewer-uid-1',
-      email: 'updated-interviewer@test.com',
-    })
-    mockRequest.json.mockResolvedValue({
-      email: 'stale-interviewer@test.com',
+    /** The slot as bookInterviewSlot returns it; `overrides` edits it. */
+    const booked = (overrides: Record<string, unknown> = {}) => ({
+      id: 'slot-1',
+      date: new Date('2026-10-01T18:00:00.000Z'),
+      interviewerName: 'Interviewer',
       interviewerUid: 'interviewer-uid-1',
-      date: '2026-06-01',
-      link: 'http://zoom',
-      interviewer: 'Interviewer',
-      firstName: 'Student',
+      interviewerEmail: 'stored-interviewer@test.com',
+      meetingLink: 'http://zoom',
+      intervieweeFirstName: 'Student',
+      ...overrides,
     })
-    const res = await interviewPOST({
-      request: mockRequest as any,
-      locals: { user: { email: 'student@test.com' } },
-    } as any)
-    expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
-    expect(mockAdminAuth.getUser).toHaveBeenCalledWith('interviewer-uid-1')
-    expect(MailService.send).toHaveBeenCalledWith(
-      expect.objectContaining({
-        to: ['student@test.com'],
-        cc: ['updated-interviewer@test.com'],
-      }),
-    )
-  })
 
-  it('interviewPOST accepts a uid-only payload with no interviewer email', async () => {
-    // The shape the current client sends after the uid migration.
-    mockAdminAuth.getUser.mockResolvedValueOnce({
-      uid: 'interviewer-uid-1',
-      email: 'interviewer@test.com',
-    })
-    mockRequest.json.mockResolvedValue({
-      interviewerUid: 'interviewer-uid-1',
-      date: '2026-06-01',
-      link: 'http://zoom',
-      interviewer: 'Interviewer',
-      firstName: 'Student',
-    })
-    const res = await interviewPOST({
-      request: mockRequest as any,
-      locals: { user: { email: 'student@test.com' } },
-    } as any)
-    expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
-    expect(MailService.send).toHaveBeenCalledWith(
-      expect.objectContaining({
-        to: ['student@test.com'],
-        cc: ['interviewer@test.com'],
-      }),
-    )
-  })
+    const bookAs = (locals: any = applicantLocals) => {
+      mockRequest.json.mockResolvedValue({ slotId: 'slot-1' })
+      return interviewPOST({ request: mockRequest as any, locals } as any)
+    }
 
-  it('interviewPOST rejects a payload with neither interviewerUid nor email', async () => {
-    mockRequest.json.mockResolvedValue({
-      date: '2026-06-01',
-      link: 'http://zoom',
-      interviewer: 'Interviewer',
-      firstName: 'Student',
+    beforeEach(() => {
+      jest.clearAllMocks()
     })
-    await expect(
-      interviewPOST({
-        request: mockRequest as any,
-        locals: { user: { email: 'student@test.com' } },
-      } as any),
-    ).rejects.toMatchObject({ status: 400 })
-  })
 
-  it('interviewPOST returns a 500 json response when sending the email fails', async () => {
-    await withRejectedSend(async () => {
-      mockRequest.json.mockResolvedValue({
-        email: 'interviewer@test.com',
-        date: '2026-06-01',
-        link: 'http://zoom',
-        interviewer: 'Interviewer',
-        firstName: 'Student',
+    it("GET returns the applicant's interview and the slots they could book", async () => {
+      const data = {
+        scheduledInterview: null,
+        availableSlots: [
+          {
+            id: 'slot-1',
+            date: '2026-10-01T18:00:00.000Z',
+            interviewerName: 'Interviewer',
+          },
+        ],
+      }
+      mockFetchInterviewData.mockResolvedValueOnce(data)
+
+      const res: any = await interviewGET({ locals: applicantLocals } as any)
+
+      expect(mockFetchInterviewData).toHaveBeenCalledWith('applicant-uid')
+      expect(res.body).toEqual(data)
+    })
+
+    it('GET rejects a student with a 403', async () => {
+      await expect(
+        interviewGET({
+          locals: { user: { uid: 's', email: 's@x.org', role: 'student' } },
+        } as any),
+      ).rejects.toEqual(expect.objectContaining({ status: 403 }))
+      expect(mockFetchInterviewData).not.toHaveBeenCalled()
+    })
+
+    it("POST books as the caller and emails them, copying the interviewer's current address", async () => {
+      mockBookInterviewSlot.mockResolvedValueOnce(booked())
+      mockAdminAuth.getUser.mockResolvedValueOnce({
+        uid: 'interviewer-uid-1',
+        email: 'updated-interviewer@test.com',
       })
-      const res = await interviewPOST({
-        request: mockRequest as any,
-        locals: { user: { email: 'test@test.com' } },
-      } as any)
-      expect(res).toEqual(
+
+      const res: any = await bookAs()
+
+      expect(mockBookInterviewSlot).toHaveBeenCalledWith(
+        { uid: 'applicant-uid', email: 'applicant@test.com' },
+        'slot-1',
+      )
+      expect(mockAdminAuth.getUser).toHaveBeenCalledWith('interviewer-uid-1')
+      expect(MailService.send).toHaveBeenCalledWith(
         expect.objectContaining({
-          body: { error: 'Failed to send email. Please try again later.' },
-          init: { status: 500 },
+          to: ['applicant@test.com'],
+          cc: ['updated-interviewer@test.com'],
+          replyTo: 'updated-interviewer@test.com',
+          subject:
+            'Student, your interview with Interviewer has been scheduled',
         }),
       )
+      // No interviewer address or uid goes back to the applicant.
+      expect(res.body).toEqual({
+        interview: {
+          id: 'slot-1',
+          date: '2026-10-01T18:00:00.000Z',
+          interviewerName: 'Interviewer',
+          meetingLink: 'http://zoom',
+          interviewSlotStatus: 'pending',
+        },
+        emailSent: true,
+      })
     })
-  })
 
-  it('interviewPOST propagates the auth error when the user is not signed in', async () => {
-    mockRequest.json.mockResolvedValue({
-      email: 'interviewer@test.com',
-      date: '2026-06-01',
-      link: 'http://zoom',
-      interviewer: 'Interviewer',
-      firstName: 'Student',
+    it('POST names the interview time in gbSTEM’s time zone, not the server’s', async () => {
+      mockBookInterviewSlot.mockResolvedValueOnce(booked())
+      mockAdminAuth.getUser.mockResolvedValueOnce({
+        uid: 'interviewer-uid-1',
+        email: 'interviewer@test.com',
+      })
+
+      await bookAs()
+
+      const [message] = (MailService.send as jest.Mock).mock.calls[0]
+      expect(message.html).toContain('2:00 PM Eastern Daylight Time')
     })
-    await expect(
-      interviewPOST({ request: mockRequest as any, locals: {} } as any),
-    ).rejects.toEqual(
-      expect.objectContaining({ status: 401, __isSvelteKitError: true }),
-    )
+
+    it('POST falls back to the stored interviewer address for a slot with no uid', async () => {
+      mockBookInterviewSlot.mockResolvedValueOnce(
+        booked({ interviewerUid: undefined }),
+      )
+
+      await bookAs()
+
+      expect(mockAdminAuth.getUser).not.toHaveBeenCalled()
+      expect(MailService.send).toHaveBeenCalledWith(
+        expect.objectContaining({ cc: ['stored-interviewer@test.com'] }),
+      )
+    })
+
+    // The slot is booked by then, so the applicant is told so either way.
+    it('POST still returns the booking when no interviewer address resolves', async () => {
+      mockBookInterviewSlot.mockResolvedValueOnce(
+        booked({ interviewerUid: undefined, interviewerEmail: undefined }),
+      )
+
+      const res: any = await bookAs()
+
+      expect(MailService.send).not.toHaveBeenCalled()
+      expect(res.body.emailSent).toBe(false)
+      expect(res.body.interview.id).toBe('slot-1')
+    })
+
+    it('POST still returns the booking when the email fails to send', async () => {
+      await withRejectedSend(async () => {
+        mockBookInterviewSlot.mockResolvedValueOnce(
+          booked({ interviewerUid: undefined }),
+        )
+        const res: any = await bookAs()
+        expect(res.body.emailSent).toBe(false)
+        expect(res.body.interview.id).toBe('slot-1')
+      })
+    })
+
+    it('POST passes a refused booking straight through and sends nothing', async () => {
+      mockBookInterviewSlot.mockRejectedValueOnce({
+        status: 409,
+        message:
+          'The interview slot you selected is no longer available. Please select another slot.',
+        __isSvelteKitError: true,
+      })
+
+      await expect(bookAs()).rejects.toEqual(
+        expect.objectContaining({ status: 409 }),
+      )
+      expect(MailService.send).not.toHaveBeenCalled()
+    })
+
+    it('POST rejects a body with no slot id', async () => {
+      mockRequest.json.mockResolvedValue({
+        interviewerUid: 'interviewer-uid-1',
+        date: '2026-06-01',
+      })
+
+      await expect(
+        interviewPOST({
+          request: mockRequest as any,
+          locals: applicantLocals,
+        } as any),
+      ).rejects.toEqual(expect.objectContaining({ status: 400 }))
+      expect(mockBookInterviewSlot).not.toHaveBeenCalled()
+    })
+
+    it('POST rejects a student with a 403', async () => {
+      await expect(
+        bookAs({ user: { uid: 's', email: 's@x.org', role: 'student' } }),
+      ).rejects.toEqual(expect.objectContaining({ status: 403 }))
+      expect(mockBookInterviewSlot).not.toHaveBeenCalled()
+    })
+
+    it('POST propagates the auth error when the user is not signed in', async () => {
+      await expect(bookAs({})).rejects.toEqual(
+        expect.objectContaining({ status: 401, __isSvelteKitError: true }),
+      )
+    })
   })
 
   it('registrationPOST successfully', async () => {

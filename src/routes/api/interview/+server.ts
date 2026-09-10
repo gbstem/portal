@@ -1,91 +1,143 @@
-import { verifyAuthenticated, handleApiError } from '$lib/server/apiHelpers'
+import { handleApiError, verifyInstructor } from '$lib/server/apiHelpers'
 import { sendEmail } from '$lib/server/email'
 import { renderEmail } from '$lib/emails/render'
 import { resolveCurrentInterviewerEmail } from '$lib/server/interviewerIdentity'
+import {
+  bookInterviewSlot,
+  fetchInterviewData,
+  type BookedInterview,
+  type InterviewData,
+  type ScheduledInterview,
+} from '$lib/server/interviewSlots'
 import { json } from '@sveltejs/kit'
 import { z } from 'zod'
 import type { RequestHandler } from './$types'
 
-// `email` is legacy: the current client sends interviewerUid only, and this
-// exists solely so a browser session loaded before the uid migration keeps
-// working until it ages out. Every use is logged as `[legacy-email-fallback]`;
-// once that counter has read zero for several days, make interviewerUid
-// required and delete it - see notes/EMAIL_TO_UID_AUDIT.md section 7, Phase 4.
-const interviewSchema = z
-  .object({
-    email: z.string().email('Invalid interviewer email address').optional(),
-    interviewerUid: z.string().optional(),
-    date: z.string().min(1, 'Date is required'),
-    link: z.string().min(1, 'Meeting link is required'),
-    interviewer: z.string().min(1, 'Interviewer name is required'),
-    firstName: z.string().min(1, 'First name is required'),
+const bookingSchema = z.object({
+  // Everything else - the interviewer, the time and the link - is read from
+  // the slot, not taken from the caller.
+  slotId: z.string().min(1, 'Please select an interview slot'),
+})
+
+export type InterviewBookingRequestBody = z.infer<typeof bookingSchema>
+
+export type InterviewDataResponse = InterviewData
+
+export interface InterviewBookingResponse {
+  interview: ScheduledInterview
+  /** False when the slot was booked but its confirmation email wasn't sent. */
+  emailSent: boolean
+}
+
+/**
+ * An interview's date for the confirmation email. The server's own time zone
+ * means nothing to the people reading it, so this names gbSTEM's.
+ */
+function formatInterviewDate(date: Date): string {
+  return date.toLocaleString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+    hour12: true,
+    timeZone: 'America/New_York',
+    timeZoneName: 'long',
   })
-  .refine((data) => Boolean(data.interviewerUid || data.email), {
-    message: 'Either interviewerUid or email is required',
-    path: ['interviewerUid'],
+}
+
+/**
+ * Emails the applicant their interview, copying the interviewer at their
+ * current address. Reports failure rather than throwing: the slot is already
+ * booked by the time this runs.
+ */
+async function sendBookingConfirmation(
+  applicantEmail: string,
+  booked: BookedInterview,
+): Promise<boolean> {
+  const interviewerEmail = await resolveCurrentInterviewerEmail(
+    booked.interviewerUid,
+    booked.interviewerEmail,
+    '/api/interview',
+  )
+  if (!interviewerEmail) {
+    console.error(
+      `[API /api/interview] No interviewer email resolved for slot ${booked.id}; its confirmation was not sent.`,
+    )
+    return false
+  }
+
+  const subject = `${booked.intervieweeFirstName}, your interview with ${booked.interviewerName} has been scheduled`
+  const html = renderEmail('interviewScheduledEmailTemplate', {
+    subject,
+    app: {
+      name: 'Portal',
+      link: 'https://portal.gbstem.org',
+    },
+    interview: {
+      interviewee: booked.intervieweeFirstName,
+      name: booked.interviewerName,
+      date: formatInterviewDate(booked.date),
+      link: booked.meetingLink,
+    },
   })
 
-export type InterviewRequestBody = z.infer<typeof interviewSchema>
+  try {
+    await sendEmail({
+      to: applicantEmail,
+      cc: interviewerEmail,
+      subject,
+      html,
+      replyTo: interviewerEmail,
+    })
+    return true
+  } catch (err) {
+    console.error(
+      `[API /api/interview] Failed to send the confirmation for slot ${booked.id}:`,
+      err,
+    )
+    return false
+  }
+}
 
+/**
+ * The signed-in applicant's interview this cycle, if booked, and the slots
+ * they could book. See fetchInterviewData.
+ */
+export const GET: RequestHandler = async ({ locals }) => {
+  try {
+    const user = verifyInstructor(locals)
+    const response: InterviewDataResponse = await fetchInterviewData(user.uid)
+    return json(response)
+  } catch (err) {
+    throw handleApiError('/api/interview', err)
+  }
+}
+
+/**
+ * Books one slot for the signed-in applicant (see bookInterviewSlot), then
+ * sends the confirmation.
+ */
 export const POST: RequestHandler = async ({ request, locals }) => {
   try {
-    const user = verifyAuthenticated(locals)
-    const body = interviewSchema.parse(await request.json())
-
-    const interviewerEmail = await resolveCurrentInterviewerEmail(
-      body.interviewerUid,
-      body.email,
-      '/api/interview',
+    const user = verifyInstructor(locals)
+    const { slotId } = bookingSchema.parse(await request.json())
+    const booked = await bookInterviewSlot(
+      { uid: user.uid, email: user.email },
+      slotId,
     )
-    if (!interviewerEmail) {
-      return json(
-        { error: 'Interviewer email could not be resolved' },
-        { status: 400 },
-      )
-    }
-    const interviewDate = body.date
-    const interviewLink = body.link
-    const interviewerName = body.interviewer
-    const intervieweeFirstName = body.firstName
 
-    const template = {
-      name: 'interviewScheduled',
-      data: {
-        subject: `${intervieweeFirstName}, your interview with ${interviewerName} has been scheduled`,
-        app: {
-          name: 'Portal',
-          link: 'https://portal.gbstem.org',
-        },
-        interview: {
-          interviewee: intervieweeFirstName,
-          name: interviewerName,
-          date: interviewDate,
-          link: interviewLink,
-        },
+    const response: InterviewBookingResponse = {
+      interview: {
+        id: booked.id,
+        date: booked.date.toISOString(),
+        interviewerName: booked.interviewerName,
+        meetingLink: booked.meetingLink,
+        interviewSlotStatus: 'pending',
       },
+      emailSent: await sendBookingConfirmation(user.email, booked),
     }
-
-    const htmlBody = renderEmail(
-      'interviewScheduledEmailTemplate',
-      template.data,
-    )
-
-    try {
-      await sendEmail({
-        to: user.email,
-        cc: interviewerEmail,
-        subject: String(template.data.subject),
-        html: htmlBody,
-        replyTo: interviewerEmail,
-      })
-    } catch (mailError) {
-      return json(
-        { error: 'Failed to send email. Please try again later.' },
-        { status: 500 },
-      )
-    }
-
-    return json({ message: 'Email sent successfully.' })
+    return json(response)
   } catch (err) {
     throw handleApiError('/api/interview', err)
   }
