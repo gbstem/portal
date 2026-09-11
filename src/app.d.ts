@@ -17,8 +17,8 @@ declare global {
        * the session cookie plus the Auth record's role claim. Set by
        * `(signedIn)/+layout.server.ts`, so it is there on the first render of
        * every signed-in page - unlike the `user` store's `profile`, which
-       * waits on a `users` document read. Branch on this `role`, not the
-       * profile's display copy. Absent on signed-out pages.
+       * waits on a `users` document read and carries no role. Branch on this
+       * `role`. Absent on signed-out pages.
        */
       user?: Data.User.Peek
     }

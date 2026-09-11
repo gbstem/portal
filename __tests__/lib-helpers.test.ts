@@ -81,7 +81,7 @@ jest.mock('firebase/auth', () => ({
 // Mock firebase/firestore
 const mockUserDoc = {
   exists: () => true,
-  data: () => ({ role: 'student' }),
+  data: () => ({ firstName: 'Ada', lastName: 'Lovelace' }),
 }
 jest.mock('firebase/firestore', () => {
   class MockTimestamp {
@@ -429,7 +429,7 @@ describe('client firebase user store', () => {
     // the auth uid in so consumers can read `profile.uid`.
     expect(storeSet).toEqual({
       object: mockUserObj,
-      profile: { role: 'student', uid: 'user123' },
+      profile: { firstName: 'Ada', lastName: 'Lovelace', uid: 'user123' },
     })
 
     unsub()

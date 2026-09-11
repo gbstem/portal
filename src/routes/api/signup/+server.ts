@@ -19,30 +19,27 @@ export type SignupRequestBody = z.infer<typeof signupSchema>
  * The role a new account gets, given what the signup form was told.
  *
  * The single place role assignment is decided, which is the point of this
- * route existing. It used to happen in the browser: `userService.createUser`
- * wrote `users/{uid}` with a role of its choosing and portal's `/api/auth`
- * then minted a custom claim from that document, so the claim the whole system
- * authorizes against was ultimately a value the client picked.
+ * route existing: it prevents client-side control that would allow an
+ * attacker to claim another role.
  *
- * The mapping is deliberately still an identity function. Closing the
- * *escalation* (writing any role, at any time) and changing the *policy*
- * (whether choosing "instructor" should grant the instructor role at all) are
- * separate changes with very different blast radii, and only the first is safe
- * to ship in the middle of an application cycle. An account that picks
- * instructor here has exactly the access it had before.
+ * It is important to know that these roles merely state the user's intent:
+ * an "instructor" can merely be someone who applied but hasn't yet been
+ * accepted; a "student" can merely be someone who hasn't yet been assigned
+ * a class. All privileged actions are protected by server-side
+ * authorization checks in API routes that go beyond just the role claim.
  *
- * TODO(phase-2): return 'instructor-applicant' here, and let admin's
- * /api/decision promote to 'instructor' or 'instructor-substitute' when
- * someone is actually accepted. That is the whole policy change - everything
- * else about this route stays as it is.
+ * This is intentionally an identity function, intended to allow for role
+ * splits if needed in the future to differentiate between concepts like
+ * an instructor applicant vs accepted instructor.
  */
 function roleForSignup(accountType: 'instructor' | 'student'): Data.Role {
   return accountType
 }
 
 /**
- * Creates the `users` profile document and the role custom claim for an
- * account that was just created in the browser.
+ * Creates the `users` profile document and sets the role custom claim for an
+ * account that was just created in the browser. The role goes on the claim
+ * only; the document holds the name.
  *
  * Authorization is the ID token: the caller can only ever act on the account
  * they hold a token for, and `verifyIdToken` is what proves that. There is no
@@ -66,12 +63,11 @@ export const POST: RequestHandler = async ({ request }) => {
 
     const role = roleForSignup(body.accountType)
     await profileRef.set({
-      role,
       firstName: body.firstName,
       lastName: body.lastName,
     })
     // Claims are merged onto whatever the account already carries rather than
-    // replacing them, matching scripts/backfill-user-role-claims.ts.
+    // replacing them, matching admin's scripts/set-user-role.ts.
     const existingClaims = (await adminAuth.getUser(uid)).customClaims ?? {}
     await adminAuth.setCustomUserClaims(uid, { ...existingClaims, role })
 
