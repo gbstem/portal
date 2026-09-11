@@ -26,11 +26,10 @@ export const userService = {
    * handler, since a failure further downstream (the profile write, the
    * session sync) should tear the account down too.
    *
-   * Deliberately does *not* write `users/{uid}`. That document carries the
-   * role, and a role written from the browser is a role an attacker chooses:
-   * `firestore.rules` now refuses any client write that changes the field, and
-   * `/api/signup` writes both the document and the matching custom claim with
-   * the Admin SDK. The account therefore exists for a moment with no profile,
+   * Deliberately does *not* write `users/{uid}`. `/api/signup` writes that
+   * document and sets the role claim with the Admin SDK, because a role chosen
+   * in the browser is a role an attacker chooses, and the two are created
+   * together. The account therefore exists for a moment with no profile,
    * which is why the caller must treat a failed `/api/signup` as fatal and
    * roll back.
    */

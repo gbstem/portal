@@ -20,7 +20,7 @@ export type SignupRequestBody = z.infer<typeof signupSchema>
  *
  * The single place role assignment is decided, which is the point of this
  * route existing. It used to happen in the browser: `userService.createUser`
- * wrote `users/{uid}` with a role of its choosing and portal's `/api/auth`
+ * wrote a role of its choosing into `users/{uid}` and portal's `/api/auth`
  * then minted a custom claim from that document, so the claim the whole system
  * authorizes against was ultimately a value the client picked.
  *
@@ -41,8 +41,9 @@ function roleForSignup(accountType: 'instructor' | 'student'): Data.Role {
 }
 
 /**
- * Creates the `users` profile document and the role custom claim for an
- * account that was just created in the browser.
+ * Creates the `users` profile document and sets the role custom claim for an
+ * account that was just created in the browser. The role goes on the claim
+ * only; the document holds the name.
  *
  * Authorization is the ID token: the caller can only ever act on the account
  * they hold a token for, and `verifyIdToken` is what proves that. There is no
@@ -66,12 +67,11 @@ export const POST: RequestHandler = async ({ request }) => {
 
     const role = roleForSignup(body.accountType)
     await profileRef.set({
-      role,
       firstName: body.firstName,
       lastName: body.lastName,
     })
     // Claims are merged onto whatever the account already carries rather than
-    // replacing them, matching scripts/backfill-user-role-claims.ts.
+    // replacing them, matching admin's scripts/set-user-role.ts.
     const existingClaims = (await adminAuth.getUser(uid)).customClaims ?? {}
     await adminAuth.setCustomUserClaims(uid, { ...existingClaims, role })
 

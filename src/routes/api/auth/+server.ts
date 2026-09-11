@@ -10,14 +10,14 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
   // Validate that the user role is appropriate for this site.
   //
   // The claim is the only thing consulted. This used to fall back to reading
-  // `users/{uid}.role` when the claim was missing, and then minted a claim
-  // from it - but that document is one its own owner could write, so the claim
-  // the entire system authorizes against was ultimately chosen by the client.
-  // Roles are now set server-side at signup (/api/signup) and by admin, both
-  // through the Admin SDK. Accounts that predate that were given claims by
-  // scripts/backfill-user-role-claims.ts in the admin repo; an account with no
-  // claim now is one that never finished signing up, and signing up again is
-  // the repair.
+  // a `role` field in `users/{uid}` when the claim was missing, and then
+  // minted a claim from it - but that document is one its own owner could
+  // write, so the claim the entire system authorizes against was ultimately
+  // chosen by the client. That field no longer exists. Roles are set
+  // server-side at signup (/api/signup) and by admin, both through the Admin
+  // SDK, and every older account was backfilled with a claim; an account with
+  // no claim now is one that never finished signing up, and signing up again
+  // is the repair.
   const userRecord = await adminAuth.getUser(decodedIdToken.uid)
   const role = userRecord.customClaims?.role
 

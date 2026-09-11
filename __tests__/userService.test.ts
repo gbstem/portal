@@ -61,11 +61,10 @@ describe('userService (Data Access Layer)', () => {
       })
     })
 
-    it('writes no profile document, because that document carries the role', async () => {
-      // The role is authorization, and a role written from the browser is a
-      // role an attacker picks. /api/signup writes users/{uid} and the
-      // matching custom claim with the Admin SDK; firestore.rules refuses any
-      // client write that changes the field.
+    it('writes no profile document, because /api/signup writes it with the role claim', async () => {
+      // The role is authorization, and a role chosen in the browser is a role
+      // an attacker picks. /api/signup writes users/{uid} and sets the custom
+      // claim with the Admin SDK.
       await userService.createUser(signUpValues)
 
       expect(firestore.setDoc).not.toHaveBeenCalled()

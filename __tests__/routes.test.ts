@@ -781,10 +781,11 @@ describe('API routes POST endpoints', () => {
   })
 
   it('authPOST never reads a role out of the users document', async () => {
-    // The escalation this closes: signup used to write users/{uid}.role from
-    // the browser and this route minted a custom claim from it, so the claim
-    // the whole system authorizes against was a value the client chose. A
-    // document saying `instructor` must now count for nothing.
+    // The escalation this closes: signup used to write a role into
+    // users/{uid} from the browser and this route minted a custom claim from
+    // it, so the claim the whole system authorizes against was a value the
+    // client chose. Documents no longer carry a role, but one that somehow
+    // said `instructor` must still count for nothing.
     mockRequest.json.mockResolvedValue({ idToken: 'idToken123' })
     mockAdminAuth.verifyIdToken.mockResolvedValue({
       uid: 'uid123',
@@ -862,7 +863,7 @@ describe('API routes POST endpoints', () => {
       mockAdminDb.doc.mockImplementation((id: string) => mockDoc(id))
     })
 
-    it('writes the profile and the matching role claim', async () => {
+    it('writes the name to the profile and the role to the claim', async () => {
       const set = mockProfile(false)
       mockRequest.json.mockResolvedValue(body)
 
@@ -870,7 +871,6 @@ describe('API routes POST endpoints', () => {
 
       expect(res.body).toEqual({ role: 'instructor' })
       expect(set).toHaveBeenCalledWith({
-        role: 'instructor',
         firstName: 'Timmy',
         lastName: 'Turner',
       })
