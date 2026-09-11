@@ -40,12 +40,11 @@ describe('Section C: Student/Parent Dashboard Actions', () => {
   })
 
   it('Test Case 13: Submit Weekly Class Feedback', () => {
-    // Freeze Date so the `${classId}-${Date.now()}` document id this writes is
-    // computable rather than needing a scan of the 30 seeded feedback docs.
-    const submittedAt = new Date('2026-06-12T12:00:00Z')
-    cy.clock(submittedAt.getTime(), ['Date'])
-
     cy.signedInSession('student')
+    // /api/studentFeedback names the document it writes on the server, so the
+    // id comes back in its response rather than needing a scan of the 30
+    // seeded feedback docs.
+    cy.intercept('POST', '/api/studentFeedback').as('studentFeedback')
 
     // Verify Weekly Class Feedback Form exists
     cy.get('body').should('contain', 'Weekly Class Feedback Form')
@@ -67,30 +66,33 @@ describe('Section C: Student/Parent Dashboard Actions', () => {
     // Assert successful submission toast
     cy.waitForNotification('Class Feedback saved!')
 
-    // Four of the nine stored fields are derived rather than typed:
-    // `instructor` and `course` come from matching the chosen `classId` against
-    // the student's course list, and `studentName`/`studentId` from their
-    // registration. A lookup miss writes empty strings with no error, which is
-    // exactly what a toast-only assertion misses.
-    cy.getFirebaseAuthToken().then((authToken: string) => {
-      cy.getFirestoreDoc(
-        authToken,
-        studentFeedbackCollection,
-        `${SEEDED_CLASS_ID}-${submittedAt.getTime()}`,
-      ).then((data: any) => {
-        expect(data, 'student feedback document').to.not.equal(null)
-        expect(prepareDocForCompare(data)).to.deep.equal({
-          semester: currentSemester,
-          studentId: 'student-demo-uid-1',
-          studentName: 'Demo Student One',
-          classId: SEEDED_CLASS_ID,
-          course: 'Python 1',
-          instructor: 'Demo Instructor',
-          date: '2026-06-12',
-          rating: 5,
-          feedback: 'Excellent teaching and interactive session!',
+    // Three of the nine stored fields are derived rather than typed:
+    // `instructor` and `course` are read from the class and `studentName` from
+    // the registration, server-side. A lookup miss writes empty strings with
+    // no error, which is exactly what a toast-only assertion misses.
+    cy.wait('@studentFeedback')
+      .its('response.body.feedbackId')
+      .then((feedbackId: string) => {
+        cy.getFirebaseAuthToken().then((authToken: string) => {
+          cy.getFirestoreDoc(
+            authToken,
+            studentFeedbackCollection,
+            feedbackId,
+          ).then((data: any) => {
+            expect(data, 'student feedback document').to.not.equal(null)
+            expect(prepareDocForCompare(data)).to.deep.equal({
+              semester: currentSemester,
+              studentId: 'student-demo-uid-1',
+              studentName: 'Demo Student One',
+              classId: SEEDED_CLASS_ID,
+              course: 'Python 1',
+              instructor: 'Demo Instructor',
+              date: '2026-06-12',
+              rating: 5,
+              feedback: 'Excellent teaching and interactive session!',
+            })
+          })
         })
       })
-    })
   })
 })

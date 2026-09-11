@@ -1,11 +1,7 @@
 import { db } from '$lib/client/firebase'
-import { ClassStatus } from '$lib/components/helpers/ClassStatus'
 import {
   classesCollection,
-  instructorFeedbackCollection,
-  studentFeedbackCollection,
   substituteRequestsCollection,
-  withSemester,
 } from '$lib/data/collections'
 import type { CoInstructor } from '$lib/helpers/classDetailsForm'
 import {
@@ -20,7 +16,6 @@ import {
   doc,
   getDoc,
   getDocs,
-  runTransaction,
   setDoc,
   updateDoc,
 } from 'firebase/firestore'
@@ -32,26 +27,14 @@ import type {
   EnrollRequestBody,
   EnrollResponse,
 } from '../../routes/api/enroll/+server'
-
-export interface InstructorFeedbackSubmission {
-  date: string
-  feedback: string
-  attendanceList: Record<string, { present: boolean }>
-  courseName: string
-  classNumber: number
-  instructorName: string
-}
-
-export interface StudentFeedbackSubmission {
-  studentId: string
-  date: string
-  classId: string
-  rating: number
-  feedback: string
-  instructor: string
-  studentName: string
-  course: string
-}
+import type {
+  InstructorFeedbackRequestBody,
+  InstructorFeedbackResponse,
+} from '../../routes/api/instructorFeedback/+server'
+import type {
+  StudentFeedbackRequestBody,
+  StudentFeedbackResponse,
+} from '../../routes/api/studentFeedback/+server'
 
 export interface RosterStudent {
   uid: string
@@ -374,66 +357,43 @@ export const classService = {
 
   /**
    * Records a class instructor's feedback for one session: saves the feedback
-   * document and marks the session complete on the class, in one transaction.
-   *
-   * The session is marked complete on the class as it stands, read inside the
-   * transaction. The form used to send whole `feedbackCompleted` and
-   * `classStatuses` arrays it had loaded when it opened, written in a second
-   * update after the feedback - so the feedback could save with the class
-   * never marked, and a session a co-instructor or substitute recorded in the
-   * meantime was overwritten.
+   * document and marks the session complete on the class, in one transaction
+   * server-side, where the caller is checked against the class - see
+   * /api/instructorFeedback. Throws with the server's message on refusal.
    *
    * Only for an instructor of the class - a substitute's feedback goes through
-   * /api/substituteFeedback instead, because the class update below is a write
-   * firestore.rules refuses them.
+   * /api/substituteFeedback instead.
    */
   async submitInstructorFeedback(
-    classId: string,
-    feedback: InstructorFeedbackSubmission,
-  ): Promise<void> {
-    const classRef = doc(db, classesCollection, classId)
-    const feedbackRef = doc(
-      db,
-      instructorFeedbackCollection,
-      `${classId}-${Date.now()}`,
-    )
-    await runTransaction(db, async (transaction) => {
-      const classSnap = await transaction.get(classRef)
-      if (!classSnap.exists()) {
-        throw new Error('That class no longer exists.')
-      }
-      const classData = classSnap.data() as Data.Class
-      const feedbackCompleted = [...(classData.feedbackCompleted ?? [])]
-      const classStatuses = [...(classData.classStatuses ?? [])]
-      // Indexed by session. Writing past the end would extend the arrays with
-      // holes rather than fail, so a session off the schedule is refused.
-      const index = feedback.classNumber - 1
-      if (
-        !Number.isInteger(index) ||
-        index < 0 ||
-        index >= feedbackCompleted.length ||
-        index >= classStatuses.length
-      ) {
-        throw new Error('Invalid class number.')
-      }
-      feedbackCompleted[index] = true
-      classStatuses[index] = ClassStatus.EverythingComplete
-
-      transaction.set(feedbackRef, withSemester(feedback))
-      transaction.update(classRef, { feedbackCompleted, classStatuses })
-    })
+    payload: InstructorFeedbackRequestBody,
+  ): Promise<InstructorFeedbackResponse> {
+    return postFeedback('/api/instructorFeedback', payload)
   },
 
   /**
-   * Records a parent/student's weekly feedback for a class.
+   * Records a parent's weekly feedback on a class one of their students is
+   * in. Whose student it is and whether they are in the class are checked
+   * server-side - see /api/studentFeedback. Throws with the server's message
+   * on refusal.
    */
   async submitStudentFeedback(
-    classId: string,
-    feedback: StudentFeedbackSubmission,
-  ): Promise<void> {
-    await setDoc(
-      doc(db, studentFeedbackCollection, `${classId}-${Date.now()}`),
-      withSemester(feedback),
-    )
+    payload: StudentFeedbackRequestBody,
+  ): Promise<StudentFeedbackResponse> {
+    return postFeedback('/api/studentFeedback', payload)
   },
+}
+
+async function postFeedback<T>(route: string, payload: unknown): Promise<T> {
+  const res = await fetch(route, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    throw new Error(
+      body?.message || 'Could not save that feedback. Please try again.',
+    )
+  }
+  return body as T
 }

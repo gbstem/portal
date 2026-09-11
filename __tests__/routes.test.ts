@@ -159,6 +159,16 @@ jest.mock('$lib/server/classEnrollments', () => ({
   unenrollStudent: (...args: any[]) => mockUnenrollStudent(...args),
 }))
 
+// And the feedback transactions (classFeedback.test.ts).
+const mockFileInstructorFeedback = jest.fn()
+const mockFileStudentFeedback = jest.fn()
+jest.mock('$lib/server/classFeedback', () => ({
+  ...jest.requireActual('$lib/server/classFeedback'),
+  fileInstructorFeedback: (...args: any[]) =>
+    mockFileInstructorFeedback(...args),
+  fileStudentFeedback: (...args: any[]) => mockFileStudentFeedback(...args),
+}))
+
 // And the booking transaction (interviewSlots.test.ts).
 const mockFetchInterviewData = jest.fn()
 const mockBookInterviewSlot = jest.fn()
@@ -236,6 +246,8 @@ import {
   POST as substitutePOST,
 } from '../src/routes/api/substitute/+server'
 import { POST as substituteFeedbackPOST } from '../src/routes/api/substituteFeedback/+server'
+import { POST as instructorFeedbackPOST } from '../src/routes/api/instructorFeedback/+server'
+import { POST as studentFeedbackPOST } from '../src/routes/api/studentFeedback/+server'
 import { POST as substituteSessionPOST } from '../src/routes/api/substituteSession/+server'
 import { POST as meetingLinkPOST } from '../src/routes/api/meetingLink/+server'
 import {
@@ -3027,6 +3039,217 @@ describe('substitute session endpoints', () => {
           message: expect.stringContaining('Reflection/feedback is required'),
         }),
       )
+    })
+  })
+})
+
+describe('class feedback endpoints', () => {
+  const call = (handler: any, body: unknown, locals: any) =>
+    handler({
+      request: { json: jest.fn().mockResolvedValue(body) },
+      locals,
+    } as any)
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    mockFileInstructorFeedback.mockResolvedValue('owner-uid-1-123')
+    mockFileStudentFeedback.mockResolvedValue('owner-uid-1-123')
+  })
+
+  describe('/api/instructorFeedback', () => {
+    const body = {
+      classId: 'owner-uid-1',
+      date: '2026-10-02',
+      feedback: 'Covered lists and loops.',
+      attendanceList: { 'Ada Lovelace': { present: true } },
+      classNumber: 2,
+    }
+
+    it("files the caller's feedback and returns the document id", async () => {
+      const res: any = await call(
+        instructorFeedbackPOST,
+        body,
+        instructorLocals,
+      )
+
+      expect(mockFileInstructorFeedback).toHaveBeenCalledWith(
+        { uid: 'caller-uid' },
+        body,
+      )
+      expect(res.body).toEqual({ feedbackId: 'owner-uid-1-123' })
+    })
+
+    it('drops the fields the server fills in itself', async () => {
+      await call(
+        instructorFeedbackPOST,
+        {
+          ...body,
+          courseName: 'Forged',
+          instructorName: 'Someone Else',
+          semester: 'Spring20',
+        },
+        instructorLocals,
+      )
+
+      expect(mockFileInstructorFeedback).toHaveBeenCalledWith(
+        { uid: 'caller-uid' },
+        body,
+      )
+    })
+
+    it('coerces a typed session number', async () => {
+      await call(
+        instructorFeedbackPOST,
+        { ...body, classNumber: '2' },
+        instructorLocals,
+      )
+
+      expect(mockFileInstructorFeedback.mock.calls[0][1].classNumber).toBe(2)
+    })
+
+    it('refuses a signed-out caller', async () => {
+      await expect(
+        call(instructorFeedbackPOST, body, { user: null }),
+      ).rejects.toEqual(expect.objectContaining({ status: 401 }))
+      expect(mockFileInstructorFeedback).not.toHaveBeenCalled()
+    })
+
+    it('refuses a student account', async () => {
+      await expect(
+        call(instructorFeedbackPOST, body, {
+          user: { uid: 'parent-uid', role: 'student' },
+        }),
+      ).rejects.toEqual(expect.objectContaining({ status: 403 }))
+      expect(mockFileInstructorFeedback).not.toHaveBeenCalled()
+    })
+
+    it.each([
+      [
+        'an empty reflection',
+        { feedback: '' },
+        'Reflection/feedback is required',
+      ],
+      ['no class', { classId: '' }, 'A class is required'],
+      ['no date', { date: '' }, 'Date of class is required'],
+      ['session zero', { classNumber: 0 }, 'classNumber'],
+      [
+        'attendance that is not a checkbox',
+        { attendanceList: { Ada: { present: 'yes' } } },
+        'attendanceList',
+      ],
+    ])('rejects %s', async (_label, overrides, message) => {
+      await expect(
+        call(
+          instructorFeedbackPOST,
+          { ...body, ...overrides },
+          instructorLocals,
+        ),
+      ).rejects.toEqual(
+        expect.objectContaining({
+          status: 400,
+          message: expect.stringContaining(message),
+        }),
+      )
+      expect(mockFileInstructorFeedback).not.toHaveBeenCalled()
+    })
+
+    it("passes on the DAL's refusal", async () => {
+      mockFileInstructorFeedback.mockRejectedValueOnce({
+        status: 403,
+        message: 'You are not an instructor of that class.',
+        __isSvelteKitError: true,
+      })
+
+      await expect(
+        call(instructorFeedbackPOST, body, instructorLocals),
+      ).rejects.toEqual(expect.objectContaining({ status: 403 }))
+    })
+  })
+
+  describe('/api/studentFeedback', () => {
+    const parentLocals = {
+      user: { uid: 'parent-uid', email: 'parent@test.com', role: 'student' },
+    }
+    const body = {
+      studentId: 'parent-uid-1',
+      classId: 'owner-uid-1',
+      date: '2026-10-02',
+      rating: 4,
+      feedback: 'Loved it!',
+    }
+
+    it("files the caller's feedback and returns the document id", async () => {
+      const res: any = await call(studentFeedbackPOST, body, parentLocals)
+
+      expect(mockFileStudentFeedback).toHaveBeenCalledWith(
+        { uid: 'parent-uid' },
+        body,
+      )
+      expect(res.body).toEqual({ feedbackId: 'owner-uid-1-123' })
+    })
+
+    it('drops the fields the server fills in itself', async () => {
+      await call(
+        studentFeedbackPOST,
+        {
+          ...body,
+          studentName: 'Forged',
+          course: 'Forged',
+          instructor: 'Forged',
+          semester: 'Spring20',
+        },
+        parentLocals,
+      )
+
+      expect(mockFileStudentFeedback).toHaveBeenCalledWith(
+        { uid: 'parent-uid' },
+        body,
+      )
+    })
+
+    it('refuses a signed-out caller', async () => {
+      await expect(
+        call(studentFeedbackPOST, body, { user: null }),
+      ).rejects.toEqual(expect.objectContaining({ status: 401 }))
+      expect(mockFileStudentFeedback).not.toHaveBeenCalled()
+    })
+
+    it('refuses an instructor account', async () => {
+      await expect(
+        call(studentFeedbackPOST, body, instructorLocals),
+      ).rejects.toEqual(expect.objectContaining({ status: 403 }))
+      expect(mockFileStudentFeedback).not.toHaveBeenCalled()
+    })
+
+    it.each([
+      ['a rating above 5', { rating: 6 }, 'Rating must be at most 5'],
+      ['a rating below 1', { rating: 0 }, 'Rating must be at least 1'],
+      ['a fractional rating', { rating: 2.5 }, 'rating'],
+      ['empty feedback', { feedback: '' }, 'Feedback is required'],
+      ['no student', { studentId: '' }, 'Please select a child'],
+      ['no class', { classId: '' }, 'Please select a course'],
+    ])('rejects %s', async (_label, overrides, message) => {
+      await expect(
+        call(studentFeedbackPOST, { ...body, ...overrides }, parentLocals),
+      ).rejects.toEqual(
+        expect.objectContaining({
+          status: 400,
+          message: expect.stringContaining(message),
+        }),
+      )
+      expect(mockFileStudentFeedback).not.toHaveBeenCalled()
+    })
+
+    it("passes on the DAL's refusal", async () => {
+      mockFileStudentFeedback.mockRejectedValueOnce({
+        status: 403,
+        message: 'That student is not enrolled in that class.',
+        __isSvelteKitError: true,
+      })
+
+      await expect(
+        call(studentFeedbackPOST, body, parentLocals),
+      ).rejects.toEqual(expect.objectContaining({ status: 403 }))
     })
   })
 })

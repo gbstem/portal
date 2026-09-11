@@ -82,19 +82,16 @@
                 classNumber: formVal.data.classNumber,
               })
             } else {
-              // The session is marked complete on the class as it stands
-              // when this saves, and a session off the schedule is refused
-              // there - see submitInstructorFeedback.
-              await classService.submitInstructorFeedback(id, {
+              // The server checks the caller teaches this class, marks the
+              // session complete on the class as it stands when this saves,
+              // and fills in the course and the instructor's name itself -
+              // see /api/instructorFeedback.
+              await classService.submitInstructorFeedback({
+                classId: id,
                 date: formVal.data.classDate,
                 feedback: formVal.data.feedback,
                 attendanceList: formVal.data.attendanceList,
-                courseName: '',
                 classNumber: formVal.data.classNumber,
-                instructorName:
-                  frozenUser.profile.firstName +
-                  ' ' +
-                  frozenUser.profile.lastName,
               })
             }
             alert.trigger('success', 'Class Feedback saved!')
