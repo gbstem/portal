@@ -45,42 +45,29 @@
       SPA: true,
       validators: zod(schema as any) as any,
       async onUpdate({ form: formVal }: { form: any }) {
-        if (!formVal.valid) return
-
-        let instructor = ''
-        let course = ''
-        selectedStudentCourses.forEach((selectedCourse) => {
-          if (selectedCourse.classId === formVal.data.classId) {
-            instructor = selectedCourse.instructor
-            course = selectedCourse.course
-          }
-        })
-
-        const submissionValues = {
-          studentId: selectedStudentUid,
-          date: formVal.data.date,
-          classId: formVal.data.classId,
-          rating: formVal.data.rating,
-          feedback: formVal.data.feedback,
-          instructor,
-          studentName,
-          course,
-        }
+        if (!formVal.valid || !selectedStudentUid) return
 
         if ($user) {
-          classService
-            .submitStudentFeedback(formVal.data.classId, submissionValues)
-            .then(() => {
-              alert.trigger('success', 'Class Feedback saved!')
-              reset()
+          try {
+            // The student's name, the course and the instructor are read
+            // server-side, which also checks the student is the caller's and
+            // is in the class - see /api/studentFeedback.
+            await classService.submitStudentFeedback({
+              studentId: selectedStudentUid,
+              classId: formVal.data.classId,
+              date: formVal.data.date,
+              rating: formVal.data.rating,
+              feedback: formVal.data.feedback,
             })
-            .catch((err) => {
-              console.error(
-                '[StudentFeedbackForm] Error saving student feedback:',
-                err,
-              )
-              alert.trigger('error', err.code || err.message, true)
-            })
+            alert.trigger('success', 'Class Feedback saved!')
+            reset()
+          } catch (err: any) {
+            console.error(
+              '[StudentFeedbackForm] Error saving student feedback:',
+              err,
+            )
+            alert.trigger('error', err.message, true)
+          }
         }
       },
     },

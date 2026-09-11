@@ -447,145 +447,84 @@ describe('portal classService (Data Access Layer)', () => {
     })
   })
 
-  describe('submitInstructorFeedback', () => {
-    const feedback = {
-      date: '2026-01-01',
-      feedback: 'Great class',
-      attendanceList: {},
-      courseName: 'Python 1',
-      classNumber: 2,
-      instructorName: 'Jane Doe',
-    }
-    let transaction: { get: jest.Mock; set: jest.Mock; update: jest.Mock }
-
-    /** Runs the save's transaction against a class holding `classData`. */
-    function withClass(classData: Record<string, unknown> | null) {
-      transaction = {
-        get: jest.fn().mockResolvedValue({
-          exists: () => classData !== null,
-          data: () => classData,
-        }),
-        set: jest.fn(),
-        update: jest.fn(),
-      }
-      ;(firestore.runTransaction as jest.Mock).mockImplementation(
-        async (_db: unknown, fn: any) => fn(transaction),
-      )
-    }
-
-    it('saves the feedback and marks that session complete on the class as read, in one transaction', async () => {
-      withClass({
-        feedbackCompleted: [true, false, false],
-        classStatuses: [
-          'EverythingComplete',
-          'FeedbackIncomplete',
-          'ClassInFuture',
-        ],
-      })
-
-      await classService.submitInstructorFeedback('c-1', feedback)
-
-      expect(firestore.runTransaction).toHaveBeenCalledTimes(1)
-      expect(transaction.set).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.objectContaining({ feedback: 'Great class', classNumber: 2 }),
-      )
-      // Only week 2 changes; weeks 1 and 3 are kept as the class has them.
-      expect(transaction.update).toHaveBeenCalledWith(expect.anything(), {
-        feedbackCompleted: [true, true, false],
-        classStatuses: [
-          'EverythingComplete',
-          'EverythingComplete',
-          'ClassInFuture',
-        ],
-      })
-      expect(firestore.setDoc).not.toHaveBeenCalled()
-      expect(firestore.updateDoc).not.toHaveBeenCalled()
-    })
-
-    it('reads the class before writing either document', async () => {
-      withClass({
-        feedbackCompleted: [false, false],
-        classStatuses: ['a', 'b'],
-      })
-      const order: string[] = []
-      transaction.get.mockImplementation(async () => {
-        order.push('get')
-        return {
-          exists: () => true,
-          data: () => ({
-            feedbackCompleted: [false, false],
-            classStatuses: ['a', 'b'],
-          }),
-        }
-      })
-      transaction.set.mockImplementation(() => order.push('set'))
-      transaction.update.mockImplementation(() => order.push('update'))
-
-      await classService.submitInstructorFeedback('c-1', feedback)
-
-      expect(order).toEqual(['get', 'set', 'update'])
-    })
-
-    it('refuses a session off the end of the schedule, writing nothing', async () => {
-      withClass({
-        feedbackCompleted: [false],
-        classStatuses: ['ClassInFuture'],
-      })
-
-      await expect(
-        classService.submitInstructorFeedback('c-1', feedback),
-      ).rejects.toThrow('Invalid class number.')
-      expect(transaction.set).not.toHaveBeenCalled()
-      expect(transaction.update).not.toHaveBeenCalled()
-    })
-
-    it('refuses a class that no longer exists', async () => {
-      withClass(null)
-
-      await expect(
-        classService.submitInstructorFeedback('c-1', feedback),
-      ).rejects.toThrow('That class no longer exists.')
-      expect(transaction.set).not.toHaveBeenCalled()
-    })
-
-    it('propagates a failed transaction', async () => {
-      ;(firestore.runTransaction as jest.Mock).mockRejectedValueOnce(
-        new Error('permission-denied'),
-      )
-
-      await expect(
-        classService.submitInstructorFeedback('c-1', feedback),
-      ).rejects.toThrow('permission-denied')
-    })
-  })
-
-  describe('submitStudentFeedback', () => {
-    it('saves the feedback document', async () => {
-      ;(firestore.setDoc as jest.Mock).mockResolvedValueOnce(undefined)
-
-      await classService.submitStudentFeedback('c-1', {
-        studentId: 's-1',
-        date: '2026-01-01',
+  describe.each([
+    {
+      method: 'submitInstructorFeedback' as const,
+      route: '/api/instructorFeedback',
+      payload: {
         classId: 'c-1',
+        date: '2026-01-01',
+        feedback: 'Great class',
+        attendanceList: { 'Ada Lovelace': { present: true } },
+        classNumber: 2,
+      },
+    },
+    {
+      method: 'submitStudentFeedback' as const,
+      route: '/api/studentFeedback',
+      payload: {
+        studentId: 's-1',
+        classId: 'c-1',
+        date: '2026-01-01',
         rating: 5,
         feedback: 'Loved it!',
-        instructor: 'Jane Doe',
-        studentName: 'Timmy Turner',
-        course: 'Python 1',
+      },
+    },
+  ])('$method', ({ method, route, payload }) => {
+    const submit = () => (classService[method] as any)(payload)
+
+    it(`posts the feedback to ${route} rather than writing Firestore`, async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ feedbackId: 'c-1-123' }),
       })
 
-      expect(firestore.setDoc).toHaveBeenCalledTimes(1)
+      await expect(submit()).resolves.toEqual({ feedbackId: 'c-1-123' })
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        route,
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify(payload),
+        }),
+      )
+      expect(firestore.setDoc).not.toHaveBeenCalled()
+      expect(firestore.updateDoc).not.toHaveBeenCalled()
+      expect(firestore.runTransaction).not.toHaveBeenCalled()
     })
 
-    it('propagates errors from setDoc', async () => {
-      ;(firestore.setDoc as jest.Mock).mockRejectedValueOnce(
-        new Error('permission-denied'),
+    it("throws the server's message when the feedback is refused", async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({
+          message: 'You are not an instructor of that class.',
+        }),
+      })
+
+      await expect(submit()).rejects.toThrow(
+        'You are not an instructor of that class.',
+      )
+    })
+
+    it('throws a generic message when the refusal has no readable body', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        json: async () => {
+          throw new Error('not json')
+        },
+      })
+
+      await expect(submit()).rejects.toThrow(
+        'Could not save that feedback. Please try again.',
+      )
+    })
+
+    it('propagates a network failure', async () => {
+      ;(global.fetch as jest.Mock).mockRejectedValueOnce(
+        new Error('Failed to fetch'),
       )
 
-      await expect(
-        classService.submitStudentFeedback('c-1', {} as any),
-      ).rejects.toThrow('permission-denied')
+      await expect(submit()).rejects.toThrow('Failed to fetch')
     })
   })
 

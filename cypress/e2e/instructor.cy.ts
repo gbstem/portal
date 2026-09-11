@@ -484,21 +484,14 @@ function grantCoInstructorAccess() {
  * every test that touches the schedule, the feedback form, the roster or a sub
  * request has to move the clock first - and has to do it before the visit, or
  * the page has already decided not to render it.
- *
- * Two days after it, where Test Case 10b uses one, and deliberately:
- * `submitInstructorFeedback` names the document it writes
- * `${classId}-${Date.now()}`, so a frozen clock makes that id computable - and
- * two tests sharing a frozen instant would overwrite each other's feedback
- * document instead of each writing their own.
  */
-function signInAsCoInstructorAfterOrientation(): Date {
+function signInAsCoInstructorAfterOrientation() {
   const frozenNow = new Date(
     new Date(semesterDates.instructorOrientation).getTime() +
       2 * 24 * 60 * 60 * 1000,
   )
   cy.clock(frozenNow.getTime(), ['Date'])
   cy.signedInSession('instructor', { email: COHOST_EMAIL })
-  return frozenNow
 }
 
 /**
@@ -842,6 +835,7 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
     const expectedAttendance: Record<string, { present: boolean }> = {}
 
     cy.signedInSession('instructor')
+    cy.intercept('POST', '/api/instructorFeedback').as('instructorFeedback')
 
     cy.contains('button', 'Submit Feedback').click()
     cy.get('[role="dialog"]').within(() => {
@@ -867,28 +861,32 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
     cy.waitForNotification('Class Feedback saved!')
     cy.get('[role="dialog"]').should('not.exist')
 
-    // `submitInstructorFeedback` writes the feedback document under
-    // `${classId}-${Date.now()}`. `cy.clock` above freezes Date, so that id is
-    // computable rather than needing a collection scan.
-    const feedbackId = `${SEEDED_CLASS_ID}-${postOrientationDate.getTime()}`
+    // /api/instructorFeedback names the document it writes on the server, and
+    // returns that id in its response.
+    cy.wait('@instructorFeedback')
+      .its('response.body.feedbackId')
+      .as('feedbackId')
 
     cy.getFirebaseAuthToken().then((authToken: string) => {
-      cy.getFirestoreDoc(
-        authToken,
-        instructorFeedbackCollection,
-        feedbackId,
-      ).then((data: any) => {
-        expect(data, 'instructor feedback document').to.not.equal(null)
-        expect(prepareDocForCompare(data)).to.deep.equal({
-          semester: currentSemester,
-          date: '2026-06-12',
-          feedback: 'Class went really well! Students were highly interactive.',
-          attendanceList: expectedAttendance,
-          classNumber: 1,
-          // Empty unless this is a substitute filing the feedback, which this
-          // test isn't - it comes from `subRequest`, not the class.
-          courseName: '',
-          instructorName: 'Demo Instructor',
+      cy.get<string>('@feedbackId').then((feedbackId) => {
+        cy.getFirestoreDoc(
+          authToken,
+          instructorFeedbackCollection,
+          feedbackId,
+        ).then((data: any) => {
+          expect(data, 'instructor feedback document').to.not.equal(null)
+          expect(prepareDocForCompare(data)).to.deep.equal({
+            semester: currentSemester,
+            date: '2026-06-12',
+            feedback:
+              'Class went really well! Students were highly interactive.',
+            attendanceList: expectedAttendance,
+            classNumber: 1,
+            // Both read server-side rather than taken from the form: the
+            // class's course, and the name on the caller's own profile.
+            courseName: 'Python 1',
+            instructorName: 'Demo Instructor',
+          })
         })
       })
 
@@ -1471,7 +1469,8 @@ describe('Section G: Co-Instructor Access To A Shared Class', () => {
   it('Test Case 13k: Co-Instructor - The Shared Class, Its Roster And Its Feedback Form', () => {
     const feedback = 'Co-taught this session; the group project landed well.'
     grantCoInstructorAccess()
-    const frozenNow = signInAsCoInstructorAfterOrientation()
+    signInAsCoInstructorAfterOrientation()
+    cy.intercept('POST', '/api/instructorFeedback').as('instructorFeedback')
 
     // The co-instructor owns no class at all, so the only thing that can put
     // one on this page is the instructorClasses mapping their uid being added
@@ -1486,10 +1485,11 @@ describe('Section G: Co-Instructor Access To A Shared Class', () => {
     assertRosterVisible()
 
     // Filing the weekly feedback is the write that matters most here: it
-    // updates the *class* document (`feedbackCompleted`/`classStatuses`) with
-    // a plain updateDoc, a different path from the merge-write Test Case 13j
-    // exercises, and one only isInstructorOfClass()'s otherInstructorUids
-    // clause can allow for somebody who doesn't own the class.
+    // updates the *class* document (`feedbackCompleted`/`classStatuses`)
+    // through /api/instructorFeedback, a different path from the merge-write
+    // Test Case 13j exercises, and one only the otherInstructorUids clause of
+    // the server's isInstructorOfClass can allow for somebody who doesn't own
+    // the class.
     readClassDoc().then((klass: any) => {
       const pending = klass.feedbackCompleted.findIndex(
         (done: boolean) => !done,
@@ -1515,29 +1515,32 @@ describe('Section G: Co-Instructor Access To A Shared Class', () => {
       })
       cy.waitForNotification('Class Feedback saved!')
 
-      // Same computable-id trick as Test Case 10b - `signInAsCoInstructor...`
-      // freezes a different instant precisely so the two don't collide.
-      const feedbackId = `${SEEDED_CLASS_ID}-${frozenNow.getTime()}`
-      cy.getFirebaseAuthToken().then((authToken: string) => {
-        cy.getFirestoreDoc(
-          authToken,
-          instructorFeedbackCollection,
-          feedbackId,
-        ).then((data: any) => {
-          expect(data, 'instructor feedback document').to.not.equal(null)
-          expect(prepareDocForCompare(data)).to.deep.equal({
-            semester: currentSemester,
-            date: '2026-10-02',
-            feedback,
-            attendanceList: expectedAttendance,
-            classNumber: sessionNumber,
-            courseName: '',
-            // The person who taught and reflected, not the class's instructor
-            // of record - the reflection is read by curriculum developers, so
-            // it has to name whoever actually wrote it.
-            instructorName: 'Cohost Instructor',
+      cy.wait('@instructorFeedback')
+        .its('response.body.feedbackId')
+        .then((feedbackId: string) => {
+          cy.getFirebaseAuthToken().then((authToken: string) => {
+            cy.getFirestoreDoc(
+              authToken,
+              instructorFeedbackCollection,
+              feedbackId,
+            ).then((data: any) => {
+              expect(data, 'instructor feedback document').to.not.equal(null)
+              expect(prepareDocForCompare(data)).to.deep.equal({
+                semester: currentSemester,
+                date: '2026-10-02',
+                feedback,
+                attendanceList: expectedAttendance,
+                classNumber: sessionNumber,
+                courseName: klass.course,
+                // The person who taught and reflected, not the class's
+                // instructor of record - the reflection is read by curriculum
+                // developers, so it has to name whoever actually wrote it.
+                instructorName: 'Cohost Instructor',
+              })
+            })
           })
         })
+      cy.getFirebaseAuthToken().then((authToken: string) => {
         cy.getFirestoreDoc(authToken, classesCollection, SEEDED_CLASS_ID).then(
           (after: any) => {
             expect(
