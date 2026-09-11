@@ -19,22 +19,18 @@ export type SignupRequestBody = z.infer<typeof signupSchema>
  * The role a new account gets, given what the signup form was told.
  *
  * The single place role assignment is decided, which is the point of this
- * route existing. It used to happen in the browser: `userService.createUser`
- * wrote a role of its choosing into `users/{uid}` and portal's `/api/auth`
- * then minted a custom claim from that document, so the claim the whole system
- * authorizes against was ultimately a value the client picked.
+ * route existing: it prevents client-side control that would allow an
+ * attacker to claim another role.
  *
- * The mapping is deliberately still an identity function. Closing the
- * *escalation* (writing any role, at any time) and changing the *policy*
- * (whether choosing "instructor" should grant the instructor role at all) are
- * separate changes with very different blast radii, and only the first is safe
- * to ship in the middle of an application cycle. An account that picks
- * instructor here has exactly the access it had before.
+ * It is important to know that these roles merely state the user's intent:
+ * an "instructor" can merely be someone who applied but hasn't yet been
+ * accepted; a "student" can merely be someone who hasn't yet been assigned
+ * a class. All privileged actions are protected by server-side
+ * authorization checks in API routes that go beyond just the role claim.
  *
- * TODO(phase-2): return 'instructor-applicant' here, and let admin's
- * /api/decision promote to 'instructor' or 'instructor-substitute' when
- * someone is actually accepted. That is the whole policy change - everything
- * else about this route stays as it is.
+ * This is intentionally an identity function, intended to allow for role
+ * splits if needed in the future to differentiate between concepts like
+ * an instructor applicant vs accepted instructor.
  */
 function roleForSignup(accountType: 'instructor' | 'student'): Data.Role {
   return accountType
