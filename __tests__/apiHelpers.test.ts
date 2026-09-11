@@ -1,5 +1,6 @@
 import {
   verifyAuthenticated,
+  verifyStudent,
   handleApiError,
 } from '../src/lib/server/apiHelpers'
 import { error as createError } from '@sveltejs/kit'
@@ -23,6 +24,32 @@ describe('apiHelpers', () => {
       const locals = { user } as any as App.Locals
       const result = verifyAuthenticated(locals)
       expect(result).toBe(user)
+    })
+  })
+
+  describe('verifyStudent', () => {
+    it('throws 401 if user is not signed in', () => {
+      expect(() => verifyStudent({} as App.Locals)).toThrow(
+        expect.objectContaining({ status: 401 }),
+      )
+    })
+
+    it('throws 403 for a signed-in instructor', () => {
+      const locals = {
+        user: { uid: '123', role: 'instructor' },
+      } as any as App.Locals
+      expect(() => verifyStudent(locals)).toThrow(
+        expect.objectContaining({
+          status: 403,
+          body: { message: 'Only student accounts can do that.' },
+        }),
+      )
+    })
+
+    it('returns the user for a student account', () => {
+      const user = { uid: '456', role: 'student' }
+      const locals = { user } as any as App.Locals
+      expect(verifyStudent(locals)).toBe(user)
     })
   })
 

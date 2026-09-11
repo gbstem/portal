@@ -18,18 +18,13 @@
   import { onMount } from 'svelte'
   import { fade } from 'svelte/transition'
 
-  import {
-    buildPortalEnrollApiPayload,
-    isGradeEligible,
-    type ClassInfo,
-  } from '$lib/helpers/classesPage'
+  import type { ClassInfo } from '$lib/helpers/classesPage'
 
   let classes: ClassInfo[] = $state([])
   let loading = $state(true)
   let showClassDetailsDialog = $state(false)
   let dialogClassDetails: ClassInfo | null = $state(null)
   let selectedStudentUid = $state('')
-  let userName = ''
 
   let classFilter = $state('')
   let onlyShowEnrolled = $state(false)
@@ -37,8 +32,6 @@
   const studentUidToClassIds: {
     [studentUid: string]: string[]
   } = $state({})
-
-  const studentUidToGrade: Record<string, string> = {}
 
   const uidToName: Record<string, string> = $state({})
 
@@ -59,7 +52,6 @@
           `${slot.data.personal.studentFirstName} ${slot.data.personal.studentLastName}`.trim() ||
           `Child ${index + 1}`
         uidToName[studentUid] = name
-        studentUidToGrade[studentUid] = slot.data.academic.grade ?? ''
 
         // Add to preloaded students for StudentSelect component
         preloadedStudents.push({
@@ -81,7 +73,6 @@
           // Enrollment loading used to be gated on `object.displayName` being
           // truthy, standing in for "the profile is loaded". A parent whose
           // displayName was blank silently got no children and no error.
-          userName = user.profile.firstName ?? ''
           await determineStudentEnrollment(user)
         }
       } catch (err) {
@@ -120,89 +111,30 @@
     getData()
   }
 
+  // Capacity, the two-class limit and grade eligibility are all checked by
+  // /api/enroll, which writes the class roster and the registration together;
+  // its refusal message is what's shown.
   async function enrollInClass(classId: string): Promise<void> {
-    if (selectedStudentUid === '') {
-      alert.trigger('error', 'Please select a child!')
-      return
-    }
-    // get updated number of students in the class
-    const { numStudents, classCap } =
-      await classService.fetchClassCapacityInfo(classId)
-    if (numStudents >= classCap) {
-      alert.trigger('error', 'Class is full!')
-      return
-    }
-
-    // throw alert if student attempts to enroll in more than 2 classes
-    if ((studentUidToClassIds[selectedStudentUid]?.length ?? 0) >= 2) {
+    try {
+      const { emailSent } = await classService.enrollStudent(
+        classId,
+        selectedStudentUid,
+      )
+      alert.trigger(
+        'success',
+        emailSent
+          ? 'Thank you for enrolling! You will receive an email confirming course details shortly.'
+          : 'Enrolled in class!',
+      )
+      showClassDetailsDialog = false
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    } catch (error) {
+      console.error('Class enrollment error:', error)
       alert.trigger(
         'error',
-        'Each student may only enroll in a maximum of 2 classes!',
+        error instanceof Error ? error.message : 'Error enrolling in class!',
       )
-      return
     }
-
-    const ageBypassEnabled =
-      await classService.fetchBypassAgeLimits(selectedStudentUid)
-
-    if (dialogClassDetails) {
-      const eligibility = isGradeEligible(
-        dialogClassDetails.course,
-        studentUidToGrade[selectedStudentUid],
-        ageBypassEnabled,
-      )
-      if (!eligibility.eligible) {
-        alert.trigger(
-          'error',
-          `Students must be in grade ${eligibility.requiredGrade} or higher to enroll in this class!`,
-        )
-        return
-      }
-    }
-
-    await classService
-      .enrollStudentInClass(classId, selectedStudentUid)
-      .catch((error) => {
-        console.error('Class enrollment error:', error)
-        alert.trigger('error', 'Error enrolling in class!')
-      })
-
-    await classService
-      .confirmStudentClassEnrollment(selectedStudentUid, classId)
-      .then(() => {
-        alert.trigger('success', 'Enrolled in class!')
-        if (!dialogClassDetails) return
-        const payload = buildPortalEnrollApiPayload(
-          userName,
-          dialogClassDetails,
-          uidToName[selectedStudentUid],
-        )
-        fetch('/api/enroll', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
-        }).then(async (res) => {
-          if (!res.ok) {
-            const { message } = await res.json()
-            console.error('Enrollment API error:', message)
-          }
-          showClassDetailsDialog = false
-          window.scrollTo({
-            top: 0,
-            behavior: 'smooth',
-          })
-        })
-        alert.trigger(
-          'success',
-          'Thank you for enrolling! You will receive an email confirming course details shortly.',
-        )
-      })
-      .catch((error) => {
-        console.error('Registration enrollment error:', error)
-        alert.trigger('error', 'Error enrolling in class!')
-      })
   }
 
   function clearFilter() {
@@ -215,23 +147,19 @@
   }
 
   async function unenrollFromClass(classId: string): Promise<void> {
-    await classService
-      .unenrollStudentFromClass(classId, selectedStudentUid)
-      .catch((error) => {
-        console.error('Class unenrollment error:', error)
-        alert.trigger('error', 'Error unenrolling from class!')
-      })
-
-    await classService
-      .confirmStudentClassUnenrollment(selectedStudentUid, classId)
-      .then(() => {
-        alert.trigger('success', 'Unenrolled from class!')
-        showClassDetailsDialog = false
-      })
-      .catch((error) => {
-        console.error('Registration unenrollment error:', error)
-        alert.trigger('error', 'Error unenrolling from class!')
-      })
+    try {
+      await classService.unenrollStudent(classId, selectedStudentUid)
+      alert.trigger('success', 'Unenrolled from class!')
+      showClassDetailsDialog = false
+    } catch (error) {
+      console.error('Class unenrollment error:', error)
+      alert.trigger(
+        'error',
+        error instanceof Error
+          ? error.message
+          : 'Error unenrolling from class!',
+      )
+    }
   }
 </script>
 

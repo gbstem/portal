@@ -1,5 +1,4 @@
 import type {} from '../../data.d.ts'
-import type { EnrollRequestBody } from '../../routes/api/enroll/+server'
 
 export type ClassInfo = {
   id: string
@@ -107,31 +106,4 @@ export function isGradeEligible(
   }
 
   return { eligible: true }
-}
-
-/**
- * Constructs request payload for /api/enroll endpoint in portal.
- */
-export function buildPortalEnrollApiPayload(
-  userName: string,
-  classDetails: ClassInfo,
-  studentName: string,
-): EnrollRequestBody {
-  return {
-    firstName: userName,
-    instructor: classDetails.instructorFirstName,
-    // Uid plus the stored address. parseClassInfoDoc always produces an
-    // instructorUid, but when it falls back to parsing the `${uid}-${n}` class
-    // id that value is a guess - a class whose id does not follow that scheme
-    // yields a string naming no Auth account. Only the server can tell, so it
-    // gets both and logs whenever it has to fall back.
-    instructorUid: classDetails.instructorUid || undefined,
-    instructorEmail: classDetails.instructorEmail,
-    classTimes: classDetails.classTimes,
-    classDays: classDetails.classDays,
-    course: classDetails.course,
-    meetingLink: classDetails.meetingLink,
-    online: classDetails.online,
-    studentName,
-  }
 }
