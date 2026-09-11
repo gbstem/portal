@@ -1,4 +1,5 @@
 import { db } from '$lib/client/firebase'
+import { ClassStatus } from '$lib/components/helpers/ClassStatus'
 import {
   classesCollection,
   instructorFeedbackCollection,
@@ -19,6 +20,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  runTransaction,
   setDoc,
   updateDoc,
 } from 'firebase/firestore'
@@ -372,28 +374,53 @@ export const classService = {
 
   /**
    * Records a class instructor's feedback for one session: saves the feedback
-   * document and marks the session complete on the class.
+   * document and marks the session complete on the class, in one transaction.
+   *
+   * The session is marked complete on the class as it stands, read inside the
+   * transaction. The form used to send whole `feedbackCompleted` and
+   * `classStatuses` arrays it had loaded when it opened, written in a second
+   * update after the feedback - so the feedback could save with the class
+   * never marked, and a session a co-instructor or substitute recorded in the
+   * meantime was overwritten.
    *
    * Only for an instructor of the class - a substitute's feedback goes through
    * /api/substituteFeedback instead, because the class update below is a write
-   * firestore.rules refuses them. This used to close out a substitute request
-   * as well, which meant the sub path ran entirely here and failed halfway
-   * through: the feedback saved, the class update was denied, and the request
-   * was left asking for feedback forever.
+   * firestore.rules refuses them.
    */
   async submitInstructorFeedback(
     classId: string,
     feedback: InstructorFeedbackSubmission,
-    feedbackCompleted: boolean[],
-    classStatuses: string[],
   ): Promise<void> {
-    await setDoc(
-      doc(db, instructorFeedbackCollection, `${classId}-${Date.now()}`),
-      withSemester(feedback),
+    const classRef = doc(db, classesCollection, classId)
+    const feedbackRef = doc(
+      db,
+      instructorFeedbackCollection,
+      `${classId}-${Date.now()}`,
     )
-    await updateDoc(doc(db, classesCollection, classId), {
-      feedbackCompleted,
-      classStatuses,
+    await runTransaction(db, async (transaction) => {
+      const classSnap = await transaction.get(classRef)
+      if (!classSnap.exists()) {
+        throw new Error('That class no longer exists.')
+      }
+      const classData = classSnap.data() as Data.Class
+      const feedbackCompleted = [...(classData.feedbackCompleted ?? [])]
+      const classStatuses = [...(classData.classStatuses ?? [])]
+      // Indexed by session. Writing past the end would extend the arrays with
+      // holes rather than fail, so a session off the schedule is refused.
+      const index = feedback.classNumber - 1
+      if (
+        !Number.isInteger(index) ||
+        index < 0 ||
+        index >= feedbackCompleted.length ||
+        index >= classStatuses.length
+      ) {
+        throw new Error('Invalid class number.')
+      }
+      feedbackCompleted[index] = true
+      classStatuses[index] = ClassStatus.EverythingComplete
+
+      transaction.set(feedbackRef, withSemester(feedback))
+      transaction.update(classRef, { feedbackCompleted, classStatuses })
     })
   },
 

@@ -14,7 +14,10 @@ jest.mock('firebase/firestore', () => ({
   setDoc: jest.fn(),
   updateDoc: jest.fn(),
   deleteDoc: jest.fn(),
+  writeBatch: jest.fn(() => mockBatch),
 }))
+
+const mockBatch = { set: jest.fn(), delete: jest.fn(), commit: jest.fn() }
 
 function snapshot(docs: { id: string; data: Record<string, unknown> }[]) {
   return { docs: docs.map(({ id, data }) => ({ id, data: () => data })) }
@@ -154,8 +157,11 @@ describe('substituteService (Data Access Layer)', () => {
     (firestore.doc as jest.Mock).mock.calls[call][2]
 
   describe('saveSubRequest', () => {
+    beforeEach(() => {
+      mockBatch.commit.mockReset().mockResolvedValue(undefined)
+    })
+
     it('writes back to the document the request was read from', async () => {
-      ;(firestore.setDoc as jest.Mock).mockResolvedValueOnce(undefined)
       const subReq = {
         id: 'owner-uid-1---2',
         classNumber: 2,
@@ -166,16 +172,15 @@ describe('substituteService (Data Access Layer)', () => {
 
       expect(pathOf()).toBe('owner-uid-1---2')
       // The stored `id` field means the class, the way creation writes it.
-      expect(firestore.setDoc).toHaveBeenCalledWith(
+      expect(mockBatch.set).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({ id: 'owner-uid-1', notes: 'edited' }),
       )
-      expect(firestore.deleteDoc).not.toHaveBeenCalled()
+      expect(mockBatch.delete).not.toHaveBeenCalled()
+      expect(mockBatch.commit).toHaveBeenCalledTimes(1)
     })
 
-    it('moves the document when the class number changes', async () => {
-      ;(firestore.setDoc as jest.Mock).mockResolvedValueOnce(undefined)
-      ;(firestore.deleteDoc as jest.Mock).mockResolvedValueOnce(undefined)
+    it('moves the document when the class number changes, in one batch', async () => {
       const subReq = {
         id: 'owner-uid-1---2',
         classNumber: 3,
@@ -184,10 +189,26 @@ describe('substituteService (Data Access Layer)', () => {
       await substituteService.saveSubRequest(subReq, 2)
 
       // Written at the new session number, removed from the old one - both
-      // under the class, not under whoever is signed in.
+      // under the class, not under whoever is signed in, and together.
       expect(pathOf(0)).toBe('owner-uid-1---3')
       expect(pathOf(1)).toBe('owner-uid-1---2')
-      expect(firestore.deleteDoc).toHaveBeenCalled()
+      expect(firestore.writeBatch).toHaveBeenCalledTimes(1)
+      expect(mockBatch.set).toHaveBeenCalledTimes(1)
+      expect(mockBatch.delete).toHaveBeenCalledTimes(1)
+      expect(mockBatch.commit).toHaveBeenCalledTimes(1)
+      expect(firestore.setDoc).not.toHaveBeenCalled()
+      expect(firestore.deleteDoc).not.toHaveBeenCalled()
+    })
+
+    it('propagates a refused batch', async () => {
+      mockBatch.commit.mockRejectedValueOnce(new Error('permission-denied'))
+
+      await expect(
+        substituteService.saveSubRequest(
+          { id: 'owner-uid-1---2', classNumber: 3 } as Data.SubRequest,
+          2,
+        ),
+      ).rejects.toThrow('permission-denied')
     })
 
     it('refuses to write a request whose class cannot be determined', async () => {
@@ -196,7 +217,7 @@ describe('substituteService (Data Access Layer)', () => {
       await expect(substituteService.saveSubRequest(subReq)).rejects.toThrow(
         /without a class/,
       )
-      expect(firestore.setDoc).not.toHaveBeenCalled()
+      expect(mockBatch.set).not.toHaveBeenCalled()
     })
   })
 
