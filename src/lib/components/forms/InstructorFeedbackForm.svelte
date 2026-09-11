@@ -13,7 +13,6 @@
   import FormCheckbox from '../FormCheckbox.svelte'
   import FormInput from '../FormInput.svelte'
   import Loading from '../Loading.svelte'
-  import { ClassStatus } from '../helpers/ClassStatus'
 
   interface Props {
     subRequest: Data.SubRequest | undefined
@@ -27,8 +26,6 @@
   let currentUser: Data.User.Store
   let loading = $state(true)
   let loadError = $state(false)
-  let feedbackCompletedArray: boolean[] = []
-  let classStatusesArray: string[] = []
 
   let classList: string[] = $state([])
 
@@ -85,34 +82,20 @@
                 classNumber: formVal.data.classNumber,
               })
             } else {
-              if (
-                formVal.data.classNumber - 1 < 0 ||
-                formVal.data.classNumber - 1 >= feedbackCompletedArray.length
-              ) {
-                alert.trigger('error', 'Invalid class number.')
-                return
-              }
-
-              feedbackCompletedArray[formVal.data.classNumber - 1] = true
-              classStatusesArray[formVal.data.classNumber - 1] =
-                ClassStatus.EverythingComplete
-
-              await classService.submitInstructorFeedback(
-                id,
-                {
-                  date: formVal.data.classDate,
-                  feedback: formVal.data.feedback,
-                  attendanceList: formVal.data.attendanceList,
-                  courseName: '',
-                  classNumber: formVal.data.classNumber,
-                  instructorName:
-                    frozenUser.profile.firstName +
-                    ' ' +
-                    frozenUser.profile.lastName,
-                },
-                feedbackCompletedArray,
-                classStatusesArray,
-              )
+              // The session is marked complete on the class as it stands
+              // when this saves, and a session off the schedule is refused
+              // there - see submitInstructorFeedback.
+              await classService.submitInstructorFeedback(id, {
+                date: formVal.data.classDate,
+                feedback: formVal.data.feedback,
+                attendanceList: formVal.data.attendanceList,
+                courseName: '',
+                classNumber: formVal.data.classNumber,
+                instructorName:
+                  frozenUser.profile.firstName +
+                  ' ' +
+                  frozenUser.profile.lastName,
+              })
             }
             alert.trigger('success', 'Class Feedback saved!')
             setTimeout(() => location.reload(), 1000)
@@ -159,9 +142,6 @@
         : subRequest.id.split('---')[0]
     const data = await classService.fetchClassDetails(id)
     if (data) {
-      const { feedbackCompleted, classStatuses } = data
-      feedbackCompletedArray = feedbackCompleted
-      classStatusesArray = classStatuses
       try {
         const list = await classService.fetchStudentNamesForClass(
           id,

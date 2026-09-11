@@ -13,8 +13,8 @@ import {
   getCountFromServer,
   getDocs,
   query,
-  setDoc,
   where,
+  writeBatch,
   type QuerySnapshot,
 } from 'firebase/firestore'
 import type {
@@ -137,16 +137,26 @@ export const substituteService = {
     // `id` is stored as the class id at creation (see buildSubRequestPayload)
     // while the in-memory copy carries the document id, so it is restamped
     // rather than written back as read.
-    await setDoc(docRef, { ...subRequest, id: classId })
+    const batch = writeBatch(db)
+    batch.set(docRef, { ...subRequest, id: classId })
 
     // Moving a request to another session moves the document, so the one it
-    // came from has to go.
+    // came from has to go - in the same batch. As two writes, a failed delete
+    // left the request at both sessions, and a refused write (the new
+    // session already has a request) still deleted the old one.
     if (
       originalClassNumber !== undefined &&
       subRequest.classNumber !== originalClassNumber
     ) {
-      await this.deleteSubRequest(subRequestDocId(classId, originalClassNumber))
+      batch.delete(
+        doc(
+          db,
+          substituteRequestsCollection,
+          subRequestDocId(classId, originalClassNumber),
+        ),
+      )
     }
+    await batch.commit()
   },
 
   /**

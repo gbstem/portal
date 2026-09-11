@@ -97,15 +97,17 @@ const mockCollection = {
   startAfter: jest.fn().mockReturnThis(),
 }
 
-const mockBatch = {
+// A transaction reads through each document's own get(), so whatever a test
+// points adminDb.doc() at serves transactional reads too.
+const mockTransaction = {
+  get: jest.fn((ref: any) => ref.get()),
   set: jest.fn(),
   update: jest.fn(),
-  commit: jest.fn().mockResolvedValue(undefined),
 }
 const mockAdminDb = {
   collection: jest.fn().mockReturnValue(mockCollection),
   doc: jest.fn().mockImplementation((id) => mockDoc(id)),
-  batch: jest.fn(() => mockBatch),
+  runTransaction: jest.fn(async (fn: any) => fn(mockTransaction)),
 }
 
 jest.mock('firebase-admin', () => ({
@@ -2778,7 +2780,6 @@ describe('substitute session endpoints', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockRequest = { json: jest.fn() }
-    mockBatch.commit.mockResolvedValue(undefined)
   })
 
   afterEach(() => {
@@ -2799,10 +2800,11 @@ describe('substitute session endpoints', () => {
         meetingLink: 'https://zoom.us/j/1',
         alreadyRecorded: false,
       })
-      // The class is written once, the request once, in one batch - the pair
-      // used to be two sequential client writes, either of which could land
-      // without the other.
-      const [, classPayload] = mockBatch.update.mock.calls[0]
+      // The class is written once, the request once, in one transaction that
+      // also made both reads - the arrays are rewritten from what it read.
+      expect(mockAdminDb.runTransaction).toHaveBeenCalledTimes(1)
+      expect(mockTransaction.get).toHaveBeenCalledTimes(2)
+      const [, classPayload] = mockTransaction.update.mock.calls[0]
       expect(classPayload.completedClassDates).toEqual([
         'timestamp-for-week-1',
         'timestamp-for-week-2',
@@ -2813,11 +2815,10 @@ describe('substitute session endpoints', () => {
         'FeedbackIncomplete',
         'ClassInFuture',
       ])
-      const [, subRequestPayload] = mockBatch.update.mock.calls[1]
+      const [, subRequestPayload] = mockTransaction.update.mock.calls[1]
       expect(subRequestPayload).toEqual({
         subRequestStatus: 'SubstituteFeedbackNeeded',
       })
-      expect(mockBatch.commit).toHaveBeenCalledTimes(1)
     })
 
     it('is idempotent - joining twice records the date once', async () => {
@@ -2836,7 +2837,7 @@ describe('substitute session endpoints', () => {
         meetingLink: 'https://zoom.us/j/1',
         alreadyRecorded: true,
       })
-      expect(mockBatch.commit).not.toHaveBeenCalled()
+      expect(mockTransaction.update).not.toHaveBeenCalled()
     })
 
     it('refuses an instructor who is not the substitute for that class', async () => {
@@ -2856,7 +2857,7 @@ describe('substitute session endpoints', () => {
           message: 'You are not the substitute for that class.',
         }),
       )
-      expect(mockBatch.commit).not.toHaveBeenCalled()
+      expect(mockTransaction.update).not.toHaveBeenCalled()
     })
 
     it('refuses a request nobody has signed up for', async () => {
@@ -2914,7 +2915,7 @@ describe('substitute session endpoints', () => {
           message: expect.stringContaining('no longer on the schedule'),
         }),
       )
-      expect(mockBatch.commit).not.toHaveBeenCalled()
+      expect(mockTransaction.update).not.toHaveBeenCalled()
     })
 
     it('rejects a caller who is not an instructor at all', async () => {
@@ -2949,7 +2950,9 @@ describe('substitute session endpoints', () => {
       } as any)
 
       expect(res.body.feedbackId).toMatch(/^owner-uid-1-\d+$/)
-      const [, feedbackDoc] = mockBatch.set.mock.calls[0]
+      expect(mockAdminDb.runTransaction).toHaveBeenCalledTimes(1)
+      expect(mockTransaction.get).toHaveBeenCalledTimes(2)
+      const [, feedbackDoc] = mockTransaction.set.mock.calls[0]
       expect(feedbackDoc).toEqual(
         expect.objectContaining({
           date: '2026-10-02',
@@ -2961,7 +2964,7 @@ describe('substitute session endpoints', () => {
           instructorName: 'Sub',
         }),
       )
-      const [, classPayload] = mockBatch.update.mock.calls[0]
+      const [, classPayload] = mockTransaction.update.mock.calls[0]
       expect(classPayload.feedbackCompleted).toEqual([true, true, false])
       expect(classPayload.classStatuses).toEqual([
         'EverythingComplete',
@@ -2969,8 +2972,8 @@ describe('substitute session endpoints', () => {
         'ClassInFuture',
       ])
       // Closing the request out is what credits the substitute's hours, so it
-      // has to be in the same batch as the feedback.
-      const [, subRequestPayload] = mockBatch.update.mock.calls[1]
+      // has to be in the same transaction as the feedback.
+      const [, subRequestPayload] = mockTransaction.update.mock.calls[1]
       expect(subRequestPayload).toEqual({
         subRequestStatus: 'NoSubstituteNeeded',
       })
@@ -2991,7 +2994,7 @@ describe('substitute session endpoints', () => {
           message: expect.stringContaining('That request is for class #2'),
         }),
       )
-      expect(mockBatch.commit).not.toHaveBeenCalled()
+      expect(mockTransaction.update).not.toHaveBeenCalled()
     })
 
     it('refuses an instructor who is not the substitute for that class', async () => {
@@ -3006,7 +3009,7 @@ describe('substitute session endpoints', () => {
           locals: substituteLocals,
         } as any),
       ).rejects.toEqual(expect.objectContaining({ status: 403 }))
-      expect(mockBatch.commit).not.toHaveBeenCalled()
+      expect(mockTransaction.update).not.toHaveBeenCalled()
     })
 
     it('rejects an empty reflection rather than storing one', async () => {
