@@ -126,6 +126,12 @@ declare global {
       meta: {
         uid: string
         submitted: boolean
+        /**
+         * Whether an interview slot currently names this applicant - true
+         * only while `Data.InterviewSlot.intervieweeId` is theirs. Set
+         * alongside the slot write (see interviewSlots.ts / admin's
+         * interviewService), never as a standalone intent/pipeline flag.
+         */
         interview: boolean
         decided: boolean
       }
