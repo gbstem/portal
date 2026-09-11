@@ -144,10 +144,15 @@ export async function checkAccountDeletionEligibility(
  *
  * Student: every existing child registration, plus `confirmations/{uid}` -
  * one per parent account, part of the registration, not a historical
- * record. `checkIns` is deliberately never touched: it only exists for a
- * student enrolled in a class this semester, which is exactly what already
- * blocks deletion, so a deletion that actually proceeds can't have one to
- * clean up.
+ * record. In practice this is defensive: the only code that ever wrote a
+ * `confirmations` doc (a retreat-attendance form) was removed from this
+ * repo in 2025 without also removing the collection, its firestore.rules
+ * entry, or admin's read of it, so no account created since can have one -
+ * deleting it here costs nothing and covers the account-history exception
+ * (the demo seed data, and any doc created directly in Firestore).
+ * `checkIns` is deliberately never touched: it only exists for a student
+ * enrolled in a class this semester, which is exactly what already blocks
+ * deletion, so a deletion that actually proceeds can't have one to clean up.
  *
  * Throws a 409 (via `error()`) with the block reason if the account can't
  * be deleted.
