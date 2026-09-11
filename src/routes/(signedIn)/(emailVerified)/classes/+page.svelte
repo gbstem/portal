@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { page } from '$app/state'
   import { user } from '$lib/client/firebase'
   import Button from '$lib/components/Button.svelte'
   import Card from '$lib/components/Card.svelte'
@@ -44,7 +45,7 @@
   // Preload student data for the StudentSelect component
   let preloadedStudents: { uid: string; name: string }[] = []
 
-  let isStudent = $state(true)
+  const isStudent = $derived(page.data.user?.role === 'student')
 
   const determineStudentEnrollment = async (user: Data.User.Store) => {
     const uid = user.object.uid
@@ -74,9 +75,6 @@
       // `loading` is cleared in `finally` so a failed read leaves the page in an
       // error state the user can act on rather than a spinner that never stops.
       try {
-        if (user?.profile.role === 'instructor') {
-          isStudent = false
-        }
         classes = await classService.fetchAllClassesInfo()
 
         if (user && isStudent) {

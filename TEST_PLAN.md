@@ -260,6 +260,16 @@ graph TD
   - Selecting and booking a slot books it through `/api/interview` (a transaction, so a slot somebody else has just booked is refused) and displays the scheduled interview details.
   - Requesting a timeslot successfully saves a request to Firestore (creates a document under `interviewTimeRequests`) and displays a success toast.
 
+#### Test Case 8f: Instructor Apply Page Makes No Parent-Only Reads
+
+- Description: Verify that an instructor's `/apply` page doesn't try to load child registrations, which only a parent can read.
+- Steps:
+  1. Log in as an instructor with a submitted application.
+  2. Navigate to `/apply` and wait for the application to load.
+- Expected Results (Assertions):
+  - No "Could not load your existing accounts" error is shown.
+  - No permission-denied Firestore error is logged. The page branches on the Auth role claim (`page.data.user.role`), so the registration read is never made.
+
 ---
 
 ### Section D: Class Roster and Details View

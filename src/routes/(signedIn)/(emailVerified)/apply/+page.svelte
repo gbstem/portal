@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { page } from '$app/state'
   import { user } from '$lib/client/firebase'
   import Button from '$lib/components/Button.svelte'
   import Card from '$lib/components/Card.svelte'
@@ -80,6 +81,10 @@
   }
 
   onMount(() => {
+    // Only a parent has child registrations, and firestore.rules refuses the
+    // read to anyone else - an instructor on this page used to get a
+    // "Could not load your existing accounts" error on every visit.
+    if (page.data.user?.role !== 'student') return
     return user.subscribe((user) => {
       if (user) {
         fetchData(user)
@@ -92,7 +97,7 @@
   <title>Apply</title>
 </svelte:head>
 
-{#if $user?.profile.role === 'instructor'}
+{#if page.data.user?.role === 'instructor'}
   <h1 class="mb-4 text-5xl font-bold md:text-6xl">Apply</h1>
   <div class="mx-auto flex max-w-6xl flex-col items-center px-2 py-8 md:px-8">
     <ApplyForm {semesterDates} />

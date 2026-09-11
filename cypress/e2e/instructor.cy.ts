@@ -741,6 +741,39 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
     cy.signOutViaUi()
   })
 
+  it('Test Case 8f: Instructor Apply Page Makes No Parent-Only Reads', () => {
+    // Child registrations belong to a parent, and firestore.rules refuses them
+    // to everyone else. /apply used to read them for any signed-in user, so
+    // every instructor visit made a permission-denied read and showed a red
+    // "Could not load your existing accounts" toast. The page now branches on
+    // the Auth role claim and never makes that read for an instructor.
+    const consoleErrors: string[] = []
+    cy.on('window:before:load', (win) => {
+      const original = win.console.error.bind(win.console)
+      win.console.error = (...args: unknown[]) => {
+        consoleErrors.push(args.map(String).join(' '))
+        original(...args)
+      }
+    })
+
+    cy.signedInSession('instructor', { initialPage: '/apply' })
+    // The application loads from the same user store update the registration
+    // read used to start from, so by the time it renders that read would have
+    // been made - and refused moments later, which the wait allows for.
+    cy.get('body').should('contain', 'Application submitted and in review!')
+    cy.wait(1000)
+
+    cy.contains('Could not load your existing accounts').should('not.exist')
+    cy.wrap(consoleErrors).should((errors) => {
+      expect(
+        errors.filter((error) =>
+          /permission-denied|insufficient permissions/i.test(error),
+        ),
+        'permission-denied errors',
+      ).to.deep.equal([])
+    })
+  })
+
   it('Test Case 8e: Instructor Interview Slot Booking & Time Request', () => {
     cy.signedInSession('instructor', {
       email: 'instructor-interview@gbstem.org',

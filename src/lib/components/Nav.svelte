@@ -9,7 +9,7 @@
   import Brand from './Brand.svelte'
   import ProfileMenu from './ProfileMenu.svelte'
 
-  let userRole = $derived($user?.profile?.role)
+  let userRole = $derived(page.data.user?.role)
   let shadow = $state(false)
   let open = $state(false)
   let showAdditionalPages = $state(false)

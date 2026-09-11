@@ -40,7 +40,7 @@ There are **no `+page.server.ts` form actions anywhere in this repo**. Every for
 
 ## Roles come from the Auth claim, and signup does not pick one
 
-A user's role is the Firebase Auth **custom claim**; `users/{uid}.role` is a display copy that `firestore.rules` refuses to let a client change. `hooks.server.ts` reads the claim off the Auth record per request, and `verifyInstructor` reads `locals.user.role`.
+A user's role is the Firebase Auth **custom claim**; `users/{uid}.role` is a display copy that `firestore.rules` refuses to let a client change. `hooks.server.ts` reads the claim off the Auth record per request, and `verifyInstructor` reads `locals.user.role`. On the client, pages and components read that same value as `page.data.user.role` (from `$app/state`), which `(signedIn)/+layout.server.ts` provides on the first render. Don't branch on the `user` store's `profile.role`: it is the display copy, it arrives only after a `users` document read, and a page that waits on it either flashes the wrong role's UI or, like `/apply` once did, makes a read the rules refuse that role.
 
 `userService.createUser` creates the Auth account and nothing else. The profile document and the claim are written together by `/api/signup`, whose `roleForSignup` is the single place role assignment is decided — the form only reports what the person said they were there to do. `/api/auth` is claim-only and refuses an account with no claim; **do not reintroduce a users-document fallback there**, that fallback is how a browser-chosen role became a real custom claim.
 
