@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { page } from '$app/state'
   import { user } from '$lib/client/firebase'
   import Button from '$lib/components/Button.svelte'
   import Card from '$lib/components/Card.svelte'
@@ -38,15 +39,13 @@
     },
   })
 
-  let isStudent = $state(false)
+  const isStudent = $derived(page.data.user?.role === 'student')
 
   user.subscribe((userObj) => {
     if (userObj) {
-      isStudent = userObj.profile.role === 'student'
-
       ;(async () => {
         try {
-          if (userObj.profile.role === 'instructor') {
+          if (!isStudent) {
             data.application.status = null
             data.application.status =
               await applicationService.fetchApplicationDashboardStatus(
@@ -123,7 +122,7 @@
         : 'max-w-155 grid-cols-1'}"
     >
       <div class="flex flex-col gap-8">
-        {#if $user?.profile?.role === 'instructor' && new Date() >= new Date(semesterDates.classesStart) && data.application.status === 'submitted'}
+        {#if !isStudent && new Date() >= new Date(semesterDates.classesStart) && data.application.status === 'submitted'}
           <Card class="rounded-xl bg-white p-6 shadow-lg">
             <div class="mb-4 flex items-center">
               <svg

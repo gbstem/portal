@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { page } from '$app/state'
   import { user } from '$lib/client/firebase'
   import Loading from '$lib/components/Loading.svelte'
   import Select from '$lib/components/Select.svelte'
@@ -87,7 +88,7 @@
     return user.subscribe(async (userData) => {
       if (userData) {
         try {
-          if (userData.profile.role === 'student') {
+          if (page.data.user?.role === 'student') {
             await fetchData(userData)
           }
         } catch (err) {
