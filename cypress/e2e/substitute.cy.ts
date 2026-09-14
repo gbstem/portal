@@ -564,6 +564,20 @@ describe('Section I: Substitute Requests And Cover', () => {
         cy.contains('h2', 'Your Classes To Substitute')
           .parent()
           .should('contain', `class #${classNumber}`)
+
+        // The session's prep notes tell the substitute who to ask: the class's
+        // own instructor, by address. Each session is a row followed by its
+        // buttons, so the first "View Prep Notes" after the row is its own.
+        cy.contains('h2', 'Your Classes To Substitute')
+          .parent()
+          .contains('div', `class #${classNumber} at`)
+          .nextAll()
+          .filter(':contains("View Prep Notes")')
+          .first()
+          .click()
+        cy.get('[role="dialog"]')
+          .should('contain', 'Prep: the fractions worksheet.')
+          .and('contain', `the class's usual instructor at ${OWNER_EMAIL}`)
       },
     )
   })

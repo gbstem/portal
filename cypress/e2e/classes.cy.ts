@@ -4,6 +4,7 @@ import {
 } from '../../src/lib/data/collections'
 import semesterDates from '../../src/lib/data/semesterDates.json'
 import {
+  OWNER_EMAIL,
   SCRATCH_CLASS_CAP,
   SCRATCH_CLASS_ID,
   SCRATCH_INSTRUCTOR_NAME,
@@ -59,6 +60,16 @@ function visitClassesAsParent() {
   cy.wait(500)
 }
 
+/**
+ * The "Contact Instructor" link on the class card naming `instructorName`. It
+ * only renders on a card the signed-in parent has a student enrolled in.
+ */
+function contactInstructorLink(instructorName: string) {
+  return cy
+    .contains('.group', instructorName)
+    .contains('a', 'Contact Instructor')
+}
+
 /** Opens the Add/Drop dialog on the first class card containing `text`. */
 function openAddDrop(text: string) {
   cy.contains('.group', text).contains('button', 'Add/Drop Class').click()
@@ -102,6 +113,11 @@ describe('Section D: Class Roster and Details View', () => {
     // Verify enrolled class is visible (Python 1 is seeded for the demo student)
     cy.get('body').should('contain', 'Python 1')
     cy.get('body').should('contain', 'Demo Instructor')
+    contactInstructorLink('Demo Instructor').should(
+      'have.attr',
+      'href',
+      `mailto:${OWNER_EMAIL}`,
+    )
 
     // 1. Select course filter
     cy.selectOption('input[placeholder="Filter by course"]', 'Python 1')
@@ -173,6 +189,16 @@ describe('Section D: Class Roster and Details View', () => {
             `Mathematics 2a class details for ${SEEDED_STUDENT_NAME}`,
             { to: [SEEDED_STUDENT_EMAIL], cc: [classDoc.instructorEmail] },
           )
+
+          // Now enrolled, the card offers its instructor's address. The seed
+          // gives class-fake-N's instructor instructor-fake-N@gbstem.org.
+          contactInstructorLink(
+            `${classDoc.instructorFirstName} ${classDoc.instructorLastName}`,
+          ).should(
+            'have.attr',
+            'href',
+            `mailto:${enrolledClassId.replace('class-fake-', 'instructor-fake-')}@gbstem.org`,
+          )
         },
       )
     })
@@ -183,6 +209,11 @@ describe('Section D: Class Roster and Details View', () => {
 
     // Python 1 is the one class the seed enrolls the demo student in.
     cy.contains('button', 'Show all enrolled classes').click()
+    contactInstructorLink('Demo Instructor').should(
+      'have.attr',
+      'href',
+      `mailto:${OWNER_EMAIL}`,
+    )
     openAddDrop('Python 1')
     cy.get('[role="dialog"]')
       .contains('button', 'Unenroll Student')
