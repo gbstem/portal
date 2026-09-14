@@ -271,7 +271,6 @@ describe('bookInterviewSlot', () => {
       date: expect.any(Date),
       interviewerName: 'Demo Admin',
       interviewerUid: 'admin-uid',
-      interviewerEmail: 'demo@gbstem.org',
       meetingLink: 'https://zoom.us/j/slot-1',
       intervieweeFirstName: 'Grace',
     })

@@ -11,48 +11,44 @@ import { resolveCurrentInterviewerEmail } from '$lib/server/interviewerIdentity'
 describe('resolveCurrentInterviewerEmail', () => {
   beforeEach(() => {
     mockGetUser.mockReset()
+    jest.spyOn(console, 'error').mockImplementation(() => {})
   })
 
-  test('falls back to the stored email when no uid is on file', async () => {
-    const email = await resolveCurrentInterviewerEmail(
-      undefined,
-      'stored@example.com',
-    )
-    expect(email).toBe('stored@example.com')
-    expect(mockGetUser).not.toHaveBeenCalled()
+  afterEach(() => {
+    jest.restoreAllMocks()
   })
 
   // The scenario this function exists for: the interviewer changed their
   // account's email after the slot was created, so the stored email is
   // stale, but Firebase Auth (looked up by the stable uid) has the current one.
-  test('prefers the live Firebase Auth email over a stale stored email', async () => {
+  test('returns the live Firebase Auth email', async () => {
     mockGetUser.mockResolvedValue({ email: 'new@example.com' })
 
-    const email = await resolveCurrentInterviewerEmail(
-      'uid-owner',
-      'old@example.com',
-    )
+    const email = await resolveCurrentInterviewerEmail('uid-owner', '/api/test')
     expect(email).toBe('new@example.com')
     expect(mockGetUser).toHaveBeenCalledWith('uid-owner')
   })
 
-  test('falls back to the stored email if the Auth lookup fails', async () => {
+  test('returns undefined without an Auth lookup when the slot has no uid', async () => {
+    const email = await resolveCurrentInterviewerEmail(undefined, '/api/test')
+    expect(email).toBeUndefined()
+    expect(mockGetUser).not.toHaveBeenCalled()
+  })
+
+  test('returns undefined if the Auth lookup fails', async () => {
     mockGetUser.mockRejectedValue(new Error('user-not-found'))
 
     const email = await resolveCurrentInterviewerEmail(
       'uid-deleted',
-      'stored@example.com',
+      '/api/test',
     )
-    expect(email).toBe('stored@example.com')
+    expect(email).toBeUndefined()
   })
 
-  test('falls back to the stored email if the Auth record has no email', async () => {
+  test('returns undefined if the Auth record has no email', async () => {
     mockGetUser.mockResolvedValue({ email: undefined })
 
-    const email = await resolveCurrentInterviewerEmail(
-      'uid-owner',
-      'stored@example.com',
-    )
-    expect(email).toBe('stored@example.com')
+    const email = await resolveCurrentInterviewerEmail('uid-owner', '/api/test')
+    expect(email).toBeUndefined()
   })
 })

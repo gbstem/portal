@@ -41,7 +41,6 @@ async function sendBookingConfirmation(
 ): Promise<boolean> {
   const interviewerEmail = await resolveCurrentInterviewerEmail(
     booked.interviewerUid,
-    booked.interviewerEmail,
     '/api/interview',
   )
   if (!interviewerEmail) {

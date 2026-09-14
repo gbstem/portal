@@ -72,17 +72,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       subRequestId,
     )
 
-    let originalInstructorEmail = claimed.originalInstructorEmail || undefined
-    if (claimed.originalInstructorUid) {
-      originalInstructorEmail =
-        (await resolveEmailByUid(claimed.originalInstructorUid)) ??
-        originalInstructorEmail
-    } else if (originalInstructorEmail) {
-      console.warn(
-        `[legacy-email-fallback] /api/substitute: sub request ${subRequestId} ` +
-          'has no originalInstructorUid, using its stored original instructor email',
-      )
-    }
+    // From the uid only. The stored `originalInstructorEmail` goes stale when
+    // the instructor changes their account address, so it is never used here
+    // (notes/EMAIL_TO_UID_AUDIT.md section 7, Phase 4).
+    const originalInstructorEmail = claimed.originalInstructorUid
+      ? await resolveEmailByUid(claimed.originalInstructorUid)
+      : undefined
 
     if (!originalInstructorEmail) {
       return json(
