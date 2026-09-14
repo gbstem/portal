@@ -166,8 +166,8 @@ describe('Section D: Class Roster and Details View', () => {
           expect(classDoc.students, 'on the class roster').to.include(
             SEEDED_STUDENT_UID,
           )
-          // Generated classes carry an instructorUid no Auth account backs,
-          // so the cc is the class's stored address.
+          // The server resolves the cc from the class's instructorUid; the
+          // seed gives that account the class's stored address.
           cy.verifyEmailSent(
             SEEDED_STUDENT_EMAIL,
             `Mathematics 2a class details for ${SEEDED_STUDENT_NAME}`,

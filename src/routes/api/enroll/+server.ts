@@ -32,42 +32,34 @@ export interface UnenrollResponse {
 }
 
 /**
- * The class's instructor at their current address. The stored
- * `instructorEmail` is the fallback until Phase 4 of
- * notes/EMAIL_TO_UID_AUDIT.md removes it, and every use is logged as
- * `[legacy-email-fallback]` - both a class with no `instructorUid` and one
- * whose uid names no Auth account.
+ * The class's instructor at their current address, resolved from Auth by the
+ * class's `instructorUid`. There is deliberately no fallback to the stored
+ * `instructorEmail`, which goes stale when the instructor changes their account
+ * address (notes/EMAIL_TO_UID_AUDIT.md section 7, Phase 4). A class with no
+ * uid, or one naming no Auth account, is logged and gets no confirmation.
  */
 async function resolveInstructorEmail(
   classId: string,
   classData: Data.Class,
 ): Promise<string | undefined> {
-  const storedEmail = classData.instructorEmail || undefined
   const { instructorUid } = classData
   if (!instructorUid) {
-    if (storedEmail) {
-      console.warn(
-        `[legacy-email-fallback] /api/enroll: class ${classId} has no ` +
-          'instructorUid, using its stored instructor email',
-      )
-    }
-    return storedEmail
+    console.error(`[API /api/enroll] Class ${classId} has no instructorUid`)
+    return undefined
   }
   try {
     const instructor = await adminAuth.getUser(instructorUid)
     if (instructor.email) return instructor.email
-    console.warn(
-      `[legacy-email-fallback] /api/enroll: instructorUid ${instructorUid} has ` +
-        'no email on its Auth account; using the stored instructor email',
+    console.error(
+      `[API /api/enroll] instructorUid ${instructorUid} has no email on its Auth account`,
     )
   } catch (err) {
-    console.warn(
-      `[legacy-email-fallback] /api/enroll: instructorUid ${instructorUid} ` +
-        'resolved to no Auth account; using the stored instructor email',
+    console.error(
+      `[API /api/enroll] instructorUid ${instructorUid} could not be resolved from Auth:`,
       err,
     )
   }
-  return storedEmail
+  return undefined
 }
 
 /**

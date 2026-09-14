@@ -221,6 +221,11 @@ export function buildSubRequestPayload(params: {
     dateOfClass: new Date(params.subRequestDate),
     notes: params.subRequestNotes,
     course: params.course,
+    // TODO(uid migration, Phase 5 item 4): no endpoint reads this any more,
+    // but portal's SubClasses and admin's sub-requests page still display it.
+    // Stop writing it only once those resolve the address from
+    // originalInstructorUid - dropping it first shows a blank address. See
+    // notes/EMAIL_TO_UID_AUDIT.md.
     originalInstructorEmail: params.instructorEmail,
     originalInstructorUid,
     requestedByUid: params.requestedByUid ?? originalInstructorUid,

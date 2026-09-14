@@ -1142,7 +1142,8 @@ describe('API routes POST endpoints', () => {
       )
     })
 
-    it("POST falls back to the class's stored address when it has no instructorUid, and logs it", async () => {
+    // The enrollment stands either way; only its confirmation goes unsent.
+    it('POST sends no confirmation for a class with no instructorUid, ignoring its stored address', async () => {
       mockEnrollStudent.mockResolvedValueOnce(
         enrollment({ instructorUid: undefined }),
       )
@@ -1150,28 +1151,18 @@ describe('API routes POST endpoints', () => {
       const res: any = await call(enrollPOST)
 
       expect(mockAdminAuth.getUser).not.toHaveBeenCalled()
-      expect(MailService.send).toHaveBeenCalledWith(
-        expect.objectContaining({ cc: ['stored-teacher@test.com'] }),
-      )
-      expect(console.warn).toHaveBeenCalledWith(
-        expect.stringContaining('[legacy-email-fallback] /api/enroll'),
-      )
-      expect(res.body).toEqual({ emailSent: true })
+      expect(MailService.send).not.toHaveBeenCalled()
+      expect(res.body).toEqual({ emailSent: false })
     })
 
-    it('POST falls back to the stored address when the instructorUid names no account, and logs it', async () => {
+    it('POST sends no confirmation when the instructorUid names no account', async () => {
       mockEnrollStudent.mockResolvedValueOnce(enrollment())
       mockAdminAuth.getUser.mockRejectedValueOnce(new Error('user-not-found'))
 
-      await call(enrollPOST)
+      const res: any = await call(enrollPOST)
 
-      expect(MailService.send).toHaveBeenCalledWith(
-        expect.objectContaining({ cc: ['stored-teacher@test.com'] }),
-      )
-      expect(console.warn).toHaveBeenCalledWith(
-        expect.stringContaining('resolved to no Auth account'),
-        expect.anything(),
-      )
+      expect(MailService.send).not.toHaveBeenCalled()
+      expect(res.body).toEqual({ emailSent: false })
     })
 
     it('POST uses the in-person template for an in-person class', async () => {
@@ -1290,7 +1281,6 @@ describe('API routes POST endpoints', () => {
       date: new Date('2026-10-01T18:00:00.000Z'),
       interviewerName: 'Interviewer',
       interviewerUid: 'interviewer-uid-1',
-      interviewerEmail: 'stored-interviewer@test.com',
       meetingLink: 'http://zoom',
       intervieweeFirstName: 'Student',
       ...overrides,
@@ -1382,24 +1372,23 @@ describe('API routes POST endpoints', () => {
       expect(message.html).toContain('2:00 PM Eastern Daylight Time')
     })
 
-    it('POST falls back to the stored interviewer address for a slot with no uid', async () => {
+    // The slot is booked by then, so the applicant is told so either way.
+    it('POST still returns the booking, unconfirmed, for a slot with no interviewer uid', async () => {
       mockBookInterviewSlot.mockResolvedValueOnce(
         booked({ interviewerUid: undefined }),
       )
 
-      await bookAs()
+      const res: any = await bookAs()
 
       expect(mockAdminAuth.getUser).not.toHaveBeenCalled()
-      expect(MailService.send).toHaveBeenCalledWith(
-        expect.objectContaining({ cc: ['stored-interviewer@test.com'] }),
-      )
+      expect(MailService.send).not.toHaveBeenCalled()
+      expect(res.body.emailSent).toBe(false)
+      expect(res.body.interview.id).toBe('slot-1')
     })
 
-    // The slot is booked by then, so the applicant is told so either way.
-    it('POST still returns the booking when no interviewer address resolves', async () => {
-      mockBookInterviewSlot.mockResolvedValueOnce(
-        booked({ interviewerUid: undefined, interviewerEmail: undefined }),
-      )
+    it('POST still returns the booking, unconfirmed, when the interviewer uid names no account', async () => {
+      mockBookInterviewSlot.mockResolvedValueOnce(booked())
+      mockAdminAuth.getUser.mockRejectedValueOnce(new Error('user-not-found'))
 
       const res: any = await bookAs()
 
@@ -1410,9 +1399,11 @@ describe('API routes POST endpoints', () => {
 
     it('POST still returns the booking when the email fails to send', async () => {
       await withRejectedSend(async () => {
-        mockBookInterviewSlot.mockResolvedValueOnce(
-          booked({ interviewerUid: undefined }),
-        )
+        mockBookInterviewSlot.mockResolvedValueOnce(booked())
+        mockAdminAuth.getUser.mockResolvedValueOnce({
+          uid: 'interviewer-uid-1',
+          email: 'interviewer@test.com',
+        })
         const res: any = await bookAs()
         expect(res.body.emailSent).toBe(false)
         expect(res.body.interview.id).toBe('slot-1')
@@ -2235,36 +2226,35 @@ describe('API routes POST endpoints', () => {
       )
     })
 
-    it('POST falls back to the stored address for a request with no instructor uid', async () => {
+    it('POST returns 400 for a request with no instructor uid, ignoring its stored address', async () => {
       mockClaimSubRequest.mockResolvedValueOnce(
         claimed({
           originalInstructorUid: undefined,
-          requestedByUid: undefined,
-        }),
-      )
-
-      await claimAs()
-
-      expect(mockAdminAuth.getUser).not.toHaveBeenCalled()
-      expect(MailService.send).toHaveBeenCalledWith(
-        expect.objectContaining({
-          cc: ['stored-orig@gbstem.org'],
-          replyTo: 'stored-orig@gbstem.org',
-        }),
-      )
-    })
-
-    it('POST returns 400 when no original instructor email can be resolved', async () => {
-      mockClaimSubRequest.mockResolvedValueOnce(
-        claimed({
-          originalInstructorUid: undefined,
-          originalInstructorEmail: '',
           requestedByUid: undefined,
         }),
       )
 
       const res = await claimAs()
 
+      expect(mockAdminAuth.getUser).not.toHaveBeenCalled()
+      expect(MailService.send).not.toHaveBeenCalled()
+      expect(res).toEqual(
+        expect.objectContaining({
+          body: { error: 'Original instructor email could not be resolved.' },
+          init: { status: 400 },
+        }),
+      )
+    })
+
+    it('POST returns 400 when the instructor uid names no account', async () => {
+      mockClaimSubRequest.mockResolvedValueOnce(
+        claimed({ requestedByUid: undefined }),
+      )
+      mockAdminAuth.getUser.mockRejectedValueOnce(new Error('user-not-found'))
+
+      const res = await claimAs()
+
+      expect(MailService.send).not.toHaveBeenCalled()
       expect(res).toEqual(
         expect.objectContaining({
           body: { error: 'Original instructor email could not be resolved.' },
@@ -2276,11 +2266,12 @@ describe('API routes POST endpoints', () => {
     it('POST returns a 500 json response when sending the email fails', async () => {
       await withRejectedSend(async () => {
         mockClaimSubRequest.mockResolvedValueOnce(
-          claimed({
-            originalInstructorUid: undefined,
-            requestedByUid: undefined,
-          }),
+          claimed({ requestedByUid: undefined }),
         )
+        mockAdminAuth.getUser.mockResolvedValueOnce({
+          uid: 'orig-uid-1',
+          email: 'orig@gbstem.org',
+        })
         const res = await claimAs()
         expect(res).toEqual(
           expect.objectContaining({
