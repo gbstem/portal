@@ -2,6 +2,14 @@
 
 This document details the manual and automated regression test suite to verify all core features of the gbSTEM Portal website before any production release. It is structured sequentially to facilitate direct translation into Cypress E2E tests, focusing on student and instructor access.
 
+If you want to watch Cypress execute this in your browser, you can start it with extra arguments like the following, where `--headed` makes it so it runs a visible browser and `--browser` selects a browser to run (e.g. `chrome` or `firefox`). But as you'll see, it goes **very** fast and is hard to keep up with. There are many [options you can use](https://docs.cypress.io/guides/references/command-line#cypress-open). See [this page](https://docs.cypress.io/guides/getting-started/opening-the-app) to get started with Cypress.
+
+`yarn cypress --browser=chrome --headed`
+
+However, remember that you can actually see what is happening on the screen in a way that Cypress isn't: it just keys off of HTML elements and CSS classes, so can miss major visual bugs. That means it is important for you to do a test run yourself, or at least carefully watch the Cypress test run. It is also important to use meaningful IDs and class names when we create our components and tests.
+
+---
+
 ## 1. Setup and Pre-requisites
 
 Follow these steps to establish a clean, predictable, local testing environment.
