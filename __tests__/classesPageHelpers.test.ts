@@ -33,6 +33,9 @@ describe('ClassesPage Helpers', () => {
       expect(info.spotsRemaining).toBe(8)
       expect(info.classDays).toEqual(['Monday', 'Wednesday'])
       expect(info.classTimes).toEqual(['4:00 PM', '4:00 PM'])
+      // The stored address is not carried onto the page, so stripping it from
+      // class documents can't change what the page shows.
+      expect(info).not.toHaveProperty('instructorEmail')
     })
 
     test('falls back to extracting instructorUid from doc ID when not in doc data', () => {

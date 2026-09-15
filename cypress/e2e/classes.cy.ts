@@ -107,6 +107,7 @@ describe('Section D: Class Roster and Details View', () => {
   })
 
   it('Test Case 9: Student View Enrolled Classes, Filtering, and Toggle', () => {
+    cy.intercept('POST', '/api/resolveEmails').as('resolveEmails')
     // Log in as student
     cy.signedInSession('student', { initialPage: '/classes' })
 
@@ -118,6 +119,12 @@ describe('Section D: Class Roster and Details View', () => {
       'href',
       `mailto:${OWNER_EMAIL}`,
     )
+    // The seed stores the same address on the class that the instructor's
+    // account has, so the href alone can't show where it came from: pin that
+    // it was looked up from the uid.
+    cy.wait('@resolveEmails')
+      .its('response.body.emails')
+      .should('deep.equal', { 'instructor-demo-uid': OWNER_EMAIL })
 
     // 1. Select course filter
     cy.selectOption('input[placeholder="Filter by course"]', 'Python 1')

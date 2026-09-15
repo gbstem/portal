@@ -240,6 +240,8 @@ import {
 import { GET as classRosterGET } from '../src/routes/api/classRoster/+server'
 import { POST as remindStudentsPOST } from '../src/routes/api/remindStudents/+server'
 import { POST as resolveCoInstructorsPOST } from '../src/routes/api/resolveCoInstructors/+server'
+import { POST as resolveEmailsPOST } from '../src/routes/api/resolveEmails/+server'
+import { EMAIL_LOOKUP_REFUSED } from '$lib/server/emailIntents'
 import { POST as slotRequestPOST } from '../src/routes/api/slotRequest/+server'
 import {
   GET as substituteGET,
@@ -288,6 +290,114 @@ beforeEach(() => {
 afterAll(() => {
   ;(console.error as any).mockRestore?.()
   ;(console.warn as any).mockRestore?.()
+})
+
+describe('resolveEmailsPOST', () => {
+  let mockRequest: any
+
+  const parentLocals = {
+    user: { uid: 'parent-uid', email: 'parent@example.com', role: 'student' },
+  }
+  const classPath = `${classesCollection}/instructor-uid-1`
+  const enrolledClass = {
+    instructorUid: 'instructor-uid',
+    students: ['parent-uid-1'],
+  }
+  const lookup = (overrides: Record<string, unknown> = {}) => ({
+    intent: 'enrolledClassInstructor',
+    uids: ['instructor-uid'],
+    context: { classId: 'instructor-uid-1' },
+    ...overrides,
+  })
+  const post = (locals: any = parentLocals) =>
+    resolveEmailsPOST({ request: mockRequest, locals } as any)
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    mockRequest = { json: jest.fn() }
+    mockFirestoreDocs({ [classPath]: enrolledClass })
+  })
+
+  afterEach(() => {
+    mockAdminDb.doc.mockImplementation((id: string) => mockDoc(id))
+  })
+
+  it("returns the instructor's current address to a parent with a student on the roster", async () => {
+    mockRequest.json.mockResolvedValue(lookup())
+    mockAdminAuth.getUsers.mockResolvedValueOnce({
+      users: [{ uid: 'instructor-uid', email: 'current@gbstem.org' }],
+    })
+
+    const res: any = await post()
+
+    expect(res.body).toEqual({
+      emails: { 'instructor-uid': 'current@gbstem.org' },
+    })
+  })
+
+  it('returns null for an instructor uid that names no account', async () => {
+    mockRequest.json.mockResolvedValue(lookup())
+
+    const res: any = await post()
+
+    expect(res.body).toEqual({ emails: { 'instructor-uid': null } })
+  })
+
+  // Every refusal gets the same message and resolves nothing, so none of them
+  // tells the caller whether the class exists or who is enrolled in it.
+  it.each([
+    [
+      'a parent with no student on the roster',
+      { [classPath]: { ...enrolledClass, students: ['other-parent-1'] } },
+      lookup(),
+      parentLocals,
+    ],
+    [
+      'a parent whose uid only prefixes a rostered registration',
+      { [classPath]: enrolledClass },
+      lookup(),
+      { user: { ...parentLocals.user, uid: 'parent' } },
+    ],
+    ['a class that does not exist', {}, lookup(), parentLocals],
+    [
+      'a uid that is not the class instructor',
+      { [classPath]: enrolledClass },
+      lookup({ uids: ['instructor-uid', 'someone-else'] }),
+      parentLocals,
+    ],
+    [
+      'an instructor, even one whose uid prefixes a rostered registration',
+      { [classPath]: { ...enrolledClass, students: ['caller-uid-1'] } },
+      lookup(),
+      instructorLocals,
+    ],
+  ])('refuses %s', async (_label, docs, body, locals) => {
+    mockFirestoreDocs(docs)
+    mockRequest.json.mockResolvedValue(body)
+
+    await expect(post(locals)).rejects.toMatchObject({
+      status: 403,
+      message: EMAIL_LOOKUP_REFUSED,
+    })
+    expect(mockAdminAuth.getUsers).not.toHaveBeenCalled()
+  })
+
+  it('requires a signed-in caller', async () => {
+    mockRequest.json.mockResolvedValue(lookup())
+
+    await expect(post({ user: null })).rejects.toMatchObject({ status: 401 })
+  })
+
+  it.each([
+    ['an unknown intent', lookup({ intent: 'everyAddress' })],
+    ['no uids', lookup({ uids: [] })],
+    ['no context', lookup({ context: undefined })],
+  ])('rejects %s at validation', async (_label, body) => {
+    mockRequest.json.mockResolvedValue(body)
+
+    await expect(post()).rejects.toMatchObject({ status: 400 })
+    expect(mockAdminAuth.getUsers).not.toHaveBeenCalled()
+  })
 })
 
 describe('co-instructor directory routes', () => {

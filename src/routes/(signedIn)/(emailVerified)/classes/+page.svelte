@@ -35,6 +35,9 @@
 
   const uidToName: Record<string, string> = $state({})
 
+  // classId -> the instructor's current address, for "Contact Instructor".
+  const instructorEmails: Record<string, string> = $state({})
+
   // Preload student data for the StudentSelect component
   let preloadedStudents: { uid: string; name: string }[] = []
 
@@ -62,6 +65,33 @@
     })
   }
 
+  // Resolved from each enrolled class's instructorUid, never read off the class
+  // document: the stored copy goes stale when the instructor changes their
+  // account email, and `--strip-emails` removes it. A uid that names no
+  // account gets no link. The server resolves it only for a class one of this
+  // parent's students is on, which is also the only card showing the link.
+  const loadInstructorEmails = async () => {
+    const enrolledClassIds = new Set(Object.values(studentUidToClassIds).flat())
+    await Promise.all(
+      classes.map(async ({ id, instructorUid }) => {
+        if (!instructorUid || !enrolledClassIds.has(id)) return
+        if (id in instructorEmails) return
+        try {
+          const email = await classService.fetchEnrolledClassInstructorEmail(
+            id,
+            instructorUid,
+          )
+          if (email) instructorEmails[id] = email
+        } catch (err) {
+          console.error(
+            `[classes] Could not resolve the instructor address for ${id}:`,
+            err,
+          )
+        }
+      }),
+    )
+  }
+
   const getData = () => {
     return user.subscribe(async (user) => {
       // `loading` is cleared in `finally` so a failed read leaves the page in an
@@ -74,6 +104,8 @@
           // truthy, standing in for "the profile is loaded". A parent whose
           // displayName was blank silently got no children and no error.
           await determineStudentEnrollment(user)
+          // Not awaited: the cards needn't wait on their contact links.
+          void loadInstructorEmails()
         }
       } catch (err) {
         console.error('[classes] Failed to load class data:', err)
@@ -655,29 +687,31 @@
                     </div>
 
                     <!-- Instructor Email -->
-                    <div class="mt-1 flex items-center text-sm text-blue-700">
-                      <svg
-                        class="mr-2 h-4 w-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                        />
-                      </svg>
-                      <a
-                        href={`mailto:${classInfo.instructorEmail}`}
-                        target="_blank"
-                        rel="noopener"
-                        class="hover:underline"
-                      >
-                        Contact Instructor
-                      </a>
-                    </div>
+                    {#if instructorEmails[classInfo.id]}
+                      <div class="mt-1 flex items-center text-sm text-blue-700">
+                        <svg
+                          class="mr-2 h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                          />
+                        </svg>
+                        <a
+                          href={`mailto:${instructorEmails[classInfo.id]}`}
+                          target="_blank"
+                          rel="noopener"
+                          class="hover:underline"
+                        >
+                          Contact Instructor
+                        </a>
+                      </div>
+                    {/if}
                   </div>
                 </div>
               {/if}
