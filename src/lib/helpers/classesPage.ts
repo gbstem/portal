@@ -8,7 +8,10 @@ export type ClassInfo = {
   course: string
   instructorFirstName: string
   instructorLastName: string
-  instructorEmail: string
+  // Deliberately no instructorEmail: the page resolves the instructor's
+  // current address from instructorUid (classService.
+  // fetchEnrolledClassInstructorEmail), and the stored copy is due to be
+  // stripped from class documents.
   instructorUid?: string
   spotsRemaining: number
   meetingLink: string
@@ -62,7 +65,6 @@ export function parseClassInfoDoc(id: string, data: any): ClassInfo {
     course: data.course ?? '',
     instructorFirstName: data.instructorFirstName ?? '',
     instructorLastName: data.instructorLastName ?? '',
-    instructorEmail: data.instructorEmail ?? '',
     // New class documents will have a uid, but legacy ones may not, and in that case
     // we can parse it out of the ${instructorUid}-${classSequenceNumber} format document ID.
     instructorUid:

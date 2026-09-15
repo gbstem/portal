@@ -11,6 +11,7 @@ import {
 } from '$lib/helpers/classesPage'
 import { buildSubRequestPayload } from '$lib/helpers/classSchedule'
 import { subRequestDocId } from '$lib/helpers/subClasses'
+import { accountEmailService } from '$lib/services/accountEmailService'
 import {
   collection,
   doc,
@@ -282,6 +283,24 @@ export const classService = {
       instructors: CoInstructor[]
     }
     return instructors
+  },
+
+  /**
+   * The current address of a class's instructor, for the "Contact Instructor"
+   * link a parent sees on a class one of their students is enrolled in. Null
+   * if the uid names no account. Throws if the request fails, or is refused
+   * because none of the signed-in parent's students is on the class roster.
+   */
+  async fetchEnrolledClassInstructorEmail(
+    classId: string,
+    instructorUid: string,
+  ): Promise<string | null> {
+    const emails = await accountEmailService.resolveEmails({
+      intent: 'enrolledClassInstructor',
+      uids: [instructorUid],
+      context: { classId },
+    })
+    return emails[instructorUid] ?? null
   },
 
   /**
