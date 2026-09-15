@@ -60,6 +60,10 @@ Classes store co-instructors as `otherInstructorUids: string[]`. There is delibe
 
 The README describes "upload/parse documents," but there's no live upload UI currently wired up — `src/lib/components/Input.svelte` supports `type="file"` generically but nothing in the current form set uses it, and the only Storage reference left is cleanup code in `DeleteAccountForm.svelte` (`deleteObject(ref(storage, 'resumes/${uid}.pdf'))`). If asked to touch resume/document upload, confirm with the user whether you're resurrecting a removed feature or building one net-new — don't assume existing scaffolding is more complete than it is.
 
+## Icons come from Heroicons, not pasted `<svg>`s
+
+Icons are Heroicons, through `@steeze-ui/heroicons` and `@steeze-ui/svelte-icon`: `<Icon src={XMark} class="h-5 w-5" />`, with `theme="mini"` for the 20px solid set. `Icon` renders the `<svg>` inline, so server-rendered pages still carry it in their HTML. `$lib/components/icons/` holds only glyphs Heroicons lacks (`SpinnerIcon`, `CircleIcon`). **Don't paste a new `<svg>` into a page or component** — use a Heroicon, or add a component there when none fits. Keep one glyph per idea: check what the app already uses for a concept before picking an icon for it. Admin follows the same convention.
+
 ## Types
 
 Shared types live in a global ambient `Data` namespace in `src/data.d.ts` (e.g. `Data.Application`, `Data.User.Profile`, `Data.Role`, `Data.Token<'client'|'server'|'pojo'>`) — usable unimported anywhere. `tsconfig.json` sets `strict: true`, `verbatimModuleSyntax: true`, and `checkJs: true`.

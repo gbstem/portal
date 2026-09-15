@@ -29,6 +29,16 @@
   import InstructorFeedbackForm from './forms/InstructorFeedbackForm.svelte'
   import { ClassStatus } from './helpers/ClassStatus'
   import sendClassReminder from './helpers/sendClassReminder'
+  import { Icon } from '@steeze-ui/svelte-icon'
+  import {
+    Check,
+    Clock,
+    DocumentDuplicate,
+    Envelope,
+    Plus,
+    XMark,
+  } from '@steeze-ui/heroicons'
+  import CircleIcon from '$lib/components/icons/CircleIcon.svelte'
 
   interface Props {
     semesterDates: Data.SemesterDates
@@ -327,26 +337,7 @@
           onclick={() => copyToClipboard(emailHtmlContent)}
           class="flex items-center gap-1"
         >
-          <svg
-            fill="#000000"
-            height="20"
-            width="20"
-            version="1.1"
-            id="Capa_1"
-            xmlns="http://www.w3.org/2000/svg"
-            xmlns:xlink="http://www.w3.org/1999/xlink"
-            viewBox="0 0 352.804 352.804"
-            xml:space="preserve"
-          >
-            <g>
-              <path
-                d="M318.54,57.282h-47.652V15c0-8.284-6.716-15-15-15H34.264c-8.284,0-15,6.716-15,15v265.522c0,8.284,6.716,15,15,15h47.651
-         v42.281c0,8.284,6.716,15,15,15H318.54c8.284,0,15-6.716,15-15V72.282C333.54,63.998,326.824,57.282,318.54,57.282z
-          M49.264,265.522V30h191.623v27.282H96.916c-8.284,0-15,6.716-15,15v193.24H49.264z M303.54,322.804H111.916V87.282H303.54V322.804
-         z"
-              />
-            </g>
-          </svg>
+          <Icon src={DocumentDuplicate} class="h-5 w-5 text-black" />
           <span>Copy</span>
         </Button>
       </div>
@@ -413,26 +404,7 @@
               )}
             class="flex items-center justify-end gap-1"
           >
-            <svg
-              fill="#000000"
-              height="20"
-              width="20"
-              version="1.1"
-              id="Capa_1"
-              xmlns="http://www.w3.org/2000/svg"
-              xmlns:xlink="http://www.w3.org/1999/xlink"
-              viewBox="0 0 352.804 352.804"
-              xml:space="preserve"
-            >
-              <g>
-                <path
-                  d="M318.54,57.282h-47.652V15c0-8.284-6.716-15-15-15H34.264c-8.284,0-15,6.716-15,15v265.522c0,8.284,6.716,15,15,15h47.651
-       v42.281c0,8.284,6.716,15,15,15H318.54c8.284,0,15-6.716,15-15V72.282C333.54,63.998,326.824,57.282,318.54,57.282z
-        M49.264,265.522V30h191.623v27.282H96.916c-8.284,0-15,6.716-15,15v193.24H49.264z M303.54,322.804H111.916V87.282H303.54V322.804
-       z"
-                />
-              </g>
-            </svg>
+            <Icon src={DocumentDuplicate} class="h-5 w-5 text-black" />
             <span>Copy</span>
           </Button>
         </div>
@@ -496,21 +468,7 @@
                                 formatDateString(
                                   editedMeetingTimes[nextClassIndex],
                                 ),
-                        })}
-                      ><svg
-                        width="16px"
-                        height="16px"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        ><path
-                          d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
-                        ></path><polyline points="22,6 12,13 2,6"
-                        ></polyline></svg
-                      ></Button
+                        })}><Icon src={Envelope} class="h-4 w-4" /></Button
                     ></td
                   >
                 </tr>
@@ -656,99 +614,35 @@
             <span
               class="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-1 text-xs font-semibold text-red-700"
             >
-              <svg
-                class="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                ><path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M6 18L18 6M6 6l12 12"
-                /></svg
-              >
+              <Icon src={XMark} class="h-4 w-4" />
               Not Held
             </span>
           {:else if values.classStatuses[classNumber] === ClassStatus.FeedbackIncomplete}
             <span
               class="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-1 text-xs font-semibold text-yellow-800"
             >
-              <svg
-                class="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                ><path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M12 8v4l3 3"
-                /></svg
-              >
+              <Icon src={Clock} class="h-4 w-4" />
               Feedback Needed
             </span>
           {:else if values.classStatuses[classNumber] === ClassStatus.ClassUpcomingSoon}
             <span
               class="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-1 text-xs font-semibold text-blue-800"
             >
-              <svg
-                class="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                ><circle
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  fill="none"
-                /><path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M12 6v6l4 2"
-                /></svg
-              >
+              <Icon src={Clock} class="h-4 w-4" />
               Upcoming
             </span>
           {:else if values.classStatuses[classNumber] === ClassStatus.EverythingComplete}
             <span
               class="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-800"
             >
-              <svg
-                class="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                ><path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M5 13l4 4L19 7"
-                /></svg
-              >
+              <Icon src={Check} class="h-4 w-4" />
               Complete
             </span>
           {:else}
             <span
               class="inline-flex items-center gap-1 rounded-full bg-gray-200 px-2 py-1 text-xs font-semibold text-gray-700"
             >
-              <svg
-                class="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                ><circle
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  fill="none"
-                /></svg
-              >
+              <CircleIcon class="h-4 w-4" />
               Scheduled
             </span>
           {/if}
@@ -774,18 +668,7 @@
                 editedMeetingTimes = editedMeetingTimes.slice()
               }}
             >
-              <svg
-                class="mr-1 h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                ><path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M6 18L18 6M6 6l12 12"
-                /></svg
-              >
+              <Icon src={XMark} class="mr-1 h-4 w-4" />
               Delete
             </Button>
           {:else}
@@ -799,18 +682,7 @@
                   showSubRequestDialog = true
                 }}
               >
-                <svg
-                  class="mr-1 h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  ><path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M12 4v16m8-8H4"
-                  /></svg
-                >
+                <Icon src={Plus} class="mr-1 h-4 w-4" />
                 Request Sub
               </Button>
             {/if}
