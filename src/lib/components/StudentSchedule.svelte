@@ -4,6 +4,8 @@
   import { classService } from '$lib/services/classService'
   import { registrationService } from '$lib/services/registrationService'
   import { selectedStudentIdState } from '$lib/stores.svelte'
+  import { Icon } from '@steeze-ui/svelte-icon'
+  import { Plus } from '@steeze-ui/heroicons'
 
   type ClassDate = { course: string; meetingTime: Date; link: string }
   let classes: ClassDate[] = $state([])
@@ -82,20 +84,7 @@
   {#if selectedStudentUid}
     {#if classes.length === 0}
       <div class="flex flex-col items-center justify-center py-8">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          class="mb-4 h-12 w-12 text-gray-300"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-          />
-        </svg>
+        <Icon src={Plus} class="mb-4 h-12 w-12 text-gray-300" />
         <p class="text-lg font-medium text-gray-900">No Classes Found</p>
         <p class="mt-1 text-sm text-gray-500">
           This student is not currently enrolled in any classes.

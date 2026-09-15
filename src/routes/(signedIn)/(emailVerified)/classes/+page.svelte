@@ -19,6 +19,21 @@
   import { fade } from 'svelte/transition'
 
   import type { ClassInfo } from '$lib/helpers/classesPage'
+  import { Icon } from '@steeze-ui/svelte-icon'
+  import {
+    ArrowUpCircle,
+    BuildingOffice,
+    CheckCircle,
+    Clock,
+    ComputerDesktop,
+    Envelope,
+    GlobeAlt,
+    Plus,
+    Trash,
+    User,
+    Users,
+    XCircle,
+  } from '@steeze-ui/heroicons'
 
   let classes: ClassInfo[] = $state([])
   let loading = $state(true)
@@ -223,22 +238,10 @@
               : 'bg-green-500'}"
           >
             {#if dialogClassDetails.spotsRemaining <= 0}
-              <svg class="mr-2 h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                <path
-                  fill-rule="evenodd"
-                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                  clip-rule="evenodd"
-                />
-              </svg>
+              <Icon src={XCircle} theme="mini" class="mr-2 h-4 w-4" />
               Class Full
             {:else}
-              <svg class="mr-2 h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                <path
-                  fill-rule="evenodd"
-                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                  clip-rule="evenodd"
-                />
-              </svg>
+              <Icon src={CheckCircle} theme="mini" class="mr-2 h-4 w-4" />
               {dialogClassDetails.spotsRemaining} spots available
             {/if}
           </span>
@@ -261,28 +264,12 @@
           <!-- Class Type & Instructor -->
           <div class="space-y-3">
             <div class="flex items-center rounded-lg bg-gray-50 p-3">
-              <svg
+              <Icon
+                src={dialogClassDetails.online
+                  ? ComputerDesktop
+                  : BuildingOffice}
                 class="mr-3 h-5 w-5 text-gray-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                {#if dialogClassDetails.online}
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                  />
-                {:else}
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                  />
-                {/if}
-              </svg>
+              />
               <div>
                 <div class="font-semibold text-gray-900">
                   {dialogClassDetails.online
@@ -298,19 +285,7 @@
             </div>
 
             <div class="flex items-center rounded-lg bg-gray-50 p-3">
-              <svg
-                class="mr-3 h-5 w-5 text-gray-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                />
-              </svg>
+              <Icon src={User} class="mr-3 h-5 w-5 text-gray-600" />
               <div>
                 <div class="font-semibold text-gray-900">Instructor</div>
                 <div class="text-sm text-gray-600">
@@ -325,19 +300,7 @@
             <h4
               class="mb-3 flex items-center text-lg font-semibold text-blue-900"
             >
-              <svg
-                class="mr-2 h-5 w-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
+              <Icon src={Clock} class="mr-2 h-5 w-5" />
               Class Schedule ({dialogClassDetails.online
                 ? '1-hour classes'
                 : '2-hour class'})
@@ -345,17 +308,11 @@
             <div class="space-y-2">
               {#each formatClassTimes(dialogClassDetails.classDays, dialogClassDetails.classTimes) as classTime (classTime)}
                 <div class="flex items-center text-blue-800">
-                  <svg
+                  <Icon
+                    src={ArrowUpCircle}
+                    theme="mini"
                     class="mr-3 h-4 w-4 text-blue-600"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path
-                      fill-rule="evenodd"
-                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13a1 1 0 102 0V9.414l2.293 2.293a1 1 0 001.414-1.414z"
-                      clip-rule="evenodd"
-                    />
-                  </svg>
+                  />
                   <span class="font-medium">{classTime}</span>
                 </div>
               {/each}
@@ -368,19 +325,7 @@
               <h4
                 class="mb-3 flex items-center text-lg font-semibold text-gray-900"
               >
-                <svg
-                  class="mr-2 h-5 w-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                  />
-                </svg>
+                <Icon src={Plus} class="mr-2 h-5 w-5" />
                 Enrollment
               </h4>
               <div class="space-y-3">
@@ -398,28 +343,12 @@
                     }
                   }}
                 >
-                  <svg
+                  <Icon
+                    src={isEnrolled(dialogClassDetails.id, selectedStudentUid)
+                      ? Trash
+                      : Plus}
                     class="h-5 w-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    {#if isEnrolled(dialogClassDetails.id, selectedStudentUid)}
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                      />
-                    {:else}
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                      />
-                    {/if}
-                  </svg>
+                  />
                   {isEnrolled(dialogClassDetails.id, selectedStudentUid)
                     ? 'Unenroll Student'
                     : 'Enroll Student'}
@@ -499,30 +428,14 @@
                       : 'bg-green-500'}"
                   >
                     {#if classInfo.spotsRemaining <= 0}
-                      <svg
-                        class="mr-1 h-3 w-3"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fill-rule="evenodd"
-                          d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                          clip-rule="evenodd"
-                        />
-                      </svg>
+                      <Icon src={XCircle} theme="mini" class="mr-1 h-3 w-3" />
                       Class Full
                     {:else}
-                      <svg
+                      <Icon
+                        src={CheckCircle}
+                        theme="mini"
                         class="mr-1 h-3 w-3"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fill-rule="evenodd"
-                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                          clip-rule="evenodd"
-                        />
-                      </svg>
+                      />
                       {classInfo.spotsRemaining} spots
                     {/if}
                   </span>
@@ -532,46 +445,16 @@
               <!-- Class Type & Instructor -->
               <div class="mb-4 space-y-2">
                 <div class="flex items-center text-sm text-gray-600">
-                  <svg
+                  <Icon
+                    src={classInfo.online ? ComputerDesktop : BuildingOffice}
                     class="mr-2 h-4 w-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    {#if classInfo.online}
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                      />
-                    {:else}
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                      />
-                    {/if}
-                  </svg>
+                  />
                   {classInfo.online
                     ? 'Online Class'
                     : 'In-Person (Cambridge Public Library)'}
                 </div>
                 <div class="flex items-center text-sm text-gray-600">
-                  <svg
-                    class="mr-2 h-4 w-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                    />
-                  </svg>
+                  <Icon src={User} class="mr-2 h-4 w-4" />
                   {`${classInfo.instructorFirstName} ${classInfo.instructorLastName}`}
                 </div>
               </div>
@@ -581,19 +464,7 @@
                 <h4
                   class="mb-2 flex items-center text-sm font-semibold text-gray-700"
                 >
-                  <svg
-                    class="mr-2 h-4 w-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
+                  <Icon src={Clock} class="mr-2 h-4 w-4" />
                   Class Times ({classInfo.online
                     ? '1-hour classes'
                     : '2-hour class'})
@@ -601,17 +472,11 @@
                 <div class="space-y-1">
                   {#each formatClassTimes(classInfo.classDays, classInfo.classTimes) as classTime (classTime)}
                     <div class="flex items-center text-sm text-gray-600">
-                      <svg
+                      <Icon
+                        src={ArrowUpCircle}
+                        theme="mini"
                         class="mr-2 h-3 w-3 text-gray-400"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fill-rule="evenodd"
-                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13a1 1 0 102 0V9.414l2.293 2.293a1 1 0 001.414-1.414z"
-                          clip-rule="evenodd"
-                        />
-                      </svg>
+                      />
                       {classTime}
                     </div>
                   {/each}
@@ -626,34 +491,18 @@
                   <h4
                     class="mb-2 flex items-center text-sm font-semibold text-blue-800"
                   >
-                    <svg
-                      class="mr-2 h-4 w-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"
-                      />
-                    </svg>
+                    <Icon src={Users} class="mr-2 h-4 w-4" />
                     Your Enrolled Students
                   </h4>
                   <div class="space-y-1">
                     {#each Object.entries(studentUidToClassIds) as [studentUid, classIds] (studentUid)}
                       {#if classIds.includes(classInfo.id)}
                         <div class="flex items-center text-sm text-blue-700">
-                          <svg
+                          <Icon
+                            src={CheckCircle}
+                            theme="mini"
                             class="mr-2 h-3 w-3"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                          >
-                            <path
-                              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                            />
-                          </svg>
+                          />
                           {uidToName[studentUid]}
                         </div>
                       {/if}
@@ -663,19 +512,7 @@
                   <!-- Meeting Link -->
                   <div class="mt-3 border-t border-blue-200 pt-3">
                     <div class="flex items-center text-sm text-blue-700">
-                      <svg
-                        class="mr-2 h-4 w-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9v-9m0-9v9"
-                        />
-                      </svg>
+                      <Icon src={GlobeAlt} class="mr-2 h-4 w-4" />
                       <a
                         href={classInfo.meetingLink}
                         target="_blank"
@@ -689,19 +526,7 @@
                     <!-- Instructor Email -->
                     {#if instructorEmails[classInfo.id]}
                       <div class="mt-1 flex items-center text-sm text-blue-700">
-                        <svg
-                          class="mr-2 h-4 w-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                          />
-                        </svg>
+                        <Icon src={Envelope} class="mr-2 h-4 w-4" />
                         <a
                           href={`mailto:${instructorEmails[classInfo.id]}`}
                           target="_blank"
@@ -727,19 +552,7 @@
                       showClassDetailsDialog = true
                     }}
                   >
-                    <svg
-                      class="h-5 w-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                      />
-                    </svg>
+                    <Icon src={Plus} class="h-5 w-5" />
                     Add/Drop Class
                   </Button>
                 </div>

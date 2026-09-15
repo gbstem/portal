@@ -17,11 +17,12 @@ const config: Config = {
     // `esm-env` dependency) - down-level both so Jest's CJS loader can
     // read them (paired with transformIgnorePatterns below, since
     // node_modules is untransformed by default).
-    'node_modules[/\\\\](svelte|esm-env|lodash-es)[/\\\\].*\\.js$':
+    // `@steeze-ui` ships the icon components and their data as raw ESM too.
+    'node_modules[/\\\\](svelte|esm-env|lodash-es|@steeze-ui)[/\\\\].*\\.js$':
       '<rootDir>/jest-transform-esm-to-cjs.cjs',
   },
   transformIgnorePatterns: [
-    '[/\\\\]node_modules[/\\\\](?!(svelte|esm-env|lodash-es)[/\\\\])',
+    '[/\\\\]node_modules[/\\\\](?!(svelte|esm-env|lodash-es|@steeze-ui)[/\\\\])',
   ],
   coverageProvider: 'v8',
   testEnvironment: 'jsdom',
@@ -29,6 +30,10 @@ const config: Config = {
   moduleNameMapper: {
     '^\\$lib/(.*)$': '<rootDir>/src/lib/$1',
     '^@/(.*)$': '<rootDir>/$1',
+    // Its `exports` map has no `require`/`default` condition, which Jest's
+    // resolver needs - point straight at the entry.
+    '^@steeze-ui/heroicons$':
+      '<rootDir>/node_modules/@steeze-ui/heroicons/dist/index.js',
   },
   testPathIgnorePatterns: ['/node_modules/'],
   collectCoverage: false,
