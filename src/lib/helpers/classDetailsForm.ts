@@ -39,7 +39,6 @@ export function getDefaultClassValues(): Data.Class {
     classStatuses: [],
     instructorFirstName: '',
     instructorLastName: '',
-    instructorEmail: '',
     instructorUid: '',
     otherInstructorUids: [],
     classCap: 7,
@@ -146,20 +145,17 @@ export function removeCoInstructor(
  * their next save just doesn't happen.
  *
  * A class with no owner recorded at all is claimable - that is a class being
- * created. Otherwise ownership is decided by uid, falling back to the email
- * for documents written before `instructorUid` existed. The real owner still
- * matches on every save, which is what keeps `instructorEmail` self-healing
- * after they change their account address.
+ * created. Otherwise ownership is decided by uid alone, as firestore.rules
+ * decides class writes; a class whose owner is recorded only as an address
+ * belongs to nobody any code here can act on.
  */
 export function canClaimClassOwnership(
-  stored: Pick<Data.Class, 'instructorUid' | 'instructorEmail'> | undefined,
-  user: { uid: string; email: string },
+  stored: Pick<Data.Class, 'instructorUid'> | undefined,
+  user: { uid: string },
 ): boolean {
   const storedUid = stored?.instructorUid ?? ''
-  const storedEmail = (stored?.instructorEmail ?? '').toLowerCase()
-  if (!storedUid && !storedEmail) return true
-  if (storedUid) return storedUid === user.uid
-  return storedEmail === user.email.trim().toLowerCase()
+  if (!storedUid) return true
+  return storedUid === user.uid
 }
 
 /**

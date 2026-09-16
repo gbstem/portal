@@ -193,11 +193,6 @@ export async function bookInterviewSlot(
       interviewSlotStatus: 'pending',
       intervieweeFirstName: profile.firstName ?? '',
       intervieweeLastName: profile.lastName ?? '',
-      // TODO(uid migration, Phase 5 item 4): no endpoint reads this, but
-      // admin's interview views still display it. Stop writing it once they
-      // resolve the address from intervieweeId - dropping it first blanks
-      // them. See notes/EMAIL_TO_UID_AUDIT.md.
-      intervieweeEmail: caller.email,
       intervieweeId: caller.uid,
     })
     transaction.update(applicationRef, { 'meta.interview': true })

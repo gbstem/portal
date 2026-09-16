@@ -36,6 +36,11 @@
   let currentUser: Data.User.Store
   let classesMissingSubs: OpenSubRequestSummary[] = $state([])
   let userSubClassesList: Data.SubRequest[] = $state([])
+  // subRequestId -> the current address of that session's instructor of
+  // record, resolved from originalInstructorUid. Nothing reads an address off
+  // the request document: the stored copy went stale whenever an instructor
+  // changed their account email, and it is being removed.
+  let coveredInstructorEmails: Record<string, string> = $state({})
   let classesCheckedOff: any[] = $state([])
   let updating = $state(false)
   let subRequestsFromUser: Data.SubRequest[] = $state([])
@@ -94,7 +99,20 @@
       (subRequest) => subRequest.classNumber,
     )
     userSubClassesList = userSubClasses
+    void loadCoveredInstructorEmails()
     return classesMissingSubs
+  }
+
+  async function loadCoveredInstructorEmails() {
+    try {
+      coveredInstructorEmails =
+        await substituteService.fetchCoveredInstructorEmails(userSubClassesList)
+    } catch (err) {
+      console.error(
+        '[SubClasses] Could not resolve the instructors of covered sessions:',
+        err,
+      )
+    }
   }
 
   function sendSubRequest(i: number) {
@@ -151,9 +169,11 @@
             (classMissingSub) => classMissingSub.id !== classToSub.id,
           )
           // The request as the server claimed it, so the card has the
-          // requester's notes and address - and "Send Reminder" the
-          // substitute's name - until the reload a second later.
+          // requester's notes - and "Send Reminder" the substitute's name -
+          // until the reload a second later. Its instructor's address is
+          // resolved the same way as every other card's.
           userSubClassesList.push(claimed)
+          void loadCoveredInstructorEmails()
           alert.trigger('success', 'Signup successful!')
           setTimeout(() => {
             window.location.reload()
@@ -257,8 +277,14 @@
                 <p>{subRequest.notes}</p>
                 <br />
                 <p>
-                  Please reach out to the class's usual instructor at {subRequest.originalInstructorEmail}
-                  if you have questions!
+                  {#if coveredInstructorEmails[subRequest.id]}
+                    Please reach out to the class's usual instructor at {coveredInstructorEmails[
+                      subRequest.id
+                    ]} if you have questions!
+                  {:else}
+                    Please reach out to the class's usual instructor if you have
+                    questions!
+                  {/if}
                 </p>
               </Card>
             {/snippet}

@@ -55,7 +55,6 @@
     feedbackCompleted: [],
     instructorFirstName: '',
     instructorLastName: '',
-    instructorEmail: '',
     instructorUid: '',
     otherInstructorUids: [],
     course: '',
@@ -234,7 +233,6 @@
         subRequestDate,
         subRequestNotes,
         values.course,
-        values.instructorEmail,
         values.meetingLink,
         values.instructorUid,
         // Whoever is signed in, which for a co-taught class need not be the
@@ -299,7 +297,6 @@
             feedbackCompleted: classData.feedbackCompleted,
             instructorFirstName: classData.instructorFirstName,
             instructorLastName: classData.instructorLastName,
-            instructorEmail: classData.instructorEmail,
             instructorUid: classData.instructorUid,
             otherInstructorUids: classData.otherInstructorUids,
             course: classData.course,

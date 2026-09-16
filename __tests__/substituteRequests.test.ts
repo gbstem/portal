@@ -183,7 +183,6 @@ describe('claimSubRequest', () => {
     subRequestStatus: SubRequestStatus.SubstituteFound,
     subInstructorId: 'sub-uid',
     subInstructorFirstName: 'Sam',
-    subInstructorEmail: 'sub@gbstem.org',
   }
 
   test('records the caller as the substitute and returns the claimed request', async () => {
@@ -192,6 +191,8 @@ describe('claimSubRequest', () => {
 
     const claimed = await claimSubRequest(SUB, REQUEST_ID)
 
+    // By uid only - `claim` carries no address, so a claimed request holds
+    // nothing that goes stale when the substitute changes their account email.
     expect(transaction.update).toHaveBeenCalledWith(
       expect.objectContaining({ path: REQUEST_PATH }),
       claim,

@@ -456,7 +456,6 @@ describe('Zod Validation Schemas', () => {
         date: '2026-08-01T15:00:00.000Z',
         meetingLink: 'https://zoom.us/j/999888777',
         interviewerName: 'Jane Doe',
-        interviewerEmail: 'jane@example.com',
       })
       expect(result.success).toBe(true)
       if (result.success) {
@@ -469,7 +468,6 @@ describe('Zod Validation Schemas', () => {
         date: '',
         meetingLink: '',
         interviewerName: '',
-        interviewerEmail: 'invalid-email',
       })
       expect(result.success).toBe(false)
       if (!result.success) {
@@ -494,12 +492,13 @@ describe('Zod Validation Schemas', () => {
     it('returns valid initial defaults for InterviewSlot', () => {
       const defaults = getInterviewSlotDefaults(
         'Interviewer Name',
-        'interviewer@example.com',
         'interviewer-uid',
       )
       expect(defaults.interviewerName).toBe('Interviewer Name')
-      expect(defaults.interviewerEmail).toBe('interviewer@example.com')
       expect(defaults.interviewerUid).toBe('interviewer-uid')
+      // Both people are named by uid alone; a slot stores no address.
+      expect(defaults).not.toHaveProperty('interviewerEmail')
+      expect(defaults).not.toHaveProperty('intervieweeEmail')
       expect(defaults.interviewSlotStatus).toBe('available')
     })
 

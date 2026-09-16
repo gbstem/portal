@@ -72,9 +72,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       subRequestId,
     )
 
-    // From the uid only. The stored `originalInstructorEmail` goes stale when
-    // the instructor changes their account address, so it is never used here
-    // (notes/EMAIL_TO_UID_AUDIT.md section 7, Phase 4).
+    // From the uid only. A sub request stores no address: one would go stale
+    // as soon as the instructor changed their account's.
     const originalInstructorEmail = claimed.originalInstructorUid
       ? await resolveEmailByUid(claimed.originalInstructorUid)
       : undefined

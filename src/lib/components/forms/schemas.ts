@@ -211,13 +211,12 @@ export const interviewSlotSchema = z.object({
   date: z.string().min(1, 'Date and time is required'),
   meetingLink: z.string().min(1, 'Meeting link is required'),
   interviewerName: z.string().min(1, 'Interviewer name is required'),
-  interviewerEmail: z.string().email('Invalid interviewer email address'),
   // Kept in parity with admin's copy of this schema, which owns writing
-  // interview slots - portal never creates or edits one itself.
+  // interview slots - portal never creates or edits one itself. Both people
+  // are named by uid alone; a slot stores no address.
   interviewerUid: z.string().optional().default(''),
   intervieweeFirstName: z.string().optional().default(''),
   intervieweeLastName: z.string().optional().default(''),
-  intervieweeEmail: z.string().optional().default(''),
   intervieweeId: z.string().optional().default(''),
   interviewSlotStatus: z
     .enum(['available', 'pending', 'confirmed', 'completed', 'canceled'])
@@ -300,18 +299,15 @@ export function getRegistrationFormDefaults() {
 
 export function getInterviewSlotDefaults(
   interviewerName = '',
-  interviewerEmail = '',
   interviewerUid = '',
 ) {
   return {
     id: '',
     date: '',
     interviewerName,
-    interviewerEmail,
     interviewerUid,
     intervieweeFirstName: '',
     intervieweeLastName: '',
-    intervieweeEmail: '',
     intervieweeId: '',
     meetingLink: '',
     interviewSlotStatus: 'available' as const,
@@ -324,7 +320,6 @@ export function getClassDataDefaults() {
     course: '',
     instructorFirstName: '',
     instructorLastName: '',
-    instructorEmail: '',
     classDay1: '',
     classTime1: '',
     classDay2: '',

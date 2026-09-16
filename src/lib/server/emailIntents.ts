@@ -1,4 +1,7 @@
-import { classesCollection } from '$lib/data/collections'
+import {
+  classesCollection,
+  substituteRequestsCollection,
+} from '$lib/data/collections'
 import { isOwnRegistration } from '$lib/server/classEnrollments'
 import { adminDb } from '$lib/server/firebase'
 import { error } from '@sveltejs/kit'
@@ -17,9 +20,8 @@ import { z } from 'zod'
  * documents are readable by every signed-in user - so the policy, not the
  * request, decides whose address comes back.
  *
- * A policy should grant no more than its view showed back when it read the
- * address straight off a document. See notes/EMAIL_TO_UID_AUDIT.md, Phase 5
- * item 4.
+ * A policy should grant no more than the view it serves showed back when it
+ * read the address straight off a document.
  *
  * To add a use case: add its request shape to `resolveEmailsSchema` and its
  * policy to `policies` (which won't typecheck until both exist), then give the
@@ -35,6 +37,12 @@ import { z } from 'zod'
 const MAX_UIDS = 500
 const uids = z.array(z.string().min(1).max(128)).min(1).max(MAX_UIDS)
 
+/**
+ * A list view asks about the documents it has on screen in one request, so
+ * its context names them all rather than one per round trip.
+ */
+const documentIds = z.array(z.string().min(1)).min(1).max(MAX_UIDS)
+
 export const resolveEmailsSchema = z.discriminatedUnion('intent', [
   // The classes page's "Contact Instructor" link, which a parent sees on each
   // class one of their students is enrolled in.
@@ -42,6 +50,13 @@ export const resolveEmailsSchema = z.discriminatedUnion('intent', [
     intent: z.literal('enrolledClassInstructor'),
     uids,
     context: z.object({ classId: z.string().min(1) }),
+  }),
+  // The "reach out to the class's usual instructor" line SubClasses shows on
+  // each session this instructor is covering.
+  z.object({
+    intent: z.literal('coveredSubRequestInstructor'),
+    uids,
+    context: z.object({ subRequestIds: documentIds }),
   }),
 ])
 
@@ -78,6 +93,26 @@ const policies: { [I in Intent]: IntentPolicy<I> } = {
         isOwnRegistration(caller.uid, studentUid),
       )
       return enrolled ? [classData.instructorUid] : []
+    },
+  },
+  coveredSubRequestInstructor: {
+    roles: ['instructor'],
+    // The instructor of record for a session, to the substitute who has
+    // signed up to cover it - `subInstructorId` is stamped by the server when
+    // the request is claimed, so it says who is really covering it.
+    async resolvableUids(caller, { subRequestIds }) {
+      const snaps = await adminDb.getAll(
+        ...subRequestIds.map((id) =>
+          adminDb.doc(`${substituteRequestsCollection}/${id}`),
+        ),
+      )
+      return snaps.flatMap((snap) => {
+        const subRequest = snap.data() as Data.SubRequest | undefined
+        if (!subRequest || subRequest.subInstructorId !== caller.uid) return []
+        return subRequest.originalInstructorUid
+          ? [subRequest.originalInstructorUid]
+          : []
+      })
     },
   },
 }

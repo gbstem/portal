@@ -285,7 +285,8 @@ describe('Section I: Substitute Requests And Cover', () => {
           expect(request.subRequestStatus).to.equal('SubstituteFound')
           expect(request.subInstructorId).to.equal(COHOST_UID)
           expect(request.subInstructorFirstName).to.equal('Cohost')
-          expect(request.subInstructorEmail).to.equal(COHOST_EMAIL)
+          // By uid only - claiming writes no address.
+          expect(request).to.not.have.property('subInstructorEmail')
           // Whose class it is, and who asked, are both untouched by somebody
           // else picking the session up.
           expect(request.originalInstructorUid).to.equal(OWNER_UID)
@@ -529,6 +530,7 @@ describe('Section I: Substitute Requests And Cover', () => {
     requestCoverForASession('Prep: the fractions worksheet.').then(
       (classNumber) => {
         afterOrientation()
+        cy.intercept('POST', '/api/resolveEmails').as('resolveEmails')
         cy.signedInSession('instructor', { email: SUBSTITUTE_EMAIL })
 
         cy.contains('h2', 'Substitute Classes').should('be.visible')
@@ -557,7 +559,7 @@ describe('Section I: Substitute Requests And Cover', () => {
             `${SEEDED_CLASS_ID}---${classNumber}`,
           ).then((request: any) => {
             expect(request.subInstructorId).to.equal(SUBSTITUTE_UID)
-            expect(request.subInstructorEmail).to.equal(SUBSTITUTE_EMAIL)
+            expect(request).to.not.have.property('subInstructorEmail')
             expect(request.subRequestStatus).to.equal('SubstituteFound')
           })
         })
@@ -566,8 +568,10 @@ describe('Section I: Substitute Requests And Cover', () => {
           .should('contain', `class #${classNumber}`)
 
         // The session's prep notes tell the substitute who to ask: the class's
-        // own instructor, by address. Each session is a row followed by its
-        // buttons, so the first "View Prep Notes" after the row is its own.
+        // own instructor. The request stores no address - this one is what
+        // Auth holds for its originalInstructorUid, fetched through
+        // /api/resolveEmails. Each session is a row followed by its buttons,
+        // so the first "View Prep Notes" after the row is its own.
         cy.contains('h2', 'Your Classes To Substitute')
           .parent()
           .contains('div', `class #${classNumber} at`)
@@ -578,6 +582,9 @@ describe('Section I: Substitute Requests And Cover', () => {
         cy.get('[role="dialog"]')
           .should('contain', 'Prep: the fractions worksheet.')
           .and('contain', `the class's usual instructor at ${OWNER_EMAIL}`)
+        cy.wait('@resolveEmails')
+          .its('response.body.emails')
+          .should('deep.equal', { [OWNER_UID]: OWNER_EMAIL })
       },
     )
   })

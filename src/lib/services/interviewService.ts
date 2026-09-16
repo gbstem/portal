@@ -103,7 +103,6 @@ export const interviewService = {
         uid: currentUser.object.uid,
         firstName: currentUser.profile.firstName,
         lastName: currentUser.profile.lastName,
-        email: currentUser.object.email,
         date: new Date(dateToAdd),
       },
     )

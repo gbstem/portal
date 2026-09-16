@@ -382,4 +382,56 @@ describe('substituteService (Data Access Layer)', () => {
       ).rejects.toThrow('Error signing up to substitute, please try again.')
     })
   })
+
+  describe('fetchCoveredInstructorEmails', () => {
+    const covered = [
+      { id: 'owner-1---2', originalInstructorUid: 'owner-uid' },
+      { id: 'owner-1---3', originalInstructorUid: 'owner-uid' },
+    ] as Data.SubRequest[]
+
+    it('asks once for every session and keys the addresses by request', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({ emails: { 'owner-uid': 'owner@gbstem.org' } }),
+      })
+
+      await expect(
+        substituteService.fetchCoveredInstructorEmails(covered),
+      ).resolves.toEqual({
+        'owner-1---2': 'owner@gbstem.org',
+        'owner-1---3': 'owner@gbstem.org',
+      })
+      expect(global.fetch).toHaveBeenCalledTimes(1)
+      const [url, init] = (global.fetch as jest.Mock).mock.calls[0]
+      expect(url).toBe('/api/resolveEmails')
+      // The same instructor twice is one uid to look up, but both sessions
+      // are named so the server can check each one is really the caller's.
+      expect(JSON.parse(init.body)).toEqual({
+        intent: 'coveredSubRequestInstructor',
+        uids: ['owner-uid'],
+        context: { subRequestIds: ['owner-1---2', 'owner-1---3'] },
+      })
+    })
+
+    it('leaves out a session whose instructor account is gone', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ emails: { 'owner-uid': null } }),
+      })
+
+      await expect(
+        substituteService.fetchCoveredInstructorEmails(covered),
+      ).resolves.toEqual({})
+    })
+
+    it('makes no request when no session records an instructor uid', async () => {
+      await expect(
+        substituteService.fetchCoveredInstructorEmails([
+          { id: 'legacy-1---1' } as Data.SubRequest,
+        ]),
+      ).resolves.toEqual({})
+      expect(global.fetch).not.toHaveBeenCalled()
+    })
+  })
 })

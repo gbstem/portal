@@ -242,7 +242,6 @@ export async function saveClassDetails(
     if (claimsOwnership) {
       Object.assign(classFields, {
         instructorUid: caller.uid,
-        instructorEmail: caller.email,
         instructorFirstName: profile.firstName ?? '',
         instructorLastName: profile.lastName ?? '',
       })
