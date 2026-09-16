@@ -189,13 +189,22 @@ describe('Section D: Class Roster and Details View', () => {
           expect(classDoc.students, 'on the class roster').to.include(
             SEEDED_STUDENT_UID,
           )
-          // The server resolves the cc from the class's instructorUid; the
-          // seed gives that account the class's stored address.
+          // The server resolves the cc from the class's instructorUid - the
+          // class stores no address. The seed gives class-fake-N's instructor
+          // the account instructor-fake-N@gbstem.org.
+          const instructorEmail = `${enrolledClassId.replace(
+            'class-fake-',
+            'instructor-fake-',
+          )}@gbstem.org`
           cy.verifyEmailSent(
             SEEDED_STUDENT_EMAIL,
             `Mathematics 2a class details for ${SEEDED_STUDENT_NAME}`,
-            { to: [SEEDED_STUDENT_EMAIL], cc: [classDoc.instructorEmail] },
+            { to: [SEEDED_STUDENT_EMAIL], cc: [instructorEmail] },
           )
+          expect(
+            classDoc,
+            'no address stored on the class',
+          ).to.not.have.property('instructorEmail')
 
           // Now enrolled, the card offers its instructor's address. The seed
           // gives class-fake-N's instructor instructor-fake-N@gbstem.org.

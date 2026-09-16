@@ -256,9 +256,15 @@ describe('bookInterviewSlot', () => {
         interviewSlotStatus: 'pending',
         intervieweeFirstName: 'Grace',
         intervieweeLastName: 'Hopper',
-        intervieweeEmail: 'grace@example.com',
         intervieweeId: 'uid-1',
       },
+    )
+    // The booking names the applicant by uid only. Admin's interview views
+    // resolve their current address from it, so a slot can't carry one that
+    // went stale when they changed their account email.
+    expect(transaction.update).not.toHaveBeenCalledWith(
+      expect.objectContaining({ path: slotPath }),
+      expect.objectContaining({ intervieweeEmail: expect.anything() }),
     )
     // Only meta.interview: a whole `meta` write would clobber meta.decided and
     // meta.submitted, which admin and ApplyForm own.

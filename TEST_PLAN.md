@@ -567,8 +567,8 @@ deliberately differs from the class's primary instructor.
   access) _and_ the class leaves their `instructorClasses` mapping (ending
   dashboard access).
 - **13j - A co-instructor never becomes the owner**: saving the class details
-  form does not restamp `instructorUid`/`instructorEmail`, which would lock the
-  real owner out of their own class.
+  form does not restamp `instructorUid`, which would lock the real owner out of
+  their own class.
 - **13k - Full access to the shared class**: it appears under "Your Classes",
   the student roster (with parent contact details) is readable, and the weekly
   feedback form can be filed - which also writes `feedbackCompleted` and

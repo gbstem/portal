@@ -116,23 +116,18 @@ describe('ClassDetailsForm Helpers', () => {
   })
 
   describe('canClaimClassOwnership', () => {
-    const ada = { uid: 'uid-ada', email: 'ada@example.com' }
-    const grace = { uid: 'uid-grace', email: 'grace@example.com' }
+    const ada = { uid: 'uid-ada' }
+    const grace = { uid: 'uid-grace' }
 
     test('a class with no owner recorded is claimable - it is being created', () => {
-      expect(
-        canClaimClassOwnership({ instructorUid: '', instructorEmail: '' }, ada),
-      ).toBe(true)
+      expect(canClaimClassOwnership({ instructorUid: '' }, ada)).toBe(true)
       expect(canClaimClassOwnership(undefined, ada)).toBe(true)
     })
 
-    test('the owner may restamp, which is what self-heals a changed email', () => {
-      expect(
-        canClaimClassOwnership(
-          { instructorUid: 'uid-ada', instructorEmail: 'old@example.com' },
-          ada,
-        ),
-      ).toBe(true)
+    test('the owner may restamp their own class', () => {
+      expect(canClaimClassOwnership({ instructorUid: 'uid-ada' }, ada)).toBe(
+        true,
+      )
     })
 
     // The bug this exists to stop: being added as a co-instructor puts the
@@ -140,47 +135,24 @@ describe('ClassDetailsForm Helpers', () => {
     // An unconditional stamp made them the instructor and left the real owner
     // matching none of isInstructorOfClass()'s clauses.
     test('a co-instructor may not take ownership by saving', () => {
-      expect(
-        canClaimClassOwnership(
-          { instructorUid: 'uid-ada', instructorEmail: 'ada@example.com' },
-          grace,
-        ),
-      ).toBe(false)
+      expect(canClaimClassOwnership({ instructorUid: 'uid-ada' }, grace)).toBe(
+        false,
+      )
     })
 
-    test('falls back to the email on documents predating instructorUid', () => {
+    // Ownership is decided by uid alone, as firestore.rules decides class
+    // writes. An address on an old document names nobody this can act on, and
+    // is being removed from class documents entirely - so a class carrying
+    // only one reads as ownerless rather than as somebody's.
+    test('an address on the stored class grants nothing', () => {
       expect(
         canClaimClassOwnership(
-          { instructorUid: '', instructorEmail: 'ada@example.com' },
+          { instructorUid: '', ...{ instructorEmail: 'ada@example.com' } } as {
+            instructorUid: string
+          },
           ada,
         ),
       ).toBe(true)
-      expect(
-        canClaimClassOwnership(
-          { instructorUid: '', instructorEmail: 'ada@example.com' },
-          grace,
-        ),
-      ).toBe(false)
-    })
-
-    test('compares addresses case-insensitively', () => {
-      expect(
-        canClaimClassOwnership(
-          { instructorUid: '', instructorEmail: 'Ada@Example.com' },
-          ada,
-        ),
-      ).toBe(true)
-    })
-
-    // A stored uid is authoritative: a stale email that now belongs to
-    // somebody else must not let that person claim the class.
-    test('a stored uid wins over a matching email', () => {
-      expect(
-        canClaimClassOwnership(
-          { instructorUid: 'uid-ada', instructorEmail: 'grace@example.com' },
-          grace,
-        ),
-      ).toBe(false)
     })
   })
 

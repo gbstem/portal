@@ -161,7 +161,6 @@ export async function claimSubRequest(
       subRequestStatus: SubRequestStatus.SubstituteFound,
       subInstructorId: caller.uid,
       subInstructorFirstName: profile.firstName ?? '',
-      subInstructorEmail: caller.email,
     }
     transaction.update(subRequestRef, claim)
 

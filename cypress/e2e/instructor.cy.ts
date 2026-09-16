@@ -393,9 +393,9 @@ function expectedClassDoc(
     online: input.online,
     meetingLink: context.meetingLink,
     // Written from the signed-in profile on every save, never from the form.
+    // The owner is recorded as a uid only - no address is stored.
     instructorFirstName: 'Demo',
     instructorLastName: 'Instructor',
-    instructorEmail: 'instructor@gbstem.org',
     instructorUid: 'instructor-demo-uid',
     otherInstructorUids: expectedCoInstructorUids(input.coInstructorEmails),
     // Owned by registration/admin - the form must not touch the roster.
@@ -1180,12 +1180,11 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
 
   it('Test Case 13f: Class Details - Own Class Stays Writable After An Email Change', () => {
     // Reproduces the class-ownership analogue of the interview-slot production
-    // bug (see admin's interviews.cy.ts "Section H"): the seeded instructor's
-    // class doc is put into the state it would be in if she'd changed her
-    // account's email after the class was created - a stale instructorEmail,
-    // but the correct (never-changing) instructorUid. /api/classDetails has
-    // to allow this save on the uid match alone, so this test exercises the
-    // server's authorization, not just the form.
+    // bug (see admin's interviews.cy.ts "Section H"). A class left over from
+    // before the migration still carries the address its owner had then, now
+    // stale. /api/classDetails has to allow the save on the uid alone, and
+    // must not write the address back - so this exercises the server's
+    // authorization, not just the form.
     cy.task('mergeFirestoreDoc', {
       docPath: `${classesCollection}/${SEEDED_CLASS_ID}`,
       data: {
@@ -1214,8 +1213,10 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
     // The write must have actually landed, not just the success toast.
     readClassDoc().then((after: any) => {
       expect(after.classCap, 'class cap').to.equal(19)
-      // Self-healed back to the live signed-in email, same as every other save.
-      expect(after.instructorEmail).to.equal('instructor@gbstem.org')
+      // The save leaves the stale address exactly as it found it rather than
+      // refreshing it: nothing writes an address to a class any more, and
+      // --strip-emails is what finally removes this one.
+      expect(after.instructorEmail).to.equal('old-instructor@gbstem.org')
     })
   })
 
@@ -1259,7 +1260,8 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
           expect(data, 'new class document').to.not.equal(null)
           expect(data.course).to.equal(input.course)
           expect(data.instructorUid).to.equal('instructor-demo-uid')
-          expect(data.instructorEmail).to.equal('instructor@gbstem.org')
+          // A new class records its owner by uid alone.
+          expect(data).to.not.have.property('instructorEmail')
         },
       )
     })
@@ -1403,9 +1405,9 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
       // would pass just as well if their save had been rejected outright,
       // which is a different bug and not the one under test.
       expect(after.classCap, 'the co-instructor could still edit').to.equal(17)
-      // ...but the class is still Demo Instructor's.
+      // ...but the class is still Demo Instructor's. Ownership is the uid;
+      // no save writes an address, so there is none to check here.
       expect(after.instructorUid).to.equal('instructor-demo-uid')
-      expect(after.instructorEmail).to.equal('instructor@gbstem.org')
       expect(after.instructorFirstName).to.equal('Demo')
       expect(after.otherInstructorUids).to.deep.equal(['instructor-cohost-uid'])
     })
@@ -1682,7 +1684,10 @@ describe('Section G: Co-Instructor Access To A Shared Class', () => {
             expect(request, 'sub request document').to.not.equal(null)
             expect(request.notes).to.equal(notes)
             expect(request.originalInstructorUid).to.equal(OWNER_UID)
-            expect(request.originalInstructorEmail).to.equal(OWNER_EMAIL)
+            expect(
+              request,
+              'no address stored on the request',
+            ).to.not.have.property('originalInstructorEmail')
             expect(request.requestedByUid, 'who asked').to.equal(COHOST_UID)
 
             // ...and it is theirs to manage: "Your Sub Requests" is keyed off
@@ -1765,7 +1770,6 @@ describe('Section G: Co-Instructor Access To A Shared Class', () => {
       )
       // Leaving must not disturb whose class it is.
       expect(after.instructorUid).to.equal(OWNER_UID)
-      expect(after.instructorEmail).to.equal(OWNER_EMAIL)
     })
     cy.task(
       'readFirestoreDoc',

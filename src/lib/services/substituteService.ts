@@ -1,6 +1,7 @@
 import { db } from '$lib/client/firebase'
 import { SubRequestStatus } from '$lib/components/helpers/SubRequestStatus'
 import { substituteRequestsCollection } from '$lib/data/collections'
+import { accountEmailService } from '$lib/services/accountEmailService'
 import {
   subRequestClassId,
   subRequestDocId,
@@ -95,6 +96,40 @@ export const substituteService = {
         dateOfClass: new Date(openRequest.dateOfClass),
       })),
     }
+  },
+
+  /**
+   * The current addresses of the instructors of record for the sessions this
+   * user is covering, keyed by sub request id. A session whose instructor's
+   * account is gone is simply absent, and the view drops the address rather
+   * than showing a stale one - no address is stored on the request.
+   */
+  async fetchCoveredInstructorEmails(
+    subRequests: Data.SubRequest[],
+  ): Promise<Record<string, string>> {
+    const covered = subRequests.filter(
+      (subRequest) => subRequest.originalInstructorUid,
+    )
+    if (covered.length === 0) return {}
+
+    const emails = await accountEmailService.resolveEmails({
+      intent: 'coveredSubRequestInstructor',
+      uids: [
+        ...new Set(
+          covered.map(
+            (subRequest) => subRequest.originalInstructorUid as string,
+          ),
+        ),
+      ],
+      context: { subRequestIds: covered.map((subRequest) => subRequest.id) },
+    })
+
+    const byRequest: Record<string, string> = {}
+    for (const subRequest of covered) {
+      const email = emails[subRequest.originalInstructorUid as string]
+      if (email) byRequest[subRequest.id] = email
+    }
+    return byRequest
   },
 
   /**

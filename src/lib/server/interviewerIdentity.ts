@@ -3,9 +3,8 @@ import { adminAuth } from '$lib/server/firebase'
 /**
  * Resolves the interviewer's current email from Auth by uid.
  *
- * There is deliberately no fallback to the address stored on the slot: it goes
- * stale the moment the interviewer changes their account email - see
- * notes/EMAIL_TO_UID_AUDIT.md section 7, Phase 4.
+ * There is deliberately no fallback to an address stored on the slot, and
+ * since the uid migration a slot stores none at all.
  *
  * Returns undefined, and logs why, for a slot with no uid or a uid naming no
  * Auth account. It does not throw, because the only caller runs after the slot

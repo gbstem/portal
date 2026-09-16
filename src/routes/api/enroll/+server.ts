@@ -33,10 +33,10 @@ export interface UnenrollResponse {
 
 /**
  * The class's instructor at their current address, resolved from Auth by the
- * class's `instructorUid`. There is deliberately no fallback to the stored
- * `instructorEmail`, which goes stale when the instructor changes their account
- * address (notes/EMAIL_TO_UID_AUDIT.md section 7, Phase 4). A class with no
- * uid, or one naming no Auth account, is logged and gets no confirmation.
+ * class's `instructorUid`. There is deliberately no fallback to an address
+ * stored on the class, and since the uid migration a class stores none at all.
+ * A class with no uid, or one naming no Auth account, is logged and gets no
+ * confirmation.
  */
 async function resolveInstructorEmail(
   classId: string,

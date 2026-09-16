@@ -201,7 +201,6 @@ export function buildSubRequestPayload(params: {
   subRequestDate: string
   subRequestNotes: string
   course: string
-  instructorEmail: string
   instructorUid?: string
   // The signed-in instructor, who may be a co-instructor rather than the
   // class's owner. `originalInstructor*` below is the class's instructor of
@@ -221,16 +220,11 @@ export function buildSubRequestPayload(params: {
     dateOfClass: new Date(params.subRequestDate),
     notes: params.subRequestNotes,
     course: params.course,
-    // TODO(uid migration, Phase 5 item 4): no endpoint reads this any more,
-    // but portal's SubClasses and admin's sub-requests page still display it.
-    // Stop writing it only once those resolve the address from
-    // originalInstructorUid - dropping it first shows a blank address. See
-    // notes/EMAIL_TO_UID_AUDIT.md.
-    originalInstructorEmail: params.instructorEmail,
+    // No address is stored: whoever needs one resolves it from a uid, so it
+    // can't go stale when an instructor changes their account email.
     originalInstructorUid,
     requestedByUid: params.requestedByUid ?? originalInstructorUid,
     subInstructorFirstName: '',
-    subInstructorEmail: '',
     subInstructorId: '',
     subRequestStatus: SubRequestStatus.SubstituteNeeded,
     link: params.meetingLink,

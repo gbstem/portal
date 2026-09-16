@@ -107,6 +107,7 @@ const mockTransaction = {
 const mockAdminDb = {
   collection: jest.fn().mockReturnValue(mockCollection),
   doc: jest.fn().mockImplementation((id) => mockDoc(id)),
+  getAll: jest.fn(),
   runTransaction: jest.fn(async (fn: any) => fn(mockTransaction)),
 }
 
@@ -274,8 +275,15 @@ async function withRejectedSend(fn: () => Promise<void>) {
  */
 function mockFirestoreDocs(docs: Record<string, any>) {
   mockAdminDb.doc.mockImplementation((path: string) => ({
+    path,
     get: async () => ({ exists: path in docs, data: () => docs[path] }),
   }))
+  mockAdminDb.getAll.mockImplementation(async (...refs: { path: string }[]) =>
+    refs.map((ref) => ({
+      exists: ref.path in docs,
+      data: () => docs[ref.path],
+    })),
+  )
 }
 
 const instructorLocals = {
@@ -386,6 +394,78 @@ describe('resolveEmailsPOST', () => {
     mockRequest.json.mockResolvedValue(lookup())
 
     await expect(post({ user: null })).rejects.toMatchObject({ status: 401 })
+  })
+
+  describe('coveredSubRequestInstructor', () => {
+    const requestPath = `${substituteRequestsCollection}/owner-uid-1---2`
+    const covered = {
+      originalInstructorUid: 'owner-uid',
+      subInstructorId: 'caller-uid',
+    }
+    const coveredLookup = (overrides: Record<string, unknown> = {}) => ({
+      intent: 'coveredSubRequestInstructor',
+      uids: ['owner-uid'],
+      context: { subRequestIds: ['owner-uid-1---2'] },
+      ...overrides,
+    })
+
+    it("returns the instructor of record's address to the assigned substitute", async () => {
+      mockFirestoreDocs({ [requestPath]: covered })
+      mockRequest.json.mockResolvedValue(coveredLookup())
+      mockAdminAuth.getUsers.mockResolvedValueOnce({
+        users: [{ uid: 'owner-uid', email: 'owner@gbstem.org' }],
+      })
+
+      const res: any = await post(instructorLocals)
+
+      expect(res.body).toEqual({ emails: { 'owner-uid': 'owner@gbstem.org' } })
+    })
+
+    // Signing up for a session is what grants the address, and only the
+    // server writes subInstructorId - so an instructor who has not claimed it
+    // gets nothing, whichever uid they name.
+    it('refuses an instructor who is not covering that session', async () => {
+      mockFirestoreDocs({
+        [requestPath]: { ...covered, subInstructorId: 'somebody-else' },
+      })
+      mockRequest.json.mockResolvedValue(coveredLookup())
+
+      await expect(post(instructorLocals)).rejects.toMatchObject({
+        status: 403,
+        message: EMAIL_LOOKUP_REFUSED,
+      })
+      expect(mockAdminAuth.getUsers).not.toHaveBeenCalled()
+    })
+
+    // One bad id refuses the batch: a caller can't smuggle somebody else's
+    // session in beside their own.
+    it('refuses the whole batch when one session is not theirs', async () => {
+      mockFirestoreDocs({
+        [requestPath]: covered,
+        [`${substituteRequestsCollection}/other-1---1`]: {
+          originalInstructorUid: 'stranger-uid',
+          subInstructorId: 'somebody-else',
+        },
+      })
+      mockRequest.json.mockResolvedValue(
+        coveredLookup({
+          uids: ['owner-uid', 'stranger-uid'],
+          context: { subRequestIds: ['owner-uid-1---2', 'other-1---1'] },
+        }),
+      )
+
+      await expect(post(instructorLocals)).rejects.toMatchObject({
+        status: 403,
+      })
+      expect(mockAdminAuth.getUsers).not.toHaveBeenCalled()
+    })
+
+    it('refuses a parent account', async () => {
+      mockFirestoreDocs({ [requestPath]: covered })
+      mockRequest.json.mockResolvedValue(coveredLookup())
+
+      await expect(post(parentLocals)).rejects.toMatchObject({ status: 403 })
+    })
   })
 
   it.each([
