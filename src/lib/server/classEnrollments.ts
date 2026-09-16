@@ -2,6 +2,7 @@ import {
   classesCollection,
   registrationsCollection,
 } from '$lib/data/collections'
+import { isOwnRegistration } from '$lib/data/docIds'
 import { isGradeEligible } from '$lib/helpers/classesPage'
 import { adminDb } from '$lib/server/firebase'
 import { error } from '@sveltejs/kit'
@@ -17,23 +18,6 @@ export interface EnrollmentCaller {
 export interface Enrollment {
   classData: Data.Class
   registration: Data.Registration
-}
-
-/**
- * Whether `registrationId` names one of the parent account `uid`'s students.
- * Registrations are keyed `${parentUid}` or `${parentUid}-${n}`; this is the
- * same test firestore.rules makes in isStudentUserOrTheirChild.
- */
-export function isOwnRegistration(
-  uid: string,
-  registrationId: string,
-): boolean {
-  if (registrationId === uid) return true
-  const prefix = `${uid}-`
-  return (
-    registrationId.startsWith(prefix) &&
-    /^\d+$/.test(registrationId.slice(prefix.length))
-  )
 }
 
 function requireOwnRegistration(uid: string, studentUid: string) {

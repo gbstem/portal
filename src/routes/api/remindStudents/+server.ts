@@ -1,4 +1,5 @@
 import { renderEmail } from '$lib/emails/render'
+import { resolveRegistrationParentEmails } from '$lib/server/accountEmails'
 import { handleApiError, verifyInstructor } from '$lib/server/apiHelpers'
 import { getAuthorizedClass, getStudentSnaps } from '$lib/server/classDirectory'
 import { sendEmail } from '$lib/server/email'
@@ -68,15 +69,25 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       )
     }
 
-    const studentSnaps = await getStudentSnaps(targetUids)
+    const [studentSnaps, parentEmails] = await Promise.all([
+      getStudentSnaps(targetUids),
+      // The parent account's current address, not the one stored on the
+      // registration - that is an audit record of what was submitted.
+      resolveRegistrationParentEmails(targetUids),
+    ])
 
     let sentCount = 0
-    for (const snap of studentSnaps) {
+    for (const [index, snap] of studentSnaps.entries()) {
       if (!snap.exists) continue
       const data = snap.data() as any
       const personal = data?.personal || {}
-      const studentEmail = personal.email
-      if (!studentEmail) continue
+      const studentEmail = parentEmails.get(targetUids[index])
+      if (!studentEmail) {
+        console.error(
+          `[API /api/remindStudents] No parent account address for registration ${targetUids[index]}`,
+        )
+        continue
+      }
 
       const firstName = personal.studentFirstName || 'Student'
       const template = {

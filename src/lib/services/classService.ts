@@ -9,8 +9,8 @@ import {
   sortClassesBySpotsRemaining,
   type ClassInfo,
 } from '$lib/helpers/classesPage'
+import { subRequestDocId } from '$lib/data/docIds'
 import { buildSubRequestPayload } from '$lib/helpers/classSchedule'
-import { subRequestDocId } from '$lib/helpers/subClasses'
 import { accountEmailService } from '$lib/services/accountEmailService'
 import {
   collection,

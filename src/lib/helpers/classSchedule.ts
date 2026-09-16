@@ -1,7 +1,7 @@
+import { parseClassDocId } from '$lib/data/docIds'
 import { ClassStatus } from '$lib/components/helpers/ClassStatus'
 import { SubRequestStatus } from '$lib/components/helpers/SubRequestStatus'
 import generateMeetingTimeChangeEmail from '$lib/components/helpers/generateMeetingTimeChangeEmail'
-import type Student from '$lib/components/types/Student'
 import { isClassUpcoming } from '$lib/utils'
 import type {} from '../../data.d.ts'
 
@@ -178,21 +178,6 @@ export function classInstructorUids(klass: {
 }
 
 /**
- * Normalizes student document data from Firestore into a Student object.
- */
-export function transformStudentDocData(data: any): Student | null {
-  if (!data || !data.personal) return null
-  return {
-    name: `${data.personal.studentFirstName ?? ''} ${data.personal.studentLastName ?? ''}`.trim(),
-    email: data.personal.email ?? '',
-    secondaryEmail: data.personal.secondaryEmail ?? '',
-    phone: data.personal.phoneNumber ?? '',
-    grade: data.academic?.grade ?? '',
-    school: data.academic?.school ?? '',
-  }
-}
-
-/**
  * Constructs a Data.SubRequest payload.
  */
 export function buildSubRequestPayload(params: {
@@ -209,11 +194,11 @@ export function buildSubRequestPayload(params: {
   requestedByUid?: string
   meetingLink: string
 }): Data.SubRequest {
-  // New sub requests will have an instructorUid, but legacy ones may not, and in that case
-  // we parse it out of the ${instructorUid}-${classSequenceNumber} format document ID.
+  // A class without an instructorUid predates the field; its id may still
+  // record who created it (see parseClassDocId).
   const originalInstructorUid =
     params.instructorUid ||
-    (params.classId.includes('-') ? params.classId.replace(/-\d+$/, '') : '')
+    (parseClassDocId(params.classId)?.instructorUid ?? '')
   return {
     id: params.classId,
     classNumber: params.subRequestClassNumber,

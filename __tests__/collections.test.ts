@@ -11,6 +11,7 @@ import {
   semesterDates,
   studentFeedbackCollection,
   substituteRequestsCollection,
+  interviewTimeRequestsCollection,
   withSemester,
 } from '../src/lib/data/collections'
 
@@ -46,6 +47,7 @@ describe('collections.ts', () => {
 
   it('leaves non-semesterized collections and constants unchanged', () => {
     expect(substituteRequestsCollection).toBe('subRequests')
+    expect(interviewTimeRequestsCollection).toBe('interviewTimeRequests')
     expect(maxChildrenPerAccount).toBe(5)
   })
 

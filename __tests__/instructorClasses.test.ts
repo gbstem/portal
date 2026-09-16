@@ -46,7 +46,6 @@ import { classesCollection, currentSemester } from '$lib/data/collections'
 import {
   fetchInstructorClasses,
   INSTRUCTOR_CLASSES_COLLECTION,
-  isOwnClassId,
   saveClassDetails,
   type ClassDetailsFields,
 } from '$lib/server/instructorClasses'
@@ -160,27 +159,6 @@ beforeEach(() => {
   mockRunTransaction.mockImplementation(async (fn: any) => fn(transaction))
   mockIsAcceptedInstructor.mockResolvedValue(true)
   mockIsAcceptedInstructorAccount.mockResolvedValue(true)
-})
-
-describe('isOwnClassId', () => {
-  test('matches exactly `${uid}-${n}` with n a positive integer', () => {
-    expect(isOwnClassId('uid-1-1', 'uid-1')).toBe(true)
-    expect(isOwnClassId('uid-1-12', 'uid-1')).toBe(true)
-    expect(isOwnClassId('uid-1', 'uid-1')).toBe(false)
-    expect(isOwnClassId('uid-1-0', 'uid-1')).toBe(false)
-    expect(isOwnClassId('uid-1-abc', 'uid-1')).toBe(false)
-    expect(isOwnClassId('uid-1_1', 'uid-1')).toBe(false)
-    expect(isOwnClassId('other-1', 'uid-1')).toBe(false)
-  })
-
-  test("doesn't let a uid own a longer hyphenated uid's classes", () => {
-    expect(isOwnClassId('instructor-demo-uid-1', 'instructor')).toBe(false)
-  })
-
-  test('treats regex characters in a uid literally', () => {
-    expect(isOwnClassId('a.b-1', 'a.b')).toBe(true)
-    expect(isOwnClassId('axb-1', 'a.b')).toBe(false)
-  })
 })
 
 describe('fetchInstructorClasses', () => {

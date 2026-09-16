@@ -2,6 +2,7 @@ import {
   classesCollection,
   substituteRequestsCollection,
 } from '../../src/lib/data/collections'
+import { subRequestDocId } from '../../src/lib/data/docIds'
 import semesterDates from '../../src/lib/data/semesterDates.json'
 
 /**
@@ -117,7 +118,7 @@ export function fileSubRequest(
       // request for this session is cleared first.
       cy.task(
         'deleteFirestoreDoc',
-        `${substituteRequestsCollection}/${SEEDED_CLASS_ID}---${classNumber}`,
+        `${substituteRequestsCollection}/${subRequestDocId(SEEDED_CLASS_ID, classNumber)}`,
       )
       cy.contains('button', 'Confirm Request').click({ force: true })
       cy.waitForNotification('Sub request sent!')

@@ -6,7 +6,7 @@ import {
   studentFeedbackCollection,
   withSemester,
 } from '$lib/data/collections'
-import { isOwnRegistration } from '$lib/server/classEnrollments'
+import { isOwnRegistration } from '$lib/data/docIds'
 import { isInstructorOfClass } from '$lib/server/classDirectory'
 import { adminDb } from '$lib/server/firebase'
 import { isAcceptedInstructor } from '$lib/server/instructorDirectory'

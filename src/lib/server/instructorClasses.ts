@@ -1,3 +1,4 @@
+import { isOwnClassId } from '$lib/data/docIds'
 import { classesCollection, withSemester } from '$lib/data/collections'
 import {
   canClaimClassOwnership,
@@ -76,17 +77,6 @@ function serializeClass(data: Record<string, any>): SerializedClass {
 
 function mappingRef(uid: string) {
   return adminDb.doc(`${INSTRUCTOR_CLASSES_COLLECTION}/${uid}`)
-}
-
-/**
- * Whether `classId` is one of `uid`'s own: exactly `${uid}-${n}` with `n` a
- * positive integer, the shape generateNewClassId produces. Exact rather than a
- * prefix test because uids can contain hyphens - `instructor` must not own
- * `instructor-demo-uid-1`.
- */
-export function isOwnClassId(classId: string, uid: string): boolean {
-  const escaped = uid.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  return new RegExp(`^${escaped}-[1-9]\\d*$`).test(classId)
 }
 
 /**

@@ -1,3 +1,4 @@
+import { parseClassDocId } from '$lib/data/docIds'
 import type {} from '../../data.d.ts'
 
 export type ClassInfo = {
@@ -65,11 +66,9 @@ export function parseClassInfoDoc(id: string, data: any): ClassInfo {
     course: data.course ?? '',
     instructorFirstName: data.instructorFirstName ?? '',
     instructorLastName: data.instructorLastName ?? '',
-    // New class documents will have a uid, but legacy ones may not, and in that case
-    // we can parse it out of the ${instructorUid}-${classSequenceNumber} format document ID.
-    instructorUid:
-      data.instructorUid ??
-      (id.includes('-') ? id.replace(/-\d+$/, '') : undefined),
+    // A class without an instructorUid predates the field; its id may still
+    // record who created it (see parseClassDocId).
+    instructorUid: data.instructorUid ?? parseClassDocId(id)?.instructorUid,
     spotsRemaining: spotsRemaining ?? 0,
     meetingLink: data.meetingLink ?? '',
     gradeRecommendation: data.gradeRecommendation ?? '',

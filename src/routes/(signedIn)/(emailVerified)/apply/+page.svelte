@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { registrationDocId } from '$lib/data/docIds'
   import { page } from '$app/state'
   import { user } from '$lib/client/firebase'
   import Button from '$lib/components/Button.svelte'
@@ -74,7 +75,7 @@
 
     // Update options array
     options = [...options, { name: newChildName }]
-    nameToUid[newChildName] = `${uid}-${newChildNumber}`
+    nameToUid[newChildName] = registrationDocId(uid, newChildNumber)
 
     // Set the new child as the selected value
     value = newChildName

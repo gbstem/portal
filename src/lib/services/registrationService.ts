@@ -1,3 +1,4 @@
+import { registrationDocId } from '$lib/data/docIds'
 import { db } from '$lib/client/firebase'
 import {
   maxChildrenPerAccount,
@@ -89,9 +90,8 @@ export const registrationService = {
   async fetchChildRegistrationSlots(
     parentUid: string,
   ): Promise<ChildRegistrationSlot[]> {
-    const slotUids = Array.from(
-      { length: maxChildrenPerAccount },
-      (_, i) => `${parentUid}-${i + 1}`,
+    const slotUids = Array.from({ length: maxChildrenPerAccount }, (_, i) =>
+      registrationDocId(parentUid, i + 1),
     )
     const snaps = await Promise.all(
       slotUids.map((uid) =>

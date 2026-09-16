@@ -2,7 +2,7 @@ import {
   classesCollection,
   substituteRequestsCollection,
 } from '$lib/data/collections'
-import { isOwnRegistration } from '$lib/server/classEnrollments'
+import { isOwnRegistration } from '$lib/data/docIds'
 import { adminDb } from '$lib/server/firebase'
 import { error } from '@sveltejs/kit'
 import { z } from 'zod'

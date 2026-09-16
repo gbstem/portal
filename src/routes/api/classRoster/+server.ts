@@ -1,3 +1,4 @@
+import { resolveRegistrationParentEmails } from '$lib/server/accountEmails'
 import { handleApiError, verifyInstructor } from '$lib/server/apiHelpers'
 import { getAuthorizedClass, getStudentSnaps } from '$lib/server/classDirectory'
 import { authorizeSubstituteSession } from '$lib/server/substituteSessions'
@@ -8,6 +9,7 @@ import type { RequestHandler } from './$types'
 export interface RosterStudent {
   uid: string
   name: string
+  /** The parent account's current address; empty if the account is gone. */
   email: string
   secondaryEmail: string
   phone: string
@@ -50,7 +52,10 @@ export const GET: RequestHandler = async ({ url, locals }) => {
     }
 
     const studentUids: string[] = Array.from(new Set(classData.students ?? []))
-    const studentSnaps = await getStudentSnaps(studentUids)
+    const [studentSnaps, parentEmails] = await Promise.all([
+      getStudentSnaps(studentUids),
+      resolveRegistrationParentEmails(studentUids),
+    ])
 
     const students: RosterStudent[] = studentSnaps.map((snap, idx) => {
       const uid = studentUids[idx]
@@ -74,7 +79,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
       return {
         uid,
         name: fullName || 'Unknown Student',
-        email: personal.email ?? '',
+        email: parentEmails.get(uid) ?? '',
         secondaryEmail: personal.secondaryEmail ?? '',
         phone: personal.phoneNumber ?? '',
         grade: academic.grade ?? '',

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { parseClassDocId } from '$lib/data/docIds'
   import { user } from '$lib/client/firebase'
   import Button from '$lib/components/Button.svelte'
   import Dialog from '$lib/components/Dialog.svelte'
@@ -486,7 +487,7 @@
             color={selectedClassId === classId ? 'blue' : 'gray'}
             onclick={() => selectClass(classId)}
           >
-            Class {classId.split('-')[1]}
+            Class {parseClassDocId(classId)?.classNumber}
             {#if instructorClasses[classId]?.course}
               - {instructorClasses[classId].course}
             {/if}

@@ -3,7 +3,7 @@ import {
   classesCollection,
   substituteRequestsCollection,
 } from '$lib/data/collections'
-import { subRequestClassId } from '$lib/helpers/subClasses'
+import { parseSubRequestDocId } from '$lib/data/docIds'
 import { isInstructorOfClass } from '$lib/server/classDirectory'
 import { adminDb } from '$lib/server/firebase'
 import { canSubstitute } from '$lib/server/instructorDirectory'
@@ -116,12 +116,14 @@ export async function claimSubRequest(
   await requireSubstituteEligible(caller.uid)
 
   const profile = (await adminDb.doc(`users/${caller.uid}`).get()).data() ?? {}
+  const parsed = parseSubRequestDocId(subRequestId)
+  if (!parsed) {
+    throw error(404, 'That substitute request no longer exists.')
+  }
   const subRequestRef = adminDb.doc(
     `${substituteRequestsCollection}/${subRequestId}`,
   )
-  const classRef = adminDb.doc(
-    `${classesCollection}/${subRequestClassId(subRequestId)}`,
-  )
+  const classRef = adminDb.doc(`${classesCollection}/${parsed.classId}`)
 
   return adminDb.runTransaction(async (transaction) => {
     const subRequestSnap = await transaction.get(subRequestRef)

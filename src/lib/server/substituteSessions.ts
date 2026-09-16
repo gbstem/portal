@@ -6,7 +6,7 @@ import {
   substituteRequestsCollection,
   withSemester,
 } from '$lib/data/collections'
-import { subRequestClassId } from '$lib/helpers/subClasses'
+import { parseSubRequestDocId } from '$lib/data/docIds'
 import { adminDb } from '$lib/server/firebase'
 import { error } from '@sveltejs/kit'
 import type {
@@ -71,7 +71,7 @@ export async function authorizeSubstituteSession(
     throw error(403, 'You are not the substitute for that class.')
   }
 
-  const classId = subRequestClassId(subRequestId)
+  const classId = parseSubRequestDocId(subRequestId)?.classId
   if (!classId) {
     throw error(400, 'That substitute request is not attached to a class.')
   }

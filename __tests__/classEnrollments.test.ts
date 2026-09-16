@@ -24,11 +24,7 @@ import {
   classesCollection,
   registrationsCollection,
 } from '$lib/data/collections'
-import {
-  enrollStudent,
-  isOwnRegistration,
-  unenrollStudent,
-} from '$lib/server/classEnrollments'
+import { enrollStudent, unenrollStudent } from '$lib/server/classEnrollments'
 
 const PARENT = { uid: 'parent-uid' }
 const STUDENT = 'parent-uid-1'
@@ -73,23 +69,6 @@ beforeEach(() => {
     update: jest.fn(),
   }
   mockRunTransaction.mockImplementation(async (fn: any) => fn(transaction))
-})
-
-describe('isOwnRegistration', () => {
-  test("accepts the parent's own id and their numbered children", () => {
-    expect(isOwnRegistration('parent-uid', 'parent-uid')).toBe(true)
-    expect(isOwnRegistration('parent-uid', 'parent-uid-1')).toBe(true)
-    expect(isOwnRegistration('parent-uid', 'parent-uid-12')).toBe(true)
-  })
-
-  test("refuses anyone else's, including one that only shares a prefix", () => {
-    expect(isOwnRegistration('parent-uid', 'other-uid-1')).toBe(false)
-    expect(isOwnRegistration('parent-uid', 'parent-uid-1-2')).toBe(false)
-    expect(isOwnRegistration('parent-uid', 'parent-uid-x')).toBe(false)
-    expect(isOwnRegistration('parent-uid', 'parent-uid-')).toBe(false)
-    // A dash inside a uid is not a child suffix.
-    expect(isOwnRegistration('parent', 'parent-uid-1')).toBe(false)
-  })
 })
 
 describe('enrollStudent', () => {

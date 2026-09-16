@@ -12,6 +12,9 @@ export function createEmptyRegistration(): Data.Registration {
   return {
     personal: {
       ...defaults.personal,
+      // Document fields the form never shows: stamped from the signed-in
+      // parent account, not typed.
+      email: '',
       parentFirstName: '',
       parentLastName: '',
     },
@@ -121,7 +124,6 @@ export function toRegistrationFormValues(v: Data.Registration) {
       studentLastName: v.personal?.studentLastName || '',
       parentFirstName: v.personal?.parentFirstName || '',
       parentLastName: v.personal?.parentLastName || '',
-      email: v.personal?.email || '',
       secondaryEmail: v.personal?.secondaryEmail || '',
       phoneNumber: v.personal?.phoneNumber || '',
       dateOfBirth: v.personal?.dateOfBirth || '',
@@ -210,21 +212,26 @@ export const REGISTRATION_ADMIN_OWNED_FIELDS = ['agreements.bypassAgeLimits']
  * `meta` is absent on purpose: it's written only by the submit handler and by
  * the bootstrap write.
  *
+ * @param accountEmail the signed-in parent account's current address. It is
+ *   stamped as `personal.email` on every save, so the submitted document
+ *   records the address the account had when it was submitted. Nothing reads
+ *   it back - see `Data.Registration`.
  * @param timestamp the caller's `serverTimestamp()` sentinel.
  */
 export function registrationOwnedFields(
   values: Data.Registration,
   formData: any,
+  accountEmail: string,
   timestamp: any,
 ): RegistrationUpdate {
   return {
     personal: {
       ...values.personal,
       ...formData.personal,
-      // Identity fields belong to the parent's account, not to this form.
+      email: accountEmail,
+      // The parent's names belong to their account, not to this form.
       // `initializeForm` writes them from the signed-in profile; re-pin them
       // here so a stale or absent form value can never overwrite them.
-      email: values.personal.email,
       parentFirstName: values.personal.parentFirstName,
       parentLastName: values.personal.parentLastName,
     },

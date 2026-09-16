@@ -2,9 +2,9 @@
   import { enhance } from '$app/forms'
   import { user } from '$lib/client/firebase'
   import { curriculumLink } from '$lib/helpers/curriculumLink'
+  import { parseSubRequestDocId } from '$lib/data/docIds'
   import {
     filterCheckedOffSubClasses,
-    subRequestClassId,
     type OpenSubRequestSummary,
   } from '$lib/helpers/subClasses'
   import { classService } from '$lib/services/classService'
@@ -189,7 +189,7 @@
     const { dateOfClass, id } = subRequest
     try {
       sendClassReminder({
-        classId: subRequestClassId(id),
+        classId: parseSubRequestDocId(id)?.classId ?? '',
         subRequestId: id,
         nextMeetingTime: formatDate(timestampToDate(dateOfClass)),
       })
@@ -200,7 +200,7 @@
 
   async function recordClass(subRequest: Data.SubRequest) {
     const classValues = await classService.fetchClassDetails(
-      subRequestClassId(subRequest.id),
+      parseSubRequestDocId(subRequest.id)?.classId ?? '',
     )
     if (!classValues) {
       alert.trigger('error', 'That class could not be found. Please reload.')

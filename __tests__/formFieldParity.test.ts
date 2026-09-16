@@ -191,10 +191,12 @@ const APPLICATION_UNVALIDATED_FIELDS: string[] = []
  * never renders them.
  */
 const REGISTRATION_IDENTITY_FIELDS = [
-  'personal.email',
   'personal.parentFirstName',
   'personal.parentLastName',
 ]
+
+/** Stands in for the signed-in account's current address. */
+const ACCOUNT_EMAIL = 'account@example.com'
 
 /**
  * Schema fields ClassDetailsForm validates but deliberately never stores.
@@ -221,7 +223,7 @@ const REGISTRATION_FORM = {
   unvalidated: REGISTRATION_UNVALIDATED_FIELDS,
   formOnly: [] as string[],
   ownedFields: (values: any, formData: any) =>
-    registrationOwnedFields(values, formData, TIMESTAMP) as any,
+    registrationOwnedFields(values, formData, ACCOUNT_EMAIL, TIMESTAMP) as any,
   adminOwned: REGISTRATION_ADMIN_OWNED_FIELDS,
   identity: REGISTRATION_IDENTITY_FIELDS,
 }
@@ -236,7 +238,7 @@ const APPLICATION_FORM = {
   unvalidated: APPLICATION_UNVALIDATED_FIELDS,
   formOnly: [] as string[],
   ownedFields: (values: any, formData: any) =>
-    applicationOwnedFields(values, formData, TIMESTAMP) as any,
+    applicationOwnedFields(values, formData, ACCOUNT_EMAIL, TIMESTAMP) as any,
   adminOwned: APPLICATION_ADMIN_OWNED_FIELDS,
   identity: [] as string[],
 }
@@ -433,6 +435,20 @@ describe.each([REGISTRATION_FORM, APPLICATION_FORM])(
             value: `values-${path}`,
           })
         }
+      })
+
+      // `personal.email` is an audit record of the address the account had
+      // when the document was submitted, so each save stamps it from the
+      // session - never from the stored copy or anything the form carries.
+      test('stamps personal.email from the signed-in account', () => {
+        const values = populate(createEmpty(), leaves, 'values')
+        const formData = populate(toFormValues(createEmpty()), leaves, 'form')
+        setPath(values, 'personal.email', 'stored@example.com')
+        setPath(formData, 'personal.email', 'form@example.com')
+
+        expect(getPath(ownedFields(values, formData), 'personal.email')).toBe(
+          ACCOUNT_EMAIL,
+        )
       })
 
       test('never writes an admin-owned field', () => {
