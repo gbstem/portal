@@ -166,20 +166,19 @@
             if (
               !values.meta.submitted &&
               (values.personal.parentFirstName !== user.profile.firstName ||
-                values.personal.parentLastName !== user.profile.lastName ||
-                values.personal.email !== user.object.email)
+                values.personal.parentLastName !== user.profile.lastName)
             ) {
               values.personal.parentFirstName = user.profile.firstName
               values.personal.parentLastName = user.profile.lastName
-              values.personal.email = user.object.email ?? ''
               form.set(toFormValues(values))
-              // The document already exists, so write only the three identity
-              // fields that just drifted rather than the whole draft.
+              // The document already exists, so write only the identity
+              // fields rather than the whole draft. The address is stamped
+              // from the session, never compared with the stored one.
               await registrationService.updateRegistration(childUid, {
                 personal: {
                   parentFirstName: values.personal.parentFirstName,
                   parentLastName: values.personal.parentLastName,
-                  email: values.personal.email,
+                  email: user.object.email ?? '',
                 },
               })
               dbValues = cloneDeep(values)
@@ -263,7 +262,12 @@
   // `$lib/helpers/registrationForm` (along with the note on what it deliberately
   // omits) so `formFieldParity.test.ts` can check the list against the schema.
   function ownedFields(formData: any) {
-    return registrationOwnedFields(values, formData, serverTimestamp())
+    return registrationOwnedFields(
+      values,
+      formData,
+      $user?.object.email ?? '',
+      serverTimestamp(),
+    )
   }
 
   function handleSave(): Promise<void> {
@@ -429,7 +433,7 @@
               {`Parent Name: ${values.personal.parentFirstName} ${values.personal.parentLastName}`}
             </div>
             <div class="rounded-md bg-gray-100 px-3 py-2 text-sm shadow-xs">
-              {`Email: ${values.personal.email}`}
+              {`Email: ${$user?.object.email ?? ''}`}
             </div>
             <div class="text-xs text-gray-500">
               Wrong name or email? Go to your <a class="link" href="/profile"

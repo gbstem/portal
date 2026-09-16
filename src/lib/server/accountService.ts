@@ -1,3 +1,4 @@
+import { registrationDocId } from '$lib/data/docIds'
 import {
   applicationsCollection,
   classesCollection,
@@ -49,7 +50,7 @@ function toRegistrationForDeletion(
 /** Every possible child registration ref for a parent account. */
 function registrationRefs(uid: string): DocumentReference[] {
   return Array.from({ length: maxChildrenPerAccount }, (_, i) =>
-    adminDb.doc(`${registrationsCollection}/${uid}-${i + 1}`),
+    adminDb.doc(`${registrationsCollection}/${registrationDocId(uid, i + 1)}`),
   )
 }
 

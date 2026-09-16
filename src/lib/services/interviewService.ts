@@ -1,4 +1,6 @@
 import { db } from '$lib/client/firebase'
+import { interviewTimeRequestsCollection } from '$lib/data/collections'
+import { slotRequestDocId } from '$lib/data/docIds'
 import { formatDateLocal } from '$lib/utils'
 import { doc, setDoc } from 'firebase/firestore'
 import type {
@@ -96,8 +98,8 @@ export const interviewService = {
     await setDoc(
       doc(
         db,
-        'interviewTimeRequests',
-        currentUser.object.uid + '-' + dateToAdd,
+        interviewTimeRequestsCollection,
+        slotRequestDocId(currentUser.object.uid, dateToAdd),
       ),
       {
         uid: currentUser.object.uid,

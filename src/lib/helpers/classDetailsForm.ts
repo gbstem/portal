@@ -241,26 +241,6 @@ export function getMeetingDates(
 }
 
 /**
- * Calculates next available class ID for a user given existing class IDs.
- */
-export function generateNewClassId(
-  existingClassIds: string[],
-  userUid: string,
-): string {
-  const existingNumbers = existingClassIds
-    .filter((id) => id.startsWith(`${userUid}-`))
-    .map((id) => parseInt(id.split('-')[1], 10))
-    .filter((n) => !isNaN(n))
-
-  const classNumber =
-    existingNumbers.length > 0
-      ? (Math.max(...existingNumbers) + 1).toString()
-      : '1'
-
-  return `${userUid}-${classNumber}`
-}
-
-/**
  * The class fields the generated schedule is derived from. `getMeetingDates`
  * reads exactly these four and nothing else, so a change to any of them
  * invalidates every meeting date already stored on the class - and a change to

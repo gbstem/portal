@@ -21,6 +21,7 @@ import {
   subRequestRow,
 } from '../support/fixtures'
 import { prepareDocForCompare } from '../support/utils'
+import { subRequestDocId } from '../../src/lib/data/docIds'
 
 /**
  * The substitute flow, end to end: an instructor asks for cover, somebody else
@@ -180,7 +181,7 @@ describe('Section I: Substitute Requests And Cover', () => {
         cy.getFirestoreDoc(
           authToken,
           substituteRequestsCollection,
-          `${SEEDED_CLASS_ID}---${movedTo}`,
+          subRequestDocId(SEEDED_CLASS_ID, movedTo),
         ).then((moved: any) => {
           expect(moved, 'the request at its new session').to.not.equal(null)
           expect(moved.notes).to.equal(editedNotes)
@@ -193,14 +194,14 @@ describe('Section I: Substitute Requests And Cover', () => {
 
       // Moving it to another session moves the document...
       expectDocExists(
-        `${substituteRequestsCollection}/${SEEDED_CLASS_ID}---${classNumber}`,
+        `${substituteRequestsCollection}/${subRequestDocId(SEEDED_CLASS_ID, classNumber)}`,
         false,
         'the request left behind at the old session',
       )
       // ...and no phantom is written under the instructor's own uid, which is
       // where every edit used to land.
       expectDocExists(
-        `${substituteRequestsCollection}/${OWNER_UID}---${movedTo}`,
+        `${substituteRequestsCollection}/${subRequestDocId(OWNER_UID, movedTo)}`,
         false,
         'a phantom request keyed by the signed-in uid',
       )
@@ -222,7 +223,7 @@ describe('Section I: Substitute Requests And Cover', () => {
     cy.captureConfirms().as('confirms')
 
     fileSubRequest('Cancelling this one shortly.').then((classNumber) => {
-      const docPath = `${substituteRequestsCollection}/${SEEDED_CLASS_ID}---${classNumber}`
+      const docPath = `${substituteRequestsCollection}/${subRequestDocId(SEEDED_CLASS_ID, classNumber)}`
       expectDocExists(docPath, true, 'the request that was just filed')
 
       subRequestRow(classNumber).within(() => {
@@ -279,7 +280,7 @@ describe('Section I: Substitute Requests And Cover', () => {
         cy.getFirestoreDoc(
           authToken,
           substituteRequestsCollection,
-          `${SEEDED_CLASS_ID}---${classNumber}`,
+          subRequestDocId(SEEDED_CLASS_ID, classNumber),
         ).then((request: any) => {
           expect(request, 'sub request document').to.not.equal(null)
           expect(request.subRequestStatus).to.equal('SubstituteFound')
@@ -379,7 +380,7 @@ describe('Section I: Substitute Requests And Cover', () => {
           cy.getFirestoreDoc(
             authToken,
             substituteRequestsCollection,
-            `${SEEDED_CLASS_ID}---${classNumber}`,
+            subRequestDocId(SEEDED_CLASS_ID, classNumber),
           ).then((request: any) => {
             expect(request.subRequestStatus).to.equal(
               'SubstituteFeedbackNeeded',
@@ -441,7 +442,7 @@ describe('Section I: Substitute Requests And Cover', () => {
               cy.getFirestoreDoc(
                 authToken,
                 substituteRequestsCollection,
-                `${SEEDED_CLASS_ID}---${classNumber}`,
+                subRequestDocId(SEEDED_CLASS_ID, classNumber),
               ).then((request: any) => {
                 // What credits the substitute's community service hours.
                 expect(request.subRequestStatus).to.equal('NoSubstituteNeeded')
@@ -556,7 +557,7 @@ describe('Section I: Substitute Requests And Cover', () => {
           cy.getFirestoreDoc(
             authToken,
             substituteRequestsCollection,
-            `${SEEDED_CLASS_ID}---${classNumber}`,
+            subRequestDocId(SEEDED_CLASS_ID, classNumber),
           ).then((request: any) => {
             expect(request.subInstructorId).to.equal(SUBSTITUTE_UID)
             expect(request).to.not.have.property('subInstructorEmail')
@@ -621,7 +622,7 @@ describe('Section I: Substitute Requests And Cover', () => {
               cy.getFirestoreDoc(
                 authToken,
                 substituteRequestsCollection,
-                `${SEEDED_CLASS_ID}---${classNumber}`,
+                subRequestDocId(SEEDED_CLASS_ID, classNumber),
               ).then((request: any) => {
                 expect(
                   request.subInstructorId,
@@ -663,7 +664,7 @@ describe('Section I: Substitute Requests And Cover', () => {
         cy.waitForNotification('Sub request deleted!')
 
         expectDocExists(
-          `${substituteRequestsCollection}/${SEEDED_CLASS_ID}---${classNumber}`,
+          `${substituteRequestsCollection}/${subRequestDocId(SEEDED_CLASS_ID, classNumber)}`,
           false,
           'the cancelled request',
         )
@@ -724,7 +725,7 @@ describe('Section I: Substitute Requests And Cover', () => {
         cy.getFirestoreDoc(
           authToken,
           substituteRequestsCollection,
-          `${SEEDED_CLASS_ID}---${classNumber}`,
+          subRequestDocId(SEEDED_CLASS_ID, classNumber),
         ).then((request: any) => {
           expect(request.subInstructorId).to.equal(COHOST_UID)
           expect(request.subRequestStatus).to.equal('SubstituteFound')

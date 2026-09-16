@@ -2,11 +2,8 @@ import { db } from '$lib/client/firebase'
 import { SubRequestStatus } from '$lib/components/helpers/SubRequestStatus'
 import { substituteRequestsCollection } from '$lib/data/collections'
 import { accountEmailService } from '$lib/services/accountEmailService'
-import {
-  subRequestClassId,
-  subRequestDocId,
-  type SubClassesDataResult,
-} from '$lib/helpers/subClasses'
+import { parseSubRequestDocId, subRequestDocId } from '$lib/data/docIds'
+import { type SubClassesDataResult } from '$lib/helpers/subClasses'
 import {
   collection,
   deleteDoc,
@@ -104,32 +101,20 @@ export const substituteService = {
    * account is gone is simply absent, and the view drops the address rather
    * than showing a stale one - no address is stored on the request.
    */
-  async fetchCoveredInstructorEmails(
+  fetchCoveredInstructorEmails(
     subRequests: Data.SubRequest[],
   ): Promise<Record<string, string>> {
-    const covered = subRequests.filter(
-      (subRequest) => subRequest.originalInstructorUid,
+    return accountEmailService.resolveEmailsByDocument(
+      subRequests.map((subRequest) => ({
+        id: subRequest.id,
+        uid: subRequest.originalInstructorUid ?? '',
+      })),
+      ({ ids, uids }) => ({
+        intent: 'coveredSubRequestInstructor',
+        uids,
+        context: { subRequestIds: ids },
+      }),
     )
-    if (covered.length === 0) return {}
-
-    const emails = await accountEmailService.resolveEmails({
-      intent: 'coveredSubRequestInstructor',
-      uids: [
-        ...new Set(
-          covered.map(
-            (subRequest) => subRequest.originalInstructorUid as string,
-          ),
-        ),
-      ],
-      context: { subRequestIds: covered.map((subRequest) => subRequest.id) },
-    })
-
-    const byRequest: Record<string, string> = {}
-    for (const subRequest of covered) {
-      const email = emails[subRequest.originalInstructorUid as string]
-      if (email) byRequest[subRequest.id] = email
-    }
-    return byRequest
   },
 
   /**
@@ -157,7 +142,7 @@ export const substituteService = {
     // Keyed by the class, never by whoever is signed in: an edit has to land
     // on the document the request was created at, and a co-instructor editing
     // a request is not the uid in that class's id anyway.
-    const classId = subRequestClassId(subRequest.id)
+    const classId = parseSubRequestDocId(subRequest.id)?.classId ?? ''
     if (!classId) {
       throw new Error(
         `Cannot save a sub request without a class: id was "${subRequest.id}"`,

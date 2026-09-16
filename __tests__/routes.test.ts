@@ -286,6 +286,19 @@ function mockFirestoreDocs(docs: Record<string, any>) {
   )
 }
 
+/**
+ * Points adminAuth.getUsers at `accounts` (uid -> current email). Any uid not
+ * listed names no Auth account. Reset by the describe blocks that use it.
+ */
+function mockAuthAccounts(accounts: Record<string, string>) {
+  mockAdminAuth.getUsers.mockImplementation(async (ids: { uid: string }[]) => ({
+    users: ids
+      .filter(({ uid }) => uid in accounts)
+      .map(({ uid }) => ({ uid, email: accounts[uid] })),
+    notFound: ids.filter(({ uid }) => !(uid in accounts)),
+  }))
+}
+
 const instructorLocals = {
   user: { uid: 'caller-uid', email: 'caller@gbstem.org', role: 'instructor' },
 }
@@ -720,6 +733,7 @@ describe('API routes POST endpoints', () => {
   let mockCookies: any
 
   beforeEach(() => {
+    mockAdminAuth.getUsers.mockResolvedValue({ users: [], notFound: [] })
     mockRequest = {
       json: jest.fn(),
     }
@@ -1747,9 +1761,9 @@ describe('API routes POST endpoints', () => {
   // The point of resolving uids server-side: the cc goes to whatever
   // address the account has right now, and the client never gets to name it.
   it('remindStudentsPOST resolves co-instructor uids to current emails server-side', async () => {
-    mockAdminAuth.getUsers.mockResolvedValueOnce({
-      users: [{ uid: 'co-uid-1', email: 'renamed@gbstem.org' }],
-      notFound: [{ uid: 'co-uid-deleted' }],
+    mockAuthAccounts({
+      'co-uid-1': 'renamed@gbstem.org',
+      'ada-parent': 'ada@example.com',
     })
     mockFirestoreDocs({
       [`${classesCollection}/c-1`]: {
@@ -1757,12 +1771,12 @@ describe('API routes POST endpoints', () => {
         instructorFirstName: 'Lead',
         otherInstructorUids: ['co-uid-1', 'co-uid-deleted'],
         course: 'Python 1',
-        students: ['s-1'],
+        students: ['ada-parent-1'],
       },
-      [`${registrationsCollection}/s-1`]: {
+      [`${registrationsCollection}/ada-parent-1`]: {
         personal: {
           studentFirstName: 'Ada',
-          email: 'ada@example.com',
+          email: 'stale-ada@example.com',
         },
       },
     })
@@ -1787,9 +1801,9 @@ describe('API routes POST endpoints', () => {
   // by uid so whoever pressed the button doesn't get a copy of their own
   // reminder - everyone else teaching the class does.
   it('remindStudentsPOST cc’s the class’s other instructors but not the sender', async () => {
-    mockAdminAuth.getUsers.mockResolvedValueOnce({
-      users: [{ uid: 'owner-uid', email: 'owner@gbstem.org' }],
-      notFound: [],
+    mockAuthAccounts({
+      'owner-uid': 'owner@gbstem.org',
+      'ada-parent': 'ada@example.com',
     })
     mockFirestoreDocs({
       [`${classesCollection}/c-1`]: {
@@ -1797,12 +1811,12 @@ describe('API routes POST endpoints', () => {
         instructorFirstName: 'Owner',
         otherInstructorUids: ['caller-uid'],
         course: 'Python 1',
-        students: ['s-1'],
+        students: ['ada-parent-1'],
       },
-      [`${registrationsCollection}/s-1`]: {
+      [`${registrationsCollection}/ada-parent-1`]: {
         personal: {
           studentFirstName: 'Ada',
-          email: 'ada@example.com',
+          email: 'stale-ada@example.com',
         },
       },
     })
@@ -1826,6 +1840,11 @@ describe('API routes POST endpoints', () => {
     // Only the other instructor was ever looked up - the caller is dropped
     // by uid, before resolution, so a changed email can't reintroduce them.
     expect(mockAdminAuth.getUsers).toHaveBeenCalledWith([{ uid: 'owner-uid' }])
+    // ...and the family is reached at the parent account's current address,
+    // not the one stored on the registration.
+    expect(MailService.send).toHaveBeenCalledWith(
+      expect.objectContaining({ to: ['ada@example.com'] }),
+    )
     expect(MailService.send).toHaveBeenCalledWith(
       expect.objectContaining({ cc: ['owner@gbstem.org'] }),
     )
@@ -1844,9 +1863,10 @@ describe('API routes POST endpoints', () => {
   })
 
   it('remindStudentsPOST sends reminders to all enrolled students and CCs co-instructors', async () => {
-    mockAdminAuth.getUsers.mockResolvedValueOnce({
-      users: [{ uid: 'co-inst-1', email: 'coinst@gbstem.org' }],
-      notFound: [],
+    mockAuthAccounts({
+      'co-inst-1': 'coinst@gbstem.org',
+      'ada-parent': 'ada@example.com',
+      'charles-parent': 'charles@example.com',
     })
     mockFirestoreDocs({
       [`${classesCollection}/c-1`]: {
@@ -1854,18 +1874,18 @@ describe('API routes POST endpoints', () => {
         instructorFirstName: 'Lead',
         otherInstructorUids: ['co-inst-1'],
         course: 'Python 1',
-        students: ['s-1', 's-2'],
+        students: ['ada-parent-1', 'charles-parent-1'],
       },
-      [`${registrationsCollection}/s-1`]: {
+      [`${registrationsCollection}/ada-parent-1`]: {
         personal: {
           studentFirstName: 'Ada',
-          email: 'ada@example.com',
+          email: 'stale-ada@example.com',
         },
       },
-      [`${registrationsCollection}/s-2`]: {
+      [`${registrationsCollection}/charles-parent-1`]: {
         personal: {
           studentFirstName: 'Charles',
-          email: 'charles@example.com',
+          email: 'stale-charles@example.com',
         },
       },
     })
@@ -1901,21 +1921,18 @@ describe('API routes POST endpoints', () => {
   })
 
   it('remindStudentsPOST sends to a single enrolled student when studentUid is specified', async () => {
-    mockAdminAuth.getUsers.mockResolvedValueOnce({
-      users: [],
-      notFound: [],
-    })
+    mockAuthAccounts({ 'ada-parent': 'ada@example.com' })
     mockFirestoreDocs({
       [`${classesCollection}/c-1`]: {
         instructorUid: 'caller-uid',
         instructorFirstName: 'Lead',
         course: 'Python 1',
-        students: ['s-1', 's-2'],
+        students: ['ada-parent-1', 'charles-parent-1'],
       },
-      [`${registrationsCollection}/s-1`]: {
+      [`${registrationsCollection}/ada-parent-1`]: {
         personal: {
           studentFirstName: 'Ada',
-          email: 'ada@example.com',
+          email: 'stale-ada@example.com',
         },
       },
     })
@@ -1923,7 +1940,7 @@ describe('API routes POST endpoints', () => {
     mockRequest.json.mockResolvedValue({
       classId: 'c-1',
       classTime: 'Friday at 4:00 PM',
-      studentUid: 's-1',
+      studentUid: 'ada-parent-1',
     })
 
     ;(MailService.send as jest.Mock).mockClear()
@@ -1942,6 +1959,7 @@ describe('API routes POST endpoints', () => {
   })
 
   it('remindStudentsPOST sends reminders when called by authorized substitute without co-instructor CCs', async () => {
+    mockAuthAccounts({ 'ada-parent': 'ada@example.com' })
     mockFirestoreDocs({
       [`${substituteRequestsCollection}/c-1---1`]: {
         subInstructorId: 'caller-uid',
@@ -1952,14 +1970,14 @@ describe('API routes POST endpoints', () => {
         instructorUid: 'owner-uid',
         otherInstructorUids: ['co-inst-1'],
         course: 'Python 1',
-        students: ['s-1'],
+        students: ['ada-parent-1'],
         classStatuses: ['substitute needed'],
         meetingTimes: ['2026-10-01T10:00:00.000Z'],
       },
-      [`${registrationsCollection}/s-1`]: {
+      [`${registrationsCollection}/ada-parent-1`]: {
         personal: {
           studentFirstName: 'Ada',
-          email: 'ada@example.com',
+          email: 'stale-ada@example.com',
         },
       },
     })
@@ -2097,13 +2115,14 @@ describe('API routes POST endpoints', () => {
         [`${classesCollection}/c-1`]: {
           instructorUid: 'caller-uid',
           otherInstructorUids: [],
-          students: ['student-1', 'student-missing'],
+          students: ['ada-parent-1', 'student-missing'],
         },
-        [`${registrationsCollection}/student-1`]: {
+        [`${registrationsCollection}/ada-parent-1`]: {
           personal: {
             studentFirstName: 'Ada',
             studentLastName: 'Lovelace',
-            email: 'ada@example.com',
+            // Stale: the roster shows the parent account's current address.
+            email: 'stale-ada@example.com',
             secondaryEmail: 'parent@example.com',
             phoneNumber: '555-1234',
             dateOfBirth: '2014-01-01',
@@ -2122,6 +2141,8 @@ describe('API routes POST endpoints', () => {
         },
       })
 
+      mockAuthAccounts({ 'ada-parent': 'ada@example.com' })
+
       const url = new URL('http://localhost/api/classRoster?classId=c-1')
       const res: any = await classRosterGET({
         url,
@@ -2131,7 +2152,7 @@ describe('API routes POST endpoints', () => {
       expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
       expect(res.body.students).toEqual([
         {
-          uid: 'student-1',
+          uid: 'ada-parent-1',
           name: 'Ada Lovelace',
           email: 'ada@example.com',
           secondaryEmail: 'parent@example.com',

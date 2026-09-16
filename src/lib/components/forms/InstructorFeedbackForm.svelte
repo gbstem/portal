@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { parseSubRequestDocId } from '$lib/data/docIds'
   import { user } from '$lib/client/firebase'
   import { classService } from '$lib/services/classService'
   import { substituteService } from '$lib/services/substituteService'
@@ -66,7 +67,7 @@
           let id =
             subRequest === undefined
               ? classId || frozenUser.object.uid
-              : subRequest.id.split('---')[0]
+              : (parseSubRequestDocId(subRequest.id)?.classId ?? '')
 
           try {
             if (subRequest !== undefined) {
@@ -136,7 +137,7 @@
     let id =
       subRequest === undefined
         ? classId || currentUser.object.uid
-        : subRequest.id.split('---')[0]
+        : (parseSubRequestDocId(subRequest.id)?.classId ?? '')
     const data = await classService.fetchClassDetails(id)
     if (data) {
       try {

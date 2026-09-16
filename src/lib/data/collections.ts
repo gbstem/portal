@@ -17,6 +17,9 @@ export const instructorFeedbackCollection = semesterCollectionPath(
   suffix,
   'instructorFeedback',
 )
+// Applicants' requests for an interview time none of the offered slots
+// covers, keyed `${uid}-${date}`. Not semester-scoped.
+export const interviewTimeRequestsCollection = 'interviewTimeRequests'
 export const interviewCollection = semesterCollectionPath(
   suffix,
   'instructorInterviewTimes',

@@ -12,7 +12,6 @@ import {
   toFormValues,
   parseTime,
   getMeetingDates,
-  generateNewClassId,
   scheduleSourceChanged,
   SCHEDULE_SOURCE_FIELDS,
 } from '$lib/helpers/classDetailsForm'
@@ -287,19 +286,6 @@ describe('ClassDetailsForm Helpers', () => {
       const current = { ...legacy, classDay2: '', classTime2: '' }
       expect(scheduleSourceChanged(legacy, current)).toBe(false)
       expect(scheduleSourceChanged(current, legacy)).toBe(false)
-    })
-  })
-
-  describe('generateNewClassId', () => {
-    test('generates next sequential class ID for user', () => {
-      const existing = ['uid1-1', 'uid1-2', 'other-1']
-      const newId = generateNewClassId(existing, 'uid1')
-      expect(newId).toBe('uid1-3')
-    })
-
-    test('defaults to 1 if no previous classes exist for user', () => {
-      const newId = generateNewClassId([], 'uid1')
-      expect(newId).toBe('uid1-1')
     })
   })
 })

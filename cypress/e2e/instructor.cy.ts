@@ -24,6 +24,7 @@ import {
   subRequestRow,
 } from '../support/fixtures'
 import { generateDateHash, prepareDocForCompare } from '../support/utils'
+import { subRequestDocId } from '../../src/lib/data/docIds'
 
 /** Every field the instructor application form renders. */
 interface ApplicationInput {
@@ -1223,7 +1224,7 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
   it('Test Case 13g: Class Details - Create New Class', () => {
     // A new class has no document to authorize against, so /api/classDetails
     // authorizes on its id: exactly `${uid}-${n}` under the caller's own uid.
-    // The seeded class isn't keyed that way, so generateNewClassId starts
+    // The seeded class isn't keyed that way, so nextClassDocId starts
     // this instructor's numbering at 1.
     const newClassId = 'instructor-demo-uid-1'
     // `online: false` so the save doesn't also try to create a real meeting
@@ -1679,7 +1680,7 @@ describe('Section G: Co-Instructor Access To A Shared Class', () => {
           cy.getFirestoreDoc(
             authToken,
             substituteRequestsCollection,
-            `${SEEDED_CLASS_ID}---${classNumber}`,
+            subRequestDocId(SEEDED_CLASS_ID, classNumber),
           ).then((request: any) => {
             expect(request, 'sub request document').to.not.equal(null)
             expect(request.notes).to.equal(notes)
@@ -1834,7 +1835,7 @@ describe('Section G: Co-Instructor Access To A Shared Class', () => {
 
     fileSubRequest('Filed by the co-instructor, cancelling shortly.').then(
       (classNumber) => {
-        const docPath = `${substituteRequestsCollection}/${SEEDED_CLASS_ID}---${classNumber}`
+        const docPath = `${substituteRequestsCollection}/${subRequestDocId(SEEDED_CLASS_ID, classNumber)}`
         expectDocExists(docPath, true, 'the co-instructor’s request')
 
         subRequestRow(classNumber).within(() => {
@@ -1844,7 +1845,7 @@ describe('Section G: Co-Instructor Access To A Shared Class', () => {
 
         expectDocExists(docPath, false, 'the request after cancelling it')
         expectDocExists(
-          `${substituteRequestsCollection}/${COHOST_UID}---${classNumber}`,
+          `${substituteRequestsCollection}/${subRequestDocId(COHOST_UID, classNumber)}`,
           false,
           'a phantom request keyed by the co-instructor’s uid',
         )

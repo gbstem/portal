@@ -165,19 +165,28 @@ export type OwnedApplicationFields = Omit<Data.Application, 'meta'>
  * a decision recorded while the applicant had the page open, and
  * `meta.submitted` is written only by the submit handler.
  *
- * No identity re-pin is needed: `toApplyFormValues` deliberately omits
- * `personal.email`/`firstName`/`lastName`, so the spread below leaves the values
- * `normalizeApplicationData` took from the signed-in profile intact.
+ * `toApplyFormValues` deliberately omits `personal.firstName`/`lastName`, so
+ * the spread below leaves the names `normalizeApplicationData` took from the
+ * signed-in profile intact.
  *
+ * @param accountEmail the signed-in applicant's current address. It is stamped
+ *   as `personal.email` on every save, so the submitted document records the
+ *   address the account had when it was submitted. Nothing reads it back - see
+ *   `Data.Application`.
  * @param timestamp the caller's `serverTimestamp()` sentinel.
  */
 export function applicationOwnedFields(
   values: Data.Application,
   formData: any,
+  accountEmail: string,
   timestamp: any,
 ): OwnedApplicationFields {
   return {
-    personal: { ...values.personal, ...formData.personal },
+    personal: {
+      ...values.personal,
+      ...formData.personal,
+      email: accountEmail,
+    },
     academic: { ...values.academic, ...formData.academic },
     program: { ...values.program, ...formData.program },
     essay: { ...values.essay, ...formData.essay },

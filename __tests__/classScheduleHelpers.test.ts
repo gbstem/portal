@@ -4,7 +4,6 @@ import {
   computeUpdatedClassStatuses,
   computeMeetingTimeChanges,
   findNextClassDateIndex,
-  transformStudentDocData,
   buildSubRequestPayload,
 } from '$lib/helpers/classSchedule'
 import { ClassStatus } from '$lib/components/helpers/ClassStatus'
@@ -114,39 +113,6 @@ describe('ClassSchedule Helpers', () => {
       const meetingTimes = ['2026-05-01T10:00:00Z', '2026-05-15T10:00:00Z']
 
       expect(findNextClassDateIndex(meetingTimes, now)).toBe(1)
-    })
-  })
-
-  describe('transformStudentDocData', () => {
-    test('returns null for null or missing personal data', () => {
-      expect(transformStudentDocData(null)).toBeNull()
-      expect(transformStudentDocData({})).toBeNull()
-    })
-
-    test('transforms raw doc data to Student object', () => {
-      const data = {
-        personal: {
-          studentFirstName: 'Alice',
-          studentLastName: 'Smith',
-          email: 'alice@example.com',
-          secondaryEmail: 'parent@example.com',
-          phoneNumber: '555-0199',
-        },
-        academic: {
-          grade: '5th',
-          school: 'Oak Elementary',
-        },
-      }
-
-      const student = transformStudentDocData(data)
-      expect(student).toEqual({
-        name: 'Alice Smith',
-        email: 'alice@example.com',
-        secondaryEmail: 'parent@example.com',
-        phone: '555-0199',
-        grade: '5th',
-        school: 'Oak Elementary',
-      })
     })
   })
 

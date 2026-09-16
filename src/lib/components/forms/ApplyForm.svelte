@@ -122,8 +122,7 @@
             form.set(toFormValues(values))
             if (
               !values.meta.submitted &&
-              (values.personal.email !== user.object.email ||
-                values.personal.firstName !== user.profile.firstName ||
+              (values.personal.firstName !== user.profile.firstName ||
                 values.personal.lastName !== user.profile.lastName)
             ) {
               values = normalizeApplicationData(
@@ -171,7 +170,12 @@
   // `$lib/helpers/applyForm` (along with the note on what it deliberately omits)
   // so `formFieldParity.test.ts` can check the list against the schema.
   function ownedFields(formData: any) {
-    return applicationOwnedFields(values, formData, serverTimestamp())
+    return applicationOwnedFields(
+      values,
+      formData,
+      $user?.object.email ?? '',
+      serverTimestamp(),
+    )
   }
 
   // `isFirstWrite` is set by the bootstrap call below, where no document exists
@@ -306,7 +310,7 @@
             {`Name: ${values.personal.firstName} ${values.personal.lastName}`}
           </div>
           <div class="rounded-md bg-gray-100 px-3 py-2 shadow-xs">
-            {`Email: ${values.personal.email}`}
+            {`Email: ${$user?.object.email ?? ''}`}
           </div>
           <div class="text-sm">
             Wrong name or email? Go to your <a class="link" href="/profile"

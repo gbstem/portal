@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { nextClassDocId, parseClassDocId } from '$lib/data/docIds'
   import { user } from '$lib/client/firebase'
   import { classDetailsFormSchema } from '$lib/components/forms/schemas'
   import { coursesJson, daysOfWeekJson } from '$lib/data'
@@ -7,7 +8,6 @@
     coInstructorAddError,
     coInstructorDisplayName,
     coInstructorUids,
-    generateNewClassId,
     getDefaultClassValues,
     getMeetingDates,
     normalizeInstructorEmail,
@@ -277,14 +277,14 @@
 
   /**
    * The id the class is saved under: the one being edited, or the next free
-   * one for a class that doesn't exist yet. `generateNewClassId` is a pure
+   * one for a class that doesn't exist yet. `nextClassDocId` is a pure
    * function of `availableClassIds`, so calling it here and again at save
    * time yields the same id.
    */
   function currentClassId(): string {
     return (
       selectedClassId ||
-      generateNewClassId(availableClassIds, $user?.object.uid ?? '')
+      nextClassDocId(availableClassIds, $user?.object.uid ?? '')
     )
   }
 
@@ -558,7 +558,7 @@
                         type="button"
                         onclick={() => selectClass(classId)}
                       >
-                        Class {classId.split('-')[1]}
+                        Class {parseClassDocId(classId)?.classNumber}
                         {#if instructorClasses[classId]?.course}
                           - {instructorClasses[classId].course}
                         {/if}
@@ -578,7 +578,8 @@
                     <p class="text-sm text-blue-600">Creating new class...</p>
                   {:else if selectedClassId}
                     <p class="text-sm text-gray-600">
-                      Editing Class {selectedClassId.split('-')[1]}
+                      Editing Class {parseClassDocId(selectedClassId)
+                        ?.classNumber}
                     </p>
                   {:else}
                     <p class="text-sm text-gray-600">
@@ -591,7 +592,7 @@
                   {isCreatingNewClass
                     ? 'New Class Details'
                     : selectedClassId
-                      ? `Class ${selectedClassId.split('-')[1]} Details`
+                      ? `Class ${parseClassDocId(selectedClassId)?.classNumber} Details`
                       : 'Class Details'}
                 </h2>
 
@@ -760,7 +761,7 @@
                 type="button"
                 onclick={() => selectClass(classId)}
               >
-                Class {classId.split('-')[1]}
+                Class {parseClassDocId(classId)?.classNumber}
                 {#if instructorClasses[classId]?.course}
                   - {instructorClasses[classId].course}
                 {/if}
@@ -776,7 +777,7 @@
             <p class="text-sm text-blue-600">Creating new class...</p>
           {:else if selectedClassId}
             <p class="text-sm text-gray-600">
-              Editing Class {selectedClassId.split('-')[1]}
+              Editing Class {parseClassDocId(selectedClassId)?.classNumber}
             </p>
           {:else}
             <p class="text-sm text-gray-600">
@@ -789,7 +790,7 @@
           {isCreatingNewClass
             ? 'New Class Details'
             : selectedClassId
-              ? `Class ${selectedClassId.split('-')[1]} Details`
+              ? `Class ${parseClassDocId(selectedClassId)?.classNumber} Details`
               : 'Class Details'}
         </h2>
 

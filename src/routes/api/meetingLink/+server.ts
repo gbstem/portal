@@ -1,7 +1,7 @@
 import { classesCollection, semesterDates } from '$lib/data/collections'
 import { handleApiError, verifyInstructor } from '$lib/server/apiHelpers'
 import { adminDb } from '$lib/server/firebase'
-import { isOwnClassId } from '$lib/server/instructorClasses'
+import { isOwnClassId } from '$lib/data/docIds'
 import { env } from '$env/dynamic/private'
 import { error, json } from '@sveltejs/kit'
 import { z } from 'zod'

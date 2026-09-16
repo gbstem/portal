@@ -178,9 +178,6 @@ import { interviewScheduledEmailTemplate } from '../src/lib/data/emailTemplates/
 import { onlineClassEnrolledEmailTemplate } from '../src/lib/data/emailTemplates/onlineClassEnrolledEmailTemplate'
 import { registrationSubmittedEmailTemplate } from '../src/lib/data/emailTemplates/registrationSubmittedEmailTemplate'
 import { substituteClassEmailTemplate } from '../src/lib/data/emailTemplates/substituteClassEmailTemplate'
-;(global as any).Student = {}
-
-import '../src/lib/components/types/Student'
 import '../src/lib/data/collections'
 import '../src/lib/data/index'
 import '../src/lib/server/firebase'
