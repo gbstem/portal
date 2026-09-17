@@ -244,15 +244,18 @@ Below is an alphabetical list of the top-level directories and significant confi
 - **`.github/`**: Contains GitHub configuration for GitHub, including our Dependabot configuration for automating minor and patch package updates, and our Continuous Integration (CI) test workflows.
 - **`.husky/`**: Configuration for Husky, managing Git hooks like pre-commit formatting and linting.
 - **`.svelte-kit/`**: Automatically generated directory containing SvelteKit configuration, generated routes, and typings.
+- **`.vscode/`**: Contains Visual Studio Code workspace configuration settings, recommended extensions, and tasks.
 - **`__tests__/`**: Contains all of our Jest unit tests (such as utility tests and form validation schema scenario tests).
 - **`cypress/`**: Contains the Cypress e2e test suite, test configurations, fixtures, and page object/support configurations.
-- **`node_modules/`**: Contains the project's dependencies.
+- **`node_modules/`**: Automatically generated directory containing the project's dependencies.
+- **`scripts/`**: Contains development script utilities, including email build and rendering tools.
 - **`src/`**: The core SvelteKit application source code.
   - **`src/lib/`**: Reusable libraries, utility modules, and components:
     - **`src/lib/client/`**: Client-side specific integrations, such as clients for Firestore.
   - **`src/lib/components/`**: Reusable Svelte UI components (e.g. tables, buttons, and form components like `FormInput.svelte`).
     - **`src/lib/components/forms/`**: Sub-components containing form structures and validation logic (`schemas.ts`).
     - **`src/lib/data/`**: Centralized static data constants, models, mock data, and TS types.
+    - **`src/lib/emails/`**: Transactional email templates, HTML layouts, renderer utilities, and golden snapshot tests.
     - **`src/lib/helpers/`**: Pure, side-effect-free TypeScript functions (calculations, data transformations, payload builders) extracted out of `.svelte` files so they're easy to unit test — see [Code Organization](#code-organization-helpers-services-and-where-new-code-should-go) above.
     - **`src/lib/server/`**: Server-side specific integrations, such as initializing Firebase Admin.
     - **`src/lib/services/`**: The Data Access Layer — every Firestore read/write goes through a function here instead of being called directly from a `.svelte` file — see [Code Organization](#code-organization-helpers-services-and-where-new-code-should-go) above.
@@ -264,13 +267,20 @@ Below is an alphabetical list of the top-level directories and significant confi
 - **`.env.example`**: Template file defining required local environment variables.
 - **`.gitignore`**: Specifies which files and directories Git should ignore (like `node_modules/` and `.svelte-kit/`).
 - **`.prettierignore`**: Specifies which files and directories Prettier should ignore when formatting.
+- **`.yarnrc.yml`**: Configuration file for Yarn Berry (v4 package manager), defining package management settings.
+- **`AGENTS.md`**: Custom rules and guidelines for AI coding agents interacting with the repository.
+- **`CLAUDE.md`**: Quick reference guide and developer instructions for AI coding assistants.
 - **`cypress.config.ts`**: The configuration file for the Cypress e2e testing interface and environmental triggers.
 - **`eslint.config.js`**: ESLint configuration mapping coding rules and checks (replacing the legacy `.eslintrc.cjs`).
+- **`jest-transform-esm-to-cjs.cjs`**: Custom Jest transformer that transpiles ESM JavaScript files from `node_modules/svelte` into CommonJS for the Jest testing environment.
+- **`jest-transform-svelte-module.cjs`**: Custom Jest transformer for compiling Svelte 5 component modules for the Jest testing environment.
 - **`jest.config.ts`**: The configuration file for our Jest testing environment, specifically tailored to work alongside TypeScript and Svelte.
 - **`jest.setup.ts`**: Initial setup code that runs before our Jest tests, importing tools like `@testing-library/jest-dom` for custom DOM matchers.
+- **`LICENSE.md`**: License terms under which this project's code is distributed.
 - **`package.json`**: Defines the project's details, scripts, and dependencies (the npm packages we rely on).
 - **`postcss.config.js`**: Configuration for PostCSS, typically used for transforming CSS with plugins.
 - **`prettier.config.js`**: Configuration rules for Prettier, ensuring consistent code formatting across the project.
+- **`README.md`**: You are reading this file! It contains the project's onboarding documentation.
 - **`src/data.csv`**: A static CSV data file containing program information or dataset resources.
 - **`svelte.config.js`**: SvelteKit-specific configuration (like adapter configurations and compiler options).
 - **`TEST_PLAN.md`**: A comprehensive test plan outlining testing strategies, test scenarios, coverage, and instructions for running Jest and Cypress tests.
