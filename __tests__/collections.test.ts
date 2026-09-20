@@ -64,6 +64,7 @@ describe('collections.ts', () => {
           'classesEnd',
           'classesStart',
           'instructorOrientation',
+          'instructorOrientationLink',
           'newInstructorAppsDue',
           'newInstructorAppsOpen',
           'parentOrientation',
@@ -79,9 +80,9 @@ describe('collections.ts', () => {
     // Object.entries() on a plain (non-index-signature) object type falls back to a
     // less-precise overload that types values as `unknown` - cast once here rather than at
     // every destructured usage below.
-    const semesterDateEntries = Object.entries(semesterDates) as Array<
-      [string, string]
-    >
+    const semesterDateEntries = (
+      Object.entries(semesterDates) as Array<[string, string]>
+    ).filter(([field]) => field !== 'instructorOrientationLink')
 
     it.each(semesterDateEntries)(
       '%s is a valid MM/DD/YY date whose year matches currentSemester',
@@ -91,6 +92,13 @@ describe('collections.ts', () => {
         expect(value.slice(-2)).toBe(expectedYear)
       },
     )
+
+    it('instructorOrientationLink is a valid URL', () => {
+      expect(semesterDates.instructorOrientationLink).toMatch(/^https:\/\//)
+      expect(
+        () => new URL(semesterDates.instructorOrientationLink),
+      ).not.toThrow()
+    })
   })
 
   describe('semesterCollectionPath', () => {

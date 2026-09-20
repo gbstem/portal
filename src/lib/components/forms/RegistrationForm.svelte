@@ -43,6 +43,7 @@
       newInstructorAppsDue: '',
       returningInstructorAppsDue: '',
       instructorOrientation: '',
+      instructorOrientationLink: '',
       newInstructorAppsOpen: '',
       returningInstructorAppsOpen: '',
       studentOrientation: '',
