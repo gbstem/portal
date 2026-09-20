@@ -281,6 +281,7 @@ describe('Section B: Student Registration & Account Management', () => {
 
     // Reload the page and select Child 1
     cy.visit('/apply')
+    // eslint-disable-next-line cypress/no-unnecessary-waiting -- Wait for Svelte page and HMR to settle
     cy.wait(1000)
     cy.selectOption(
       'input[name="select-a-child"]',

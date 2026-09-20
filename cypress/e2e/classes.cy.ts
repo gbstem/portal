@@ -57,6 +57,7 @@ function visitClassesAsParent() {
   // produce no success toast in a real test run, even though the card's text
   // (and presumably its buttons) were already present -- some settle time
   // beyond "the card text exists" is required here.
+  // eslint-disable-next-line cypress/no-unnecessary-waiting
   cy.wait(500)
 }
 
@@ -322,6 +323,7 @@ describe('Section D: Class Roster and Details View', () => {
     cy.get('body').should('contain', 'Python 1')
     // Empirically needed: same as the enroll flow above -- removing this
     // caused the reminder flow below to silently produce no success toast.
+    // eslint-disable-next-line cypress/no-unnecessary-waiting
     cy.wait(1000)
 
     // Send class reminder to students and verify email (/api/remindStudents)

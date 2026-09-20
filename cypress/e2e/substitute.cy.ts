@@ -171,8 +171,10 @@ describe('Section I: Substitute Requests And Cover', () => {
       })
 
       cy.get('[role="dialog"]').within(() => {
-        cy.get('input[type="number"]').clear().type(String(movedTo))
-        cy.get('input[type="text"]').clear().type(editedNotes)
+        cy.get('input[type="number"]').clear()
+        cy.get('input[type="number"]').type(String(movedTo))
+        cy.get('input[type="text"]').clear()
+        cy.get('input[type="text"]').type(editedNotes)
         cy.contains('button', 'Save Edits').click()
       })
       cy.waitForNotification('Sub request updated!')
@@ -714,9 +716,9 @@ describe('Section I: Substitute Requests And Cover', () => {
       cy.get('[role="dialog"]')
         .find('input[type="number"]')
         .should('have.value', String(classNumber))
+      cy.get('[role="dialog"]').find('input[type="text"]').clear()
       cy.get('[role="dialog"]')
         .find('input[type="text"]')
-        .clear()
         .type('Filed again by mistake.')
       cy.contains('button', 'Confirm Request').click({ force: true })
       cy.waitForNotification('already has a sub request', 'bg-red-200')

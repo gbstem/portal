@@ -205,7 +205,7 @@
                       type="radio"
                       bind:group={$bookingForm.slotId}
                       value={val.id}
-                      class="h-4 w-4"
+                      class="size-4"
                     />
                     {val.date} ({val.interviewerName})
                   </label>

@@ -342,7 +342,7 @@
       {/if}
     </Card>
     {#if subInstructor !== true}
-      <Card class="mt-2 mb-2">
+      <Card class="my-2">
         <h2 class="my-2 text-xl font-bold">Your Sub Requests</h2>
         <div>
           {#if subRequestsFromUser.length > 0}

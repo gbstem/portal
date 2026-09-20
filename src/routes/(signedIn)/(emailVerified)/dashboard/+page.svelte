@@ -102,7 +102,7 @@
       <!-- Card Skeleton 1 -->
       <div class="rounded-xl bg-white p-6 shadow-lg">
         <div class="mb-4 flex items-center">
-          <div class="mr-2 h-6 w-6 rounded-full bg-gray-200"></div>
+          <div class="mr-2 size-6 rounded-full bg-gray-200"></div>
           <div class="h-6 w-48 rounded-md bg-gray-200"></div>
         </div>
         <div class="space-y-3">
@@ -115,7 +115,7 @@
       {#if isStudent}
         <div class="rounded-xl bg-white p-6 shadow-lg">
           <div class="mb-4 flex items-center">
-            <div class="mr-2 h-6 w-6 rounded-full bg-gray-200"></div>
+            <div class="mr-2 size-6 rounded-full bg-gray-200"></div>
             <div class="h-6 w-40 rounded-md bg-gray-200"></div>
           </div>
           <div class="space-y-3">
@@ -138,7 +138,7 @@
             <div class="mb-4 flex items-center">
               <Icon
                 src={InformationCircle}
-                class="mr-2 h-6 w-6 text-yellow-500"
+                class="mr-2 size-6 text-yellow-500"
               />
               <h2 class="text-xl font-bold text-gray-900">
                 Application Received
@@ -154,7 +154,7 @@
         {#if isStudent}
           <Card class="rounded-xl bg-white p-6 shadow-lg">
             <div class="mb-4 flex items-center">
-              <Icon src={UserCircle} class="mr-2 h-6 w-6 text-blue-500" />
+              <Icon src={UserCircle} class="mr-2 size-6 text-blue-500" />
               <h2 class="text-xl font-bold text-gray-900">Your Students</h2>
             </div>
             <div class="mb-4">
@@ -166,14 +166,14 @@
                 class="flex w-full items-center justify-center gap-2"
                 color="blue"
               >
-                <Icon src={Plus} class="h-5 w-5" />
+                <Icon src={Plus} class="size-5" />
                 Create or View A Student Account
               </Button>
             </div>
           </Card>
           <Card class="rounded-xl bg-white p-6 shadow-lg">
             <div class="mb-4 flex items-center">
-              <Icon src={Clock} class="mr-2 h-6 w-6 text-yellow-500" />
+              <Icon src={Clock} class="mr-2 size-6 text-yellow-500" />
               <h2 class="text-xl font-bold text-gray-900">Class Feedback</h2>
             </div>
             <StudentFeedbackForm />
@@ -183,7 +183,7 @@
         {#if new Date() < new Date(semesterDates.classesStart) || (new Date() >= new Date(semesterDates.classesStart) && ((!isStudent && data.application.status !== 'accepted') || (isStudent && numSubmitted === 0)))}
           <Card class="rounded-xl bg-white p-6 shadow-lg">
             <div class="mb-4 flex items-center">
-              <Icon src={AcademicCap} class="mr-2 h-6 w-6 text-green-500" />
+              <Icon src={AcademicCap} class="mr-2 size-6 text-green-500" />
               <h2 class="text-xl font-bold text-gray-900">
                 Application & Registration
               </h2>
@@ -198,7 +198,7 @@
                     >
                       <Icon
                         src={InformationCircle}
-                        class="mr-2 h-5 w-5 text-yellow-400"
+                        class="mr-2 size-5 text-yellow-400"
                       />
                       <span
                         >Applications to be an instructor are due <span
@@ -250,7 +250,7 @@
                     class="mt-5 flex w-full items-center justify-center gap-2"
                     color="blue"
                   >
-                    <Icon src={Calendar} class="h-5 w-5" />
+                    <Icon src={Calendar} class="size-5" />
                     {data.application.status === null
                       ? 'Edit Application'
                       : 'View Application'}
@@ -275,7 +275,7 @@
                     class="mt-5 flex w-full items-center justify-center gap-2"
                     color="blue"
                   >
-                    <Icon src={Plus} class="h-5 w-5" />
+                    <Icon src={Plus} class="size-5" />
                     Create or View A Student Account
                   </Button>
                 </div>
@@ -287,7 +287,7 @@
                 >
                   <Icon
                     src={ExclamationCircle}
-                    class="mr-2 h-5 w-5 text-red-400"
+                    class="mr-2 size-5 text-red-400"
                   />
                   <span>
                     {#if !isStudent}
@@ -316,7 +316,7 @@
         {#if data.application.status === 'accepted'}
           <Card class="rounded-xl bg-white p-6 shadow-lg">
             <div class="mb-4 flex items-center">
-              <Icon src={AcademicCap} class="mr-2 h-6 w-6 text-indigo-500" />
+              <Icon src={AcademicCap} class="mr-2 size-6 text-indigo-500" />
               <h2 class="text-xl font-bold text-gray-900">Your Classes</h2>
             </div>
             <!-- Show ClassSchedule only after orientation -->
@@ -328,7 +328,7 @@
         {:else if data.application.status === 'substitute'}
           <Card class="rounded-xl bg-white p-6 shadow-lg">
             <div class="mb-4 flex items-center">
-              <Icon src={AcademicCap} class="mr-2 h-6 w-6 text-indigo-500" />
+              <Icon src={AcademicCap} class="mr-2 size-6 text-indigo-500" />
               <h2 class="text-xl font-bold text-gray-900">
                 Substitute Classes
               </h2>
@@ -339,7 +339,7 @@
         {#if data.application.status === 'interview'}
           <Card class="rounded-xl bg-white p-6 shadow-lg">
             <div class="mb-4 flex items-center">
-              <Icon src={Clock} class="mr-2 h-6 w-6 text-pink-500" />
+              <Icon src={Clock} class="mr-2 size-6 text-pink-500" />
               <h2 class="text-xl font-bold text-gray-900">Interview</h2>
             </div>
             <InterviewForm {semesterDates} />
@@ -352,7 +352,7 @@
           {#if data.application.status === 'accepted'}
             <Card class="rounded-xl bg-white p-6 shadow-lg">
               <div class="mb-4 flex items-center">
-                <Icon src={CheckCircle} class="mr-2 h-6 w-6 text-green-500" />
+                <Icon src={CheckCircle} class="mr-2 size-6 text-green-500" />
                 <h2 class="text-xl font-bold text-gray-900">Class Details</h2>
               </div>
               <ClassDetailsForm {semesterDates} dialog={false} />
@@ -362,7 +362,7 @@
           {#if isStudent && new Date() > new Date(semesterDates.studentOrientation)}
             <Card class="rounded-xl bg-white p-6 shadow-lg">
               <div class="mb-4 flex items-center">
-                <Icon src={Calendar} class="mr-2 h-6 w-6 text-purple-500" />
+                <Icon src={Calendar} class="mr-2 size-6 text-purple-500" />
                 <h2 class="text-xl font-bold text-gray-900">
                   Student Schedule
                 </h2>
