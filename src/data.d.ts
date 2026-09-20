@@ -65,6 +65,7 @@ declare global {
       newInstructorAppsDue: string
       returningInstructorAppsDue: string
       instructorOrientation: string
+      instructorOrientationLink: string
       newInstructorAppsOpen: string
       returningInstructorAppsOpen: string
       studentOrientation: string

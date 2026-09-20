@@ -330,7 +330,10 @@ function setCoInstructors(emails: string[]) {
       .filter((email) => !existing.includes(email))
       .forEach((email) => {
         cy.fillInput('input[name="coInstructorEmail"]', email)
-        cy.contains('button', 'Add').click()
+        cy.get('input[name="coInstructorEmail"]')
+          .parent()
+          .contains('button', 'Add')
+          .click()
         cy.get(`[data-co-instructor="${email}"]`).should('exist')
       })
   })
@@ -1299,14 +1302,20 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
 
     refused.forEach((email) => {
       cy.fillInput('input[name="coInstructorEmail"]', email)
-      cy.contains('button', 'Add').click()
+      cy.get('input[name="coInstructorEmail"]')
+        .parent()
+        .contains('button', 'Add')
+        .click()
       cy.contains('No accepted gbSTEM instructor').should('be.visible')
       cy.get(`[data-co-instructor="${email}"]`).should('not.exist')
     })
 
     // An accepted instructor, by contrast, goes straight in.
     cy.fillInput('input[name="coInstructorEmail"]', 'cohost@gbstem.org')
-    cy.contains('button', 'Add').click()
+    cy.get('input[name="coInstructorEmail"]')
+      .parent()
+      .contains('button', 'Add')
+      .click()
     cy.get('[data-co-instructor="cohost@gbstem.org"]').should('exist')
 
     cy.get('input[name="confirmation"]').check({ force: true })
