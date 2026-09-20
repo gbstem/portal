@@ -105,7 +105,8 @@ export function fileSubRequest(
   // second session's button has to be selected from the whole set.
   cy.get('button:contains("Request Sub")').eq(sessionIndex).click()
   cy.get('[role="dialog"]').should('contain', 'Submit A Sub Request')
-  cy.get('[role="dialog"]').find('input[type="text"]').clear().type(notes)
+  cy.get('[role="dialog"]').find('input[type="text"]').clear()
+  cy.get('[role="dialog"]').find('input[type="text"]').type(notes)
   return cy
     .get('[role="dialog"]')
     .find('input[type="number"]')
@@ -125,6 +126,7 @@ export function fileSubRequest(
       // `sendSubRequest` calls location.reload() 1000ms later, and "Your Sub
       // Requests" only lists the new request once that reload has refetched.
       // The wait is pinned to that literal timer, not guesswork.
+      // eslint-disable-next-line cypress/no-unnecessary-waiting
       cy.wait(2000)
       cy.contains('h2', 'Your Sub Requests', { timeout: 10000 }).should(
         'be.visible',

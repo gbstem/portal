@@ -354,7 +354,7 @@
     <div class="flex items-start gap-3">
       <Icon
         src={ExclamationCircle}
-        class="mt-0.5 h-6 w-6 shrink-0 text-red-600"
+        class="mt-0.5 size-6 shrink-0 text-red-600"
       />
       You may register for the upcoming semester starting on
       <b>{new Date(semesterDates.registrationsOpen).toDateString()}</b>.
@@ -366,7 +366,7 @@
       <div class="flex items-start gap-3">
         <Icon
           src={ExclamationCircle}
-          class="mt-0.5 h-6 w-6 shrink-0 text-red-600"
+          class="mt-0.5 size-6 shrink-0 text-red-600"
         />
         <div>
           <h3 class="font-semibold text-red-800">
@@ -512,7 +512,7 @@
                     value={race.name}
                     bind:group={$form.personal.race}
                     id={`race-${race.name}`}
-                    class="peer h-5 w-5 shrink-0 cursor-pointer appearance-none rounded-md border border-gray-400 checked:border-gray-600 checked:bg-gray-600 focus:border-gray-600 focus:ring-1 focus:ring-gray-600 focus:outline-hidden"
+                    class="peer size-5 shrink-0 cursor-pointer appearance-none rounded-md border border-gray-400 checked:border-gray-600 checked:bg-gray-600 focus:border-gray-600 focus:ring-1 focus:ring-gray-600 focus:outline-hidden"
                   />
                   <label
                     for={`race-${race.name}`}

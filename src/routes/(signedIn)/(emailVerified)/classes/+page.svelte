@@ -238,10 +238,10 @@
               : 'bg-green-500'}"
           >
             {#if dialogClassDetails.spotsRemaining <= 0}
-              <Icon src={XCircle} theme="mini" class="mr-2 h-4 w-4" />
+              <Icon src={XCircle} theme="mini" class="mr-2 size-4" />
               Class Full
             {:else}
-              <Icon src={CheckCircle} theme="mini" class="mr-2 h-4 w-4" />
+              <Icon src={CheckCircle} theme="mini" class="mr-2 size-4" />
               {dialogClassDetails.spotsRemaining} spots available
             {/if}
           </span>
@@ -268,7 +268,7 @@
                 src={dialogClassDetails.online
                   ? ComputerDesktop
                   : BuildingOffice}
-                class="mr-3 h-5 w-5 text-gray-600"
+                class="mr-3 size-5 text-gray-600"
               />
               <div>
                 <div class="font-semibold text-gray-900">
@@ -285,7 +285,7 @@
             </div>
 
             <div class="flex items-center rounded-lg bg-gray-50 p-3">
-              <Icon src={User} class="mr-3 h-5 w-5 text-gray-600" />
+              <Icon src={User} class="mr-3 size-5 text-gray-600" />
               <div>
                 <div class="font-semibold text-gray-900">Instructor</div>
                 <div class="text-sm text-gray-600">
@@ -300,7 +300,7 @@
             <h4
               class="mb-3 flex items-center text-lg font-semibold text-blue-900"
             >
-              <Icon src={Clock} class="mr-2 h-5 w-5" />
+              <Icon src={Clock} class="mr-2 size-5" />
               Class Schedule ({dialogClassDetails.online
                 ? '1-hour classes'
                 : '2-hour class'})
@@ -311,7 +311,7 @@
                   <Icon
                     src={ArrowUpCircle}
                     theme="mini"
-                    class="mr-3 h-4 w-4 text-blue-600"
+                    class="mr-3 size-4 text-blue-600"
                   />
                   <span class="font-medium">{classTime}</span>
                 </div>
@@ -325,7 +325,7 @@
               <h4
                 class="mb-3 flex items-center text-lg font-semibold text-gray-900"
               >
-                <Icon src={Plus} class="mr-2 h-5 w-5" />
+                <Icon src={Plus} class="mr-2 size-5" />
                 Enrollment
               </h4>
               <div class="space-y-3">
@@ -347,7 +347,7 @@
                     src={isEnrolled(dialogClassDetails.id, selectedStudentUid)
                       ? Trash
                       : Plus}
-                    class="h-5 w-5"
+                    class="size-5"
                   />
                   {isEnrolled(dialogClassDetails.id, selectedStudentUid)
                     ? 'Unenroll Student'
@@ -428,13 +428,13 @@
                       : 'bg-green-500'}"
                   >
                     {#if classInfo.spotsRemaining <= 0}
-                      <Icon src={XCircle} theme="mini" class="mr-1 h-3 w-3" />
+                      <Icon src={XCircle} theme="mini" class="mr-1 size-3" />
                       Class Full
                     {:else}
                       <Icon
                         src={CheckCircle}
                         theme="mini"
-                        class="mr-1 h-3 w-3"
+                        class="mr-1 size-3"
                       />
                       {classInfo.spotsRemaining} spots
                     {/if}
@@ -447,14 +447,14 @@
                 <div class="flex items-center text-sm text-gray-600">
                   <Icon
                     src={classInfo.online ? ComputerDesktop : BuildingOffice}
-                    class="mr-2 h-4 w-4"
+                    class="mr-2 size-4"
                   />
                   {classInfo.online
                     ? 'Online Class'
                     : 'In-Person (Cambridge Public Library)'}
                 </div>
                 <div class="flex items-center text-sm text-gray-600">
-                  <Icon src={User} class="mr-2 h-4 w-4" />
+                  <Icon src={User} class="mr-2 size-4" />
                   {`${classInfo.instructorFirstName} ${classInfo.instructorLastName}`}
                 </div>
               </div>
@@ -464,7 +464,7 @@
                 <h4
                   class="mb-2 flex items-center text-sm font-semibold text-gray-700"
                 >
-                  <Icon src={Clock} class="mr-2 h-4 w-4" />
+                  <Icon src={Clock} class="mr-2 size-4" />
                   Class Times ({classInfo.online
                     ? '1-hour classes'
                     : '2-hour class'})
@@ -475,7 +475,7 @@
                       <Icon
                         src={ArrowUpCircle}
                         theme="mini"
-                        class="mr-2 h-3 w-3 text-gray-400"
+                        class="mr-2 size-3 text-gray-400"
                       />
                       {classTime}
                     </div>
@@ -491,7 +491,7 @@
                   <h4
                     class="mb-2 flex items-center text-sm font-semibold text-blue-800"
                   >
-                    <Icon src={Users} class="mr-2 h-4 w-4" />
+                    <Icon src={Users} class="mr-2 size-4" />
                     Your Enrolled Students
                   </h4>
                   <div class="space-y-1">
@@ -501,7 +501,7 @@
                           <Icon
                             src={CheckCircle}
                             theme="mini"
-                            class="mr-2 h-3 w-3"
+                            class="mr-2 size-3"
                           />
                           {uidToName[studentUid]}
                         </div>
@@ -512,7 +512,7 @@
                   <!-- Meeting Link -->
                   <div class="mt-3 border-t border-blue-200 pt-3">
                     <div class="flex items-center text-sm text-blue-700">
-                      <Icon src={GlobeAlt} class="mr-2 h-4 w-4" />
+                      <Icon src={GlobeAlt} class="mr-2 size-4" />
                       <a
                         href={classInfo.meetingLink}
                         target="_blank"
@@ -526,7 +526,7 @@
                     <!-- Instructor Email -->
                     {#if instructorEmails[classInfo.id]}
                       <div class="mt-1 flex items-center text-sm text-blue-700">
-                        <Icon src={Envelope} class="mr-2 h-4 w-4" />
+                        <Icon src={Envelope} class="mr-2 size-4" />
                         <a
                           href={`mailto:${instructorEmails[classInfo.id]}`}
                           target="_blank"
@@ -552,7 +552,7 @@
                       showClassDetailsDialog = true
                     }}
                   >
-                    <Icon src={Plus} class="h-5 w-5" />
+                    <Icon src={Plus} class="size-5" />
                     Add/Drop Class
                   </Button>
                 </div>

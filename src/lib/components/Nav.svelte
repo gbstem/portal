@@ -97,7 +97,7 @@
             {page.name}
             {#if pathname === page.href}
               <span
-                class="absolute right-2 -bottom-1 left-2 h-1 rounded-full bg-blue-400/70"
+                class="absolute inset-x-2 -bottom-1 h-1 rounded-full bg-blue-400/70"
                 style="z-index:1;"
               ></span>
             {/if}
@@ -108,7 +108,7 @@
     <div class="flex items-center gap-1 sm:gap-3 md:gap-4">
       <ProfileMenu class="hidden sm:block" />
       <button
-        class="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-gray-200 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-400 sm:hidden"
+        class="flex size-10 items-center justify-center rounded-full transition-colors hover:bg-gray-200 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-400 sm:hidden"
         type="button"
         aria-label={open ? 'Close menu' : 'Open menu'}
         aria-expanded={open}
@@ -117,9 +117,9 @@
         }}
       >
         {#if open}
-          <Icon src={XMark} class="h-8 w-8" />
+          <Icon src={XMark} class="size-8" />
         {:else}
-          <Icon src={Bars2} class="h-8 w-8" />
+          <Icon src={Bars2} class="size-8" />
         {/if}
       </button>
     </div>

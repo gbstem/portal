@@ -308,6 +308,9 @@ describe('Form field parity', () => {
       eachFormOnly(
         'form-only field $path is validated but never stored',
         ({ path }) => {
+          // eachFormOnly is test.each or test.skip.each behind a variable, so
+          // the rule can't statically see this callback as a test body.
+          // eslint-disable-next-line jest/no-standalone-expect
           expect(hasPath(createEmpty(), path)).toBe(false)
         },
       )

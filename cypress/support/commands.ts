@@ -1,12 +1,11 @@
 // Add all new commands to index.d.ts as well.
 
 Cypress.Commands.add('fillInput', (selector: string, text: string) => {
-  cy.get(selector)
-    .scrollIntoView()
-    .should('be.visible')
-    .focus()
-    .clear()
-    .type(text, { delay: 20 })
+  cy.get(selector).scrollIntoView()
+  cy.get(selector).should('be.visible')
+  cy.get(selector).focus()
+  cy.get(selector).clear()
+  cy.get(selector).type(text, { delay: 20 })
   // We had buggy inputs in the past, verify the value actually stuck.
   cy.get(selector).should('have.value', text)
 })
@@ -34,6 +33,7 @@ Cypress.Commands.add('loadSignupPage', () => {
   cy.visit('/signup')
   cy.get('h1').should('contain', 'Sign up')
   cy.get('input[name="firstName"]').should('be.visible')
+  // eslint-disable-next-line cypress/no-unnecessary-waiting
   cy.wait(2500) // Wait for signup initialization and HMR/Firebase to settle
 })
 
@@ -53,12 +53,14 @@ Cypress.Commands.add(
     cy.session(`signedIn-${emailToUse}`, () => {
       cy.visit('/signin')
       cy.get('input[type="email"]').should('be.visible')
+      // eslint-disable-next-line cypress/no-unnecessary-waiting
       cy.wait(2500) // Wait for Svelte page and HMR to settle
       const password = 'penguin'
 
       cy.fillInput('input[type="email"]', emailToUse)
       cy.fillInput('input[type="password"]', password)
       cy.get('button[type="submit"]').click()
+      // eslint-disable-next-line cypress/no-unnecessary-waiting
       cy.wait(1000) // Wait for Svelte page and HMR to settle
     })
 

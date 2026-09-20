@@ -84,7 +84,7 @@
   {#if selectedStudentUid}
     {#if classes.length === 0}
       <div class="flex flex-col items-center justify-center py-8">
-        <Icon src={Plus} class="mb-4 h-12 w-12 text-gray-300" />
+        <Icon src={Plus} class="mb-4 size-12 text-gray-300" />
         <p class="text-lg font-medium text-gray-900">No Classes Found</p>
         <p class="mt-1 text-sm text-gray-500">
           This student is not currently enrolled in any classes.

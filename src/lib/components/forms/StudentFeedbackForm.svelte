@@ -157,7 +157,7 @@
               type="radio"
               bind:group={$form.classId}
               value={classId}
-              class="h-4 w-4"
+              class="size-4"
             />
             {course} (taught by {instructor})
           </label>

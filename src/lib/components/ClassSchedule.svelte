@@ -335,7 +335,7 @@
           onclick={() => copyToClipboard(emailHtmlContent)}
           class="flex items-center gap-1"
         >
-          <Icon src={DocumentDuplicate} class="h-5 w-5 text-black" />
+          <Icon src={DocumentDuplicate} class="size-5 text-black" />
           <span>Copy</span>
         </Button>
       </div>
@@ -402,7 +402,7 @@
               )}
             class="flex items-center justify-end gap-1"
           >
-            <Icon src={DocumentDuplicate} class="h-5 w-5 text-black" />
+            <Icon src={DocumentDuplicate} class="size-5 text-black" />
             <span>Copy</span>
           </Button>
         </div>
@@ -466,7 +466,7 @@
                                 formatDateString(
                                   editedMeetingTimes[nextClassIndex],
                                 ),
-                        })}><Icon src={Envelope} class="h-4 w-4" /></Button
+                        })}><Icon src={Envelope} class="size-4" /></Button
                     ></td
                   >
                 </tr>
@@ -612,35 +612,35 @@
             <span
               class="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-1 text-xs font-semibold text-red-700"
             >
-              <Icon src={XMark} class="h-4 w-4" />
+              <Icon src={XMark} class="size-4" />
               Not Held
             </span>
           {:else if values.classStatuses[classNumber] === ClassStatus.FeedbackIncomplete}
             <span
               class="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-1 text-xs font-semibold text-yellow-800"
             >
-              <Icon src={Clock} class="h-4 w-4" />
+              <Icon src={Clock} class="size-4" />
               Feedback Needed
             </span>
           {:else if values.classStatuses[classNumber] === ClassStatus.ClassUpcomingSoon}
             <span
               class="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-1 text-xs font-semibold text-blue-800"
             >
-              <Icon src={Clock} class="h-4 w-4" />
+              <Icon src={Clock} class="size-4" />
               Upcoming
             </span>
           {:else if values.classStatuses[classNumber] === ClassStatus.EverythingComplete}
             <span
               class="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-800"
             >
-              <Icon src={Check} class="h-4 w-4" />
+              <Icon src={Check} class="size-4" />
               Complete
             </span>
           {:else}
             <span
               class="inline-flex items-center gap-1 rounded-full bg-gray-200 px-2 py-1 text-xs font-semibold text-gray-700"
             >
-              <CircleIcon class="h-4 w-4" />
+              <CircleIcon class="size-4" />
               Scheduled
             </span>
           {/if}
@@ -666,7 +666,7 @@
                 editedMeetingTimes = editedMeetingTimes.slice()
               }}
             >
-              <Icon src={XMark} class="mr-1 h-4 w-4" />
+              <Icon src={XMark} class="mr-1 size-4" />
               Delete
             </Button>
           {:else}
@@ -680,7 +680,7 @@
                   showSubRequestDialog = true
                 }}
               >
-                <Icon src={Plus} class="mr-1 h-4 w-4" />
+                <Icon src={Plus} class="mr-1 size-4" />
                 Request Sub
               </Button>
             {/if}

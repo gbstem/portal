@@ -755,6 +755,7 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
     // read used to start from, so by the time it renders that read would have
     // been made - and refused moments later, which the wait allows for.
     cy.get('body').should('contain', 'Application submitted and in review!')
+    // eslint-disable-next-line cypress/no-unnecessary-waiting
     cy.wait(1000)
 
     cy.contains('Could not load your existing accounts').should('not.exist')
@@ -1015,6 +1016,7 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
     // wait it out rather than racing it - starting the next edit mid-reload
     // tears the document out from under whatever command is running. The wait
     // is pinned to that literal timer, not guesswork.
+    // eslint-disable-next-line cypress/no-unnecessary-waiting
     cy.wait(3000)
 
     // Re-entering edit mode reads the stored document back through
