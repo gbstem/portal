@@ -282,6 +282,27 @@ graph TD
 
 ### Section D: Class Roster and Details View
 
+#### Test Case 8b: Pre-Enrollment View Before Registrations Open
+
+- **Description**: Verify that visiting `/classes` before `registrationsOpen` displays a message that class enrollment is not open yet with the `registrationsOpen` date and hides class enrollment cards.
+- **Steps**:
+  1. Set system clock to before `registrationsOpen`.
+  2. Log in as a student and navigate to `/classes`.
+- **Expected Results (Assertions)**:
+  - The alert banner is visible: "Class enrollment is not open yet. Class times will be posted and class enrollment will open on {registrationsOpen}."
+  - "Before then, ensure you have filled out the form..." message and link to `/apply` are shown.
+  - Class enrollment buttons ("Add/Drop Class") and class lists are not visible.
+
+#### Test Case 8c: Class Enrollment Opens on Registrations Open Date
+
+- **Description**: Verify that visiting `/classes` on or after `registrationsOpen` hides the pre-enrollment banner and makes class enrollment cards and buttons available.
+- **Steps**:
+  1. Set system clock to 1 day after `registrationsOpen`.
+  2. Log in as a student and navigate to `/classes`.
+- **Expected Results (Assertions)**:
+  - The alert banner "Class enrollment is not open yet" is not visible.
+  - The "Add/Drop Class" action buttons and course catalog/schedule cards are displayed.
+
 #### Test Case 9: Student View Enrolled Classes & Filter
 
 - **Description**: Verify that students can view the classes they have been enrolled in, filter them by course, and toggle showing only their enrolled classes.

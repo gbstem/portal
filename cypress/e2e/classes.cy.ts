@@ -97,12 +97,46 @@ function expectScratchEnrollmentRefused(expectedClasses: string[]) {
   })
 }
 
+describe('Section D0: Pre-Enrollment Banner', () => {
+  it('Test Case 8b: displays message when class enrollment is not open yet', () => {
+    // Set system clock to 1 day before registrationsOpen date
+    const regOpen = new Date(semesterDates.registrationsOpen)
+    const preRegOpenDate = new Date(regOpen.getTime() - 24 * 60 * 60 * 1000)
+    cy.clock(preRegOpenDate.getTime(), ['Date'])
+
+    cy.signedInSession('student', { initialPage: '/classes' })
+    cy.get('body').should(
+      'contain',
+      `Class enrollment is not open yet. Class times will be posted and class enrollment will open on ${semesterDates.registrationsOpen}.`,
+    )
+    cy.contains('Before then, ensure you have filled out the form').should(
+      'be.visible',
+    )
+    cy.contains('button', 'Add/Drop Class').should('not.exist')
+  })
+
+  it('Test Case 8c: class enrollment opens on registrationsOpen date', () => {
+    // Set system clock to 1 day after registrationsOpen date
+    const regOpen = new Date(semesterDates.registrationsOpen)
+    const postRegOpenDate = new Date(regOpen.getTime() + 24 * 60 * 60 * 1000)
+    cy.clock(postRegOpenDate.getTime(), ['Date'])
+
+    cy.signedInSession('student', { initialPage: '/classes' })
+    cy.get('body').should('not.contain', 'Class enrollment is not open yet')
+    cy.contains('button', 'Add/Drop Class').should('exist')
+  })
+})
+
 describe('Section D: Class Roster and Details View', () => {
   beforeEach(() => {
-    // Set system clock to 1 day after registrationsDue date so class enrollment and schedule are visible
-    const regDue = new Date(semesterDates.registrationsDue)
-    const postRegDueDate = new Date(regDue.getTime() + 24 * 60 * 60 * 1000)
-    cy.clock(postRegDueDate.getTime(), ['Date'])
+    // Set system clock to 1 day after instructorOrientation date so both class
+    // enrollment (which opens on registrationsOpen) and instructor schedule
+    // on /dashboard (which displays after instructorOrientation) are visible
+    const orientationDate = new Date(semesterDates.instructorOrientation)
+    const postOrientationDate = new Date(
+      orientationDate.getTime() + 24 * 60 * 60 * 1000,
+    )
+    cy.clock(postOrientationDate.getTime(), ['Date'])
     restoreSeededEnrollment()
   })
 

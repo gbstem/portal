@@ -369,10 +369,10 @@
 <div>
   {#if loading}
     <Loading />
-  {:else if new Date() < new Date(semesterDates.registrationsDue)}
+  {:else if new Date() < new Date(semesterDates.registrationsOpen)}
     <div class="rounded-lg bg-red-50 p-4 text-2xl text-red-700">
       <p>
-        {`Class enrollment is not open yet. Class times will be posted and class enrollment will open on ${semesterDates.registrationsDue}.`}
+        {`Class enrollment is not open yet. Class times will be posted and class enrollment will open on ${semesterDates.registrationsOpen}.`}
       </p>
       <p>
         Before then, ensure you have filled out the form for each student you
