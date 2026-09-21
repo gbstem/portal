@@ -8,6 +8,7 @@
     parentEducationJson,
     raceJson,
   } from '$lib/data'
+  import { emptySemesterDates } from '$lib/data/collections'
   import {
     createBootstrapRegistration,
     createEmptyRegistration,
@@ -35,23 +36,7 @@
     semesterDates?: Data.SemesterDates
   }
 
-  let {
-    childUid = '',
-    semesterDates = {
-      classesEnd: '',
-      classesStart: '',
-      newInstructorAppsDue: '',
-      returningInstructorAppsDue: '',
-      instructorOrientation: '',
-      instructorOrientationLink: '',
-      newInstructorAppsOpen: '',
-      returningInstructorAppsOpen: '',
-      studentOrientation: '',
-      registrationsDue: '',
-      parentOrientation: '',
-      registrationsOpen: '',
-    },
-  }: Props = $props()
+  let { childUid = '', semesterDates = emptySemesterDates }: Props = $props()
 
   let loading = $state(true)
   let loadError = $state(false)

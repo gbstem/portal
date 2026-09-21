@@ -2,6 +2,7 @@
   import { user } from '$lib/client/firebase'
   import Card from '$lib/components/Card.svelte'
   import { coursesJson, gendersJson, raceJson, reasonsJson } from '$lib/data'
+  import { emptySemesterDates } from '$lib/data/collections'
   import {
     applicationOwnedFields,
     createEmptyApplication,
@@ -28,22 +29,7 @@
     semesterDates?: Data.SemesterDates
   }
 
-  let {
-    semesterDates = {
-      classesEnd: '',
-      classesStart: '',
-      newInstructorAppsDue: '',
-      returningInstructorAppsDue: '',
-      instructorOrientation: '',
-      instructorOrientationLink: '',
-      newInstructorAppsOpen: '',
-      returningInstructorAppsOpen: '',
-      studentOrientation: '',
-      registrationsDue: '',
-      parentOrientation: '',
-      registrationsOpen: '',
-    },
-  }: Props = $props()
+  let { semesterDates = emptySemesterDates }: Props = $props()
 
   let loading = $state(true)
   let loadError = $state(false)

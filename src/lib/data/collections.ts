@@ -32,6 +32,17 @@ export const registrationsCollection = semesterCollectionPath(
 // each semester rollover (copied from the admin repo's src/lib/data/semesterDates.json).
 // No longer a Firestore document - see __tests__/collections.test.ts's format/year validation.
 export const semesterDates: Data.SemesterDates = semesterDatesJson
+// `semesterDates`, blanked to empty strings - the default a component's
+// `semesterDates` prop falls back to before its `+page.server.ts` load
+// resolves (see ApplyForm.svelte/RegistrationForm.svelte). Derived from
+// `semesterDates` itself so adding, renaming, or removing a field there
+// never needs a matching manual edit in every form that renders one - a
+// hand-maintained duplicate of this list is exactly what let a form's
+// default silently drift out of step with a changed field, caught only by
+// Cypress rather than at build or test time.
+export const emptySemesterDates: Data.SemesterDates = Object.fromEntries(
+  Object.keys(semesterDates).map((field) => [field, '']),
+) as Data.SemesterDates
 export const studentFeedbackCollection = semesterCollectionPath(
   suffix,
   'classFeedback',
