@@ -57,8 +57,9 @@ declare global {
       html: string
     }
 
-    // MM/DD/YY strings; see src/lib/data/semesterDates.json and
-    // collections.ts's `semesterDates` export.
+    // MM/DD/YY strings, except instructorOrientationLink (a URL) and
+    // instructorOrientationTime (a 24-hour HH:mm); see src/lib/data/semesterDates.json
+    // and collections.ts's `semesterDates` export.
     type SemesterDates = {
       classesEnd: string
       classesStart: string
@@ -66,6 +67,7 @@ declare global {
       returningInstructorAppsDue: string
       instructorOrientation: string
       instructorOrientationLink: string
+      instructorOrientationTime: string
       newInstructorAppsOpen: string
       returningInstructorAppsOpen: string
       studentOrientation: string
