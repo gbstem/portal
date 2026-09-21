@@ -3,6 +3,7 @@ import {
   classesCollection,
   currentSemester,
   decisionsCollection,
+  emptySemesterDates,
   instructorFeedbackCollection,
   interviewCollection,
   maxChildrenPerAccount,
@@ -111,6 +112,26 @@ describe('collections.ts', () => {
     it('instructorOrientationTime is a valid 24-hour HH:mm time', () => {
       expect(semesterDates.instructorOrientationTime).toMatch(
         /^([01]\d|2[0-3]):[0-5]\d$/,
+      )
+    })
+  })
+
+  // Guards the bug this is meant to prevent: ApplyForm.svelte and
+  // RegistrationForm.svelte used to hand-maintain their own copy of this
+  // field list as a literal default, which drifted out of step with
+  // semesterDates.json until Cypress caught it - not Jest or a type error.
+  // Both forms now default to this export instead, so a key mismatch here
+  // is a key mismatch in every place that matters.
+  describe('emptySemesterDates', () => {
+    it('has exactly the same fields as semesterDates', () => {
+      expect(Object.keys(emptySemesterDates).sort()).toEqual(
+        Object.keys(semesterDates).sort(),
+      )
+    })
+
+    it('blanks every field to an empty string', () => {
+      expect(Object.values(emptySemesterDates)).toEqual(
+        Object.keys(emptySemesterDates).map(() => ''),
       )
     })
   })
