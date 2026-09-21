@@ -336,8 +336,8 @@ describe('Section A: Authentication and Navigation', () => {
 
     // Dismiss the toast (the whole banner is the dismiss button) and submit the
     // retained values again - the failure has to surface a second time.
-    cy.get('.bg-red-200').click({ force: true })
-    cy.get('.bg-red-200').should('not.exist')
+    cy.get('[data-testid="alert"]').click({ force: true })
+    cy.get('[data-testid="alert"]').should('not.exist')
 
     cy.get('button[type="submit"]').click()
     cy.waitForNotification('Email already in use.', 'bg-red-200')

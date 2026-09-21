@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { user } from '$lib/client/firebase'
+  import { auth, user } from '$lib/client/firebase'
   import Dialog from '$lib/components/Dialog.svelte'
   import ReauthenticateForm from '$lib/components/forms/ReauthenticateForm.svelte'
   import { alert } from '$lib/stores'
-  import { updatePassword } from 'firebase/auth'
+  import { signInWithEmailAndPassword, updatePassword } from 'firebase/auth'
   import { defaults, superForm } from 'sveltekit-superforms'
   import { zod } from 'sveltekit-superforms/adapters'
   import { z } from 'zod'
@@ -50,33 +50,59 @@
     alert.trigger('info', 'Password change canceled.')
   }
 
+  // Changing the password revokes every session issued before it, including
+  // the server-side `__session` cookie this tab is still using (see
+  // hooks.server.ts's checkRevoked), so without a replacement the next server
+  // load silently signs this tab out.
+  //
+  // Signing in again is the only way to mint one. Refreshing the existing
+  // token is not enough, however forcefully: `getIdToken(true)` produces a new
+  // `iat` but carries the old `auth_time` forward, and `auth_time` is what the
+  // revocation check compares against `tokensValidAfterTime` - so the
+  // refreshed token is revoked too, and /api/auth answers 500 with
+  // `auth/id-token-revoked`. That only appears to work when the
+  // reauthenticate and the password change land in the same clock second,
+  // which happens often enough to look like a fix and never be one. A real
+  // sign-in sets a new `auth_time`, which also satisfies /api/auth's
+  // five-minute recency check - and we hold the credential it needs, because
+  // it is the password we just set.
+  async function resyncSessionCookie(newPassword: string) {
+    const credential = await signInWithEmailAndPassword(
+      auth,
+      $user!.object.email as string,
+      newPassword,
+    )
+    const idToken = await credential.user.getIdToken()
+    const res = await fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken }),
+    })
+    if (!res.ok) {
+      throw new Error(`/api/auth responded ${res.status}`)
+    }
+  }
+
   async function handleReauthenticate() {
     if ($user) {
       try {
         await updatePassword($user.object, passwordToUpdate)
-        // Changing the password revokes every session issued before it,
-        // including the server-side `__session` cookie this tab is still
-        // using (see hooks.server.ts's checkRevoked). Re-mint it from a
-        // freshly-refreshed ID token the same way SignInForm/SignUpForm do,
-        // or the next server load silently signs this tab out. The password
-        // change itself already succeeded, so a resync hiccup here (network
-        // blip, etc.) shouldn't surface as a password-change error - worst
-        // case the user is asked to sign in again on their next navigation,
-        // same as before this resync existed.
+        // The password change has already succeeded by this point, so a
+        // resync failure must not be reported as a failed password change.
+        // Report what actually happened instead - the change stuck, the
+        // session did not - rather than swallowing it into a success message
+        // and letting the next navigation deliver the news.
+        let message = 'Password was successfully changed.'
         try {
-          const idToken = await $user.object.getIdToken(true)
-          await fetch('/api/auth', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ idToken }),
-          })
+          await resyncSessionCookie(passwordToUpdate)
         } catch (resyncErr) {
           console.error(
             '[ChangePasswordForm] Failed to resync session cookie:',
             resyncErr,
           )
+          message += ' Please sign in again.'
         }
-        alert.trigger('success', 'Password was successfully changed.')
+        alert.trigger('success', message)
       } catch (err: any) {
         alert.trigger('error', err.code, true)
       } finally {
