@@ -14,6 +14,7 @@ describe('Section F: Profile Customization & Account Management', () => {
     const updatedEmail = `${emailPrefix}-new@gbstem.org`
     const initialPassword = 'password123'
     const newPassword = 'newpassword123'
+    const finalPassword = 'finalpassword123'
 
     // 1. Sign up a new user to prevent breaking demo seed accounts
     cy.loadSignupPage()
@@ -107,13 +108,67 @@ describe('Section F: Profile Customization & Account Management', () => {
     cy.get('input[name="newPassword"]').should('have.value', '')
     cy.get('input[name="confirmPassword"]').should('have.value', '')
 
+    // The session has to survive the change. A password change revokes the
+    // `__session` cookie (Firebase bumps `tokensValidAfterTime`), so unless
+    // ChangePasswordForm replaced it, this server-rendered request is the one
+    // hooks.server.ts's `verifySessionCookie(..., checkRevoked)` rejects and
+    // redirects to /signin. Nothing asserted this before, which is why the
+    // same bug that failed admin's profile spec in about half its CI runs sat
+    // here unnoticed: every step after the password change was client-side,
+    // so a dead cookie never came up.
+    cy.visit('/profile')
+    cy.url().should('include', '/profile')
+    cy.get('input[id="current-email"]', { timeout: 8000 }).should(
+      'have.value',
+      updatedEmail,
+    )
+
+    // 4b. Change it a second time, reauthenticating with the password set
+    // above - which also proves the first change reached Firebase and not
+    // just the UI. Admin's equivalent spec covers the same two-change shape;
+    // this is the scenario that broke there.
+    //
+    // Honest caveat for whoever reads this next: these two steps do NOT
+    // currently fail if ChangePasswordForm's session resync regresses. Both
+    // were written against admin, where resyncing from a merely *refreshed*
+    // ID token reliably 500s on the second change (see that form's comment),
+    // and reverting this repo's fix was expected to reproduce it. It does
+    // not: with the fix reverted, this spec passed 7 runs out of 7, before
+    // and after the second change was added. So the assertions below pin the
+    // behaviour we want and would catch a session that is dropped outright,
+    // but the narrower revoked-token bug stays unproven here. Worth another
+    // look if portal ever starts bouncing people to /signin after a password
+    // change.
+    cy.fillInput('input[name="newPassword"]', finalPassword)
+    cy.fillInput('input[name="confirmPassword"]', finalPassword)
+    cy.get('input[name="confirmPassword"]')
+      .closest('.items-end')
+      .contains('button', 'Update')
+      .click()
+
+    cy.get('[role="dialog"]')
+      .last()
+      .within(() => {
+        cy.get('input[name="password"]').clear()
+        cy.get('input[name="password"]').type(newPassword)
+        cy.contains('button', 'Reauthenticate').click()
+      })
+    cy.waitForNotification('Password was successfully changed.')
+
+    cy.visit('/profile')
+    cy.url().should('include', '/profile')
+    cy.get('input[id="current-email"]', { timeout: 8000 }).should(
+      'have.value',
+      updatedEmail,
+    )
+
     // 5. Delete Account
     cy.contains('button', 'Delete account').click()
     cy.get('[role="dialog"]')
       .last()
       .within(() => {
         cy.get('input[name="password"]').clear()
-        cy.get('input[name="password"]').type(newPassword)
+        cy.get('input[name="password"]').type(finalPassword)
         cy.contains('button', 'Delete').click()
       })
     cy.url().should('include', '/signin', { timeout: 10000 })
