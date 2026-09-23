@@ -43,7 +43,7 @@ function refs(classId: string, studentUid: string) {
  * roster, the spots remaining, the capacity check and every reminder read the
  * class half. Writing both here is
  * what keeps the two from disagreeing, and the checks the page used to make
- * in the browser - capacity, the two-class limit, grade eligibility - are
+ * in the browser - capacity, the class-count limit, grade eligibility - are
  * made here so they hold for any caller.
  *
  * Refused when the student isn't the caller's, their registration isn't

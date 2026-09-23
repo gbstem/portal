@@ -305,12 +305,16 @@ describe('Section D: Class Roster and Details View', () => {
     expectScratchEnrollmentRefused([SEEDED_CLASS_ID])
   })
 
-  it('Test Case 9e: Student Cannot Enroll in a Third Class', () => {
-    // Two classes already: the seeded one and a generated Mathematics 2a.
-    const twoClasses = [SEEDED_CLASS_ID, 'class-fake-4']
+  it('Test Case 9e: Student Cannot Enroll in a Fifth Class', () => {
+    const fourClasses = [
+      SEEDED_CLASS_ID,
+      'class-fake-2',
+      'class-fake-3',
+      'class-fake-4',
+    ]
     cy.task('mergeFirestoreDoc', {
       docPath: REGISTRATION_PATH,
-      data: { classes: twoClasses },
+      data: { classes: fourClasses },
     })
     visitClassesAsParent()
 
@@ -319,11 +323,11 @@ describe('Section D: Class Roster and Details View', () => {
       .contains('button', 'Enroll Student')
       .click({ force: true })
     cy.waitForNotification(
-      'Each student may only enroll in a maximum of 2 classes.',
+      'Each student may only enroll in a maximum of 4 classes.',
       'bg-red-200',
     )
 
-    expectScratchEnrollmentRefused(twoClasses)
+    expectScratchEnrollmentRefused(fourClasses)
   })
 
   it('Test Case 10: Instructor View Taught Classes', () => {

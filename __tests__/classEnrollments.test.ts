@@ -153,14 +153,19 @@ describe('enrollStudent', () => {
     ).rejects.toMatchObject({ status: 409 })
   })
 
-  test('refuses a third class', async () => {
-    docs[REGISTRATION_PATH].classes = ['class-a', 'class-b']
+  test('refuses a fifth class', async () => {
+    docs[REGISTRATION_PATH].classes = [
+      'class-a',
+      'class-b',
+      'class-c',
+      'class-d',
+    ]
 
     await expect(
       enrollStudent(PARENT, CLASS_ID, STUDENT),
     ).rejects.toMatchObject({
       status: 400,
-      message: 'Each student may only enroll in a maximum of 2 classes.',
+      message: 'Each student may only enroll in a maximum of 4 classes.',
     })
     expect(transaction.update).not.toHaveBeenCalled()
   })
@@ -200,7 +205,7 @@ describe('enrollStudent', () => {
     expect(updateTo(CLASS_PATH)).toEqual({
       students: ['someone-else', STUDENT],
     })
-    // Already counted among its two classes, so the limit doesn't refuse it.
+    // Already counted among its classes, so the limit doesn't refuse it.
     expect(updateTo(REGISTRATION_PATH)).toEqual({
       classes: [CLASS_ID, 'class-b'],
       enrolled: true,

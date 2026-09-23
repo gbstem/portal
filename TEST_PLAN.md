@@ -358,9 +358,9 @@ graph TD
 - **Description**: Verify that `/api/enroll` refuses a student already in two classes.
 - **Steps**:
   1. Give the parent's student two classes on their registration.
-  2. Log in as the parent, open **"Add/Drop Class"** on a third class, and click **"Enroll Student"**.
+  2. Log in as the parent, open **"Add/Drop Class"** on a fifth class, and click **"Enroll Student"**.
 - **Expected Results (Assertions)**:
-  - An error toast reads "Each student may only enroll in a maximum of 2 classes."
+  - An error toast reads "Each student may only enroll in a maximum of 4 classes."
   - In Firestore, neither the class's `students` nor the registration's `classes` changed.
 
 #### Test Case 10: Instructor View Taught Classes
