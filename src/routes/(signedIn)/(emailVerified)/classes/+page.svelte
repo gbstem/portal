@@ -135,11 +135,11 @@
       return
     }
 
-    // throw alert if student attempts to enroll in more than 2 classes
-    if (studentUidToClassIds[selectedStudentUid].length >= 2) {
+    // throw alert if student attempts to enroll in more than 4 classes
+    if (studentUidToClassIds[selectedStudentUid].length >= 4) {
       alert.trigger(
         'error',
-        'Each student may only enroll in a maximum of 2 classes!',
+        'Each student may only enroll in a maximum of 4 classes!',
       )
       return
     }
