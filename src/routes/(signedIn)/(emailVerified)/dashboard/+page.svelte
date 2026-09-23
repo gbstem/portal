@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { page } from '$app/state'
   import { user } from '$lib/client/firebase'
   import Button from '$lib/components/Button.svelte'
   import Card from '$lib/components/Card.svelte'
@@ -13,6 +14,17 @@
   import { applicationService } from '$lib/services/applicationService'
   import { registrationService } from '$lib/services/registrationService'
   import { alert } from '$lib/stores'
+  import { Icon } from '@steeze-ui/svelte-icon'
+  import {
+    AcademicCap,
+    Calendar,
+    CheckCircle,
+    Clock,
+    ExclamationCircle,
+    InformationCircle,
+    Plus,
+    UserCircle,
+  } from '@steeze-ui/heroicons'
 
   type ApplicationStatus =
     | 'accepted'
@@ -38,15 +50,13 @@
     },
   })
 
-  let isStudent = $state(false)
+  const isStudent = $derived(page.data.user?.role === 'student')
 
   user.subscribe((userObj) => {
     if (userObj) {
-      isStudent = userObj.profile.role === 'student'
-
       ;(async () => {
         try {
-          if (userObj.profile.role === 'instructor') {
+          if (!isStudent) {
             data.application.status = null
             data.application.status =
               await applicationService.fetchApplicationDashboardStatus(
@@ -92,7 +102,7 @@
       <!-- Card Skeleton 1 -->
       <div class="rounded-xl bg-white p-6 shadow-lg">
         <div class="mb-4 flex items-center">
-          <div class="mr-2 h-6 w-6 rounded-full bg-gray-200"></div>
+          <div class="mr-2 size-6 rounded-full bg-gray-200"></div>
           <div class="h-6 w-48 rounded-md bg-gray-200"></div>
         </div>
         <div class="space-y-3">
@@ -105,7 +115,7 @@
       {#if isStudent}
         <div class="rounded-xl bg-white p-6 shadow-lg">
           <div class="mb-4 flex items-center">
-            <div class="mr-2 h-6 w-6 rounded-full bg-gray-200"></div>
+            <div class="mr-2 size-6 rounded-full bg-gray-200"></div>
             <div class="h-6 w-40 rounded-md bg-gray-200"></div>
           </div>
           <div class="space-y-3">
@@ -123,22 +133,13 @@
         : 'max-w-155 grid-cols-1'}"
     >
       <div class="flex flex-col gap-8">
-        {#if $user?.profile?.role === 'instructor' && new Date() >= new Date(semesterDates.classesStart) && data.application.status === 'submitted'}
+        {#if !isStudent && new Date() >= new Date(semesterDates.classesStart) && data.application.status === 'submitted'}
           <Card class="rounded-xl bg-white p-6 shadow-lg">
             <div class="mb-4 flex items-center">
-              <svg
-                class="mr-2 h-6 w-6 text-yellow-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M13 16h-1v-4h-1m1-4h.01"
-                />
-              </svg>
+              <Icon
+                src={InformationCircle}
+                class="mr-2 size-6 text-yellow-500"
+              />
               <h2 class="text-xl font-bold text-gray-900">
                 Application Received
               </h2>
@@ -153,19 +154,7 @@
         {#if isStudent}
           <Card class="rounded-xl bg-white p-6 shadow-lg">
             <div class="mb-4 flex items-center">
-              <svg
-                class="mr-2 h-6 w-6 text-blue-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M5.121 17.804A13.937 13.937 0 0112 15c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0z"
-                />
-              </svg>
+              <Icon src={UserCircle} class="mr-2 size-6 text-blue-500" />
               <h2 class="text-xl font-bold text-gray-900">Your Students</h2>
             </div>
             <div class="mb-4">
@@ -177,38 +166,14 @@
                 class="flex w-full items-center justify-center gap-2"
                 color="blue"
               >
-                <svg
-                  class="h-5 w-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                  />
-                </svg>
+                <Icon src={Plus} class="size-5" />
                 Create or View A Student Account
               </Button>
             </div>
           </Card>
           <Card class="rounded-xl bg-white p-6 shadow-lg">
             <div class="mb-4 flex items-center">
-              <svg
-                class="mr-2 h-6 w-6 text-yellow-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
+              <Icon src={Clock} class="mr-2 size-6 text-yellow-500" />
               <h2 class="text-xl font-bold text-gray-900">Class Feedback</h2>
             </div>
             <StudentFeedbackForm />
@@ -218,19 +183,7 @@
         {#if new Date() < new Date(semesterDates.classesStart) || (new Date() >= new Date(semesterDates.classesStart) && ((!isStudent && data.application.status !== 'accepted') || (isStudent && numSubmitted === 0)))}
           <Card class="rounded-xl bg-white p-6 shadow-lg">
             <div class="mb-4 flex items-center">
-              <svg
-                class="mr-2 h-6 w-6 text-green-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M9 17v-2a4 4 0 014-4h3m4 0a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
+              <Icon src={AcademicCap} class="mr-2 size-6 text-green-500" />
               <h2 class="text-xl font-bold text-gray-900">
                 Application & Registration
               </h2>
@@ -243,19 +196,10 @@
                     <div
                       class="mb-2 flex items-center border-l-4 border-yellow-400 bg-yellow-50 p-4"
                     >
-                      <svg
-                        class="mr-2 h-5 w-5 text-yellow-400"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          d="M13 16h-1v-4h-1m1-4h.01"
-                        />
-                      </svg>
+                      <Icon
+                        src={InformationCircle}
+                        class="mr-2 size-5 text-yellow-400"
+                      />
                       <span
                         >Applications to be an instructor are due <span
                           class="font-bold"
@@ -306,19 +250,7 @@
                     class="mt-5 flex w-full items-center justify-center gap-2"
                     color="blue"
                   >
-                    <svg
-                      class="h-5 w-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                      />
-                    </svg>
+                    <Icon src={Calendar} class="size-5" />
                     {data.application.status === null
                       ? 'Edit Application'
                       : 'View Application'}
@@ -343,19 +275,7 @@
                     class="mt-5 flex w-full items-center justify-center gap-2"
                     color="blue"
                   >
-                    <svg
-                      class="h-5 w-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                      />
-                    </svg>
+                    <Icon src={Plus} class="size-5" />
                     Create or View A Student Account
                   </Button>
                 </div>
@@ -365,19 +285,10 @@
                 <div
                   class="mb-2 flex items-center border-l-4 border-red-400 bg-red-50 p-4"
                 >
-                  <svg
-                    class="mr-2 h-5 w-5 text-red-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M18.364 5.636l-1.414 1.414A9 9 0 103 12.001V13a9 9 0 0015.95 6.364l1.414-1.414A11 11 0 1112 1a11 11 0 016.364 4.636z"
-                    />
-                  </svg>
+                  <Icon
+                    src={ExclamationCircle}
+                    class="mr-2 size-5 text-red-400"
+                  />
                   <span>
                     {#if !isStudent}
                       The instructor application deadline has passed.
@@ -405,19 +316,7 @@
         {#if data.application.status === 'accepted'}
           <Card class="rounded-xl bg-white p-6 shadow-lg">
             <div class="mb-4 flex items-center">
-              <svg
-                class="mr-2 h-6 w-6 text-indigo-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M9 17v-2a4 4 0 014-4h3m4 0a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
+              <Icon src={AcademicCap} class="mr-2 size-6 text-indigo-500" />
               <h2 class="text-xl font-bold text-gray-900">Your Classes</h2>
             </div>
             <!-- Show ClassSchedule only after orientation -->
@@ -429,19 +328,7 @@
         {:else if data.application.status === 'substitute'}
           <Card class="rounded-xl bg-white p-6 shadow-lg">
             <div class="mb-4 flex items-center">
-              <svg
-                class="mr-2 h-6 w-6 text-indigo-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M9 17v-2a4 4 0 014-4h3m4 0a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
+              <Icon src={AcademicCap} class="mr-2 size-6 text-indigo-500" />
               <h2 class="text-xl font-bold text-gray-900">
                 Substitute Classes
               </h2>
@@ -452,19 +339,7 @@
         {#if data.application.status === 'interview'}
           <Card class="rounded-xl bg-white p-6 shadow-lg">
             <div class="mb-4 flex items-center">
-              <svg
-                class="mr-2 h-6 w-6 text-pink-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
+              <Icon src={Clock} class="mr-2 size-6 text-pink-500" />
               <h2 class="text-xl font-bold text-gray-900">Interview</h2>
             </div>
             <InterviewForm {semesterDates} />
@@ -477,19 +352,7 @@
           {#if data.application.status === 'accepted'}
             <Card class="rounded-xl bg-white p-6 shadow-lg">
               <div class="mb-4 flex items-center">
-                <svg
-                  class="mr-2 h-6 w-6 text-green-500"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
+                <Icon src={CheckCircle} class="mr-2 size-6 text-green-500" />
                 <h2 class="text-xl font-bold text-gray-900">Class Details</h2>
               </div>
               <ClassDetailsForm {semesterDates} dialog={false} />
@@ -499,19 +362,7 @@
           {#if isStudent && new Date() > new Date(semesterDates.studentOrientation)}
             <Card class="rounded-xl bg-white p-6 shadow-lg">
               <div class="mb-4 flex items-center">
-                <svg
-                  class="mr-2 h-6 w-6 text-purple-500"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                  />
-                </svg>
+                <Icon src={Calendar} class="mr-2 size-6 text-purple-500" />
                 <h2 class="text-xl font-bold text-gray-900">
                   Student Schedule
                 </h2>

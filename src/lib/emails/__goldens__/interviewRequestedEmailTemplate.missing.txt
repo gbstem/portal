@@ -1,0 +1,11 @@
+title: 
+heading: New Interview Timeslot Request From
+text: New Interview Timeslot Request From
+text: , email , is requesting a new interview timeslot at . You can set the slot and assign them through the admin portal, which will notify them.
+text: Access Portal
+text: Main |
+text: gbSTEM © 2026
+link: Access Portal -> https://admin.gbstem.org/dashboard
+link: Main -> https://gbstem.org
+link:  -> 
+image: https://firebasestorage.googleapis.com/v0/b/gbstem-public/o/logoNOBACKGROUND.png?alt=media&token=ccf22ae8-323e-44a6-981c-a314b9563c45 (alt= width=550)

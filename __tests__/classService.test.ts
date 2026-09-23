@@ -1,4 +1,3 @@
-import { SubRequestStatus } from '$lib/components/helpers/SubRequestStatus'
 import { classService } from '$lib/services/classService'
 import * as firestore from 'firebase/firestore'
 import type {} from '../src/data.d.ts'
@@ -12,6 +11,8 @@ jest.mock('firebase/firestore', () => ({
   updateDoc: jest.fn(),
   arrayUnion: jest.fn((val) => val),
   arrayRemove: jest.fn((val) => val),
+  deleteField: jest.fn(() => ({ __deleteField: true })),
+  runTransaction: jest.fn(),
 }))
 
 function mockQuerySnapshot(docs: any[]) {
@@ -21,27 +22,7 @@ function mockQuerySnapshot(docs: any[]) {
 describe('portal classService (Data Access Layer)', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-  })
-
-  describe('fetchStudentList', () => {
-    it('fetches and transforms student records from Firestore', async () => {
-      const mockData = {
-        personal: {
-          studentFirstName: 'Timmy',
-          studentLastName: 'Turner',
-          email: 'timmy@example.com',
-        },
-        academic: { school: 'Dimmsdale', grade: 5 },
-      }
-      ;(firestore.getDoc as jest.Mock).mockResolvedValueOnce({
-        exists: () => true,
-        data: () => mockData,
-      })
-
-      const res = await classService.fetchStudentList(['uid-1'])
-      expect(res.length).toBe(1)
-      expect(res[0].name).toBe('Timmy Turner')
-    })
+    global.fetch = jest.fn() as jest.Mock
   })
 
   describe('fetchClassDetails', () => {
@@ -73,49 +54,6 @@ describe('portal classService (Data Access Layer)', () => {
       await expect(classService.fetchClassDetails('c-1')).rejects.toThrow(
         'permission-denied',
       )
-    })
-  })
-
-  describe('fetchStudentListForClass', () => {
-    it('fetches enrolled students for a class', async () => {
-      ;(firestore.getDoc as jest.Mock)
-        .mockResolvedValueOnce({
-          exists: () => true,
-          data: () => ({ course: 'Python 1', students: ['s-1'] }),
-        })
-        .mockResolvedValueOnce({
-          exists: () => true,
-          data: () => ({
-            personal: {
-              studentFirstName: 'Timmy',
-              studentLastName: 'Turner',
-              email: 'timmy@example.com',
-            },
-          }),
-        })
-
-      const res = await classService.fetchStudentListForClass('c-1')
-      expect(res).toHaveLength(1)
-      expect(res[0].name).toBe('Timmy Turner')
-    })
-
-    it('returns an empty array when the class does not exist', async () => {
-      ;(firestore.getDoc as jest.Mock).mockResolvedValueOnce({
-        exists: () => false,
-      })
-
-      const res = await classService.fetchStudentListForClass('c-1')
-      expect(res).toEqual([])
-    })
-
-    it('returns an empty array when the class has no students field', async () => {
-      ;(firestore.getDoc as jest.Mock).mockResolvedValueOnce({
-        exists: () => true,
-        data: () => ({ course: 'Python 1' }),
-      })
-
-      const res = await classService.fetchStudentListForClass('c-1')
-      expect(res).toEqual([])
     })
   })
 
@@ -160,179 +98,245 @@ describe('portal classService (Data Access Layer)', () => {
   })
 
   describe('saveClassDetails', () => {
-    it('sets class details in Firestore with merge: true', async () => {
-      ;(firestore.setDoc as jest.Mock).mockResolvedValueOnce(undefined)
-      await classService.saveClassDetails('c-1', { course: 'Python 1' })
-      expect(firestore.setDoc).toHaveBeenCalled()
+    const body = {
+      classId: 'uid-1-1',
+      details: {
+        course: 'Python 1',
+        gradeRecommendation: '',
+        classCap: 7,
+        meetingLink: '',
+        classDay1: 'Monday' as const,
+        classTime1: '16:00',
+        classDay2: '' as const,
+        classTime2: '',
+        online: true,
+        otherInstructorUids: [],
+      },
+    }
+
+    it('posts the class to /api/classDetails rather than writing Firestore', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ classId: 'uid-1-1' }),
+      })
+
+      await classService.saveClassDetails(body)
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/classDetails',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify(body),
+        }),
+      )
+      expect(firestore.setDoc).not.toHaveBeenCalled()
+    })
+
+    it("throws the server's message when the save is refused", async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({
+          message: 'You are not an instructor of that class.',
+        }),
+      })
+
+      await expect(classService.saveClassDetails(body)).rejects.toThrow(
+        'You are not an instructor of that class.',
+      )
+    })
+
+    it('falls back to a generic message when the refusal has no body', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        json: async () => {
+          throw new Error('not json')
+        },
+      })
+
+      await expect(classService.saveClassDetails(body)).rejects.toThrow(
+        'Could not save class details. Please try again.',
+      )
     })
   })
 
   describe('fetchInstructorClasses', () => {
-    it('combines mapped-access and owned classes, converting timestamps', async () => {
-      ;(firestore.getDoc as jest.Mock)
-        .mockResolvedValueOnce({
-          exists: () => true,
-          data: () => ({ classIds: ['inst-1-a'] }),
-        })
-        .mockResolvedValueOnce({
-          exists: () => true,
-          data: () => ({
-            course: 'Python 1',
-            meetingTimes: [{ seconds: 1779900600 }],
-            completedClassDates: [{ seconds: 1779900600 }],
-          }),
-        })
-        .mockResolvedValueOnce({
-          exists: () => true,
-          data: () => ({ course: 'Python 2' }),
-        })
-      ;(firestore.getDocs as jest.Mock).mockResolvedValueOnce(
-        mockQuerySnapshot([{ id: 'uid-1-owned' }, { id: 'other-owner-1' }]),
-      )
-
-      const res = await classService.fetchInstructorClasses(
-        'uid-1',
-        'inst@example.com',
-      )
-
-      expect(Object.keys(res).sort()).toEqual(['inst-1-a', 'uid-1-owned'])
-      expect(res['inst-1-a'].meetingTimes[0]).toBeInstanceOf(Date)
-      expect(res['inst-1-a'].completedClassDates[0]).toBeInstanceOf(Date)
-    })
-
-    it('falls back to an empty accessible list when the mapping doc exists but has no classIds field', async () => {
-      ;(firestore.getDoc as jest.Mock).mockResolvedValueOnce({
-        exists: () => true,
-        data: () => ({}),
+    it('loads classes from /api/classDetails, turning session dates back into Dates', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          classes: {
+            'uid-1-1': {
+              course: 'Python 1',
+              meetingTimes: ['2026-10-05T20:00:00.000Z'],
+              completedClassDates: [],
+            },
+          },
+        }),
       })
-      ;(firestore.getDocs as jest.Mock).mockResolvedValueOnce(
-        mockQuerySnapshot([]),
-      )
 
-      const res = await classService.fetchInstructorClasses(
-        'uid-1',
-        'inst@example.com',
-      )
-      expect(res).toEqual({})
+      const res = await classService.fetchInstructorClasses()
+
+      expect(global.fetch).toHaveBeenCalledWith('/api/classDetails')
+      expect(res['uid-1-1'].course).toBe('Python 1')
+      expect(res['uid-1-1'].meetingTimes).toEqual([
+        new Date('2026-10-05T20:00:00.000Z'),
+      ])
+      expect(res['uid-1-1'].completedClassDates).toEqual([])
     })
 
-    it('falls back to an empty accessible list when no mapping doc exists', async () => {
-      ;(firestore.getDoc as jest.Mock).mockResolvedValueOnce({
-        exists: () => false,
+    it('returns an empty object and logs when the request is refused', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 403,
       })
-      ;(firestore.getDocs as jest.Mock).mockResolvedValueOnce(
-        mockQuerySnapshot([]),
-      )
-
-      const res = await classService.fetchInstructorClasses(
-        'uid-1',
-        'inst@example.com',
-      )
-      expect(res).toEqual({})
-    })
-
-    it('skips class ids whose document no longer exists', async () => {
-      ;(firestore.getDoc as jest.Mock)
-        .mockResolvedValueOnce({
-          exists: () => true,
-          data: () => ({ classIds: ['gone-1'] }),
-        })
-        .mockResolvedValueOnce({ exists: () => false })
-      ;(firestore.getDocs as jest.Mock).mockResolvedValueOnce(
-        mockQuerySnapshot([]),
-      )
-
-      const res = await classService.fetchInstructorClasses(
-        'uid-1',
-        'inst@example.com',
-      )
-      expect(res).toEqual({})
-    })
-
-    it('returns an empty object and logs on fetch failure rather than throwing', async () => {
-      ;(firestore.getDoc as jest.Mock).mockRejectedValueOnce(
-        new Error('permission-denied'),
-      )
       const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
 
-      const res = await classService.fetchInstructorClasses(
-        'uid-1',
-        'inst@example.com',
-      )
-      expect(res).toEqual({})
+      await expect(classService.fetchInstructorClasses()).resolves.toEqual({})
       expect(errorSpy).toHaveBeenCalledWith(
         'Error fetching instructor classes:',
         expect.any(Error),
       )
       errorSpy.mockRestore()
     })
+
+    it('returns an empty object rather than throwing when fetch rejects', async () => {
+      ;(global.fetch as jest.Mock).mockRejectedValueOnce(new Error('offline'))
+      const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
+
+      await expect(classService.fetchInstructorClasses()).resolves.toEqual({})
+      errorSpy.mockRestore()
+    })
   })
 
-  describe('updateInstructorClassMappings', () => {
-    it('updates the mapping for the main instructor when the doc already exists', async () => {
-      ;(firestore.updateDoc as jest.Mock).mockResolvedValueOnce(undefined)
+  describe('lookupCoInstructor', () => {
+    it('returns the resolved co-instructor on success', async () => {
+      const coInstructor = {
+        uid: 'co-uid-1',
+        email: 'co1@example.com',
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+        accepted: true,
+      }
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ instructor: coInstructor }),
+      })
 
-      await classService.updateInstructorClassMappings(
-        'c-1',
-        'main@example.com',
-        '',
+      await expect(
+        classService.lookupCoInstructor('co1@example.com'),
+      ).resolves.toEqual({ ok: true, coInstructor })
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/lookupCoInstructor',
+        expect.objectContaining({ method: 'POST' }),
       )
-
-      expect(firestore.updateDoc).toHaveBeenCalledTimes(1)
-      expect(firestore.setDoc).not.toHaveBeenCalled()
     })
 
-    it('creates the mapping doc via setDoc when updateDoc fails (doc missing)', async () => {
-      ;(firestore.updateDoc as jest.Mock).mockRejectedValueOnce(
-        new Error('not-found'),
-      )
-      ;(firestore.setDoc as jest.Mock).mockResolvedValueOnce(undefined)
+    // The server deliberately gives one message for every rejection reason,
+    // so it is shown to the class owner verbatim rather than reinterpreted.
+    it('surfaces the server message when the address is refused', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        json: () =>
+          Promise.resolve({ message: 'No accepted gbSTEM instructor...' }),
+      })
 
-      await classService.updateInstructorClassMappings(
-        'c-1',
-        'main@example.com',
-        '',
-      )
-
-      expect(firestore.setDoc).toHaveBeenCalledWith(expect.anything(), {
-        classIds: ['c-1'],
+      await expect(
+        classService.lookupCoInstructor('nobody@example.com'),
+      ).resolves.toEqual({
+        ok: false,
+        message: 'No accepted gbSTEM instructor...',
       })
     })
 
-    it('grants access to each comma-separated co-instructor email', async () => {
-      ;(firestore.updateDoc as jest.Mock).mockResolvedValue(undefined)
-
-      await classService.updateInstructorClassMappings(
-        'c-1',
-        'main@example.com',
-        'co1@example.com, co2@example.com,',
-      )
-
-      expect(firestore.updateDoc).toHaveBeenCalledTimes(3)
-    })
-
-    it('logs and does not throw if adding an instructor fails entirely', async () => {
-      ;(firestore.updateDoc as jest.Mock).mockRejectedValue(
-        new Error('update failed'),
-      )
-      ;(firestore.setDoc as jest.Mock).mockRejectedValueOnce(
-        new Error('set failed'),
+    it('reports a generic failure rather than throwing when fetch rejects', async () => {
+      ;(global.fetch as jest.Mock).mockRejectedValueOnce(
+        new Error('network error'),
       )
       const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
 
-      await expect(
-        classService.updateInstructorClassMappings(
-          'c-1',
-          'main@example.com',
-          '',
-        ),
-      ).resolves.toBeUndefined()
+      const res = await classService.lookupCoInstructor('co1@example.com')
 
-      expect(errorSpy).toHaveBeenCalledWith(
-        'Error updating instructor class mappings:',
-        expect.any(Error),
-      )
+      expect(res).toEqual({ ok: false, message: expect.any(String) })
       errorSpy.mockRestore()
+    })
+  })
+
+  describe('resolveCoInstructors', () => {
+    it('returns [] without calling the API when there are no uids', async () => {
+      await expect(classService.resolveCoInstructors([])).resolves.toEqual([])
+      expect(global.fetch).not.toHaveBeenCalled()
+    })
+
+    it('posts the uids and returns the identities', async () => {
+      const instructors = [{ uid: 'co-uid-1', email: 'co1@example.com' }]
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ instructors }),
+      })
+
+      await expect(
+        classService.resolveCoInstructors(['co-uid-1']),
+      ).resolves.toEqual(instructors)
+    })
+
+    // Must NOT swallow this into []. The caller uses the result to decide
+    // which stored uids to keep, so a silent empty result on a failed request
+    // would wipe a class's co-instructors on the next save.
+    it('throws rather than returning [] when the request fails', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+      })
+
+      await expect(
+        classService.resolveCoInstructors(['co-uid-1']),
+      ).rejects.toThrow()
+    })
+  })
+
+  describe('fetchEnrolledClassInstructorEmail', () => {
+    it("asks for the class's instructor under the enrolled-class intent", async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({ emails: { 'inst-uid': 'inst@example.com' } }),
+      })
+
+      await expect(
+        classService.fetchEnrolledClassInstructorEmail('class-1', 'inst-uid'),
+      ).resolves.toBe('inst@example.com')
+      const [url, init] = (global.fetch as jest.Mock).mock.calls[0]
+      expect(url).toBe('/api/resolveEmails')
+      expect(JSON.parse(init.body)).toEqual({
+        intent: 'enrolledClassInstructor',
+        uids: ['inst-uid'],
+        context: { classId: 'class-1' },
+      })
+    })
+
+    it('returns null when the uid names no account', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ emails: { 'inst-uid': null } }),
+      })
+
+      await expect(
+        classService.fetchEnrolledClassInstructorEmail('class-1', 'inst-uid'),
+      ).resolves.toBeNull()
+    })
+
+    // Must throw rather than return null: null means "no such account", and a
+    // refused or failed lookup must not reach the page looking like one.
+    it("throws the server's message when the lookup is refused", async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        json: () => Promise.resolve({ message: 'Not allowed' }),
+      })
+
+      await expect(
+        classService.fetchEnrolledClassInstructorEmail('class-1', 'inst-uid'),
+      ).rejects.toThrow('Not allowed')
     })
   })
 
@@ -398,251 +402,239 @@ describe('portal classService (Data Access Layer)', () => {
     })
   })
 
-  describe('fetchClassCapacityInfo', () => {
-    it('returns current enrollment and cap', async () => {
-      ;(firestore.getDoc as jest.Mock).mockResolvedValueOnce({
-        data: () => ({ students: ['s-1', 's-2'], classCap: 5 }),
+  describe('enrollStudent', () => {
+    it('posts the enrollment to /api/enroll rather than writing Firestore', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ emailSent: true }),
       })
 
-      const res = await classService.fetchClassCapacityInfo('c-1')
-      expect(res).toEqual({ numStudents: 2, classCap: 5 })
-    })
+      const res = await classService.enrollStudent('c-1', 's-1')
 
-    it('defaults numStudents/classCap to 0 when the class document is empty', async () => {
-      ;(firestore.getDoc as jest.Mock).mockResolvedValueOnce({
-        data: () => undefined,
-      })
-
-      const res = await classService.fetchClassCapacityInfo('c-1')
-      expect(res).toEqual({ numStudents: 0, classCap: 0 })
-    })
-  })
-
-  describe('fetchBypassAgeLimits', () => {
-    it('returns true when the registration has the bypass flag enabled', async () => {
-      ;(firestore.getDoc as jest.Mock).mockResolvedValueOnce({
-        data: () => ({ agreements: { bypassAgeLimits: true } }),
-      })
-
-      const res = await classService.fetchBypassAgeLimits('s-1')
-      expect(res).toBe(true)
-    })
-
-    it('returns false when the registration document has no data', async () => {
-      ;(firestore.getDoc as jest.Mock).mockResolvedValueOnce({
-        data: () => undefined,
-      })
-
-      const res = await classService.fetchBypassAgeLimits('s-1')
-      expect(res).toBe(false)
-    })
-  })
-
-  describe('enrollStudentInClass', () => {
-    it('adds the student to the class roster', async () => {
-      ;(firestore.updateDoc as jest.Mock).mockResolvedValueOnce(undefined)
-      await classService.enrollStudentInClass('c-1', 's-1')
-      expect(firestore.updateDoc).toHaveBeenCalledWith(expect.anything(), {
-        students: 's-1',
-      })
-    })
-
-    it('propagates errors from updateDoc', async () => {
-      ;(firestore.updateDoc as jest.Mock).mockRejectedValueOnce(
-        new Error('permission-denied'),
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/enroll',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ classId: 'c-1', studentUid: 's-1' }),
+        }),
       )
-      await expect(
-        classService.enrollStudentInClass('c-1', 's-1'),
-      ).rejects.toThrow('permission-denied')
-    })
-  })
-
-  describe('confirmStudentClassEnrollment', () => {
-    it('adds the class and marks the registration enrolled', async () => {
-      ;(firestore.updateDoc as jest.Mock).mockResolvedValueOnce(undefined)
-      await classService.confirmStudentClassEnrollment('s-1', 'c-1')
-      expect(firestore.updateDoc).toHaveBeenCalledWith(expect.anything(), {
-        classes: 'c-1',
-        enrolled: true,
-      })
-    })
-  })
-
-  describe('unenrollStudentFromClass', () => {
-    it('removes the student from the class roster', async () => {
-      ;(firestore.updateDoc as jest.Mock).mockResolvedValueOnce(undefined)
-      await classService.unenrollStudentFromClass('c-1', 's-1')
-      expect(firestore.updateDoc).toHaveBeenCalledWith(expect.anything(), {
-        students: 's-1',
-      })
-    })
-  })
-
-  describe('confirmStudentClassUnenrollment', () => {
-    it('sets enrolled=true when other classes remain after removal', async () => {
-      ;(firestore.updateDoc as jest.Mock).mockResolvedValue(undefined)
-      ;(firestore.getDoc as jest.Mock).mockResolvedValueOnce({
-        data: () => ({ classes: ['c-2'] }),
-      })
-
-      await classService.confirmStudentClassUnenrollment('s-1', 'c-1')
-
-      expect(firestore.updateDoc).toHaveBeenLastCalledWith(expect.anything(), {
-        enrolled: true,
-      })
+      expect(res).toEqual({ emailSent: true })
+      expect(firestore.updateDoc).not.toHaveBeenCalled()
     })
 
-    it('sets enrolled=false when no classes remain', async () => {
-      ;(firestore.updateDoc as jest.Mock).mockResolvedValue(undefined)
-      ;(firestore.getDoc as jest.Mock).mockResolvedValueOnce({
-        data: () => ({ classes: [] }),
+    it("throws the server's message when the enrollment is refused", async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({ message: 'That class is full.' }),
       })
 
-      await classService.confirmStudentClassUnenrollment('s-1', 'c-1')
-
-      expect(firestore.updateDoc).toHaveBeenLastCalledWith(expect.anything(), {
-        enrolled: false,
-      })
-    })
-
-    it('defaults to enrolled=false when the registration has no classes field', async () => {
-      ;(firestore.updateDoc as jest.Mock).mockResolvedValue(undefined)
-      ;(firestore.getDoc as jest.Mock).mockResolvedValueOnce({
-        data: () => ({}),
-      })
-
-      await classService.confirmStudentClassUnenrollment('s-1', 'c-1')
-
-      expect(firestore.updateDoc).toHaveBeenLastCalledWith(expect.anything(), {
-        enrolled: false,
-      })
-    })
-
-    it('propagates errors from updateDoc', async () => {
-      ;(firestore.updateDoc as jest.Mock).mockRejectedValueOnce(
-        new Error('permission-denied'),
+      await expect(classService.enrollStudent('c-1', 's-1')).rejects.toThrow(
+        'That class is full.',
       )
-      await expect(
-        classService.confirmStudentClassUnenrollment('s-1', 'c-1'),
-      ).rejects.toThrow('permission-denied')
-    })
-  })
-
-  describe('fetchStudentNames', () => {
-    it('fetches names in input order', async () => {
-      ;(firestore.getDoc as jest.Mock)
-        .mockResolvedValueOnce({
-          data: () => ({
-            personal: { studentFirstName: 'Alice', studentLastName: 'A' },
-          }),
-        })
-        .mockResolvedValueOnce({
-          data: () => ({
-            personal: { studentFirstName: 'Bob', studentLastName: 'B' },
-          }),
-        })
-
-      const res = await classService.fetchStudentNames(['s-1', 's-2'])
-      expect(res).toEqual(['Alice A', 'Bob B'])
     })
 
-    it("resolves individual lookup failures to 'Error' rather than rejecting the whole batch", async () => {
-      ;(firestore.getDoc as jest.Mock)
-        .mockResolvedValueOnce({
-          data: () => ({
-            personal: { studentFirstName: 'Alice', studentLastName: 'A' },
-          }),
-        })
-        .mockRejectedValueOnce(new Error('permission-denied'))
-      const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
-
-      const res = await classService.fetchStudentNames(['s-1', 's-2'])
-      expect(res).toEqual(['Alice A', 'Error'])
-      errorSpy.mockRestore()
-    })
-  })
-
-  describe('submitInstructorFeedback', () => {
-    const feedback = {
-      date: '2026-01-01',
-      feedback: 'Great class',
-      attendanceList: {},
-      courseName: 'Python 1',
-      classNumber: 1,
-      instructorName: 'Jane Doe',
-    }
-
-    it('saves feedback and updates the class document', async () => {
-      ;(firestore.setDoc as jest.Mock).mockResolvedValueOnce(undefined)
-      ;(firestore.updateDoc as jest.Mock).mockResolvedValueOnce(undefined)
-
-      await classService.submitInstructorFeedback(
-        'c-1',
-        feedback,
-        [true],
-        ['Everything Complete'],
-      )
-
-      expect(firestore.setDoc).toHaveBeenCalledTimes(1)
-      expect(firestore.updateDoc).toHaveBeenCalledTimes(1)
-    })
-
-    it('also closes out the substitute request when subRequestId is provided', async () => {
-      ;(firestore.setDoc as jest.Mock).mockResolvedValueOnce(undefined)
-      ;(firestore.updateDoc as jest.Mock).mockResolvedValue(undefined)
-
-      await classService.submitInstructorFeedback(
-        'c-1',
-        feedback,
-        [true],
-        ['Everything Complete'],
-        'sub-req-1',
-      )
-
-      expect(firestore.updateDoc).toHaveBeenCalledTimes(2)
-      const [, subReqPayload] = (firestore.updateDoc as jest.Mock).mock.calls[1]
-      expect(subReqPayload).toEqual({
-        subRequestStatus: SubRequestStatus.NoSubstituteNeeded,
+    it('throws a generic message when the refusal has no readable body', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        json: async () => {
+          throw new Error('not json')
+        },
       })
-    })
 
-    it('propagates errors from setDoc', async () => {
-      ;(firestore.setDoc as jest.Mock).mockRejectedValueOnce(
-        new Error('permission-denied'),
+      await expect(classService.enrollStudent('c-1', 's-1')).rejects.toThrow(
+        'Error enrolling in class!',
       )
-
-      await expect(
-        classService.submitInstructorFeedback('c-1', feedback, [], []),
-      ).rejects.toThrow('permission-denied')
     })
   })
 
-  describe('submitStudentFeedback', () => {
-    it('saves the feedback document', async () => {
-      ;(firestore.setDoc as jest.Mock).mockResolvedValueOnce(undefined)
+  describe('unenrollStudent', () => {
+    it('sends the unenrollment to /api/enroll rather than writing Firestore', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ message: 'Unenrolled from class.' }),
+      })
 
-      await classService.submitStudentFeedback('c-1', {
-        studentId: 's-1',
-        date: '2026-01-01',
+      await classService.unenrollStudent('c-1', 's-1')
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/enroll',
+        expect.objectContaining({
+          method: 'DELETE',
+          body: JSON.stringify({ classId: 'c-1', studentUid: 's-1' }),
+        }),
+      )
+      expect(firestore.updateDoc).not.toHaveBeenCalled()
+    })
+
+    it("throws the server's message when the unenrollment is refused", async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({
+          message: 'You can only enroll your own students.',
+        }),
+      })
+
+      await expect(classService.unenrollStudent('c-1', 's-1')).rejects.toThrow(
+        'You can only enroll your own students.',
+      )
+    })
+
+    it('throws a generic message when the refusal has no readable body', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        json: async () => {
+          throw new Error('not json')
+        },
+      })
+
+      await expect(classService.unenrollStudent('c-1', 's-1')).rejects.toThrow(
+        'Error unenrolling from class!',
+      )
+    })
+  })
+
+  describe.each([
+    {
+      method: 'submitInstructorFeedback' as const,
+      route: '/api/instructorFeedback',
+      payload: {
         classId: 'c-1',
+        date: '2026-01-01',
+        feedback: 'Great class',
+        attendanceList: { 'Ada Lovelace': { present: true } },
+        classNumber: 2,
+      },
+    },
+    {
+      method: 'submitStudentFeedback' as const,
+      route: '/api/studentFeedback',
+      payload: {
+        studentId: 's-1',
+        classId: 'c-1',
+        date: '2026-01-01',
         rating: 5,
         feedback: 'Loved it!',
-        instructor: 'Jane Doe',
-        studentName: 'Timmy Turner',
-        course: 'Python 1',
+      },
+    },
+  ])('$method', ({ method, route, payload }) => {
+    const submit = () => (classService[method] as any)(payload)
+
+    it(`posts the feedback to ${route} rather than writing Firestore`, async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ feedbackId: 'c-1-123' }),
       })
 
-      expect(firestore.setDoc).toHaveBeenCalledTimes(1)
+      await expect(submit()).resolves.toEqual({ feedbackId: 'c-1-123' })
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        route,
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify(payload),
+        }),
+      )
+      expect(firestore.setDoc).not.toHaveBeenCalled()
+      expect(firestore.updateDoc).not.toHaveBeenCalled()
+      expect(firestore.runTransaction).not.toHaveBeenCalled()
     })
 
-    it('propagates errors from setDoc', async () => {
-      ;(firestore.setDoc as jest.Mock).mockRejectedValueOnce(
-        new Error('permission-denied'),
+    it("throws the server's message when the feedback is refused", async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({
+          message: 'You are not an instructor of that class.',
+        }),
+      })
+
+      await expect(submit()).rejects.toThrow(
+        'You are not an instructor of that class.',
+      )
+    })
+
+    it('throws a generic message when the refusal has no readable body', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        json: async () => {
+          throw new Error('not json')
+        },
+      })
+
+      await expect(submit()).rejects.toThrow(
+        'Could not save that feedback. Please try again.',
+      )
+    })
+
+    it('propagates a network failure', async () => {
+      ;(global.fetch as jest.Mock).mockRejectedValueOnce(
+        new Error('Failed to fetch'),
       )
 
-      await expect(
-        classService.submitStudentFeedback('c-1', {} as any),
-      ).rejects.toThrow('permission-denied')
+      await expect(submit()).rejects.toThrow('Failed to fetch')
+    })
+  })
+
+  describe('fetchClassRoster', () => {
+    it('fetches roster from /api/classRoster', async () => {
+      const mockStudents = [
+        {
+          uid: 's-1',
+          name: 'Ada Lovelace',
+          email: 'ada@example.com',
+          secondaryEmail: '',
+          phone: '1234567890',
+          grade: 5,
+          school: 'STEM School',
+        },
+      ]
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ students: mockStudents }),
+      })
+
+      const res = await classService.fetchClassRoster('c-1')
+      expect(global.fetch).toHaveBeenCalledWith('/api/classRoster?classId=c-1')
+      expect(res).toEqual(mockStudents)
+    })
+
+    it('passes subRequestId when provided', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ students: [] }),
+      })
+
+      await classService.fetchClassRoster('c-1', 'sub-123')
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/classRoster?classId=c-1&subRequestId=sub-123',
+      )
+    })
+
+    it('throws error when response is not ok', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        statusText: 'Forbidden',
+        json: async () => ({ message: 'Not authorized' }),
+      })
+
+      await expect(classService.fetchClassRoster('c-1')).rejects.toThrow(
+        'Not authorized',
+      )
+    })
+  })
+
+  describe('fetchStudentNamesForClass', () => {
+    it('maps student names from the roster', async () => {
+      const mockStudents = [
+        { uid: 's-1', name: 'Ada Lovelace' },
+        { uid: 's-2', name: 'Grace Hopper' },
+      ]
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ students: mockStudents }),
+      })
+
+      const res = await classService.fetchStudentNamesForClass('c-1')
+      expect(res).toEqual(['Ada Lovelace', 'Grace Hopper'])
     })
   })
 })

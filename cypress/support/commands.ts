@@ -1,20 +1,39 @@
 // Add all new commands to index.d.ts as well.
 
 Cypress.Commands.add('fillInput', (selector: string, text: string) => {
-  cy.get(selector)
-    .scrollIntoView()
-    .should('be.visible')
-    .focus()
-    .clear()
-    .type(text, { delay: 20 })
+  cy.get(selector).scrollIntoView()
+  cy.get(selector).should('be.visible')
+  cy.get(selector).focus()
+  cy.get(selector).clear()
+  cy.get(selector).type(text, { delay: 20 })
   // We had buggy inputs in the past, verify the value actually stuck.
   cy.get(selector).should('have.value', text)
+})
+
+// Waits until a form's `use:enhance` action has actually run.
+//
+// Every form in this app is a Superforms SPA form (`<form use:enhance>`), and
+// that action sets `method="post"` on the element when it runs - so the
+// attribute's presence is a direct signal that the JS submit handler is
+// attached. It is worth waiting on precisely because of what happens without
+// it: submitting a not-yet-hydrated form does a *native GET*, navigating to
+// `?email=...&password=...` instead of running any JS, so no validation, no
+// Firebase call, and no error toast ever happen. That is a silent wrong-looking
+// pass or a confusing timeout, not an obvious failure.
+//
+// This replaced fixed `cy.wait(500)` calls that were racing hydration under
+// full-suite load.
+Cypress.Commands.add('waitForFormHydration', (selector = 'form') => {
+  cy.get(selector, { timeout: 15000 })
+    .should('have.attr', 'method')
+    .and('match', /post/i)
 })
 
 Cypress.Commands.add('loadSignupPage', () => {
   cy.visit('/signup')
   cy.get('h1').should('contain', 'Sign up')
   cy.get('input[name="firstName"]').should('be.visible')
+  // eslint-disable-next-line cypress/no-unnecessary-waiting
   cy.wait(2500) // Wait for signup initialization and HMR/Firebase to settle
 })
 
@@ -31,19 +50,49 @@ Cypress.Commands.add(
       options.email ||
       (role === 'admin' ? 'demo@gbstem.org' : `${role}@gbstem.org`)
 
-    cy.session(`signedIn-${emailToUse}`, () => {
-      cy.visit('/signin')
-      cy.get('input[type="email"]').should('be.visible')
-      cy.wait(2500) // Wait for Svelte page and HMR to settle
-      const password = 'penguin'
-
-      cy.fillInput('input[type="email"]', emailToUse)
-      cy.fillInput('input[type="password"]', password)
-      cy.get('button[type="submit"]').click()
-      cy.wait(1000) // Wait for Svelte page and HMR to settle
-    })
-
     const initialPage = options.initialPage || '/dashboard'
+
+    cy.session(
+      `signedIn-${emailToUse}`,
+      () => {
+        cy.visit('/signin')
+        cy.get('input[type="email"]').should('be.visible')
+        // eslint-disable-next-line cypress/no-unnecessary-waiting
+        cy.wait(2500) // Wait for Svelte page and HMR to settle
+        const password = 'penguin'
+
+        cy.fillInput('input[type="email"]', emailToUse)
+        cy.fillInput('input[type="password"]', password)
+        cy.get('button[type="submit"]').click()
+        // SignInForm only leaves /signin once /api/auth has minted the
+        // `__session` cookie, so this is the signal that setup actually
+        // succeeded. Without it a failed sign-in is cached as a perfectly good
+        // session, and surfaces pages later as a confusing assertion against
+        // the sign-in page.
+        cy.url({ timeout: 15000 }).should('not.include', '/signin')
+      },
+      {
+        // cy.session restores a cached cookie without asking the server
+        // whether it is still any good, and this app's `__session` cookie can
+        // be revoked out from under the cache: anything that bumps Firebase's
+        // `tokensValidAfterTime` (a password change) makes hooks.server.ts's
+        // `verifySessionCookie(..., true)` reject it. A spec that mutates the
+        // signed-in account therefore poisons its own retry - the restored
+        // session redirects to /signin, and the failure gets reported from a
+        // beforeEach hook, naming neither the spec's real failure nor its
+        // cause. Admin carries the identical guard.
+        validate() {
+          cy.request({ url: initialPage, followRedirect: false }).then(
+            (res) => {
+              expect(String(res.headers.location ?? '')).to.not.include(
+                '/signin',
+              )
+            },
+          )
+        },
+      },
+    )
+
     cy.visit(initialPage)
     if (initialPage === '/announcements') {
       cy.title().should('contain', 'Announcements')
@@ -64,9 +113,6 @@ Cypress.Commands.add(
       cy.get('h1').should('contain', 'Community Service Hours Tracker', {
         timeout: 10000,
       })
-    } else if (initialPage === '/curriculum') {
-      cy.title().should('contain', 'Curriculum')
-      cy.get('h1').should('contain', 'Curriculum', { timeout: 10000 })
     } else if (initialPage === '/dashboard') {
       cy.title().should('contain', 'Dashboard')
       cy.get('h1').should('contain', 'Dashboard', { timeout: 10000 })
@@ -96,12 +142,37 @@ Cypress.Commands.add('signOutViaUi', () => {
   cy.get('input[type="email"]').should('be.visible')
 })
 
+// Picks an option in a Select.svelte combobox.
+//
+// Two things this has to work around, both learned the hard way:
+//
+// 1. Clearing first is required for a select that already holds a value.
+//    `handleFocusIn` shows the whole option list, but the `filterOptionsBy`
+//    effect then narrows it by the text in the input on a 150ms debounce - so
+//    a pre-filled select collapses to just its own current value about a frame
+//    after the dropdown opens, and every other option disappears before a
+//    retrying assertion can land on it. Clearing resets the filter to the full
+//    list, and `handleInput` sets `open = true`, so it opens the dropdown too.
+//
+// 2. The option lookup is scoped to this select's own dropdown, not the page.
+//    Other buttons elsewhere may carry the same text - the dashboard's class
+//    picker is labelled with its class's course name, so an unscoped
+//    `cy.contains('button', 'Mathematics 1a')` matches the picker and silently
+//    switches class instead of choosing the option. The input and its option
+//    list share a parent, and the only other button under that parent is the
+//    dropdown toggle, which has no text and so can never match.
 Cypress.Commands.add(
   'selectOption',
   (selector: string, text: string, options?: Partial<Cypress.Timeoutable>) => {
-    cy.get(selector, options).click({ force: true })
-    cy.wait(300)
-    cy.contains('button', text, options).click({ force: true })
+    cy.get(selector, options).clear({ force: true })
+    cy.get(selector, options)
+      .parent()
+      .find('button')
+      .contains(text, options)
+      .click({ force: true })
+    // `contains` matches substrings, so confirm the option that was clicked is
+    // the one asked for rather than one merely containing that text.
+    cy.get(selector, options).should('have.value', text)
   },
 )
 
@@ -116,22 +187,116 @@ Cypress.Commands.add(
     email: string,
     requestType: 'VERIFY_EMAIL' | 'PASSWORD_RESET' | 'VERIFY_AND_CHANGE_EMAIL',
   ) => {
-    return cy
-      .request(
-        'GET',
-        'http://127.0.0.1:9099/emulator/v1/projects/demo-gbstem/oobCodes',
+    return cy.request('GET', '/api/test/emails').then((response) => {
+      const sentEmails = response.body || []
+      const match = sentEmails
+        .filter((msg: any) => {
+          const toMatch = Array.isArray(msg.to)
+            ? msg.to.includes(email)
+            : msg.to === email
+          const subjectMatch =
+            (requestType === 'VERIFY_EMAIL' &&
+              msg.subject.includes('Verify Email')) ||
+            (requestType === 'PASSWORD_RESET' &&
+              msg.subject.includes('Reset Password')) ||
+            (requestType === 'VERIFY_AND_CHANGE_EMAIL' &&
+              msg.subject.includes('Change Email'))
+          return toMatch && subjectMatch
+        })
+        .pop()
+      expect(
+        match,
+        `Expected an email to be sent to ${email} for ${requestType}`,
+      ).to.not.equal(undefined)
+      const linkMatch = match.html.match(
+        /href=["'](https?:\/\/[^"']+\/action?[^"']+&amp;oobCode=[^"']+)["']/,
       )
-      .then((response) => {
-        const codes = response.body.oobCodes || []
-        const match = codes
-          .filter((c: any) => {
-            const emailMatch = c.email === email || c.newEmail === email
-            return emailMatch && c.requestType === requestType
-          })
-          .pop()
-        expect(match).to.not.equal(undefined)
-        return match.oobLink
+      expect(
+        linkMatch,
+        'Expected sent email body to contain an action link URL',
+      ).to.not.equal(null)
+      const rawLink = linkMatch[1]
+      const link = rawLink.replace(/&amp;/g, '&')
+      return link
+    })
+  },
+)
+
+Cypress.Commands.add('clearTestEmails', () => {
+  return cy.request('DELETE', '/api/test/emails')
+})
+
+/**
+ * Asserts an email was sent to `email` whose subject contains
+ * `subjectSubstring`, and yields the recorded message so a caller can make
+ * further assertions on it.
+ *
+ * `expected` covers the envelope rather than the body, because who else an
+ * email reaches is a behaviour in its own right and one no assertion on the
+ * recipient can see: a reminder copies the rest of a class's teaching staff,
+ * a substitute confirmation copies the instructors it concerns, and replies
+ * have to land on a person rather than the donotreply address. Every field is
+ * optional and unnamed ones aren't checked.
+ *
+ * - `cc` / `to`: the exact set, order-insensitive - an address that should not
+ *   be copied is a failure, which `notCc` alone wouldn't catch when the list
+ *   grows.
+ * - `notCc`: addresses that must be absent. Use alongside `cc` only to say
+ *   something a reader would otherwise miss, e.g. that the sender is dropped
+ *   from a list they appear in.
+ * - `from` / `replyTo`: exact addresses. The simulated send records both the
+ *   way the real one resolves them, so an unset replyTo reads as the default
+ *   contact address rather than as absent.
+ */
+Cypress.Commands.add(
+  'verifyEmailSent',
+  (
+    email: string,
+    subjectSubstring: string,
+    expected?: {
+      to?: string[]
+      cc?: string[]
+      notCc?: string[]
+      from?: string
+      replyTo?: string
+    },
+  ) => {
+    return cy.request('GET', '/api/test/emails').then((response) => {
+      const sentEmails = response.body || []
+      const match = sentEmails
+        .filter((msg: any) => {
+          const toMatch = Array.isArray(msg.to)
+            ? msg.to.includes(email)
+            : msg.to === email
+          const subjectMatch = msg.subject.includes(subjectSubstring)
+          return toMatch && subjectMatch
+        })
+        .pop()
+      expect(
+        match,
+        `Expected an email sent to ${email} with subject containing "${subjectSubstring}"`,
+      ).to.not.equal(undefined)
+
+      const sorted = (addresses: string[] | undefined) =>
+        [...(addresses ?? [])].sort()
+
+      if (expected?.to) {
+        expect(sorted(match.to), 'to').to.deep.equal(sorted(expected.to))
+      }
+      if (expected?.cc) {
+        expect(sorted(match.cc), 'cc').to.deep.equal(sorted(expected.cc))
+      }
+      expected?.notCc?.forEach((address) => {
+        expect(match.cc ?? [], `${address} not cc'd`).to.not.include(address)
       })
+      if (expected?.from) {
+        expect(match.from, 'from').to.equal(expected.from)
+      }
+      if (expected?.replyTo) {
+        expect(match.replyTo, 'replyTo').to.equal(expected.replyTo)
+      }
+      return match
+    })
   },
 )
 
@@ -142,9 +307,13 @@ Cypress.Commands.add(
     colorClass: string = 'bg-green-200',
     timeoutMs: number = 15000,
   ) => {
+    // Scoped to the Alert component itself, not to whatever happens to be
+    // wearing the same background class, so a toast assertion cannot be
+    // satisfied by unrelated page furniture. Admin carries the same helper.
     return cy
-      .get(`div.fixed.bottom-3 .${colorClass}`, { timeout: timeoutMs })
-      .should('contain', text)
+      .get('[data-testid="alert"]', { timeout: timeoutMs })
+      .should('have.class', colorClass)
+      .and('contain', text)
   },
 )
 
@@ -174,7 +343,7 @@ Cypress.Commands.add('getFirebaseAuthToken', () => {
 
 Cypress.Commands.add(
   'getFirestoreUserId',
-  (authToken: string, email: string) => {
+  (_authToken: string, email: string) => {
     return cy.task('getFirestoreUserId', email).then((uid) => {
       if (!uid) {
         throw new Error(`Could not find user ID for email: ${email}`)
@@ -259,3 +428,34 @@ Cypress.Commands.add(
     })
   },
 )
+
+/**
+ * Records every `window.confirm` raised for the rest of the test and answers
+ * them all with `answer` (default: accept). Yields the recording array, so the
+ * idiomatic use is to alias it:
+ *
+ * ```ts
+ * cy.captureConfirms().as('confirms')
+ * // ...do the thing...
+ * cy.get('@confirms').should('have.length', 1)
+ * cy.get('@confirms').its(0).should('contain', 'overwrite')
+ * ```
+ *
+ * Prefer this over a bare `cy.on('window:confirm', () => true)`. Cypress
+ * accepts confirms automatically, so that form asserts nothing: a prompt that
+ * should never have appeared is accepted in silence and looks exactly like
+ * correct behaviour, and a prompt whose wording has drifted still passes.
+ * Capturing the text is what makes "no prompt appeared" and "this prompt
+ * appeared" both assertable.
+ *
+ * The array is mutated in place, so `cy.get('@confirms')` re-yields live state
+ * and Cypress retries length assertions against it.
+ */
+Cypress.Commands.add('captureConfirms', (answer: boolean = true) => {
+  const seen: string[] = []
+  cy.on('window:confirm', (text: string) => {
+    seen.push(text)
+    return answer
+  })
+  return cy.wrap(seen, { log: false })
+})

@@ -1,5 +1,5 @@
+import { parseClassDocId } from '$lib/data/docIds'
 import type {} from '../../data.d.ts'
-import type { EnrollRequestBody } from '../../routes/api/enroll/+server'
 
 export type ClassInfo = {
   id: string
@@ -9,7 +9,11 @@ export type ClassInfo = {
   course: string
   instructorFirstName: string
   instructorLastName: string
-  instructorEmail: string
+  // Deliberately no instructorEmail: the page resolves the instructor's
+  // current address from instructorUid (classService.
+  // fetchEnrolledClassInstructorEmail), and the stored copy is due to be
+  // stripped from class documents.
+  instructorUid?: string
   spotsRemaining: number
   meetingLink: string
   gradeRecommendation: string
@@ -62,7 +66,9 @@ export function parseClassInfoDoc(id: string, data: any): ClassInfo {
     course: data.course ?? '',
     instructorFirstName: data.instructorFirstName ?? '',
     instructorLastName: data.instructorLastName ?? '',
-    instructorEmail: data.instructorEmail ?? '',
+    // A class without an instructorUid predates the field; its id may still
+    // record who created it (see parseClassDocId).
+    instructorUid: data.instructorUid ?? parseClassDocId(id)?.instructorUid,
     spotsRemaining: spotsRemaining ?? 0,
     meetingLink: data.meetingLink ?? '',
     gradeRecommendation: data.gradeRecommendation ?? '',
@@ -101,25 +107,4 @@ export function isGradeEligible(
   }
 
   return { eligible: true }
-}
-
-/**
- * Constructs request payload for /api/enroll endpoint in portal.
- */
-export function buildPortalEnrollApiPayload(
-  userName: string,
-  classDetails: ClassInfo,
-  studentName: string,
-): EnrollRequestBody {
-  return {
-    firstName: userName,
-    instructor: classDetails.instructorFirstName,
-    instructorEmail: classDetails.instructorEmail,
-    classTimes: classDetails.classTimes,
-    classDays: classDetails.classDays,
-    course: classDetails.course,
-    meetingLink: classDetails.meetingLink,
-    online: classDetails.online,
-    studentName,
-  }
 }

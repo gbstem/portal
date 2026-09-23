@@ -8,8 +8,10 @@
   import { fade } from 'svelte/transition'
   import Brand from './Brand.svelte'
   import ProfileMenu from './ProfileMenu.svelte'
+  import { Icon } from '@steeze-ui/svelte-icon'
+  import { Bars2, XMark } from '@steeze-ui/heroicons'
 
-  let userRole = $derived($user?.profile?.role)
+  let userRole = $derived(page.data.user?.role)
   let shadow = $state(false)
   let open = $state(false)
   let showAdditionalPages = $state(false)
@@ -95,7 +97,7 @@
             {page.name}
             {#if pathname === page.href}
               <span
-                class="absolute right-2 -bottom-1 left-2 h-1 rounded-full bg-blue-400/70"
+                class="absolute inset-x-2 -bottom-1 h-1 rounded-full bg-blue-400/70"
                 style="z-index:1;"
               ></span>
             {/if}
@@ -106,7 +108,7 @@
     <div class="flex items-center gap-1 sm:gap-3 md:gap-4">
       <ProfileMenu class="hidden sm:block" />
       <button
-        class="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-gray-200 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-400 sm:hidden"
+        class="flex size-10 items-center justify-center rounded-full transition-colors hover:bg-gray-200 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-400 sm:hidden"
         type="button"
         aria-label={open ? 'Close menu' : 'Open menu'}
         aria-expanded={open}
@@ -115,35 +117,9 @@
         }}
       >
         {#if open}
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke-width="1.5"
-            stroke="currentColor"
-            class="h-8 w-8"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
+          <Icon src={XMark} class="size-8" />
         {:else}
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke-width="1.5"
-            stroke="currentColor"
-            class="h-8 w-8"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M3.75 9h16.5m-16.5 6.75h16.5"
-            />
-          </svg>
+          <Icon src={Bars2} class="size-8" />
         {/if}
       </button>
     </div>

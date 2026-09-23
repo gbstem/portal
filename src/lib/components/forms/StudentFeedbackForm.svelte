@@ -10,10 +10,13 @@
   import { z } from 'zod'
   import Button from '../Button.svelte'
   import FormInput from '../FormInput.svelte'
+  import Loading from '../Loading.svelte'
 
   let showValidation = false
   let selectedStudentUid = $derived(selectedStudentIdState.current)
 
+  let loading = $state(true)
+  let loadError = $state(false)
   let selectedStudentCourses: any[] = $state([])
   let studentName = $state('')
 
@@ -42,42 +45,29 @@
       SPA: true,
       validators: zod(schema as any) as any,
       async onUpdate({ form: formVal }: { form: any }) {
-        if (!formVal.valid) return
-
-        let instructor = ''
-        let course = ''
-        selectedStudentCourses.forEach((selectedCourse) => {
-          if (selectedCourse.classId === formVal.data.classId) {
-            instructor = selectedCourse.instructor
-            course = selectedCourse.course
-          }
-        })
-
-        const submissionValues = {
-          studentId: selectedStudentUid,
-          date: formVal.data.date,
-          classId: formVal.data.classId,
-          rating: formVal.data.rating,
-          feedback: formVal.data.feedback,
-          instructor,
-          studentName,
-          course,
-        }
+        if (!formVal.valid || !selectedStudentUid) return
 
         if ($user) {
-          classService
-            .submitStudentFeedback(formVal.data.classId, submissionValues)
-            .then(() => {
-              alert.trigger('success', 'Class Feedback saved!')
-              reset()
+          try {
+            // The student's name, the course and the instructor are read
+            // server-side, which also checks the student is the caller's and
+            // is in the class - see /api/studentFeedback.
+            await classService.submitStudentFeedback({
+              studentId: selectedStudentUid,
+              classId: formVal.data.classId,
+              date: formVal.data.date,
+              rating: formVal.data.rating,
+              feedback: formVal.data.feedback,
             })
-            .catch((err) => {
-              console.error(
-                '[StudentFeedbackForm] Error saving student feedback:',
-                err,
-              )
-              alert.trigger('error', err.code || err.message, true)
-            })
+            alert.trigger('success', 'Class Feedback saved!')
+            reset()
+          } catch (err: any) {
+            console.error(
+              '[StudentFeedbackForm] Error saving student feedback:',
+              err,
+            )
+            alert.trigger('error', err.message, true)
+          }
         }
       },
     },
@@ -100,25 +90,40 @@
 
   $effect(() => {
     const currentUid = selectedStudentUid
-    if (!currentUid) return
+    if (!currentUid) {
+      loading = false
+      return
+    }
     let cancelled = false
-    registrationService
-      .fetchRegistration(currentUid)
-      .then((data) => {
+    loading = true
+    loadError = false
+    ;(async () => {
+      try {
+        const data = await registrationService.fetchRegistration(currentUid)
         if (cancelled) return
         if (data) {
           studentName =
             data.personal.studentFirstName + ' ' + data.personal.studentLastName
           const classIds = data.classes || []
-          fetchCourseList(classIds)
+          await fetchCourseList(classIds)
+        } else {
+          studentName = ''
+          selectedStudentCourses = []
         }
-      })
-      .catch((err) => {
-        console.error(
-          '[StudentFeedbackForm] Error fetching student registration:',
-          err,
-        )
-      })
+      } catch (err) {
+        if (!cancelled) {
+          console.error(
+            '[StudentFeedbackForm] Error fetching student registration:',
+            err,
+          )
+          loadError = true
+        }
+      } finally {
+        if (!cancelled) {
+          loading = false
+        }
+      }
+    })()
     return () => {
       cancelled = true
     }
@@ -131,7 +136,15 @@
       Weekly Class Feedback Form{#if studentName}
         For {studentName}{/if}
     </h2>
-    {#if selectedStudentCourses.length == 0}
+    {#if loading}
+      <div class="py-8">
+        <Loading />
+      </div>
+    {:else if loadError}
+      <div class="py-4 text-sm text-red-600">
+        Failed to load student course details. Please try again.
+      </div>
+    {:else if selectedStudentCourses.length == 0}
       <div class="text-sm text-gray-500">
         This student is not currently enrolled in a course.
       </div>
@@ -144,7 +157,7 @@
               type="radio"
               bind:group={$form.classId}
               value={classId}
-              class="h-4 w-4"
+              class="size-4"
             />
             {course} (taught by {instructor})
           </label>

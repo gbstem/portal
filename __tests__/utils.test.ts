@@ -27,7 +27,6 @@ jest.mock('$lib/stores', () => ({
 
 import { alert } from '$lib/stores'
 import {
-  addDataToHtmlTemplate,
   classTodayHeld,
   cleanEnvVar,
   clickOutside,
@@ -35,6 +34,7 @@ import {
   copyEmails,
   copyToClipboard,
   formatDate,
+  formatDateInGbstemTime,
   formatDateLocal,
   formatDateString,
   formatDateStringLocal,
@@ -160,30 +160,6 @@ describe('utils', () => {
     })
   })
 
-  describe('addDataToHtmlTemplate', () => {
-    it('substitutes nested values and handles spaces', () => {
-      const html = 'Hello {{  user.name  }}!'
-      const template = { data: { user: { name: 'Alice' } } }
-      expect(addDataToHtmlTemplate(html, template)).toBe('Hello Alice!')
-    })
-
-    it('returns empty string for missing keys', () => {
-      const html = 'Hello {{user.age}}!'
-      const template = { data: { user: {} } }
-      expect(addDataToHtmlTemplate(html, template)).toBe('Hello !')
-    })
-
-    it('escapes HTML special characters to prevent injection', () => {
-      const html = 'Hello {{name}}!'
-      const template = {
-        data: { name: '<img src=x onerror=alert(1)>&"\'' },
-      }
-      expect(addDataToHtmlTemplate(html, template)).toBe(
-        'Hello &lt;img src=x onerror=alert(1)&gt;&amp;&quot;&#39;!',
-      )
-    })
-  })
-
   describe('formatTime24to12', () => {
     it('formats times correctly', () => {
       expect(formatTime24to12('13:30')).toBe('1:30 PM')
@@ -195,6 +171,29 @@ describe('utils', () => {
     it('converts Firestore Timestamp to Date', () => {
       const mockTimestamp = { seconds: 1779900600 } as any
       expect(timestampToDate(mockTimestamp).getTime()).toBe(1779900600 * 1000)
+    })
+
+    // Dropping nanoseconds rounded every stored time down to the whole
+    // second, so a class's meeting times drifted a little every time the
+    // class was read and written back.
+    it('keeps sub-second precision', () => {
+      const mockTimestamp = {
+        seconds: 1779900600,
+        nanoseconds: 215000000,
+      } as any
+      expect(timestampToDate(mockTimestamp).getTime()).toBe(
+        1779900600 * 1000 + 215,
+      )
+    })
+
+    it('still handles a Timestamp with no nanoseconds field', () => {
+      const mockTimestamp = { seconds: 1779900600, nanoseconds: 0 } as any
+      expect(timestampToDate(mockTimestamp).getTime()).toBe(1779900600 * 1000)
+    })
+
+    it('passes a Date through untouched', () => {
+      const date = new Date('2026-05-28T12:00:00.215Z')
+      expect(timestampToDate(date)).toBe(date)
     })
   })
 
@@ -251,6 +250,23 @@ describe('utils', () => {
       expect(formatDateLocal(date)).toBe(
         'Thursday, May 28 at 3:30 PM Eastern Daylight Time',
       )
+    })
+
+    // UTC instants, the way a server holds them.
+    it('formatDateInGbstemTime names the time in gbSTEM’s zone, short or long', () => {
+      const date = new Date('2026-05-28T19:30:00Z')
+      expect(formatDateInGbstemTime(date, 'short')).toBe(
+        'Thu, May 28, 3:30 PM EDT',
+      )
+      expect(formatDateInGbstemTime(date, 'long')).toBe(
+        'Thursday, May 28 at 3:30 PM Eastern Daylight Time',
+      )
+    })
+
+    it('formatDateInGbstemTime follows daylight saving time', () => {
+      expect(
+        formatDateInGbstemTime(new Date('2026-12-03T20:00:00Z'), 'short'),
+      ).toBe('Thu, Dec 3, 3:00 PM EST')
     })
 
     it('formatDateStringLocal formats Date string with long timezone name', () => {

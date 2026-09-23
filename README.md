@@ -27,6 +27,7 @@ This project relies on several key modern web technologies:
 - **[Zod](https://zod.dev/)**: A schema declaration and validation library, used to declare form schemas and validate client/server payloads.
 - **[Formsnap](https://formsnap.dev/)**: Accessible, accessible-first form builder library for Svelte, integrating SvelteKit-Superforms validation with shadcn/bits-ui components.
 - **[Bits UI](https://bits-ui.com/)**: A headless component library for Svelte providing accessible, unstyled components that serve as the foundation for Formsnap and shadcn components.
+- **[MJML](https://github.com/mjmlio/mjml)**: Email templating language and engine used to generate responsive HTML emails.
 
 ## Getting Started with Development
 
@@ -129,15 +130,15 @@ A **pure function** only looks at the inputs you give it and returns an output �
 
 ### 2. Firestore reads/writes → the Data Access Layer (`src/lib/services/*.ts`)
 
-A **Data Access Layer (DAL)** is just a name for "the one place in the app allowed to talk directly to the database." Instead of every `.svelte` file calling Firestore functions like `getDoc`, `setDoc`, or `updateDoc` directly, those calls live in `src/lib/services/<name>Service.ts` files (`classService.ts`, `applicationService.ts`, `registrationService.ts`, `substituteService.ts`, `interviewService.ts`, `announcementService.ts`, `userService.ts`), each exporting an object of `async` functions named for _what_ they do (`enrollStudentInClass`, `fetchDecisionType`) rather than _how_ they do it.
+A **Data Access Layer (DAL)** is just a name for "the one place in the app allowed to talk directly to the database." Instead of every `.svelte` file calling Firestore functions like `getDoc`, `setDoc`, or `updateDoc` directly, those calls live in `src/lib/services/<name>Service.ts` files (`classService.ts`, `applicationService.ts`, `registrationService.ts`, `substituteService.ts`, `interviewService.ts`, `announcementService.ts`, `userService.ts`), each exporting an object of `async` functions named for _what_ they do (`updateClassStatuses`, `fetchDecisionType`) rather than _how_ they do it.
 
 A `.svelte` component then just calls something like:
 
 ```ts
-await classService.enrollStudentInClass(classId, studentUid)
+await classService.updateClassStatuses(classId, updatedStatuses)
 ```
 
-instead of constructing a raw `updateDoc(doc(db, classesCollection, classId), { students: arrayUnion(studentUid) })` call inline, mixed in with template markup and UI state.
+instead of constructing a raw `updateDoc(doc(db, classesCollection, classId), { classStatuses: updatedStatuses })` call inline, mixed in with template markup and UI state.
 
 **Why this matters, especially for a small, rotating volunteer team:**
 
@@ -155,6 +156,34 @@ Before adding code to a `.svelte` file, ask:
 - **Is it about what's rendered on screen, or wiring the two above together?** → That's the one thing that _does_ belong in the `.svelte` file itself.
 
 Whenever you add or change a service or helper function, add or update its test in the same commit — a change without a test is much more likely to silently break something down the road once the next volunteer touches that file, since there's no automated check that would catch it.
+
+## Firestore Schema
+
+See the **[Firebase Firestore Database schema in the Admin Repository's README.md](https://github.com/gbstem/admin/blob/main/README.md#firestore-schema)**.
+
+## Roles and Authorization
+
+The full account of how roles work lives in the **[Roles and Authorization section in the Admin Repository's README.md](https://github.com/gbstem/admin/blob/main/README.md#roles-and-authorization)** — `firestore.rules` is mastered there, and both sites share it. Two things are specific to this repo.
+
+**Signup does not choose the role.** The form asks whether someone is applying to teach or registering a child, and sends that answer to [`/api/signup`](src/routes/api/signup/+server.ts), which decides the role in one function (`roleForSignup`) and, with the Admin SDK, sets it as the Auth custom claim and writes the person's name to the `users` document. The document holds no role — see admin's README for why there is no second copy. `userService.createUser` deliberately writes no profile document at all.
+
+It used to. `createUser` wrote `users/{uid}` with a role of the browser's choosing, and `/api/auth` then minted a real custom claim from that document whenever one was missing — so the claim the entire system authorizes against was ultimately a value the client picked, and `firestore.rules` read the instructor role straight out of a document its owner could rewrite at any time. `/api/auth` is now claim-only, and refuses an account carrying no claim rather than going looking for one.
+
+**A new account must refresh its ID token before doing anything.** `SignUpForm`'s `createProfile` ends with `await createdUser.getIdToken(true)`, and that call is load-bearing. `firestore.rules` reads the role from `request.auth.token`, and the token the client is holding was minted by `createUserWithEmailAndPassword` moments before the claim existed. Without the refresh, a brand-new instructor carries a role-less token for up to an hour and every instructor action fails with a bare permission-denied. Anything else that changes a role has the same obligation — refresh, or revoke refresh tokens server-side.
+
+## API Routes (`+server.ts`)
+
+Portal's `src/routes/api/*/+server.ts` handlers follow the same rules as admin's, and several of them are the reason those rules exist: portal's routes are reachable by any signed-in user, where most of admin's are behind an `admin` or `reviewer` role. Before adding or changing one, read the **[API Routes section in the Admin Repository's README.md](https://github.com/gbstem/admin/blob/main/README.md#api-routes-serverts)** — gate narrowly (`verifyInstructor`, not `verifyAuthenticated`, when the caller must be an instructor), take a document ID or `uid` rather than an email address, and resolve recipients server-side.
+
+There is a sixth rule that only applies here, because portal is the only repo holding a credential for a _third_ party: **a token minted from a gbSTEM secret never reaches the browser.**
+
+`/api/meetingLink` is the one route that talks to Microsoft Graph. It exchanges `MS_CLIENT_ID`/`MS_CLIENT_SECRET` for a **client-credentials** access token — which carries the whole app registration's application permissions across the gbSTEM tenant, not the calling instructor's — uses it server-side to book the class's recurring Teams meeting, and returns only the `joinUrl`. It replaced `/api/token`, which returned that access token to the page so the browser could call Graph itself. `verifyAuthenticated` was its only gate and email verification isn't required for a session, so anyone who could sign up could take the token and use it against Graph directly.
+
+If you add another route in front of a third-party credential, keep the credential and everything minted from it on the server, and return the narrowest result the page actually needs. Note the environment variables are named `MS_*`, not `VITE_*`: a `VITE_` prefix reads as "public" in a Vite project, and these never were.
+
+The route still falls back to the old `VITE_CLIENT_ID` / `VITE_CLIENT_SECRET` / `VITE_TENTANT_ID` (spelled as the production variable is) names, and reads all of them through `$env/dynamic/private` rather than the static form — the static form inlines at build time and would fail the build for a name that isn't set, which is the state production is in while both sets exist. Those old values are held in Vercel as secrets that can't be read back and copied across, so they stay until the client secret is rotated. Any use of one logs `[legacy-vite-env-fallback]`; the fallback and the dynamic import both come out when that line stops appearing, the same way the `[legacy-email-fallback]` parameters do.
+
+The route also shows the shape to copy for authorizing an action on a class that **may not exist yet**. A meeting link is created before the class is first saved, so `callerMayCreateLinkFor` applies the same two-part test `/api/classDetails` applies to saving the class — the caller is the class's `instructorUid` or one of its `otherInstructorUids`, or, for an id with no document, the id is `${uid}-${n}` under the caller's own uid. Don't fall back to "any instructor may" just because there is no document to check.
 
 ## Adding a New Semester
 
@@ -186,7 +215,7 @@ ncu -t minor -u firebase firebase-admin typescript "@types/node" zod
 # Update all other dependencies in package.json to the latest versions
 ncu --peer --reject firebase,firebase-admin,typescript,"@types/node",zod -u
 
-# Install the updated packages and update package-lock.json
+# Install the updated packages and update yarn.lock
 yarn install
 
 # Run unit tests to verify no breaking changes were introduced
@@ -204,7 +233,7 @@ yarn lint
 yarn build
 ```
 
-After verifying that the tests, linting, and build pass successfully, commit and submit both `package.json` and `package-lock.json` to the repository.
+After verifying that the tests, linting, and build pass successfully, commit and submit both `package.json` and `yarn.lock` to the repository.
 
 ## Directory and File Index
 
@@ -215,15 +244,18 @@ Below is an alphabetical list of the top-level directories and significant confi
 - **`.github/`**: Contains GitHub configuration for GitHub, including our Dependabot configuration for automating minor and patch package updates, and our Continuous Integration (CI) test workflows.
 - **`.husky/`**: Configuration for Husky, managing Git hooks like pre-commit formatting and linting.
 - **`.svelte-kit/`**: Automatically generated directory containing SvelteKit configuration, generated routes, and typings.
+- **`.vscode/`**: Contains Visual Studio Code workspace configuration settings, recommended extensions, and tasks.
 - **`__tests__/`**: Contains all of our Jest unit tests (such as utility tests and form validation schema scenario tests).
 - **`cypress/`**: Contains the Cypress e2e test suite, test configurations, fixtures, and page object/support configurations.
-- **`node_modules/`**: Contains the project's dependencies.
+- **`node_modules/`**: Automatically generated directory containing the project's dependencies.
+- **`scripts/`**: Contains development script utilities, including email build and rendering tools.
 - **`src/`**: The core SvelteKit application source code.
   - **`src/lib/`**: Reusable libraries, utility modules, and components:
     - **`src/lib/client/`**: Client-side specific integrations, such as clients for Firestore.
   - **`src/lib/components/`**: Reusable Svelte UI components (e.g. tables, buttons, and form components like `FormInput.svelte`).
     - **`src/lib/components/forms/`**: Sub-components containing form structures and validation logic (`schemas.ts`).
     - **`src/lib/data/`**: Centralized static data constants, models, mock data, and TS types.
+    - **`src/lib/emails/`**: Transactional email templates, HTML layouts, renderer utilities, and golden snapshot tests.
     - **`src/lib/helpers/`**: Pure, side-effect-free TypeScript functions (calculations, data transformations, payload builders) extracted out of `.svelte` files so they're easy to unit test — see [Code Organization](#code-organization-helpers-services-and-where-new-code-should-go) above.
     - **`src/lib/server/`**: Server-side specific integrations, such as initializing Firebase Admin.
     - **`src/lib/services/`**: The Data Access Layer — every Firestore read/write goes through a function here instead of being called directly from a `.svelte` file — see [Code Organization](#code-organization-helpers-services-and-where-new-code-should-go) above.
@@ -235,16 +267,23 @@ Below is an alphabetical list of the top-level directories and significant confi
 - **`.env.example`**: Template file defining required local environment variables.
 - **`.gitignore`**: Specifies which files and directories Git should ignore (like `node_modules/` and `.svelte-kit/`).
 - **`.prettierignore`**: Specifies which files and directories Prettier should ignore when formatting.
+- **`.yarnrc.yml`**: Configuration file for Yarn Berry (v4 package manager), defining package management settings.
+- **`AGENTS.md`**: Custom rules and guidelines for AI coding agents interacting with the repository.
+- **`CLAUDE.md`**: Quick reference guide and developer instructions for AI coding assistants.
 - **`cypress.config.ts`**: The configuration file for the Cypress e2e testing interface and environmental triggers.
 - **`eslint.config.js`**: ESLint configuration mapping coding rules and checks (replacing the legacy `.eslintrc.cjs`).
+- **`jest-transform-esm-to-cjs.cjs`**: Custom Jest transformer that transpiles ESM JavaScript files from `node_modules/svelte` into CommonJS for the Jest testing environment.
+- **`jest-transform-svelte-module.cjs`**: Custom Jest transformer for compiling Svelte 5 component modules for the Jest testing environment.
 - **`jest.config.ts`**: The configuration file for our Jest testing environment, specifically tailored to work alongside TypeScript and Svelte.
 - **`jest.setup.ts`**: Initial setup code that runs before our Jest tests, importing tools like `@testing-library/jest-dom` for custom DOM matchers.
+- **`LICENSE.md`**: License terms under which this project's code is distributed.
 - **`package.json`**: Defines the project's details, scripts, and dependencies (the npm packages we rely on).
-- **`package-lock.json`**: An automatically generated file that locks down the exact versions of dependencies used, ensuring that all developers have identical, reproducible environments.
 - **`postcss.config.js`**: Configuration for PostCSS, typically used for transforming CSS with plugins.
 - **`prettier.config.js`**: Configuration rules for Prettier, ensuring consistent code formatting across the project.
+- **`README.md`**: You are reading this file! It contains the project's onboarding documentation.
 - **`src/data.csv`**: A static CSV data file containing program information or dataset resources.
 - **`svelte.config.js`**: SvelteKit-specific configuration (like adapter configurations and compiler options).
 - **`TEST_PLAN.md`**: A comprehensive test plan outlining testing strategies, test scenarios, coverage, and instructions for running Jest and Cypress tests.
 - **`tsconfig.json`**: Configuration settings for the TypeScript compiler.
 - **`vite.config.js`**: Vite configuration file for compiling, bundling, and configuring build plugins.
+- **`yarn.lock`**: An automatically generated file that locks down the exact versions of dependencies used, ensuring that all developers have identical, reproducible environments.

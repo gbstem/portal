@@ -28,10 +28,11 @@ declare global {
       type Profile = {
         // Patched in at read time by `$lib/client/firebase`'s user store; the
         // `users` document itself is keyed by uid and stores no identifier.
+        // Deliberately no role - branch on `page.data.user.role`, the claim
+        // hooks.server.ts verified (see App.PageData).
         uid: string
         firstName: string
         lastName: string
-        role: Role
       }
       type Store = {
         object: ClientUser
@@ -56,14 +57,17 @@ declare global {
       html: string
     }
 
-    // MM/DD/YY strings; see src/lib/data/semesterDates.json and
-    // collections.ts's `semesterDates` export.
+    // MM/DD/YY strings, except instructorOrientationLink (a URL) and
+    // instructorOrientationTime (a 24-hour HH:mm); see src/lib/data/semesterDates.json
+    // and collections.ts's `semesterDates` export.
     type SemesterDates = {
       classesEnd: string
       classesStart: string
       newInstructorAppsDue: string
       returningInstructorAppsDue: string
       instructorOrientation: string
+      instructorOrientationLink: string
+      instructorOrientationTime: string
       newInstructorAppsOpen: string
       returningInstructorAppsOpen: string
       studentOrientation: string
@@ -78,15 +82,20 @@ declare global {
       interviewerName: string
       intervieweeFirstName: string
       intervieweeLastName: string
-      intervieweeEmail: string
       intervieweeId: string
-      interviewerEmail: string
+      // The interviewer's account. Their current address is resolved from it
+      // when the slot needs one; no address is stored on the slot.
+      interviewerUid: string
       interviewSlotStatus: string
       meetingLink: string
     }
 
     type Application = {
       personal: {
+        // The applicant account's address as of submission, kept only as an
+        // audit record of what was submitted. Never read it: an account's
+        // address changes, and the current one is resolved from the
+        // application's id (the applicant's uid) wherever it is needed.
         email: string
         firstName: string
         lastName: string
@@ -121,6 +130,12 @@ declare global {
       meta: {
         uid: string
         submitted: boolean
+        /**
+         * Whether an interview slot currently names this applicant - true
+         * only while `Data.InterviewSlot.intervieweeId` is theirs. Set
+         * alongside the slot write (see interviewSlots.ts / admin's
+         * interviewService), never as a standalone intent/pipeline flag.
+         */
         interview: boolean
         decided: boolean
       }
@@ -132,11 +147,21 @@ declare global {
 
     type Registration = {
       personal: {
+        // The parent account's address as of submission - the account that
+        // registers a student is a parent's, though it holds the `student`
+        // role. Kept only as an audit record of what was submitted. Never read
+        // it: an account's address changes, and the current one is resolved
+        // from the registration's id (see registrationParentUid) wherever it
+        // is needed.
         email: string
         studentFirstName: string
         studentLastName: string
         parentFirstName: string
         parentLastName: string
+        // A second guardian's address, typed on the form. Not backed by a
+        // Firebase Auth account, so nothing keeps it current and it is frozen
+        // at submission - but it is the only way to reach that guardian, so
+        // it is read to reach a student's family.
         secondaryEmail: string
         dateOfBirth: string
         gender: string
@@ -188,15 +213,21 @@ declare global {
       meetingLink: string
       gradeRecommendation: string
       course: string
-      submitting: boolean
       meetingTimes: Date[]
       completedClassDates: Date[]
       feedbackCompleted: boolean[]
       classStatuses: string[]
       instructorFirstName: string
       instructorLastName: string
-      instructorEmail: string
-      otherInstructorEmails: string
+      // Absent on classes written before this field existed. Such a class has
+      // no owner any code can act on: firestore.rules grants class writes on
+      // this alone, and notifications resolve the instructor's address from it.
+      instructorUid: string
+      // Co-instructors, by uid only. The retired `otherInstructorEmails`
+      // string this replaced was free text, so any address at all could be
+      // given write access to a class; a uid only lands here through
+      // /api/classDetails, which confirms it belongs to an accepted instructor.
+      otherInstructorUids: string[]
       classCap: number
       students: string[]
       online: boolean
@@ -208,11 +239,11 @@ declare global {
       meetingTimes: Date[]
       completedClassDates: Date[]
       feedbackCompleted: boolean[]
-      otherInstructorEmails: string
+      otherInstructorUids: string[]
       course: string
       instructorFirstName: string
       instructorLastName: string
-      instructorEmail: string
+      instructorUid: string
       meetingLink: string
       students: string[]
     }
@@ -222,10 +253,14 @@ declare global {
       classNumber: number
       course: string
       dateOfClass: Date
-      originalInstructorEmail: string
+      originalInstructorUid?: string
+      // Who asked for the sub, which is not always the class's instructor of
+      // record: a co-instructor can request one too, and only this says so -
+      // `originalInstructor*` is read off the class document either way.
+      // Optional because requests written before it existed don't carry it.
+      requestedByUid?: string
       subInstructorId: string
       subInstructorFirstName: string
-      subInstructorEmail: string
       subRequestStatus: SubRequestStatus
       link: string
       notes: string

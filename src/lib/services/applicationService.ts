@@ -9,6 +9,17 @@ import { retryTransient } from '$lib/services/retry'
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 
 /**
+ * A partial application write. Every save after the first is a merge, so a group
+ * omitted here - or a sub-field omitted from a group - keeps whatever the last
+ * writer left there. That matters because admin writes to this same document:
+ * decision actions set `meta.decided`, and the admin review dialog edits the
+ * applicant's own answers.
+ */
+export type ApplicationUpdate = {
+  [K in keyof Data.Application]?: Partial<Data.Application[K]>
+}
+
+/**
  * Service providing Data Access Layer for instructor applications.
  */
 export const applicationService = {
@@ -32,14 +43,35 @@ export const applicationService = {
   },
 
   /**
-   * Saves an application document to Firestore.
+   * Creates this user's application document with the full default shape.
+   *
+   * Deliberately a whole-document write rather than a merge: nothing exists yet to
+   * preserve, and admin's dashboard and applications list query on
+   * `meta.submitted == false` / `meta.decided == false`, so a draft missing those
+   * fields would be invisible there.
    */
-  async saveUserApplication(
+  async createUserApplication(
     userUid: string,
     applicationData: Data.Application,
   ): Promise<void> {
     const docRef = doc(db, applicationsCollection, userUid)
     await setDoc(docRef, withSemester(applicationData))
+  },
+
+  /**
+   * Merges the applicant's edits into their existing application document.
+   *
+   * A merge, not an overwrite, so fields the apply form doesn't own survive:
+   * `meta.decided` is set by admin decision actions, and the form's in-memory
+   * snapshot is up to one autosave interval stale. Overwriting from that snapshot
+   * silently reverted decisions made while the applicant had the page open.
+   */
+  async updateUserApplication(
+    userUid: string,
+    changes: ApplicationUpdate,
+  ): Promise<void> {
+    const docRef = doc(db, applicationsCollection, userUid)
+    await setDoc(docRef, withSemester(changes), { merge: true })
   },
 
   /**

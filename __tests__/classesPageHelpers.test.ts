@@ -3,7 +3,6 @@ import {
   parseClassInfoDoc,
   sortClassesBySpotsRemaining,
   isGradeEligible,
-  buildPortalEnrollApiPayload,
   type ClassInfo,
 } from '$lib/helpers/classesPage'
 
@@ -16,6 +15,7 @@ describe('ClassesPage Helpers', () => {
         instructorFirstName: 'Alice',
         instructorLastName: 'Smith',
         instructorEmail: 'alice@example.com',
+        instructorUid: 'inst-uid-explicit',
         classCap: 10,
         students: ['s1', 's2'],
         meetingLink: 'https://teams.microsoft.com/...',
@@ -29,9 +29,26 @@ describe('ClassesPage Helpers', () => {
 
       const info = parseClassInfoDoc('class-1', raw)
       expect(info.id).toBe('class-1')
+      expect(info.instructorUid).toBe('inst-uid-explicit')
       expect(info.spotsRemaining).toBe(8)
       expect(info.classDays).toEqual(['Monday', 'Wednesday'])
       expect(info.classTimes).toEqual(['4:00 PM', '4:00 PM'])
+      // The stored address is not carried onto the page, so stripping it from
+      // class documents can't change what the page shows.
+      expect(info).not.toHaveProperty('instructorEmail')
+    })
+
+    test('falls back to extracting instructorUid from doc ID when not in doc data', () => {
+      const raw = {
+        className: 'Python 101',
+        course: 'Python 1',
+        instructorFirstName: 'Alice',
+        instructorLastName: 'Smith',
+        instructorEmail: 'alice@example.com',
+      }
+
+      const info = parseClassInfoDoc('userUid123-1', raw)
+      expect(info.instructorUid).toBe('userUid123')
     })
   })
 
@@ -68,38 +85,6 @@ describe('ClassesPage Helpers', () => {
 
       const res5th = isGradeEligible('Python 1', '5', false)
       expect(res5th.eligible).toBe(true)
-    })
-  })
-
-  describe('buildPortalEnrollApiPayload', () => {
-    test('constructs API payload for enrollment', () => {
-      const classInfo: ClassInfo = {
-        id: 'c1',
-        className: 'Python 1',
-        classDays: ['Mon', 'Wed'],
-        classTimes: ['4pm', '4pm'],
-        course: 'Python 1',
-        instructorFirstName: 'Alice',
-        instructorLastName: 'Smith',
-        instructorEmail: 'alice@example.com',
-        spotsRemaining: 5,
-        meetingLink: 'link',
-        gradeRecommendation: '3+',
-        online: true,
-      }
-
-      const payload = buildPortalEnrollApiPayload('Parent', classInfo, 'Child')
-      expect(payload).toEqual({
-        firstName: 'Parent',
-        instructor: 'Alice',
-        instructorEmail: 'alice@example.com',
-        classTimes: ['4pm', '4pm'],
-        classDays: ['Mon', 'Wed'],
-        course: 'Python 1',
-        meetingLink: 'link',
-        online: true,
-        studentName: 'Child',
-      })
     })
   })
 })

@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { ActionRequestBody } from '../../../routes/api/action/+server'
+  import type { SignupRequestBody } from '../../../routes/api/signup/+server'
   import { goto } from '$app/navigation'
   import Brand from '$lib/components/Brand.svelte'
   import { userService } from '$lib/services/userService'
@@ -30,6 +31,46 @@
     })
 
   /**
+   * Writes the account's profile document and role claim, server-side.
+   *
+   * Fatal on failure: without it the account has no role at all, so
+   * `/api/auth` would refuse to mint a session and the user would be stranded
+   * with credentials that sign in to nothing. The caller rolls back.
+   *
+   * The forced token refresh at the end is load-bearing, not a precaution.
+   * `firestore.rules` reads the role from `request.auth.token`, and the token
+   * this client holds was minted by `createUserWithEmailAndPassword` moments
+   * before the claim existed. Without the refresh a brand-new instructor would
+   * carry a role-less token for up to an hour, and every instructor action
+   * would fail with a bare permission-denied.
+   */
+  async function createProfile(
+    createdUser: User,
+    accountType: 'instructor' | 'student',
+    firstName: string,
+    lastName: string,
+  ): Promise<void> {
+    const payload: SignupRequestBody = {
+      idToken: await createdUser.getIdToken(),
+      firstName,
+      lastName,
+      accountType,
+    }
+    const res = await fetch('/api/signup', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.message || 'Could not finish setting up the account')
+    }
+    await createdUser.getIdToken(true)
+  }
+
+  /**
    * Exchanges the new account's ID token for a session cookie. Throws if the
    * exchange fails, so the caller's rollback tears the account back down.
    */
@@ -51,9 +92,11 @@
   /**
    * Sends the verification email. Deliberately non-fatal — a mail hiccup must
    * not roll back an otherwise good account; the user can resend from
-   * `/profile`.
+   * `/profile`. Returns whether the send succeeded so the caller can tell the
+   * user, since a silent failure leaves them trusting an email that was never
+   * sent.
    */
-  async function sendVerificationEmail(email: string): Promise<void> {
+  async function sendVerificationEmail(email: string): Promise<boolean> {
     const payload: ActionRequestBody = { type: 'verifyEmail', email }
     const res = await fetch('/api/action', {
       method: 'POST',
@@ -68,7 +111,9 @@
         '[SignUpForm] Email verification send error:',
         data.message || 'Unknown error',
       )
+      return false
     }
+    return true
   }
 
   const formResult = superForm(
@@ -86,11 +131,21 @@
     {
       SPA: true,
       validators: zod(schema as any) as any,
+      // Superforms' SPA default is `resetForm: true`, and a caught failure in
+      // `onUpdate` still counts as a completed submission - so a rejected
+      // signup (duplicate email, most often) blanked every field including the
+      // role select. Combined with the 3s toast timeout that left the user
+      // staring at an empty form with no explanation, which is how this was
+      // reported in production. Keep the values so the retry is a retry.
+      resetForm: false,
       async onUpdate({ form: formVal }: { form: any }) {
         if (!formVal.valid) return
         const firstName = formVal.data.firstName.trim()
         const lastName = formVal.data.lastName.trim()
-        const role: 'instructor' | 'student' =
+        // What they said they were here to do. The role it maps to is the
+        // server's decision, in /api/signup's roleForSignup - a role chosen in
+        // the browser is a role an attacker chooses.
+        const accountType: 'instructor' | 'student' =
           formVal.data.role ===
           'High school/college student applying to be an instructor'
             ? 'instructor'
@@ -103,10 +158,16 @@
             password: formVal.data.password,
             firstName,
             lastName,
-            role,
           })
+          await createProfile(createdUser, accountType, firstName, lastName)
           await syncSession(createdUser)
-          await sendVerificationEmail(formVal.data.email)
+          const emailSent = await sendVerificationEmail(formVal.data.email)
+          if (!emailSent) {
+            alert.trigger(
+              'error',
+              'Account created, but the verification email failed to send. You can request another from your profile page.',
+            )
+          }
           await goto('/profile')
         } catch (err: any) {
           if (createdUser) {

@@ -1,38 +1,40 @@
-import { interviewRequestedEmailTemplate } from '$lib/data/emailTemplates/interviewRequestedEmailTemplate'
 import { verifyAuthenticated, handleApiError } from '$lib/server/apiHelpers'
 import { sendEmail } from '$lib/server/email'
-import { addDataToHtmlTemplate } from '$lib/utils'
+import { renderEmail } from '$lib/emails/render'
 import { json } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 
 export interface SlotRequestRequestBody {
   firstName: string
   timeSlot: string
-  intervieweeEmail: string
 }
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   try {
-    verifyAuthenticated(locals)
+    const user = verifyAuthenticated(locals)
     const body = (await request.json()) as SlotRequestRequestBody
 
     const template = {
       name: 'interviewSlotRequest',
       data: {
         subject: `New Interview Timeslot Request From ${body.firstName} `,
+        app: {
+          name: 'Admin',
+          link: 'https://admin.gbstem.org',
+        },
         interview: {
           firstName: body.firstName,
           timeSlot: body.timeSlot,
-          email: body.intervieweeEmail,
+          email: user.email,
           name: 'Portal',
           link: 'https://admin.gbstem.org',
         },
       },
     }
 
-    const htmlBody = addDataToHtmlTemplate(
-      interviewRequestedEmailTemplate,
-      template,
+    const htmlBody = renderEmail(
+      'interviewRequestedEmailTemplate',
+      template.data,
     )
 
     try {

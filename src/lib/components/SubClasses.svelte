@@ -1,7 +1,12 @@
 <script lang="ts">
   import { enhance } from '$app/forms'
   import { user } from '$lib/client/firebase'
-  import { filterCheckedOffSubClasses } from '$lib/helpers/subClasses'
+  import { curriculumLink } from '$lib/helpers/curriculumLink'
+  import { parseSubRequestDocId } from '$lib/data/docIds'
+  import {
+    filterCheckedOffSubClasses,
+    type OpenSubRequestSummary,
+  } from '$lib/helpers/subClasses'
   import { classService } from '$lib/services/classService'
   import { substituteService } from '$lib/services/substituteService'
   import { alert } from '$lib/stores'
@@ -15,8 +20,9 @@
   import TextInput from './TextInput.svelte'
   import InstructorFeedbackForm from './forms/InstructorFeedbackForm.svelte'
   import { SubRequestStatus } from './helpers/SubRequestStatus'
-  import { curriculums } from './helpers/curriculum'
   import sendClassReminder from './helpers/sendClassReminder'
+  import { Icon } from '@steeze-ui/svelte-icon'
+  import { Trash } from '@steeze-ui/heroicons'
 
   interface Props {
     subInstructor: boolean
@@ -28,8 +34,13 @@
   let notesOpenStates: boolean[] = $state([])
   let subRequestOpenStates: boolean[] = $state([])
   let currentUser: Data.User.Store
-  let classesMissingSubs: Data.SubRequest[] = $state([])
+  let classesMissingSubs: OpenSubRequestSummary[] = $state([])
   let userSubClassesList: Data.SubRequest[] = $state([])
+  // subRequestId -> the current address of that session's instructor of
+  // record, resolved from originalInstructorUid. Nothing reads an address off
+  // the request document: the stored copy went stale whenever an instructor
+  // changed their account email, and it is being removed.
+  let coveredInstructorEmails: Record<string, string> = $state({})
   let classesCheckedOff: any[] = $state([])
   let updating = $state(false)
   let subRequestsFromUser: Data.SubRequest[] = $state([])
@@ -88,7 +99,20 @@
       (subRequest) => subRequest.classNumber,
     )
     userSubClassesList = userSubClasses
+    void loadCoveredInstructorEmails()
     return classesMissingSubs
+  }
+
+  async function loadCoveredInstructorEmails() {
+    try {
+      coveredInstructorEmails =
+        await substituteService.fetchCoveredInstructorEmails(userSubClassesList)
+    } catch (err) {
+      console.error(
+        '[SubClasses] Could not resolve the instructors of covered sessions:',
+        err,
+      )
+    }
   }
 
   function sendSubRequest(i: number) {
@@ -99,11 +123,7 @@
     const editingSubRequest = subRequestsFromUser[i]
     editingSubRequest.dateOfClass = new Date(stringSubRequestDates[i])
     substituteService
-      .saveSubRequest(
-        currentUser.object.uid,
-        editingSubRequest,
-        originalSubClassNumbers[i],
-      )
+      .saveSubRequest(editingSubRequest, originalSubClassNumbers[i])
       .then(() => {
         alert.trigger('success', 'Sub request updated!')
         getData(currentUser.object.uid)
@@ -116,13 +136,13 @@
       })
   }
 
-  function deleteSubRequest(classNumber: number, check: boolean) {
+  function deleteSubRequest(subRequestId: string, check: boolean) {
     if (
       check === false ||
       confirm('Are you sure you want to delete this sub request?')
     ) {
       substituteService
-        .deleteSubRequest(currentUser.object.uid, classNumber)
+        .deleteSubRequest(subRequestId)
         .then(() => {
           alert.trigger(
             'success',
@@ -143,36 +163,35 @@
     const classesToSub = filterCheckedOffSubClasses(classesCheckedOff)
     classesToSub.map((classToSub: Data.SubRequest) => {
       substituteService
-        .claimSubstituteSlot(classToSub, currentUser)
-        .then(() => {
+        .claimSubstituteSlot(classToSub.id)
+        .then((claimed) => {
           classesMissingSubs = classesMissingSubs.filter(
             (classMissingSub) => classMissingSub.id !== classToSub.id,
           )
-          userSubClassesList.push(classToSub)
+          // The request as the server claimed it, so the card has the
+          // requester's notes - and "Send Reminder" the substitute's name -
+          // until the reload a second later. Its instructor's address is
+          // resolved the same way as every other card's.
+          userSubClassesList.push(claimed)
+          void loadCoveredInstructorEmails()
           alert.trigger('success', 'Signup successful!')
           setTimeout(() => {
             window.location.reload()
           }, 1000)
         })
-        .catch(() => {
-          alert.trigger(
-            'error',
-            'Error signing up to substitute, please try again.',
-          )
+        .catch((err: Error) => {
+          alert.trigger('error', err.message)
         })
     })
   }
 
   async function sendReminder(subRequest: Data.SubRequest) {
-    let { course, subInstructorFirstName, dateOfClass, id } = subRequest
+    const { dateOfClass, id } = subRequest
     try {
-      const studentList = await classService.fetchStudentListForClass(id)
       sendClassReminder({
-        studentList: studentList,
-        className: course,
-        instructorName: subInstructorFirstName,
+        classId: parseSubRequestDocId(id)?.classId ?? '',
+        subRequestId: id,
         nextMeetingTime: formatDate(timestampToDate(dateOfClass)),
-        otherInstructorEmails: '',
       })
     } catch (err) {
       console.error('Failed to send reminder:', err)
@@ -180,49 +199,41 @@
   }
 
   async function recordClass(subRequest: Data.SubRequest) {
-    let { classNumber, dateOfClass, id } = subRequest
-    const classId = id.split('---')[0]
+    const classValues = await classService.fetchClassDetails(
+      parseSubRequestDocId(subRequest.id)?.classId ?? '',
+    )
+    if (!classValues) {
+      alert.trigger('error', 'That class could not be found. Please reload.')
+      return
+    }
+    const confirmHoldClass = confirm(
+      `Please confirm you are holding class now. Confirming will redirect you to ${classValues.meetingLink}`,
+    )
+    if (!confirmHoldClass) return
+
     try {
-      const classValues = await classService.fetchClassDetails(classId)
-      if (!classValues) return
-      const confirmHoldClass = confirm(
-        `Please confirm you are holding class now. Confirming will redirect you to ${classValues.meetingLink}`,
+      // The recording itself happens server-side, where a substitute is
+      // allowed to touch the class - see /api/substituteSession. The link
+      // comes back from there rather than being reused from the read above,
+      // so what opens is what the server actually recorded against.
+      const { meetingLink } = await substituteService.recordSubstituteSession(
+        subRequest.id,
       )
-      if (confirmHoldClass) {
-        await substituteService.recordSubstituteClassSession(
-          id,
-          classId,
-          classNumber,
-          dateOfClass,
-        )
-        window.open(classValues.meetingLink)
-      }
-    } catch (err) {
+      window.open(meetingLink)
+    } catch (err: any) {
+      // Failures used to reach the console and nowhere else, so a substitute
+      // whose class could not be recorded saw a page that had done nothing.
       console.error('Failed to record class session:', err)
+      alert.trigger(
+        'error',
+        err?.message || 'Could not start that class. Please try again.',
+      )
     }
   }
 </script>
 
 {#snippet trashIcon()}
-  <svg
-    width="24px"
-    height="24px"
-    fill="none"
-    viewBox="0 0 24 24"
-    stroke="currentColor"
-    stroke-width="2"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-    class="h-8"
-    ><polyline points="3 6 5 6 21 6"></polyline><path
-      d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
-    ></path><line x1="10" y1="11" x2="10" y2="17"></line><line
-      x1="14"
-      y1="11"
-      x2="14"
-      y2="17"
-    ></line></svg
-  >
+  <Icon src={Trash} class="h-8 w-6" />
 {/snippet}
 
 <div>
@@ -230,11 +241,13 @@
     <Card>
       <h2 class="mt-4 mb-2 text-xl font-bold">Your Classes To Substitute</h2>
       {#if userSubClassesList.length > 0}
-        {#each userSubClassesList as classBeingSubbed, i (classBeingSubbed.id)}
+        {#each userSubClassesList as subRequest, i (subRequest.id)}
+          <!-- null when this course has no page on the curriculum site -->
+          {@const subCurriculumLink = curriculumLink(subRequest.course)}
           <Dialog bind:open={feedbackOpenStates[i]} size="min" alert>
             {#snippet title()}
               <div class="flex items-center justify-between">
-                {classBeingSubbed.course} Substitute Class Feedback Form <Button
+                {subRequest.course} Substitute Class Feedback Form <Button
                   color="red"
                   class="font-light"
                   onclick={() => (feedbackOpenStates[i] = false)}>Close</Button
@@ -244,8 +257,8 @@
             {#snippet description()}
               <div>
                 <InstructorFeedbackForm
-                  {classBeingSubbed}
-                  sessionNumber={classBeingSubbed.classNumber}
+                  {subRequest}
+                  sessionNumber={subRequest.classNumber}
                 />
               </div>
             {/snippet}
@@ -261,30 +274,36 @@
             {/snippet}
             {#snippet description()}
               <Card>
-                <p>{classBeingSubbed.notes}</p>
+                <p>{subRequest.notes}</p>
                 <br />
                 <p>
-                  Please reach out to the class's usual instructor at {classBeingSubbed.originalInstructorEmail}
-                  if you have questions!
+                  {#if coveredInstructorEmails[subRequest.id]}
+                    Please reach out to the class's usual instructor at {coveredInstructorEmails[
+                      subRequest.id
+                    ]} if you have questions!
+                  {:else}
+                    Please reach out to the class's usual instructor if you have
+                    questions!
+                  {/if}
                 </p>
               </Card>
             {/snippet}
           </Dialog>
           <hr />
           <div
-            class={`mt-3 flex items-center justify-between rounded-lg ${classBeingSubbed.subRequestStatus === SubRequestStatus.SubstituteFeedbackNeeded ? 'bg-green-100' : timestampToDate(classBeingSubbed.dateOfClass) < new Date() ? 'bg-red-100' : 'bg-yellow-100'} p-4`}
+            class={`mt-3 flex items-center justify-between rounded-lg ${subRequest.subRequestStatus === SubRequestStatus.SubstituteFeedbackNeeded ? 'bg-green-100' : timestampToDate(subRequest.dateOfClass) < new Date() ? 'bg-red-100' : 'bg-yellow-100'} p-4`}
           >
             <p>
-              {classBeingSubbed.course} class #{classBeingSubbed.classNumber} at {formatDate(
-                timestampToDate(classBeingSubbed.dateOfClass),
+              {subRequest.course} class #{subRequest.classNumber} at {formatDate(
+                timestampToDate(subRequest.dateOfClass),
               )}
             </p>
           </div>
           <div class="text-sm italic">
-            {classBeingSubbed.subRequestStatus ===
+            {subRequest.subRequestStatus ===
             SubRequestStatus.SubstituteFeedbackNeeded
               ? 'Please remember to fill out the feedback form for this class!'
-              : timestampToDate(classBeingSubbed.dateOfClass) > new Date()
+              : timestampToDate(subRequest.dateOfClass) > new Date()
                 ? 'Please remember to review the notes and prep for the class. Thank you for substituting!'
                 : 'Looks like the substitute class was not held! Please reach out to the usual instructor to let them know.'}
           </div>
@@ -295,20 +314,20 @@
               notesOpenStates[i] = true
             }}>View Prep Notes</Button
           >
+          {#if subCurriculumLink}
+            <Button
+              color="blue"
+              class="mt-2"
+              onclick={() => window.open(subCurriculumLink, '_blank')}
+              >Curriculum</Button
+            >
+          {/if}
           <Button
             color="blue"
             class="mt-2"
-            onclick={() =>
-              window.open(
-                `${curriculums.filter((curriculum) => curriculum.class === classBeingSubbed.course)[0].url}`,
-              )}>Curriculum</Button
+            onclick={() => recordClass(subRequest)}>Join</Button
           >
-          <Button
-            color="blue"
-            class="mt-2"
-            onclick={() => recordClass(classBeingSubbed)}>Join</Button
-          >
-          <Button color="blue" onclick={() => sendReminder(classBeingSubbed)}>
+          <Button color="blue" onclick={() => sendReminder(subRequest)}>
             Send Reminder</Button
           >
           <Button
@@ -323,7 +342,7 @@
       {/if}
     </Card>
     {#if subInstructor !== true}
-      <Card class="mt-2 mb-2">
+      <Card class="my-2">
         <h2 class="my-2 text-xl font-bold">Your Sub Requests</h2>
         <div>
           {#if subRequestsFromUser.length > 0}
@@ -384,8 +403,7 @@
                   >
                   <Button
                     color="red"
-                    onclick={() =>
-                      deleteSubRequest(originalSubClassNumbers[i], true)}
+                    onclick={() => deleteSubRequest(subRequest.id, true)}
                     >{@render trashIcon()}</Button
                   >
                 </div>
@@ -407,8 +425,7 @@
                   >
                   <Button
                     color="red"
-                    onclick={() =>
-                      deleteSubRequest(originalSubClassNumbers[i], true)}
+                    onclick={() => deleteSubRequest(subRequest.id, true)}
                     >{@render trashIcon()}</Button
                   >
                 </div>
@@ -434,8 +451,7 @@
                   >
                   <Button
                     color="red"
-                    onclick={() =>
-                      deleteSubRequest(originalSubClassNumbers[i], true)}
+                    onclick={() => deleteSubRequest(subRequest.id, true)}
                     >{@render trashIcon()}</Button
                   >
                 </div>
@@ -451,8 +467,7 @@
                   <p><strong>Status: Substituted Class Complete</strong></p>
                   <Button
                     color="red"
-                    onclick={() =>
-                      deleteSubRequest(originalSubClassNumbers[i], true)}
+                    onclick={() => deleteSubRequest(subRequest.id, true)}
                     >{@render trashIcon()}</Button
                   >
                 </div>

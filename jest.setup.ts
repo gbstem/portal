@@ -71,11 +71,18 @@ jest.mock(
 jest.mock(
   '$env/dynamic/private',
   () => ({
+    // A mutable object, not a frozen literal: /api/meetingLink reads its
+    // Entra credentials from here and its tests rewrite them to exercise the
+    // MS_* / VITE_* fallback.
     env: {
       FIREBASE_AUTH_EMULATOR_HOST:
         process.env.FIREBASE_AUTH_EMULATOR_HOST || '',
       FIRESTORE_EMULATOR_HOST: process.env.FIRESTORE_EMULATOR_HOST || '',
       STORAGE_EMULATOR_HOST: process.env.STORAGE_EMULATOR_HOST || '',
+      MS_CLIENT_ID: 'msClientId',
+      MS_CLIENT_SECRET: 'msClientSecret',
+      MS_TENANT_ID: 'msTenantId',
+      MS_CALENDAR_USER: 'classes@gbstem.test',
     },
   }),
   { virtual: true },

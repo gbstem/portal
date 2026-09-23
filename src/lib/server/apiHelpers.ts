@@ -13,6 +13,36 @@ export function verifyAuthenticated(locals: App.Locals) {
 }
 
 /**
+ * Ensures the user is signed in *and* holds the instructor role.
+ * Throws a 401 if not signed in, or a 403 if signed in as anyone else.
+ *
+ * `verifyAuthenticated` is not enough for endpoints that expose anything
+ * about other instructors: every signed-in student would otherwise reach
+ * them. Route-group layouts don't help here - an /api/* endpoint is not
+ * behind one.
+ */
+export function verifyInstructor(locals: App.Locals) {
+  const user = verifyAuthenticated(locals)
+  if (user.role !== 'instructor') {
+    throw error(403, 'Only instructors can do that.')
+  }
+  return user
+}
+
+/**
+ * Ensures the user is signed in *and* holds the student role - a parent
+ * account, which is what owns student registrations.
+ * Throws a 401 if not signed in, or a 403 if signed in as anyone else.
+ */
+export function verifyStudent(locals: App.Locals) {
+  const user = verifyAuthenticated(locals)
+  if (user.role !== 'student') {
+    throw error(403, 'Only student accounts can do that.')
+  }
+  return user
+}
+
+/**
  * Translates caught exceptions into SvelteKit HttpErrors.
  * Logs the error server-side with the API route context.
  * If the exception is already a SvelteKit error, it is rethrown as-is.

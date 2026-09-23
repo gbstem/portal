@@ -1,9 +1,9 @@
 import type {} from '../src/data.d.ts'
 import {
+  classInstructorUids,
   computeUpdatedClassStatuses,
   computeMeetingTimeChanges,
   findNextClassDateIndex,
-  transformStudentDocData,
   buildSubRequestPayload,
 } from '$lib/helpers/classSchedule'
 import { ClassStatus } from '$lib/components/helpers/ClassStatus'
@@ -116,55 +116,83 @@ describe('ClassSchedule Helpers', () => {
     })
   })
 
-  describe('transformStudentDocData', () => {
-    test('returns null for null or missing personal data', () => {
-      expect(transformStudentDocData(null)).toBeNull()
-      expect(transformStudentDocData({})).toBeNull()
+  describe('classInstructorUids', () => {
+    test('puts the owner first, then the co-instructors', () => {
+      expect(
+        classInstructorUids({
+          instructorUid: 'uid-owner',
+          otherInstructorUids: ['uid-co-1', 'uid-co-2'],
+        }),
+      ).toEqual(['uid-owner', 'uid-co-1', 'uid-co-2'])
     })
 
-    test('transforms raw doc data to Student object', () => {
-      const data = {
-        personal: {
-          studentFirstName: 'Alice',
-          studentLastName: 'Smith',
-          email: 'alice@example.com',
-          secondaryEmail: 'parent@example.com',
-          phoneNumber: '555-0199',
-        },
-        academic: {
-          grade: '5th',
-          school: 'Oak Elementary',
-        },
-      }
+    test('drops a missing owner and an absent co-instructor list', () => {
+      // A class document written before instructorUid existed. The list is
+      // cc'd, so an empty string in it would be resolved as a uid naming
+      // nobody rather than simply skipped.
+      expect(
+        classInstructorUids({ otherInstructorUids: ['uid-co-1'] }),
+      ).toEqual(['uid-co-1'])
+      expect(classInstructorUids({ instructorUid: '' })).toEqual([])
+      expect(classInstructorUids({ instructorUid: 'uid-owner' })).toEqual([
+        'uid-owner',
+      ])
+    })
 
-      const student = transformStudentDocData(data)
-      expect(student).toEqual({
-        name: 'Alice Smith',
-        email: 'alice@example.com',
-        secondaryEmail: 'parent@example.com',
-        phone: '555-0199',
-        grade: '5th',
-        school: 'Oak Elementary',
-      })
+    test('de-duplicates an owner who is also listed as a co-instructor', () => {
+      // The form refuses to add the owner to their own class, but a document
+      // written before that check - or by hand - can still carry both.
+      expect(
+        classInstructorUids({
+          instructorUid: 'uid-owner',
+          otherInstructorUids: ['uid-owner', 'uid-co-1'],
+        }),
+      ).toEqual(['uid-owner', 'uid-co-1'])
     })
   })
 
   describe('buildSubRequestPayload', () => {
-    test('creates expected SubRequest object', () => {
+    test('creates expected SubRequest object with originalInstructorUid', () => {
       const sub = buildSubRequestPayload({
-        classId: 'class-123',
+        classId: 'uid-teacher-1',
         subRequestClassNumber: 2,
         subRequestDate: '2026-05-12T10:00:00Z',
         subRequestNotes: 'Need sub for trip',
         course: 'Python 1',
-        instructorEmail: 'teacher@example.com',
+        instructorUid: 'uid-teacher',
         meetingLink: 'https://teams.microsoft.com/l/meetup-join/...',
       })
 
-      expect(sub.id).toBe('class-123')
+      expect(sub.id).toBe('uid-teacher-1')
       expect(sub.classNumber).toBe(2)
       expect(sub.course).toBe('Python 1')
+      expect(sub.originalInstructorUid).toBe('uid-teacher')
       expect(sub.subRequestStatus).toBe(SubRequestStatus.SubstituteNeeded)
+      // No address is stored on a sub request: both instructors are named by
+      // uid, and whoever needs an address resolves it from one.
+      expect(sub).not.toHaveProperty('originalInstructorEmail')
+      expect(sub).not.toHaveProperty('subInstructorEmail')
+      // Nobody else asked, so the requester is the class's own instructor.
+      expect(sub.requestedByUid).toBe('uid-teacher')
+    })
+
+    test('records a co-instructor as the requester without changing whose class it is', () => {
+      const sub = buildSubRequestPayload({
+        classId: 'uid-teacher-1',
+        subRequestClassNumber: 2,
+        subRequestDate: '2026-05-12T10:00:00Z',
+        subRequestNotes: 'Need sub for trip',
+        course: 'Python 1',
+        instructorUid: 'uid-teacher',
+        requestedByUid: 'uid-co-instructor',
+        meetingLink: 'https://teams.microsoft.com/l/meetup-join/...',
+      })
+
+      // The class's instructor of record is unchanged - a sub covers the
+      // class, not the person who happened to file the request...
+      expect(sub.originalInstructorUid).toBe('uid-teacher')
+      // ...but the request now says who to tell when one turns up.
+      expect(sub.requestedByUid).toBe('uid-co-instructor')
     })
   })
 })

@@ -1,67 +1,126 @@
-import { interviewScheduledEmailTemplate } from '$lib/data/emailTemplates/interviewScheduledEmailTemplate'
-import { verifyAuthenticated, handleApiError } from '$lib/server/apiHelpers'
+import { handleApiError, verifyInstructor } from '$lib/server/apiHelpers'
 import { sendEmail } from '$lib/server/email'
-import { addDataToHtmlTemplate } from '$lib/utils'
+import { renderEmail } from '$lib/emails/render'
+import { formatDateInGbstemTime } from '$lib/utils'
+import { resolveCurrentInterviewerEmail } from '$lib/server/interviewerIdentity'
+import {
+  bookInterviewSlot,
+  fetchInterviewData,
+  type BookedInterview,
+  type InterviewData,
+  type ScheduledInterview,
+} from '$lib/server/interviewSlots'
 import { json } from '@sveltejs/kit'
+import { z } from 'zod'
 import type { RequestHandler } from './$types'
 
-export interface InterviewRequestBody {
-  email: string
-  date: string
-  link: string
-  interviewer: string
-  firstName: string
+const bookingSchema = z.object({
+  // Everything else - the interviewer, the time and the link - is read from
+  // the slot, not taken from the caller.
+  slotId: z.string().min(1, 'Please select an interview slot'),
+})
+
+export type InterviewBookingRequestBody = z.infer<typeof bookingSchema>
+
+export type InterviewDataResponse = InterviewData
+
+export interface InterviewBookingResponse {
+  interview: ScheduledInterview
+  /** False when the slot was booked but its confirmation email wasn't sent. */
+  emailSent: boolean
 }
 
+/**
+ * Emails the applicant their interview, copying the interviewer at their
+ * current address. Reports failure rather than throwing: the slot is already
+ * booked by the time this runs.
+ */
+async function sendBookingConfirmation(
+  applicantEmail: string,
+  booked: BookedInterview,
+): Promise<boolean> {
+  const interviewerEmail = await resolveCurrentInterviewerEmail(
+    booked.interviewerUid,
+    '/api/interview',
+  )
+  if (!interviewerEmail) {
+    console.error(
+      `[API /api/interview] No interviewer email resolved for slot ${booked.id}; its confirmation was not sent.`,
+    )
+    return false
+  }
+
+  const subject = `${booked.intervieweeFirstName}, your interview with ${booked.interviewerName} has been scheduled`
+  const html = renderEmail('interviewScheduledEmailTemplate', {
+    subject,
+    app: {
+      name: 'Portal',
+      link: 'https://portal.gbstem.org',
+    },
+    interview: {
+      interviewee: booked.intervieweeFirstName,
+      name: booked.interviewerName,
+      date: formatDateInGbstemTime(booked.date, 'long'),
+      link: booked.meetingLink,
+    },
+  })
+
+  try {
+    await sendEmail({
+      to: applicantEmail,
+      cc: interviewerEmail,
+      subject,
+      html,
+      replyTo: interviewerEmail,
+    })
+    return true
+  } catch (err) {
+    console.error(
+      `[API /api/interview] Failed to send the confirmation for slot ${booked.id}:`,
+      err,
+    )
+    return false
+  }
+}
+
+/**
+ * The signed-in applicant's interview this cycle, if booked, and the slots
+ * they could book. See fetchInterviewData.
+ */
+export const GET: RequestHandler = async ({ locals }) => {
+  try {
+    const user = verifyInstructor(locals)
+    const response: InterviewDataResponse = await fetchInterviewData(user.uid)
+    return json(response)
+  } catch (err) {
+    throw handleApiError('/api/interview', err)
+  }
+}
+
+/**
+ * Books one slot for the signed-in applicant (see bookInterviewSlot), then
+ * sends the confirmation.
+ */
 export const POST: RequestHandler = async ({ request, locals }) => {
   try {
-    const user = verifyAuthenticated(locals)
-    const body = (await request.json()) as InterviewRequestBody
-
-    const interviewerEmail = body.email
-    const interviewDate = body.date
-    const interviewLink = body.link
-    const interviewerName = body.interviewer
-    const intervieweeFirstName = body.firstName
-
-    const template = {
-      name: 'interviewScheduled',
-      data: {
-        subject: `${intervieweeFirstName}, your interview with ${interviewerName} has been scheduled`,
-        app: {
-          name: 'Portal',
-          link: 'https://portal.gbstem.org',
-        },
-        interview: {
-          interviewee: intervieweeFirstName,
-          name: interviewerName,
-          date: interviewDate,
-          link: interviewLink,
-        },
-      },
-    }
-
-    const htmlBody = addDataToHtmlTemplate(
-      interviewScheduledEmailTemplate,
-      template,
+    const user = verifyInstructor(locals)
+    const { slotId } = bookingSchema.parse(await request.json())
+    const booked = await bookInterviewSlot(
+      { uid: user.uid, email: user.email },
+      slotId,
     )
 
-    try {
-      await sendEmail({
-        to: user.email,
-        cc: interviewerEmail,
-        subject: String(template.data.subject),
-        html: htmlBody,
-        replyTo: interviewerEmail,
-      })
-    } catch (mailError) {
-      return json(
-        { error: 'Failed to send email. Please try again later.' },
-        { status: 500 },
-      )
+    const response: InterviewBookingResponse = {
+      interview: {
+        id: booked.id,
+        date: booked.date.toISOString(),
+        interviewerName: booked.interviewerName,
+        meetingLink: booked.meetingLink,
+        interviewSlotStatus: 'pending',
+      },
+      emailSent: await sendBookingConfirmation(user.email, booked),
     }
-
-    return json({ message: 'Email sent successfully.' })
+    return json(response)
   } catch (err) {
     throw handleApiError('/api/interview', err)
   }

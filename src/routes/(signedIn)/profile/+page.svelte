@@ -1,20 +1,22 @@
 <script lang="ts">
-  import type { ActionRequestBody } from '../../api/action/+server'
+  import { user } from '$lib/client/firebase'
+  import Button from '$lib/components/Button.svelte'
+  import Card from '$lib/components/Card.svelte'
+  import Dialog from '$lib/components/Dialog.svelte'
+  import DialogActions from '$lib/components/DialogActions.svelte'
+  import Field from '$lib/components/Field.svelte'
   import ChangeEmailForm from '$lib/components/forms/ChangeEmailForm.svelte'
+  import ChangeNameForm from '$lib/components/forms/ChangeNameForm.svelte'
   import ChangePasswordForm from '$lib/components/forms/ChangePasswordForm.svelte'
   import DeleteAccountForm from '$lib/components/forms/DeleteAccountForm.svelte'
-  import { fade } from 'svelte/transition'
+  import Link from '$lib/components/Link.svelte'
   import { alert } from '$lib/stores'
   import { writeToClipboard } from '$lib/utils'
-  import ChangeNameForm from '$lib/components/forms/ChangeNameForm.svelte'
-  import Card from '$lib/components/Card.svelte'
+  import { fade } from 'svelte/transition'
+  import type { ActionRequestBody } from '../../api/action/+server'
   import type { PageData } from './$types'
-  import { user } from '$lib/client/firebase'
-  import Field from '$lib/components/Field.svelte'
-  import Dialog from '$lib/components/Dialog.svelte'
-  import Button from '$lib/components/Button.svelte'
-  import DialogActions from '$lib/components/DialogActions.svelte'
-  import Link from '$lib/components/Link.svelte'
+  import { Icon } from '@steeze-ui/svelte-icon'
+  import { DocumentDuplicate, ExclamationCircle } from '@steeze-ui/heroicons'
 
   interface Props {
     data: PageData
@@ -70,13 +72,6 @@
       </p>
 
       <DialogActions>
-        <Button
-          color="blue"
-          onclick={() => {
-            location.reload()
-            setTimeout(() => (window.location.href = '/dashboard'), 100)
-          }}>Go to dashboard</Button
-        >
         <Button onclick={() => (showVerifyDialog = false)}>Close</Button>
       </DialogActions>
     </div>
@@ -92,20 +87,7 @@
         class="mt-2 flex w-full items-center gap-4 rounded-md bg-red-200 px-5 py-4 shadow-sm"
         transition:fade
       >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke-width="1.5"
-          stroke="currentColor"
-          class="h-6 w-6 shrink-0"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
-          />
-        </svg>
+        <Icon src={ExclamationCircle} class="size-6 shrink-0" />
         <div class="grow">
           Email is not verified. Try reloading or check your inbox to verify
           your account. Can't find the email? <button
@@ -137,20 +119,13 @@
               }
             }}
           >
-            <svg
-              class="h-5 w-5"
-              xmlns="http://www.w3.org/2000/svg"
-              width="32"
-              height="32"
-              viewBox="0 0 24 24"
-              ><path
-                fill="currentColor"
-                d="M5 22q-.825 0-1.413-.588T3 20V7q0-.425.288-.713T4 6q.425 0 .713.288T5 7v13h10q.425 0 .713.288T16 21q0 .425-.288.713T15 22H5Zm4-4q-.825 0-1.413-.588T7 16V4q0-.825.588-1.413T9 2h9q.825 0 1.413.588T20 4v12q0 .825-.588 1.413T18 18H9Zm0-2h9V4H9v12Zm0 0V4v12Z"
-              /></svg
-            >
+            <Icon src={DocumentDuplicate} class="size-5" />
           </button>
         </div>
       </div>
+      <Field>
+        {`Role: ${data.user.role === 'student' ? 'parent' : data.user.role}`}
+      </Field>
 
       <div class="flex justify-center">
         <Link href="/dashboard">

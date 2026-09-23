@@ -1,3 +1,4 @@
+import { exec as execCallback } from 'child_process'
 import { defineConfig } from 'cypress'
 import installLogsPrinter from 'cypress-terminal-report/src/installLogsPrinter'
 import { getApps, initializeApp } from 'firebase-admin/app'
@@ -6,6 +7,9 @@ import { getFirestore } from 'firebase-admin/firestore'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { promisify } from 'util'
+
+const exec = promisify(execCallback)
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -53,6 +57,8 @@ if (combinedEnv.FIREBASE_PROJECT_ID) {
 }
 
 export default defineConfig({
+  // Cypress 16 deprecated bundled Electron as the implicit default browser.
+  defaultBrowser: 'chrome',
   // Public, non-sensitive configuration values
   expose: {
     FIRESTORE_EMULATOR_HOST: combinedEnv.FIRESTORE_EMULATOR_HOST,
@@ -61,11 +67,10 @@ export default defineConfig({
   env: {},
   e2e: {
     baseUrl: 'http://localhost:5173',
-    // Don't allow using the deprecated, insecure Cypress environment setup.
-    allowCypressEnv: false,
     scrollBehavior: 'center',
     viewportWidth: 1920,
     viewportHeight: 1080,
+    retries: { runMode: 1, openMode: 0 },
     setupNodeEvents(on, config) {
       installLogsPrinter(on, {
         printLogsToConsole: 'onFail',
@@ -79,6 +84,20 @@ export default defineConfig({
       on('task', {
         log(message) {
           console.log(message) // Print to the terminal
+          return null
+        },
+        // Restores the shared emulator to admin's seed state. Portal has no
+        // seed data of its own - see cypress/support/e2e.ts and README's
+        // Cypress section for why this shells into the sibling ../admin
+        // checkout (`cd ../admin && yarn seed` rather than `yarn --cwd
+        // ../admin seed`, for the same Corepack/packageManager-pin reason
+        // documented there) instead of duplicating admin's seed script.
+        // This is a cy.task() rather than the removed cy.exec() only because
+        // Cypress 16 dropped cy.exec(); the underlying command is unchanged.
+        async seed() {
+          const { stdout, stderr } = await exec('cd ../admin && yarn seed')
+          if (stdout) console.log(stdout)
+          if (stderr) console.error(stderr)
           return null
         },
         async getFirestoreUserId(email: string) {
@@ -107,6 +126,48 @@ export default defineConfig({
           }
           const doc = await getFirestore().doc(docPath).get()
           return doc.exists
+        },
+        // Admin SDK read, bypassing firestore.rules - for asserting on a
+        // server-only collection that no client token can read at all.
+        async readFirestoreDoc(docPath: string) {
+          if (getApps().length === 0) {
+            initializeApp({
+              projectId: process.env.FIREBASE_PROJECT_ID || 'demo-gbstem',
+            })
+          }
+          const doc = await getFirestore().doc(docPath).get()
+          return doc.exists ? doc.data() : null
+        },
+        // Admin SDK delete, bypassing firestore.rules - for clearing a document
+        // an earlier test in the same spec left where the next one needs
+        // nothing.
+        async deleteFirestoreDoc(docPath: string) {
+          if (getApps().length === 0) {
+            initializeApp({
+              projectId: process.env.FIREBASE_PROJECT_ID || 'demo-gbstem',
+            })
+          }
+          await getFirestore().doc(docPath).delete()
+          return null
+        },
+        // Admin SDK merge-write, bypassing firestore.rules - lets a spec put a
+        // seeded doc into a state the app itself would never write (e.g. a
+        // stale interviewerEmail/instructorEmail predating an account email
+        // change), to exercise a fallback path directly.
+        async mergeFirestoreDoc({
+          docPath,
+          data,
+        }: {
+          docPath: string
+          data: Record<string, unknown>
+        }) {
+          if (getApps().length === 0) {
+            initializeApp({
+              projectId: process.env.FIREBASE_PROJECT_ID || 'demo-gbstem',
+            })
+          }
+          await getFirestore().doc(docPath).set(data, { merge: true })
+          return null
         },
       })
       return config

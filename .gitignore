@@ -13,6 +13,9 @@
 # testing
 /coverage
 
+# lint/format cache
+.eslintcache
+
 # production
 /build
 /package
@@ -38,3 +41,4 @@ yarn-error.log*
 # Cypress
 cypress/screenshots
 cypress/logs
+.email-preview/

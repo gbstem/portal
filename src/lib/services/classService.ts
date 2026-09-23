@@ -1,27 +1,18 @@
 import { db } from '$lib/client/firebase'
-import { SubRequestStatus } from '$lib/components/helpers/SubRequestStatus'
-import type Student from '$lib/components/types/Student'
 import {
   classesCollection,
-  instructorFeedbackCollection,
-  registrationsCollection,
-  studentFeedbackCollection,
   substituteRequestsCollection,
-  withSemester,
 } from '$lib/data/collections'
-import {
-  buildSubRequestPayload,
-  transformStudentDocData,
-} from '$lib/helpers/classSchedule'
+import type { CoInstructor } from '$lib/helpers/classDetailsForm'
 import {
   parseClassInfoDoc,
   sortClassesBySpotsRemaining,
   type ClassInfo,
 } from '$lib/helpers/classesPage'
-import { timestampToDate } from '$lib/utils'
+import { subRequestDocId } from '$lib/data/docIds'
+import { buildSubRequestPayload } from '$lib/helpers/classSchedule'
+import { accountEmailService } from '$lib/services/accountEmailService'
 import {
-  arrayRemove,
-  arrayUnion,
   collection,
   doc,
   getDoc,
@@ -29,27 +20,31 @@ import {
   setDoc,
   updateDoc,
 } from 'firebase/firestore'
+import type {
+  ClassDetailsRequestBody,
+  ClassDetailsResponse,
+} from '../../routes/api/classDetails/+server'
+import type {
+  EnrollRequestBody,
+  EnrollResponse,
+} from '../../routes/api/enroll/+server'
+import type {
+  InstructorFeedbackRequestBody,
+  InstructorFeedbackResponse,
+} from '../../routes/api/instructorFeedback/+server'
+import type {
+  StudentFeedbackRequestBody,
+  StudentFeedbackResponse,
+} from '../../routes/api/studentFeedback/+server'
 
-const instructorClassesCollection = 'instructorClasses'
-
-export interface InstructorFeedbackSubmission {
-  date: string
-  feedback: string
-  attendanceList: Record<string, { present: boolean }>
-  courseName: string
-  classNumber: number
-  instructorName: string
-}
-
-export interface StudentFeedbackSubmission {
-  studentId: string
-  date: string
-  classId: string
-  rating: number
-  feedback: string
-  instructor: string
-  studentName: string
-  course: string
+export interface RosterStudent {
+  uid: string
+  name: string
+  email: string
+  secondaryEmail: string
+  phone: string
+  grade: string | number
+  school: string
 }
 
 /**
@@ -57,22 +52,37 @@ export interface StudentFeedbackSubmission {
  */
 export const classService = {
   /**
-   * Fetches student profile details for a list of student UIDs.
+   * Fetches the sanitized student roster for an authorized class via the backend API.
+   * Enforces server-side authorization and never exposes sensitive demographics.
    */
-  async fetchStudentList(studentUids: string[]): Promise<Student[]> {
-    const students: Student[] = []
-    const promises = studentUids.map(async (uid) => {
-      const studentDocRef = doc(db, registrationsCollection, uid)
-      const snap = await getDoc(studentDocRef)
-      if (snap.exists()) {
-        const student = transformStudentDocData(snap.data())
-        if (student) {
-          students.push(student)
-        }
-      }
-    })
-    await Promise.all(promises)
-    return students
+  async fetchClassRoster(
+    classId: string,
+    subRequestId?: string,
+  ): Promise<RosterStudent[]> {
+    const params = new URLSearchParams({ classId })
+    if (subRequestId) {
+      params.set('subRequestId', subRequestId)
+    }
+    const res = await fetch(`/api/classRoster?${params.toString()}`)
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}))
+      throw new Error(
+        errData.message || `Failed to fetch class roster: ${res.statusText}`,
+      )
+    }
+    const data = await res.json()
+    return data.students || []
+  },
+
+  /**
+   * Fetches student display names for an authorized class via the backend API.
+   */
+  async fetchStudentNamesForClass(
+    classId: string,
+    subRequestId?: string,
+  ): Promise<string[]> {
+    const roster = await this.fetchClassRoster(classId, subRequestId)
+    return roster.map((s) => s.name)
   },
 
   /**
@@ -82,15 +92,6 @@ export const classService = {
     const snap = await getDoc(doc(db, classesCollection, classId))
     if (!snap.exists()) return null
     return snap.data() as Data.Class
-  },
-
-  /**
-   * Fetches student list enrolled in a class given the classId.
-   */
-  async fetchStudentListForClass(classId: string): Promise<Student[]> {
-    const classDetails = await this.fetchClassDetails(classId)
-    if (!classDetails || !classDetails.students) return []
-    return this.fetchStudentList(classDetails.students)
   },
 
   /**
@@ -145,8 +146,9 @@ export const classService = {
     subRequestDate: string,
     subRequestNotes: string,
     course: string,
-    instructorEmail: string,
     meetingLink: string,
+    instructorUid?: string,
+    requestedByUid?: string,
   ): Promise<void> {
     const subRequest = buildSubRequestPayload({
       classId,
@@ -154,90 +156,63 @@ export const classService = {
       subRequestDate,
       subRequestNotes,
       course,
-      instructorEmail,
       meetingLink,
+      instructorUid,
+      requestedByUid,
     })
 
     const docRef = doc(
       db,
       substituteRequestsCollection,
-      `${classId}---${subRequestClassNumber}`,
+      subRequestDocId(classId, subRequestClassNumber),
     )
     await setDoc(docRef, subRequest)
   },
 
   /**
-   * Updates full class details document (used in ClassDetailsForm).
+   * Creates or updates a class from ClassDetailsForm. Ownership, co-instructor
+   * eligibility and which dashboards list the class are decided server-side;
+   * see /api/classDetails. Throws with the server's message on refusal.
    */
-  async saveClassDetails(
-    classId: string,
-    classDetails: Partial<Data.ClassDetails>,
-  ): Promise<void> {
-    const classRef = doc(db, classesCollection, classId)
-    await setDoc(classRef, classDetails, { merge: true })
+  async saveClassDetails(body: ClassDetailsRequestBody): Promise<void> {
+    const res = await fetch('/api/classDetails', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}))
+      throw new Error(
+        errData?.message || 'Could not save class details. Please try again.',
+      )
+    }
   },
 
   /**
-   * Gets all classes an instructor has access to, both classes explicitly
-   * shared with their email (via the instructorClasses mapping) and classes
-   * they own (class ID prefixed with their UID, for backward compatibility).
+   * Gets every class the signed-in instructor can reach: the ones they own
+   * and the ones shared with them as a co-instructor.
    * Returns an empty object (rather than throwing) on fetch failure, since
    * callers treat "no accessible classes" and "fetch failed" the same way.
    */
-  async fetchInstructorClasses(
-    instructorUID: string,
-    instructorEmail: string,
-  ): Promise<{ [classId: string]: Data.Class }> {
+  async fetchInstructorClasses(): Promise<{ [classId: string]: Data.Class }> {
     try {
-      const instructorClassesDoc = await getDoc(
-        doc(db, instructorClassesCollection, instructorEmail),
-      )
-      let accessibleClassIds: string[] = []
-
-      if (instructorClassesDoc.exists()) {
-        accessibleClassIds = instructorClassesDoc.data()?.classIds || []
+      const res = await fetch('/api/classDetails')
+      if (!res.ok) {
+        throw new Error(`Failed to load classes (${res.status})`)
       }
-
-      const allClassesSnapshot = await getDocs(
-        collection(db, classesCollection),
+      const { classes } = (await res.json()) as ClassDetailsResponse
+      return Object.fromEntries(
+        Object.entries(classes).map(([classId, classData]) => [
+          classId,
+          {
+            ...classData,
+            meetingTimes: classData.meetingTimes.map((time) => new Date(time)),
+            completedClassDates: classData.completedClassDates.map(
+              (time) => new Date(time),
+            ),
+          },
+        ]),
       )
-      const ownedClassIds: string[] = []
-
-      allClassesSnapshot.forEach((classDoc) => {
-        if (classDoc.id.startsWith(instructorUID + '-')) {
-          ownedClassIds.push(classDoc.id)
-        }
-      })
-
-      const allClassIds = [
-        ...new Set([...accessibleClassIds, ...ownedClassIds]),
-      ]
-
-      const classDocs = await Promise.all(
-        allClassIds.map((classId) =>
-          getDoc(doc(db, classesCollection, classId)),
-        ),
-      )
-      const classes: { [classId: string]: Data.Class } = {}
-
-      classDocs.forEach((classDoc, index) => {
-        if (classDoc.exists()) {
-          const classData = classDoc.data() as Data.Class
-          if (classData.meetingTimes) {
-            classData.meetingTimes = classData.meetingTimes.map((time) =>
-              timestampToDate(time),
-            )
-          }
-          if (classData.completedClassDates) {
-            classData.completedClassDates = classData.completedClassDates.map(
-              (time) => timestampToDate(time),
-            )
-          }
-          classes[allClassIds[index]] = classData
-        }
-      })
-
-      return classes
     } catch (error) {
       console.error('Error fetching instructor classes:', error)
       return {}
@@ -245,30 +220,85 @@ export const classService = {
   },
 
   /**
-   * Ensures the main instructor and each comma-separated co-instructor email
-   * has access to a class via the instructorClasses mapping.
+   * Resolves one co-instructor email to their identity, or an error message
+   * explaining why it can't be used.
+   *
+   * The server is the only side that can answer this: a client can't read
+   * another account's uid, `users` document, or decision. See
+   * /api/lookupCoInstructor for why every rejection gets the same message.
    */
-  async updateInstructorClassMappings(
-    classId: string,
-    mainInstructorEmail: string,
-    otherInstructorEmails: string,
-  ): Promise<void> {
+  async lookupCoInstructor(
+    email: string,
+  ): Promise<
+    { ok: true; coInstructor: CoInstructor } | { ok: false; message: string }
+  > {
     try {
-      await addInstructorToClass(mainInstructorEmail, classId)
-
-      if (otherInstructorEmails.trim()) {
-        const coInstructorEmails = otherInstructorEmails
-          .split(',')
-          .map((email) => email.trim())
-          .filter((email) => email.length > 0)
-
-        for (const email of coInstructorEmails) {
-          await addInstructorToClass(email, classId)
+      const res = await fetch('/api/lookupCoInstructor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      const body = await res.json()
+      if (!res.ok) {
+        return {
+          ok: false,
+          message:
+            body?.message ||
+            'Could not check that email address. Please try again.',
         }
       }
+      return { ok: true, coInstructor: body.instructor }
     } catch (error) {
-      console.error('Error updating instructor class mappings:', error)
+      console.error('Error looking up a co-instructor:', error)
+      return {
+        ok: false,
+        message: 'Could not check that email address. Please try again.',
+      }
     }
+  },
+
+  /**
+   * Expands a class's stored `otherInstructorUids` into displayable
+   * identities. Uids whose account has been deleted come back omitted; see
+   * resolveCoInstructorIdentities on the server.
+   *
+   * Throws on a transport failure rather than returning [], because callers
+   * use the result to decide which stored uids to keep - and silently
+   * returning "none of them resolved" would let one failed request wipe a
+   * class's co-instructors on the next save.
+   */
+  async resolveCoInstructors(uids: string[]): Promise<CoInstructor[]> {
+    if (uids.length === 0) return []
+    const res = await fetch('/api/resolveCoInstructors', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uids }),
+    })
+    if (!res.ok) {
+      throw new Error(`Failed to resolve co-instructors (${res.status})`)
+    }
+    const { instructors } = (await res.json()) as {
+      instructors: CoInstructor[]
+    }
+    return instructors
+  },
+
+  /**
+   * The current address of a class's instructor, for the "Contact Instructor"
+   * link a parent sees on a class one of their students is enrolled in. Null
+   * if the uid names no account. Throws if the request fails, or is refused
+   * because none of the signed-in parent's students is on the class roster.
+   */
+  async fetchEnrolledClassInstructorEmail(
+    classId: string,
+    instructorUid: string,
+  ): Promise<string | null> {
+    const emails = await accountEmailService.resolveEmails({
+      intent: 'enrolledClassInstructor',
+      uids: [instructorUid],
+      context: { classId },
+    })
+    return emails[instructorUid] ?? null
   },
 
   /**
@@ -301,162 +331,86 @@ export const classService = {
   },
 
   /**
-   * Fetches a class's current enrollment count and capacity.
+   * Enrolls one of the signed-in parent's students in a class. The class
+   * roster and the student's registration are written together in a
+   * transaction server-side, where capacity, the two-class limit and grade
+   * eligibility are checked too - see /api/enroll. Throws with the server's
+   * message on refusal.
    */
-  async fetchClassCapacityInfo(
+  async enrollStudent(
     classId: string,
-  ): Promise<{ numStudents: number; classCap: number }> {
-    const classDoc = await getDoc(doc(db, classesCollection, classId))
-    const classData = classDoc.data()
-    return {
-      numStudents: classData?.students?.length ?? 0,
-      classCap: classData?.classCap ?? 0,
+    studentUid: string,
+  ): Promise<EnrollResponse> {
+    const payload: EnrollRequestBody = { classId, studentUid }
+    const res = await fetch('/api/enroll', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    const body = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      throw new Error(body?.message || 'Error enrolling in class!')
+    }
+    return body as EnrollResponse
+  },
+
+  /**
+   * Takes one of the signed-in parent's students out of a class, from both the
+   * class roster and their registration in one transaction - see /api/enroll.
+   * Throws with the server's message on refusal.
+   */
+  async unenrollStudent(classId: string, studentUid: string): Promise<void> {
+    const payload: EnrollRequestBody = { classId, studentUid }
+    const res = await fetch('/api/enroll', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body?.message || 'Error unenrolling from class!')
     }
   },
 
   /**
-   * Fetches whether a student's registration has the age-limit bypass enabled.
-   */
-  async fetchBypassAgeLimits(studentUid: string): Promise<boolean> {
-    const snap = await getDoc(doc(db, registrationsCollection, studentUid))
-    return Boolean(snap.data()?.agreements.bypassAgeLimits)
-  },
-
-  /**
-   * Adds a student to a class's roster.
-   */
-  async enrollStudentInClass(
-    classId: string,
-    studentUid: string,
-  ): Promise<void> {
-    await updateDoc(doc(db, classesCollection, classId), {
-      students: arrayUnion(studentUid),
-    })
-  },
-
-  /**
-   * Records a class enrollment on the student's own registration document.
-   */
-  async confirmStudentClassEnrollment(
-    studentUid: string,
-    classId: string,
-  ): Promise<void> {
-    await updateDoc(doc(db, registrationsCollection, studentUid), {
-      classes: arrayUnion(classId),
-      enrolled: true,
-    })
-  },
-
-  /**
-   * Removes a student from a class's roster.
-   */
-  async unenrollStudentFromClass(
-    classId: string,
-    studentUid: string,
-  ): Promise<void> {
-    await updateDoc(doc(db, classesCollection, classId), {
-      students: arrayRemove(studentUid),
-    })
-  },
-
-  /**
-   * Removes a class from the student's registration document and updates
-   * `enrolled` based on whether any classes remain.
-   */
-  async confirmStudentClassUnenrollment(
-    studentUid: string,
-    classId: string,
-  ): Promise<void> {
-    const registrationDocRef = doc(db, registrationsCollection, studentUid)
-    await updateDoc(registrationDocRef, { classes: arrayRemove(classId) })
-    const regSnap = await getDoc(registrationDocRef)
-    const remainingClasses = (regSnap.data()?.classes || []) as string[]
-    await updateDoc(registrationDocRef, {
-      enrolled: remainingClasses.length > 0,
-    })
-  },
-
-  /**
-   * Fetches student display names for a list of UIDs, preserving input order.
-   * Individual lookup failures resolve to 'Error' rather than rejecting the batch.
-   */
-  async fetchStudentNames(studentUids: string[]): Promise<string[]> {
-    return Promise.all(
-      studentUids.map(async (uid) => {
-        try {
-          const userDoc = await getDoc(doc(db, registrationsCollection, uid))
-          const userData = userDoc.data()?.personal
-          return `${userData?.studentFirstName} ${userData?.studentLastName}`
-        } catch (error) {
-          console.error('Error fetching student data:', error)
-          return 'Error'
-        }
-      }),
-    )
-  },
-
-  /**
-   * Records instructor feedback for a class session: saves the feedback doc,
-   * marks the session complete on the class document, and (if this was a
-   * substitute-taught session) closes out the substitute request.
+   * Records a class instructor's feedback for one session: saves the feedback
+   * document and marks the session complete on the class, in one transaction
+   * server-side, where the caller is checked against the class - see
+   * /api/instructorFeedback. Throws with the server's message on refusal.
+   *
+   * Only for an instructor of the class - a substitute's feedback goes through
+   * /api/substituteFeedback instead.
    */
   async submitInstructorFeedback(
-    classId: string,
-    feedback: InstructorFeedbackSubmission,
-    feedbackCompleted: boolean[],
-    classStatuses: string[],
-    subRequestId?: string,
-  ): Promise<void> {
-    await setDoc(
-      doc(db, instructorFeedbackCollection, `${classId}-${Date.now()}`),
-      withSemester(feedback),
-    )
-    await updateDoc(doc(db, classesCollection, classId), {
-      feedbackCompleted,
-      classStatuses,
-    })
-    if (subRequestId !== undefined) {
-      await updateDoc(doc(db, substituteRequestsCollection, subRequestId), {
-        subRequestStatus: SubRequestStatus.NoSubstituteNeeded,
-      })
-    }
+    payload: InstructorFeedbackRequestBody,
+  ): Promise<InstructorFeedbackResponse> {
+    return postFeedback('/api/instructorFeedback', payload)
   },
 
   /**
-   * Records a parent/student's weekly feedback for a class.
+   * Records a parent's weekly feedback on a class one of their students is
+   * in. Whose student it is and whether they are in the class are checked
+   * server-side - see /api/studentFeedback. Throws with the server's message
+   * on refusal.
    */
   async submitStudentFeedback(
-    classId: string,
-    feedback: StudentFeedbackSubmission,
-  ): Promise<void> {
-    await setDoc(
-      doc(db, studentFeedbackCollection, `${classId}-${Date.now()}`),
-      withSemester(feedback),
-    )
+    payload: StudentFeedbackRequestBody,
+  ): Promise<StudentFeedbackResponse> {
+    return postFeedback('/api/studentFeedback', payload)
   },
 }
 
-/**
- * Grants an instructor access to a class via the instructorClasses mapping,
- * creating the mapping document if it doesn't exist yet.
- */
-async function addInstructorToClass(
-  instructorEmail: string,
-  classId: string,
-): Promise<void> {
-  const instructorClassesRef = doc(
-    db,
-    instructorClassesCollection,
-    instructorEmail,
-  )
-
-  try {
-    await updateDoc(instructorClassesRef, {
-      classIds: arrayUnion(classId),
-    })
-  } catch {
-    await setDoc(instructorClassesRef, {
-      classIds: [classId],
-    })
+async function postFeedback<T>(route: string, payload: unknown): Promise<T> {
+  const res = await fetch(route, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    throw new Error(
+      body?.message || 'Could not save that feedback. Please try again.',
+    )
   }
+  return body as T
 }

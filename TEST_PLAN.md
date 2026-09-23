@@ -2,6 +2,14 @@
 
 This document details the manual and automated regression test suite to verify all core features of the gbSTEM Portal website before any production release. It is structured sequentially to facilitate direct translation into Cypress E2E tests, focusing on student and instructor access.
 
+If you want to watch Cypress execute this in your browser, you can start it with extra arguments like the following, where `--headed` makes it so it runs a visible browser and `--browser` selects a browser to run (e.g. `chrome` or `firefox`). But as you'll see, it goes **very** fast and is hard to keep up with. There are many [options you can use](https://docs.cypress.io/guides/references/command-line#cypress-open). See [this page](https://docs.cypress.io/guides/getting-started/opening-the-app) to get started with Cypress.
+
+`yarn cypress --browser=chrome --headed`
+
+However, remember that you can actually see what is happening on the screen in a way that Cypress isn't: it just keys off of HTML elements and CSS classes, so can miss major visual bugs. That means it is important for you to do a test run yourself, or at least carefully watch the Cypress test run. It is also important to use meaningful IDs and class names when we create our components and tests.
+
+---
+
 ## 1. Setup and Pre-requisites
 
 Follow these steps to establish a clean, predictable, local testing environment.
@@ -257,12 +265,43 @@ graph TD
   6. Verify that the interview status updates to show the scheduled date, interviewer name, and meeting link.
   7. (Alternative flow) If no slot works, click **"Request A Time"**, fill out a date/time, and click the **"Submit"** button.
 - Expected Results (Assertions):
-  - Selecting and booking a slot successfully saves the slot reservation to Firestore (updates `interviewCollection`) and displays the scheduled interview details.
+  - Selecting and booking a slot books it through `/api/interview` (a transaction, so a slot somebody else has just booked is refused) and displays the scheduled interview details.
   - Requesting a timeslot successfully saves a request to Firestore (creates a document under `interviewTimeRequests`) and displays a success toast.
+
+#### Test Case 8f: Instructor Apply Page Makes No Parent-Only Reads
+
+- Description: Verify that an instructor's `/apply` page doesn't try to load child registrations, which only a parent can read.
+- Steps:
+  1. Log in as an instructor with a submitted application.
+  2. Navigate to `/apply` and wait for the application to load.
+- Expected Results (Assertions):
+  - No "Could not load your existing accounts" error is shown.
+  - No permission-denied Firestore error is logged. The page branches on the Auth role claim (`page.data.user.role`), so the registration read is never made.
 
 ---
 
 ### Section D: Class Roster and Details View
+
+#### Test Case 8b: Pre-Enrollment View Before Registrations Open
+
+- **Description**: Verify that visiting `/classes` before `registrationsOpen` displays a message that class enrollment is not open yet with the `registrationsOpen` date and hides class enrollment cards.
+- **Steps**:
+  1. Set system clock to before `registrationsOpen`.
+  2. Log in as a student and navigate to `/classes`.
+- **Expected Results (Assertions)**:
+  - The alert banner is visible: "Class enrollment is not open yet. Class times will be posted and class enrollment will open on {registrationsOpen}."
+  - "Before then, ensure you have filled out the form..." message and link to `/apply` are shown.
+  - Class enrollment buttons ("Add/Drop Class") and class lists are not visible.
+
+#### Test Case 8c: Class Enrollment Opens on Registrations Open Date
+
+- **Description**: Verify that visiting `/classes` on or after `registrationsOpen` hides the pre-enrollment banner and makes class enrollment cards and buttons available.
+- **Steps**:
+  1. Set system clock to 1 day after `registrationsOpen`.
+  2. Log in as a student and navigate to `/classes`.
+- **Expected Results (Assertions)**:
+  - The alert banner "Class enrollment is not open yet" is not visible.
+  - The "Add/Drop Class" action buttons and course catalog/schedule cards are displayed.
 
 #### Test Case 9: Student View Enrolled Classes & Filter
 
@@ -282,6 +321,47 @@ graph TD
   - Selecting "all" displays all classes again.
   - Clicking "Show all enrolled classes" hides all classes that the student's children are not enrolled in.
   - Clicking "Show all classes" displays all available classes again.
+
+#### Test Case 9b: Student Enroll in a Class
+
+- **Description**: Verify that a parent can enroll their student in a class, and that the enrollment is recorded on both the class and the student's registration, not just announced.
+- **Steps**:
+  1. Log in as a parent whose student is enrolled in one class.
+  2. Navigate to `/classes`, open **"Add/Drop Class"** on a class the student is not in (e.g. `"Mathematics 2a"`), and click **"Enroll Student"**.
+- **Expected Results (Assertions)**:
+  - A success toast is shown and the dialog closes.
+  - In Firestore, the student's registration lists the new class alongside the original one and is `enrolled`, and the class's `students` includes the student. Both are written together by `/api/enroll` in one transaction.
+  - A class-details email is sent to the parent, copying the class's instructor.
+
+#### Test Case 9c: Student Unenroll from a Class
+
+- **Description**: Verify that unenrolling removes the student from both the class and their registration.
+- **Steps**:
+  1. Log in as a parent whose student is enrolled in exactly one class.
+  2. Navigate to `/classes`, click **"Show all enrolled classes"**, open **"Add/Drop Class"** on that class, and click **"Unenroll Student"**.
+- **Expected Results (Assertions)**:
+  - A success toast is shown and the dialog closes.
+  - In Firestore, the class's `students` no longer includes the student (other students are untouched), and the registration has no classes and is no longer `enrolled`.
+
+#### Test Case 9d: Student Cannot Enroll in a Full Class
+
+- **Description**: Verify that `/api/enroll` refuses a class at its cap.
+- **Steps**:
+  1. Fill a class to its `classCap` without the parent's student in it.
+  2. Log in as the parent, open **"Add/Drop Class"** on that class, and click **"Enroll Student"**.
+- **Expected Results (Assertions)**:
+  - An error toast reads "That class is full."
+  - In Firestore, neither the class's `students` nor the registration's `classes` changed.
+
+#### Test Case 9e: Student Cannot Enroll in a Third Class
+
+- **Description**: Verify that `/api/enroll` refuses a student already in two classes.
+- **Steps**:
+  1. Give the parent's student two classes on their registration.
+  2. Log in as the parent, open **"Add/Drop Class"** on a third class, and click **"Enroll Student"**.
+- **Expected Results (Assertions)**:
+  - An error toast reads "Each student may only enroll in a maximum of 2 classes."
+  - In Firestore, neither the class's `students` nor the registration's `classes` changed.
 
 #### Test Case 10: Instructor View Taught Classes
 
@@ -406,6 +486,133 @@ graph TD
 - Expected Results (Assertions):
   - A success toast `"Sub request sent!"` is displayed.
   - The page reloads, and the sub request is saved in the database under `subRequests/{classId}---{classNumber}`.
+
+### The Sub Request Lifecycle (`cypress/e2e/substitute.cy.ts`)
+
+A sub request lives at `subRequests/{classId}---{classNumber}` for its whole
+life. The flow spans three accounts and two dashboards, so it has a spec of its
+own; Test Case 15 (filing one) moved there with it. Every case below was
+written against a defect.
+
+- **15b - Editing changes the request that exists**: editing the notes and
+  moving the request to another session updates the document under the class,
+  removes the one it moved from, and writes nothing under the signed-in
+  instructor's own uid.
+- **15c - Deleting removes it**: the document is gone from Firestore, not just
+  from the card. (Deleting a document that does not exist succeeds silently, so
+  a delete aimed at the wrong path reported success and left the request
+  standing.)
+- **15d - A substitute signs up and is recorded on it**: the request records
+  `subInstructorId`/`FirstName`/`Email` and flips to `SubstituteFound`; the
+  confirmation email goes to the substitute, cc's the class's instructor
+  (deduplicated when they are also the person who asked) and replies to them;
+  the class appears under the substitute's "Your Classes To Substitute" with
+  the prep notes the requester wrote.
+- **15e - The substitute holds the class and files its feedback**: "Join"
+  records the session as held on the class and moves the request to "feedback
+  needed"; the feedback then completes the session and closes the request out.
+  The stored feedback names the substitute and the course they covered, both
+  read from the request rather than from the form.
+- **15f - A covered class earns the substitute their hours**: the covered class
+  shows up as 1.5 hours of substitute instruction on `/community-service`.
+- **15g - The substitute can remind the class**: the reminder reaches the
+  roster and is signed by the substitute - for that session they are who the
+  students are meeting. (It looked the roster up by the sub request's id rather
+  than the class's, found nobody, and sent nothing at all: no email, no error,
+  no toast.)
+- **15h - A substitute-only instructor gets the substitute dashboard**: an
+  instructor whose decision is `substitute` rather than `accepted` sees the
+  "Substitute Classes" card and the sessions needing cover, and none of the
+  class schedule, class details form or sub requests of their own. That account
+  type had never been signed in as; it is seeded as `substitute@gbstem.org`.
+- **15i - One substitute can take several sessions at once**: the signup list
+  is a checkbox group over whole request objects with a single Submit, so two
+  boxes have to fan out into two claims and two confirmations.
+- **15j - Cancelling one that already has a substitute**: a different delete
+  branch from 15c's, and the one where a wrong document id would have left a
+  substitute expecting to teach a class the instructor thought they had called
+  off.
+- **15k - A failed signup says so**: signing up is one request to
+  `/api/substitute`, which claims the session and sends the confirmation, so a
+  failure there has to be visible or the substitute is left unsure whether they
+  are covering the class.
+- **15l - Filing over a covered session is refused**: a session's request is
+  one document, so filing again for a session that already has a substitute is
+  refused and says so, leaving the substitute on it.
+
+Signing up goes through `/api/substitute`: it lists only sessions still needing
+a substitute, still to come, and asked for by somebody else (Test Case 15
+checks an instructor isn't offered their own), and claims one in a transaction.
+A request's own people - whoever filed it, the class's instructor of record and
+its substitute - read it directly, keyed by those uid fields.
+
+Both halves of 15e go through `/api/substituteSession` and
+`/api/substituteFeedback` rather than the client SDK, and that is the only way
+they can work. They write to the **class** document - `completedClassDates`,
+`classStatuses`, `feedbackCompleted` - and `firestore.rules`'s
+`isInstructorOfClass()` admits only the class's own instructor and its
+co-instructors. A substitute is neither, so both writes were refused (403)
+from the browser: "Join" failed to the console and nowhere else, and the
+feedback failed halfway - the feedback document saved, so the form said "Class
+Feedback saved!", while the class was never updated and the request never left
+"feedback needed", which is also the state 15f's hours are counted from.
+
+A substitute's authority to make those writes lives in the sub request naming
+them as `subInstructorId`. Security rules cannot follow that link (the
+request's path depends on the session being recorded, which the rule has no
+way to know), so the endpoints check it with the Admin SDK instead, and
+`__tests__/routes.test.ts` covers the refusals: a caller who is not the
+substitute, a request nobody has signed up for, a request or class since
+deleted, feedback filed against a different session than the request covers,
+and a session that has fallen off the end of the schedule.
+
+Co-instructors file and cancel sub requests too; that half stays in
+`instructor.cy.ts` as Test Cases 13n and 13r.
+
+### Co-Instructors (Test Cases 13h-13q)
+
+A class stores its co-instructors as `otherInstructorUids`. That list is what
+`firestore.rules`'s `isInstructorOfClass()` reads to allow a write, and the
+uid-keyed `instructorClasses` mapping is what puts the class on a
+co-instructor's dashboard. Test Cases 13h-13j cover adding and removing them;
+13k-13q cover what one can then see and do, and where a co-instructor
+deliberately differs from the class's primary instructor.
+
+- **13h - Only accepted instructors can be added**: an address is only resolved
+  by `/api/lookupCoInstructor` when it belongs to an instructor with an
+  `accepted` decision. A rejected instructor, one still awaiting a decision, and
+  an address with no gbSTEM account are all refused with the _same_ message, so
+  the field can't be used to probe for accounts.
+- **13i / 13p - Removal revokes access**: whether the primary removes them or
+  they remove themselves, the uid leaves the class document (ending write
+  access) _and_ the class leaves their `instructorClasses` mapping (ending
+  dashboard access).
+- **13j - A co-instructor never becomes the owner**: saving the class details
+  form does not restamp `instructorUid`, which would lock the real owner out of
+  their own class.
+- **13k - Full access to the shared class**: it appears under "Your Classes",
+  the student roster (with parent contact details) is readable, and the weekly
+  feedback form can be filed - which also writes `feedbackCompleted` and
+  `classStatuses` back onto somebody else's class document. The stored
+  reflection names the co-instructor who wrote it.
+- **13l - Community service hours**: sessions of a shared class count toward the
+  co-instructor's hours, and the confirmation email goes to their own address.
+- **13m - Schedule editing**: sessions can be moved, added and deleted.
+- **13n - Sub requests are filed for the class and credited to the asker**: the
+  request still names the class's instructor of record
+  (`originalInstructorUid`/`Email`), and `/api/substitute` still replies to
+  them - a substitute is covering the class, not the person who asked. It also
+  records `requestedByUid`, so a co-instructor is cc'd when a substitute signs
+  up and the request shows up under their own "Your Sub Requests".
+- **13o - Reminders copy the rest of the teaching staff**: the cc list is every
+  instructor on the class except the sender (resolved server-side from uids, so
+  always to current addresses), which means a co-instructor's reminder copies
+  the primary. The sign-off stays the class's instructor of record - the name
+  the class is listed under - whichever of its instructors sent it.
+- **13q - Revocation is enforced, not just recorded**: with a stale dashboard
+  mapping (its update is best-effort), a removed co-instructor can still open
+  the class details form, but Firestore refuses the save and the UI surfaces
+  `"Permission denied."` rather than silently doing nothing.
 
 ---
 

@@ -1,7 +1,6 @@
-import { registrationSubmittedEmailTemplate } from '$lib/data/emailTemplates/registrationSubmittedEmailTemplate'
 import { verifyAuthenticated, handleApiError } from '$lib/server/apiHelpers'
 import { sendEmail } from '$lib/server/email'
-import { addDataToHtmlTemplate } from '$lib/utils'
+import { renderEmail } from '$lib/emails/render'
 import { json } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 
@@ -34,9 +33,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       },
     }
 
-    const htmlBody = addDataToHtmlTemplate(
-      registrationSubmittedEmailTemplate,
-      template,
+    const htmlBody = renderEmail(
+      'registrationSubmittedEmailTemplate',
+      template.data,
     )
 
     const to = secondaryEmail ? [user.email, secondaryEmail] : user.email

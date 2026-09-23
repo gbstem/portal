@@ -5,6 +5,8 @@
   import { uniqueId } from 'lodash-es'
   import { onDestroy } from 'svelte'
   import { fade } from 'svelte/transition'
+  import { Icon } from '@steeze-ui/svelte-icon'
+  import { XMark } from '@steeze-ui/heroicons'
 
   type Size = 'min' | 'full'
 
@@ -91,7 +93,7 @@
     transition:fade={{ duration: 200 }}
   >
     <div
-      class="relative flex min-h-screen items-end justify-center px-d/2 py-d sm:items-center"
+      class="relative flex min-h-screen items-center justify-center px-d/2 py-d"
     >
       <div
         class={cn(
@@ -115,26 +117,16 @@
           {disabled}
           aria-label="Close dialog"
         >
-          <svg
-            class="h-5 w-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
+          <Icon src={XMark} class="size-5" />
         </button>
         <h1
-          class="rounded-md bg-gray-200 px-4 py-3 pr-12 text-xl font-bold uppercase"
+          class="min-w-0 rounded-md bg-gray-200 px-4 py-3 pr-12 text-xl font-bold uppercase"
         >
           {@render title?.()}
         </h1>
-        {@render description?.()}
+        <div class="min-w-0">
+          {@render description?.()}
+        </div>
       </div>
     </div>
   </div>

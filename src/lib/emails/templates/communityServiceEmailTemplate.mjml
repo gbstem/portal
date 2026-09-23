@@ -1,0 +1,46 @@
+<mjml>
+  <mj-head>
+    <mj-include path="../layout/head.mjml" />
+  </mj-head>
+  <mj-body background-color="#f8f8f8">
+    <mj-include path="../layout/header.mjml" />
+    <mj-section
+      background-color="#ffffff"
+      padding="20px 0px 20px 0px"
+      padding-top="20px"
+      padding-bottom="50px"
+    >
+      <mj-column>
+        <mj-text color="#797e82" padding="0px 25px 5px 25px">
+          <h1
+            style="
+              text-align: center;
+              color: #000000;
+              font-weight: 700;
+              font-size: 34px;
+            "
+          >
+            Community Service Hours Confirmation for {{ app.firstName }}
+          </h1>
+        </mj-text>
+        <mj-text
+          font-size="16px"
+          line-height="22px"
+          padding="10px 25px"
+          padding-top="0px"
+        >
+          <p style="margin: 20px 0"></p>
+          <p style="margin: 0 0">Hi {{ app.firstName }},</p>
+          This email is to confirm that you have completed {{ app.hours }} hours
+          as a {{ app.course }} class instructor in the {{ app.season }}
+          {{ app.year }} semester! Thank you for the time and effort you have
+          dedicated to gbSTEM.
+          <p></p>
+          <p>Warmly,<br />{{ app.presidents }}</p>
+          <p><em>Presidents, The Greater Boston STEM Program</em></p>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-include path="../layout/footer.mjml" />
+  </mj-body>
+</mjml>

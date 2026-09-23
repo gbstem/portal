@@ -2,6 +2,7 @@ import type {} from '../../data.d.ts'
 import { cloneDeep } from 'lodash-es'
 import type { RegistrationRequestBody } from '../../routes/api/registration/+server'
 import { getRegistrationFormDefaults } from '../components/forms/schemas'
+import type { RegistrationUpdate } from '../services/registrationService'
 
 /**
  * Returns default empty Data.Registration structure.
@@ -11,6 +12,9 @@ export function createEmptyRegistration(): Data.Registration {
   return {
     personal: {
       ...defaults.personal,
+      // Document fields the form never shows: stamped from the signed-in
+      // parent account, not typed.
+      email: '',
       parentFirstName: '',
       parentLastName: '',
     },
@@ -35,6 +39,42 @@ export function createEmptyRegistration(): Data.Registration {
       updated: null as any,
     },
   }
+}
+
+/**
+ * Builds the registration document for a child slot's very first write.
+ *
+ * `timestamps.created` is stamped here because this is the only write that sends the
+ * whole document: `registrationOwnedFields` fills `created` in only when it is already
+ * missing, so a draft bootstrapped with the `null` `createEmptyRegistration` returns kept
+ * that null until its parent happened to save again - and kept it forever once submitted,
+ * which is what admin's `timestamps.created.toDate()` reads crashed on. The save paths
+ * were fixed in portal #61; this one was missed.
+ *
+ * Note the caller's `serverTimestamp()` sentinel stays in the in-memory copy afterwards
+ * (the bootstrap deliberately doesn't re-read the document - see `bootstrapRegistration`).
+ * It is truthy, so the next save re-sends it rather than round-tripping a stored value,
+ * and `created` lands on that save's server time instead of this one - at most one autosave
+ * interval later. That is a bounded imprecision on a server clock, unlike the null it
+ * replaces, which was a hard crash.
+ *
+ * @param timestamp the caller's `serverTimestamp()` sentinel.
+ */
+export function createBootstrapRegistration(
+  childUid: string,
+  parentFirstName: string,
+  parentLastName: string,
+  email: string,
+  timestamp: any,
+): Data.Registration {
+  const values = createEmptyRegistration()
+  values.meta.uid = childUid
+  values.personal.parentFirstName = parentFirstName
+  values.personal.parentLastName = parentLastName
+  values.personal.email = email
+  values.timestamps.created = timestamp
+  values.timestamps.updated = timestamp
+  return values
 }
 
 /**
@@ -84,7 +124,6 @@ export function toRegistrationFormValues(v: Data.Registration) {
       studentLastName: v.personal?.studentLastName || '',
       parentFirstName: v.personal?.parentFirstName || '',
       parentLastName: v.personal?.parentLastName || '',
-      email: v.personal?.email || '',
       secondaryEmail: v.personal?.secondaryEmail || '',
       phoneNumber: v.personal?.phoneNumber || '',
       dateOfBirth: v.personal?.dateOfBirth || '',
@@ -148,5 +187,69 @@ export function buildRegistrationApiPayload(
     studentName: studentFirstName,
     parentOrientationDate,
     secondaryEmail,
+  }
+}
+
+/**
+ * Fields inside the registration document that this form must never write.
+ *
+ * `agreements.bypassAgeLimits` is admin-only - it waives the course age check
+ * `classService` enforces. The form never renders it, so echoing its page-load
+ * value back on every autosave is what used to revoke a waiver granted while
+ * the parent had the page open.
+ */
+export const REGISTRATION_ADMIN_OWNED_FIELDS = ['agreements.bypassAgeLimits']
+
+/**
+ * The parts of the registration document this form owns, ready to be merged in.
+ *
+ * Every save after the bootstrap write is a `{ merge: true }` write, so what
+ * this returns is exactly what reaches Firestore and anything omitted keeps
+ * whatever the last writer left. That makes this the highest-consequence field
+ * list in the form - hence living here, where `formFieldParity.test.ts` can
+ * check it against the schema, rather than inside the component.
+ *
+ * `meta` is absent on purpose: it's written only by the submit handler and by
+ * the bootstrap write.
+ *
+ * @param accountEmail the signed-in parent account's current address. It is
+ *   stamped as `personal.email` on every save, so the submitted document
+ *   records the address the account had when it was submitted. Nothing reads
+ *   it back - see `Data.Registration`.
+ * @param timestamp the caller's `serverTimestamp()` sentinel.
+ */
+export function registrationOwnedFields(
+  values: Data.Registration,
+  formData: any,
+  accountEmail: string,
+  timestamp: any,
+): RegistrationUpdate {
+  return {
+    personal: {
+      ...values.personal,
+      ...formData.personal,
+      email: accountEmail,
+      // The parent's names belong to their account, not to this form.
+      // `initializeForm` writes them from the signed-in profile; re-pin them
+      // here so a stale or absent form value can never overwrite them.
+      parentFirstName: values.personal.parentFirstName,
+      parentLastName: values.personal.parentLastName,
+    },
+    academic: { ...values.academic, ...formData.academic },
+    program: { ...values.program, ...formData.program },
+    inPerson: { ...values.inPerson, ...formData.inPerson },
+    // Enumerated rather than spread so `bypassAgeLimits` can't ride along.
+    // A new agreement added to the schema has to be added here too - which is
+    // what the parity test enforces.
+    agreements: {
+      mediaRelease: formData.agreements.mediaRelease,
+      entireProgram: formData.agreements.entireProgram,
+      timeCommitment: formData.agreements.timeCommitment,
+      submitting: formData.agreements.submitting,
+    },
+    timestamps: {
+      created: values.timestamps.created || timestamp,
+      updated: timestamp,
+    },
   }
 }

@@ -1,9 +1,9 @@
-import type {} from '../../data.d.ts'
-import { isClassUpcoming } from '$lib/utils'
+import { parseClassDocId } from '$lib/data/docIds'
 import { ClassStatus } from '$lib/components/helpers/ClassStatus'
 import { SubRequestStatus } from '$lib/components/helpers/SubRequestStatus'
 import generateMeetingTimeChangeEmail from '$lib/components/helpers/generateMeetingTimeChangeEmail'
-import type Student from '$lib/components/types/Student'
+import { isClassUpcoming } from '$lib/utils'
+import type {} from '../../data.d.ts'
 
 /**
  * Computes updated class statuses based on meeting times and feedback completion.
@@ -158,18 +158,23 @@ export function findNextClassDateIndex(
 }
 
 /**
- * Normalizes student document data from Firestore into a Student object.
+ * Every instructor uid on a class - its owner, then its co-instructors, with
+ * blanks and duplicates dropped.
+ *
+ * What the reminder endpoint cc's, minus whoever is sending it. It has to
+ * carry the owner as well as `otherInstructorUids`, or a reminder sent by a
+ * co-instructor copies their colleagues and not the person whose class it is.
  */
-export function transformStudentDocData(data: any): Student | null {
-  if (!data || !data.personal) return null
-  return {
-    name: `${data.personal.studentFirstName ?? ''} ${data.personal.studentLastName ?? ''}`.trim(),
-    email: data.personal.email ?? '',
-    secondaryEmail: data.personal.secondaryEmail ?? '',
-    phone: data.personal.phoneNumber ?? '',
-    grade: data.academic?.grade ?? '',
-    school: data.academic?.school ?? '',
-  }
+export function classInstructorUids(klass: {
+  instructorUid?: string
+  otherInstructorUids?: string[]
+}): string[] {
+  return [
+    ...new Set([
+      klass.instructorUid ?? '',
+      ...(klass.otherInstructorUids ?? []),
+    ]),
+  ].filter(Boolean)
 }
 
 /**
@@ -181,18 +186,30 @@ export function buildSubRequestPayload(params: {
   subRequestDate: string
   subRequestNotes: string
   course: string
-  instructorEmail: string
+  instructorUid?: string
+  // The signed-in instructor, who may be a co-instructor rather than the
+  // class's owner. `originalInstructor*` below is the class's instructor of
+  // record whoever asks, so without this the request names nobody who can be
+  // told a substitute turned up.
+  requestedByUid?: string
   meetingLink: string
 }): Data.SubRequest {
+  // A class without an instructorUid predates the field; its id may still
+  // record who created it (see parseClassDocId).
+  const originalInstructorUid =
+    params.instructorUid ||
+    (parseClassDocId(params.classId)?.instructorUid ?? '')
   return {
     id: params.classId,
     classNumber: params.subRequestClassNumber,
     dateOfClass: new Date(params.subRequestDate),
     notes: params.subRequestNotes,
     course: params.course,
-    originalInstructorEmail: params.instructorEmail,
+    // No address is stored: whoever needs one resolves it from a uid, so it
+    // can't go stale when an instructor changes their account email.
+    originalInstructorUid,
+    requestedByUid: params.requestedByUid ?? originalInstructorUid,
     subInstructorFirstName: '',
-    subInstructorEmail: '',
     subInstructorId: '',
     subRequestStatus: SubRequestStatus.SubstituteNeeded,
     link: params.meetingLink,

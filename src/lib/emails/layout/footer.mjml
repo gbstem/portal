@@ -1,0 +1,32 @@
+<mj-section>
+  <mj-column>
+    <mj-text
+      align="center"
+      color="#797e82"
+      font-size="14px"
+      line-height="22px"
+      padding="0px 20px 0px 20px"
+      padding-top="0px"
+      padding-bottom="0px"
+    >
+      <p style="margin: 10px 0">
+        <a
+          target="_blank"
+          rel="noopener noreferrer"
+          style="color: darkblue"
+          href="https://gbstem.org"
+          ><span style="color: darkblue">Main</span></a
+        >
+        <span style="color: #797e82">&nbsp; &nbsp;|&nbsp; &nbsp;</span>
+        <a
+          target="_blank"
+          rel="noopener noreferrer"
+          style="color: darkblue"
+          href="{{url app.link}}"
+          ><span style="color: darkblue">{{ app.name }}</span></a
+        >
+      </p>
+      <p style="margin: 10px 0">gbSTEM &copy; {{ footerYear }}</p>
+    </mj-text>
+  </mj-column>
+</mj-section>

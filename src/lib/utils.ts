@@ -56,35 +56,6 @@ export function trapFocus(node: HTMLElement) {
   }
 }
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-}
-
-// replace html template with data
-export function addDataToHtmlTemplate(
-  html: string,
-  template: { data: Record<string, any> },
-): string {
-  const htmlBody = html.replace(/{{(.*?)}}/g, (_: string, key: string) => {
-    const keys = key.trim().split('.')
-    let value: any = template.data
-    for (const k of keys) {
-      if (value && typeof value === 'object' && k in value) {
-        value = value[k]
-      } else {
-        return ''
-      }
-    }
-    return escapeHtml(String(value ?? ''))
-  })
-  return htmlBody
-}
-
 export function formatTime24to12(time24: string): string {
   // Split the string by ":" to obtain hours and minutes
   const [hours24, minutes] = time24.split(':')
@@ -147,6 +118,31 @@ export function formatDateLocal(date: Date) {
   })
 }
 
+/** Where gbSTEM runs its classes and interviews. */
+export const GBSTEM_TIME_ZONE = 'America/New_York'
+
+/**
+ * Formats a date in gbSTEM's time zone, naming the zone - for text built on
+ * the server, such as emails, where the server's own time zone means nothing
+ * to the reader. In the browser, `formatDate` and `formatDateLocal` use the
+ * viewer's zone instead; `style` matches their lengths.
+ */
+export function formatDateInGbstemTime(
+  date: Date,
+  style: 'short' | 'long',
+): string {
+  return date.toLocaleString('en-US', {
+    weekday: style,
+    month: style,
+    day: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+    hour12: true,
+    timeZone: GBSTEM_TIME_ZONE,
+    timeZoneName: style,
+  })
+}
+
 export function formatDateStringLocal(time: string) {
   const date = new Date(time)
   return date.toLocaleString('en-US', {
@@ -165,7 +161,14 @@ export const timestampToDate = (timestamp: Timestamp | Date) => {
     return timestamp
   }
   if (timestamp && typeof timestamp === 'object' && 'seconds' in timestamp) {
-    return new Date(timestamp.seconds * 1000)
+    // `nanoseconds` matters: dropping it silently rounded every stored time
+    // down to the whole second, so a meeting time moved by up to 999ms every
+    // time its class was read and saved back. That went unnoticed because the
+    // shift is invisible in the UI and, in instructor.cy.ts, because the
+    // earlier tests in the spec always saved the class first - truncating the
+    // seeded times before the one test that compares them ever read them.
+    const nanoseconds = (timestamp as { nanoseconds?: number }).nanoseconds ?? 0
+    return new Date(timestamp.seconds * 1000 + Math.floor(nanoseconds / 1e6))
   }
   return new Date(timestamp)
 }

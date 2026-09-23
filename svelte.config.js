@@ -14,6 +14,13 @@ const config = {
     // If your environment is not supported or you settled on a specific environment, switch out the adapter.
     // See https://kit.svelte.dev/docs/adapters for more information about adapters.
     adapter: adapter(),
+    version: {
+      // Lets a tab notice it is running older code than the server: SvelteKit
+      // polls _app/version.json this often and flips `updated.current`, which
+      // StaleClientBanner.svelte turns into a reload prompt. `version.name`
+      // defaults to a build timestamp, so it changes on every deploy.
+      pollInterval: 300000,
+    },
   },
 }
 

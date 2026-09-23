@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { page } from '$app/state'
   import { user } from '$lib/client/firebase'
   import Button from '$lib/components/Button.svelte'
   import Card from '$lib/components/Card.svelte'
@@ -17,18 +18,28 @@
   import { onMount } from 'svelte'
   import { fade } from 'svelte/transition'
 
+  import type { ClassInfo } from '$lib/helpers/classesPage'
+  import { Icon } from '@steeze-ui/svelte-icon'
   import {
-    buildPortalEnrollApiPayload,
-    isGradeEligible,
-    type ClassInfo,
-  } from '$lib/helpers/classesPage'
+    ArrowUpCircle,
+    BuildingOffice,
+    CheckCircle,
+    Clock,
+    ComputerDesktop,
+    Envelope,
+    GlobeAlt,
+    Plus,
+    Trash,
+    User,
+    Users,
+    XCircle,
+  } from '@steeze-ui/heroicons'
 
   let classes: ClassInfo[] = $state([])
   let loading = $state(true)
   let showClassDetailsDialog = $state(false)
   let dialogClassDetails: ClassInfo | null = $state(null)
   let selectedStudentUid = $state('')
-  let userName = ''
 
   let classFilter = $state('')
   let onlyShowEnrolled = $state(false)
@@ -37,14 +48,15 @@
     [studentUid: string]: string[]
   } = $state({})
 
-  const studentUidToGrade: Record<string, string> = {}
-
   const uidToName: Record<string, string> = $state({})
+
+  // classId -> the instructor's current address, for "Contact Instructor".
+  const instructorEmails: Record<string, string> = $state({})
 
   // Preload student data for the StudentSelect component
   let preloadedStudents: { uid: string; name: string }[] = []
 
-  let isStudent = $state(true)
+  const isStudent = $derived(page.data.user?.role === 'student')
 
   const determineStudentEnrollment = async (user: Data.User.Store) => {
     const uid = user.object.uid
@@ -58,7 +70,6 @@
           `${slot.data.personal.studentFirstName} ${slot.data.personal.studentLastName}`.trim() ||
           `Child ${index + 1}`
         uidToName[studentUid] = name
-        studentUidToGrade[studentUid] = slot.data.academic.grade ?? ''
 
         // Add to preloaded students for StudentSelect component
         preloadedStudents.push({
@@ -69,22 +80,47 @@
     })
   }
 
+  // Resolved from each enrolled class's instructorUid, never read off the class
+  // document: the stored copy goes stale when the instructor changes their
+  // account email, and `--strip-emails` removes it. A uid that names no
+  // account gets no link. The server resolves it only for a class one of this
+  // parent's students is on, which is also the only card showing the link.
+  const loadInstructorEmails = async () => {
+    const enrolledClassIds = new Set(Object.values(studentUidToClassIds).flat())
+    await Promise.all(
+      classes.map(async ({ id, instructorUid }) => {
+        if (!instructorUid || !enrolledClassIds.has(id)) return
+        if (id in instructorEmails) return
+        try {
+          const email = await classService.fetchEnrolledClassInstructorEmail(
+            id,
+            instructorUid,
+          )
+          if (email) instructorEmails[id] = email
+        } catch (err) {
+          console.error(
+            `[classes] Could not resolve the instructor address for ${id}:`,
+            err,
+          )
+        }
+      }),
+    )
+  }
+
   const getData = () => {
     return user.subscribe(async (user) => {
       // `loading` is cleared in `finally` so a failed read leaves the page in an
       // error state the user can act on rather than a spinner that never stops.
       try {
-        if (user?.profile.role === 'instructor') {
-          isStudent = false
-        }
         classes = await classService.fetchAllClassesInfo()
 
         if (user && isStudent) {
           // Enrollment loading used to be gated on `object.displayName` being
           // truthy, standing in for "the profile is loaded". A parent whose
           // displayName was blank silently got no children and no error.
-          userName = user.profile.firstName ?? ''
           await determineStudentEnrollment(user)
+          // Not awaited: the cards needn't wait on their contact links.
+          void loadInstructorEmails()
         }
       } catch (err) {
         console.error('[classes] Failed to load class data:', err)
@@ -103,7 +139,7 @@
   })
 
   const isEnrolled = (classId: string, studentUid: string): boolean => {
-    if (studentUid === '') {
+    if (!studentUid || !studentUidToClassIds[studentUid]) {
       return false
     }
     return studentUidToClassIds[studentUid].includes(classId)
@@ -122,89 +158,30 @@
     getData()
   }
 
+  // Capacity, the two-class limit and grade eligibility are all checked by
+  // /api/enroll, which writes the class roster and the registration together;
+  // its refusal message is what's shown.
   async function enrollInClass(classId: string): Promise<void> {
-    if (selectedStudentUid === '') {
-      alert.trigger('error', 'Please select a child!')
-      return
-    }
-    // get updated number of students in the class
-    const { numStudents, classCap } =
-      await classService.fetchClassCapacityInfo(classId)
-    if (numStudents >= classCap) {
-      alert.trigger('error', 'Class is full!')
-      return
-    }
-
-    // throw alert if student attempts to enroll in more than 4 classes
-    if (studentUidToClassIds[selectedStudentUid].length >= 4) {
+    try {
+      const { emailSent } = await classService.enrollStudent(
+        classId,
+        selectedStudentUid,
+      )
+      alert.trigger(
+        'success',
+        emailSent
+          ? 'Thank you for enrolling! You will receive an email confirming course details shortly.'
+          : 'Enrolled in class!',
+      )
+      showClassDetailsDialog = false
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    } catch (error) {
+      console.error('Class enrollment error:', error)
       alert.trigger(
         'error',
-        'Each student may only enroll in a maximum of 4 classes!',
+        error instanceof Error ? error.message : 'Error enrolling in class!',
       )
-      return
     }
-
-    const ageBypassEnabled =
-      await classService.fetchBypassAgeLimits(selectedStudentUid)
-
-    if (dialogClassDetails) {
-      const eligibility = isGradeEligible(
-        dialogClassDetails.course,
-        studentUidToGrade[selectedStudentUid],
-        ageBypassEnabled,
-      )
-      if (!eligibility.eligible) {
-        alert.trigger(
-          'error',
-          `Students must be in grade ${eligibility.requiredGrade} or higher to enroll in this class!`,
-        )
-        return
-      }
-    }
-
-    await classService
-      .enrollStudentInClass(classId, selectedStudentUid)
-      .catch((error) => {
-        console.error('Class enrollment error:', error)
-        alert.trigger('error', 'Error enrolling in class!')
-      })
-
-    await classService
-      .confirmStudentClassEnrollment(selectedStudentUid, classId)
-      .then(() => {
-        alert.trigger('success', 'Enrolled in class!')
-        if (!dialogClassDetails) return
-        const payload = buildPortalEnrollApiPayload(
-          userName,
-          dialogClassDetails,
-          uidToName[selectedStudentUid],
-        )
-        fetch('/api/enroll', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
-        }).then(async (res) => {
-          if (!res.ok) {
-            const { message } = await res.json()
-            console.error('Enrollment API error:', message)
-          }
-          showClassDetailsDialog = false
-          window.scrollTo({
-            top: 0,
-            behavior: 'smooth',
-          })
-        })
-        alert.trigger(
-          'success',
-          'Thank you for enrolling! You will receive an email confirming course details shortly.',
-        )
-      })
-      .catch((error) => {
-        console.error('Registration enrollment error:', error)
-        alert.trigger('error', 'Error enrolling in class!')
-      })
   }
 
   function clearFilter() {
@@ -217,23 +194,19 @@
   }
 
   async function unenrollFromClass(classId: string): Promise<void> {
-    await classService
-      .unenrollStudentFromClass(classId, selectedStudentUid)
-      .catch((error) => {
-        console.error('Class unenrollment error:', error)
-        alert.trigger('error', 'Error unenrolling from class!')
-      })
-
-    await classService
-      .confirmStudentClassUnenrollment(selectedStudentUid, classId)
-      .then(() => {
-        alert.trigger('success', 'Unenrolled from class!')
-        showClassDetailsDialog = false
-      })
-      .catch((error) => {
-        console.error('Registration unenrollment error:', error)
-        alert.trigger('error', 'Error unenrolling from class!')
-      })
+    try {
+      await classService.unenrollStudent(classId, selectedStudentUid)
+      alert.trigger('success', 'Unenrolled from class!')
+      showClassDetailsDialog = false
+    } catch (error) {
+      console.error('Class unenrollment error:', error)
+      alert.trigger(
+        'error',
+        error instanceof Error
+          ? error.message
+          : 'Error unenrolling from class!',
+      )
+    }
   }
 </script>
 
@@ -265,22 +238,10 @@
               : 'bg-green-500'}"
           >
             {#if dialogClassDetails.spotsRemaining <= 0}
-              <svg class="mr-2 h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                <path
-                  fill-rule="evenodd"
-                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                  clip-rule="evenodd"
-                />
-              </svg>
+              <Icon src={XCircle} theme="mini" class="mr-2 size-4" />
               Class Full
             {:else}
-              <svg class="mr-2 h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                <path
-                  fill-rule="evenodd"
-                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                  clip-rule="evenodd"
-                />
-              </svg>
+              <Icon src={CheckCircle} theme="mini" class="mr-2 size-4" />
               {dialogClassDetails.spotsRemaining} spots available
             {/if}
           </span>
@@ -303,28 +264,12 @@
           <!-- Class Type & Instructor -->
           <div class="space-y-3">
             <div class="flex items-center rounded-lg bg-gray-50 p-3">
-              <svg
-                class="mr-3 h-5 w-5 text-gray-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                {#if dialogClassDetails.online}
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                  />
-                {:else}
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                  />
-                {/if}
-              </svg>
+              <Icon
+                src={dialogClassDetails.online
+                  ? ComputerDesktop
+                  : BuildingOffice}
+                class="mr-3 size-5 text-gray-600"
+              />
               <div>
                 <div class="font-semibold text-gray-900">
                   {dialogClassDetails.online
@@ -340,19 +285,7 @@
             </div>
 
             <div class="flex items-center rounded-lg bg-gray-50 p-3">
-              <svg
-                class="mr-3 h-5 w-5 text-gray-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                />
-              </svg>
+              <Icon src={User} class="mr-3 size-5 text-gray-600" />
               <div>
                 <div class="font-semibold text-gray-900">Instructor</div>
                 <div class="text-sm text-gray-600">
@@ -367,19 +300,7 @@
             <h4
               class="mb-3 flex items-center text-lg font-semibold text-blue-900"
             >
-              <svg
-                class="mr-2 h-5 w-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
+              <Icon src={Clock} class="mr-2 size-5" />
               Class Schedule ({dialogClassDetails.online
                 ? '1-hour classes'
                 : '2-hour class'})
@@ -387,17 +308,11 @@
             <div class="space-y-2">
               {#each formatClassTimes(dialogClassDetails.classDays, dialogClassDetails.classTimes) as classTime (classTime)}
                 <div class="flex items-center text-blue-800">
-                  <svg
-                    class="mr-3 h-4 w-4 text-blue-600"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path
-                      fill-rule="evenodd"
-                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13a1 1 0 102 0V9.414l2.293 2.293a1 1 0 001.414-1.414z"
-                      clip-rule="evenodd"
-                    />
-                  </svg>
+                  <Icon
+                    src={ArrowUpCircle}
+                    theme="mini"
+                    class="mr-3 size-4 text-blue-600"
+                  />
                   <span class="font-medium">{classTime}</span>
                 </div>
               {/each}
@@ -410,19 +325,7 @@
               <h4
                 class="mb-3 flex items-center text-lg font-semibold text-gray-900"
               >
-                <svg
-                  class="mr-2 h-5 w-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                  />
-                </svg>
+                <Icon src={Plus} class="mr-2 size-5" />
                 Enrollment
               </h4>
               <div class="space-y-3">
@@ -440,28 +343,12 @@
                     }
                   }}
                 >
-                  <svg
-                    class="h-5 w-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    {#if isEnrolled(dialogClassDetails.id, selectedStudentUid)}
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                      />
-                    {:else}
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                      />
-                    {/if}
-                  </svg>
+                  <Icon
+                    src={isEnrolled(dialogClassDetails.id, selectedStudentUid)
+                      ? Trash
+                      : Plus}
+                    class="size-5"
+                  />
                   {isEnrolled(dialogClassDetails.id, selectedStudentUid)
                     ? 'Unenroll Student'
                     : 'Enroll Student'}
@@ -482,10 +369,10 @@
 <div>
   {#if loading}
     <Loading />
-  {:else if new Date() < new Date(semesterDates.registrationsDue)}
+  {:else if new Date() < new Date(semesterDates.registrationsOpen)}
     <div class="rounded-lg bg-red-50 p-4 text-2xl text-red-700">
       <p>
-        {`Class enrollment is not open yet. Class times will be posted and class enrollment will open on ${semesterDates.registrationsDue}.`}
+        {`Class enrollment is not open yet. Class times will be posted and class enrollment will open on ${semesterDates.registrationsOpen}.`}
       </p>
       <p>
         Before then, ensure you have filled out the form for each student you
@@ -541,30 +428,14 @@
                       : 'bg-green-500'}"
                   >
                     {#if classInfo.spotsRemaining <= 0}
-                      <svg
-                        class="mr-1 h-3 w-3"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fill-rule="evenodd"
-                          d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                          clip-rule="evenodd"
-                        />
-                      </svg>
+                      <Icon src={XCircle} theme="mini" class="mr-1 size-3" />
                       Class Full
                     {:else}
-                      <svg
-                        class="mr-1 h-3 w-3"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fill-rule="evenodd"
-                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                          clip-rule="evenodd"
-                        />
-                      </svg>
+                      <Icon
+                        src={CheckCircle}
+                        theme="mini"
+                        class="mr-1 size-3"
+                      />
                       {classInfo.spotsRemaining} spots
                     {/if}
                   </span>
@@ -574,46 +445,16 @@
               <!-- Class Type & Instructor -->
               <div class="mb-4 space-y-2">
                 <div class="flex items-center text-sm text-gray-600">
-                  <svg
-                    class="mr-2 h-4 w-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    {#if classInfo.online}
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                      />
-                    {:else}
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                      />
-                    {/if}
-                  </svg>
+                  <Icon
+                    src={classInfo.online ? ComputerDesktop : BuildingOffice}
+                    class="mr-2 size-4"
+                  />
                   {classInfo.online
                     ? 'Online Class'
                     : 'In-Person (Cambridge Public Library)'}
                 </div>
                 <div class="flex items-center text-sm text-gray-600">
-                  <svg
-                    class="mr-2 h-4 w-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                    />
-                  </svg>
+                  <Icon src={User} class="mr-2 size-4" />
                   {`${classInfo.instructorFirstName} ${classInfo.instructorLastName}`}
                 </div>
               </div>
@@ -623,19 +464,7 @@
                 <h4
                   class="mb-2 flex items-center text-sm font-semibold text-gray-700"
                 >
-                  <svg
-                    class="mr-2 h-4 w-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
+                  <Icon src={Clock} class="mr-2 size-4" />
                   Class Times ({classInfo.online
                     ? '1-hour classes'
                     : '2-hour class'})
@@ -643,17 +472,11 @@
                 <div class="space-y-1">
                   {#each formatClassTimes(classInfo.classDays, classInfo.classTimes) as classTime (classTime)}
                     <div class="flex items-center text-sm text-gray-600">
-                      <svg
-                        class="mr-2 h-3 w-3 text-gray-400"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fill-rule="evenodd"
-                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13a1 1 0 102 0V9.414l2.293 2.293a1 1 0 001.414-1.414z"
-                          clip-rule="evenodd"
-                        />
-                      </svg>
+                      <Icon
+                        src={ArrowUpCircle}
+                        theme="mini"
+                        class="mr-2 size-3 text-gray-400"
+                      />
                       {classTime}
                     </div>
                   {/each}
@@ -668,34 +491,18 @@
                   <h4
                     class="mb-2 flex items-center text-sm font-semibold text-blue-800"
                   >
-                    <svg
-                      class="mr-2 h-4 w-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"
-                      />
-                    </svg>
+                    <Icon src={Users} class="mr-2 size-4" />
                     Your Enrolled Students
                   </h4>
                   <div class="space-y-1">
                     {#each Object.entries(studentUidToClassIds) as [studentUid, classIds] (studentUid)}
                       {#if classIds.includes(classInfo.id)}
                         <div class="flex items-center text-sm text-blue-700">
-                          <svg
-                            class="mr-2 h-3 w-3"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                          >
-                            <path
-                              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                            />
-                          </svg>
+                          <Icon
+                            src={CheckCircle}
+                            theme="mini"
+                            class="mr-2 size-3"
+                          />
                           {uidToName[studentUid]}
                         </div>
                       {/if}
@@ -705,19 +512,7 @@
                   <!-- Meeting Link -->
                   <div class="mt-3 border-t border-blue-200 pt-3">
                     <div class="flex items-center text-sm text-blue-700">
-                      <svg
-                        class="mr-2 h-4 w-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9v-9m0-9v9"
-                        />
-                      </svg>
+                      <Icon src={GlobeAlt} class="mr-2 size-4" />
                       <a
                         href={classInfo.meetingLink}
                         target="_blank"
@@ -729,29 +524,19 @@
                     </div>
 
                     <!-- Instructor Email -->
-                    <div class="mt-1 flex items-center text-sm text-blue-700">
-                      <svg
-                        class="mr-2 h-4 w-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                        />
-                      </svg>
-                      <a
-                        href={`mailto:${classInfo.instructorEmail}`}
-                        target="_blank"
-                        rel="noopener"
-                        class="hover:underline"
-                      >
-                        Contact Instructor
-                      </a>
-                    </div>
+                    {#if instructorEmails[classInfo.id]}
+                      <div class="mt-1 flex items-center text-sm text-blue-700">
+                        <Icon src={Envelope} class="mr-2 size-4" />
+                        <a
+                          href={`mailto:${instructorEmails[classInfo.id]}`}
+                          target="_blank"
+                          rel="noopener"
+                          class="hover:underline"
+                        >
+                          Contact Instructor
+                        </a>
+                      </div>
+                    {/if}
                   </div>
                 </div>
               {/if}
@@ -767,19 +552,7 @@
                       showClassDetailsDialog = true
                     }}
                   >
-                    <svg
-                      class="h-5 w-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                      />
-                    </svg>
+                    <Icon src={Plus} class="size-5" />
                     Add/Drop Class
                   </Button>
                 </div>

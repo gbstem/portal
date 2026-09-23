@@ -8,14 +8,16 @@
     parentEducationJson,
     raceJson,
   } from '$lib/data'
+  import { emptySemesterDates } from '$lib/data/collections'
   import {
+    createBootstrapRegistration,
     createEmptyRegistration,
     normalizeRegistrationData,
+    registrationOwnedFields,
     toRegistrationFormValues as toFormValues,
   } from '$lib/helpers/registrationForm'
   import { registrationService } from '$lib/services/registrationService'
   import { alert } from '$lib/stores'
-  import type { FirebaseError } from 'firebase/app'
   import { serverTimestamp } from 'firebase/firestore'
   import { cloneDeep, isEqual } from 'lodash-es'
   import { onDestroy, onMount } from 'svelte'
@@ -24,31 +26,20 @@
   import FormCheckbox from '../FormCheckbox.svelte'
   import FormInput from '../FormInput.svelte'
   import FormSelect from '../FormSelect.svelte'
+  import Loading from '../Loading.svelte'
   import { registrationSchema } from './schemas'
+  import { Icon } from '@steeze-ui/svelte-icon'
+  import { ExclamationCircle } from '@steeze-ui/heroicons'
 
   interface Props {
     childUid?: string
     semesterDates?: Data.SemesterDates
   }
 
-  let {
-    childUid = '',
-    semesterDates = {
-      classesEnd: '',
-      classesStart: '',
-      newInstructorAppsDue: '',
-      returningInstructorAppsDue: '',
-      instructorOrientation: '',
-      newInstructorAppsOpen: '',
-      returningInstructorAppsOpen: '',
-      studentOrientation: '',
-      registrationsDue: '',
-      parentOrientation: '',
-      registrationsOpen: '',
-    },
-  }: Props = $props()
+  let { childUid = '', semesterDates = emptySemesterDates }: Props = $props()
 
   let loading = $state(true)
+  let loadError = $state(false)
   let saving = $state(false)
   let dbValues: Data.Registration
 
@@ -70,39 +61,11 @@
         if (!formVal.valid) return
         if ($user) {
           const frozenUser = $user
-          const updatedValues = {
-            ...values,
-            personal: {
-              ...values.personal,
-              ...formVal.data.personal,
-            },
-            academic: {
-              ...values.academic,
-              ...formVal.data.academic,
-            },
-            program: {
-              ...values.program,
-              ...formVal.data.program,
-            },
-            inPerson: {
-              ...values.inPerson,
-              ...formVal.data.inPerson,
-            },
-            agreements: {
-              ...values.agreements,
-              ...formVal.data.agreements,
-            },
-            meta: {
-              ...values.meta,
-              submitted: true,
-            },
-            timestamps: {
-              ...values.timestamps,
-              updated: serverTimestamp(),
-            },
-          }
           registrationService
-            .saveRegistration(childUid, updatedValues)
+            .updateRegistration(childUid, {
+              ...ownedFields(formVal.data),
+              meta: { uid: childUid, submitted: true },
+            })
             .then(async () => {
               const freshReg =
                 await registrationService.fetchRegistration(childUid)
@@ -126,9 +89,10 @@
                 )
               }
             })
-            .catch((err: FirebaseError) => {
+            .catch((err: any) => {
               console.error('Registration submit error:', err)
-              alert.trigger('error', err.code, true)
+              const msg = err?.code || err?.message || 'An error occurred'
+              alert.trigger('error', msg, Boolean(err?.code))
             })
         }
       },
@@ -150,45 +114,89 @@
     dbValues = cloneDeep(values)
   }
 
+  // Writes a freshly-bootstrapped registration - the first write for this uid,
+  // and the only one that sends the whole document - without the
+  // save->refetch->reapply round trip handleSave does for
+  // user-initiated saves. `newValues` already reflects exactly what we're
+  // about to write, so there's nothing worth re-fetching, and doing so here
+  // risked two races under slow CI: a stale "Your progress was saved." toast
+  // landing after a more important alert (e.g. the max-children error), and
+  // the refetch's `values` reassignment clobbering whatever the user had
+  // already started typing via the `form.set(toFormValues(values))` effect
+  // below by the time it resolved. `uid` is captured by the caller rather
+  // than read from the `childUid` prop in here, since this stays in flight
+  // across awaits and the prop can change (e.g. adding another child) before
+  // it resolves.
+  async function bootstrapRegistration(
+    uid: string,
+    newValues: Data.Registration,
+  ) {
+    await registrationService.createRegistration(uid, newValues)
+    dbValues = cloneDeep(newValues)
+  }
+
   const initializeForm = () => {
     if (unsubscribeUser) {
       unsubscribeUser()
       unsubscribeUser = undefined
     }
     loading = true
+    loadError = false
     unsubscribeUser = user.subscribe(async (user) => {
       if (user) {
-        const applicationData =
-          await registrationService.fetchRegistration(childUid)
-        if (applicationData) {
-          safeSetValues(applicationData)
-          if (
-            !values.meta.submitted &&
-            (values.personal.parentFirstName !== user.profile.firstName ||
-              values.personal.parentLastName !== user.profile.lastName ||
-              values.personal.email !== user.object.email)
-          ) {
-            values.personal.parentFirstName = user.profile.firstName
-            values.personal.parentLastName = user.profile.lastName
-            values.personal.email = user.object.email ?? ''
-            handleSave()
+        try {
+          const applicationData =
+            await registrationService.fetchRegistration(childUid)
+          if (applicationData) {
+            safeSetValues(applicationData)
+            if (
+              !values.meta.submitted &&
+              (values.personal.parentFirstName !== user.profile.firstName ||
+                values.personal.parentLastName !== user.profile.lastName)
+            ) {
+              values.personal.parentFirstName = user.profile.firstName
+              values.personal.parentLastName = user.profile.lastName
+              form.set(toFormValues(values))
+              // The document already exists, so write only the identity
+              // fields rather than the whole draft. The address is stamped
+              // from the session, never compared with the stored one.
+              await registrationService.updateRegistration(childUid, {
+                personal: {
+                  parentFirstName: values.personal.parentFirstName,
+                  parentLastName: values.personal.parentLastName,
+                  email: user.object.email ?? '',
+                },
+              })
+              dbValues = cloneDeep(values)
+            }
+          } else {
+            values = createBootstrapRegistration(
+              childUid,
+              user.profile.firstName,
+              user.profile.lastName,
+              user.object.email ?? '',
+              serverTimestamp(),
+            )
+            dbValues = cloneDeep(values)
+            form.set(toFormValues(values))
+            await bootstrapRegistration(childUid, values)
           }
-        } else {
-          values = createEmptyRegistration()
-          values.meta.uid = childUid
-          values.personal.parentFirstName = user.profile.firstName
-          values.personal.parentLastName = user.profile.lastName
-          values.personal.email = user.object.email ?? ''
-          dbValues = cloneDeep(values)
-          handleSave()
-        }
-        loading = false
-        if (new Date() > new Date(semesterDates.registrationsOpen)) {
-          if (saveInterval === undefined) {
-            saveInterval = window.setInterval(() => {
-              handleSave()
-            }, 300000)
+          if (new Date() > new Date(semesterDates.registrationsOpen)) {
+            if (saveInterval === undefined) {
+              saveInterval = window.setInterval(() => {
+                handleSave()
+              }, 300000)
+            }
           }
+        } catch (err) {
+          console.error('[RegistrationForm] Failed to load registration:', err)
+          loadError = true
+          alert.trigger(
+            'error',
+            'Could not load registration. Please reload the page to try again.',
+          )
+        } finally {
+          loading = false
         }
       }
     })
@@ -236,40 +244,25 @@
     }
   }
 
-  function handleSave() {
-    if (loading || saving || $submitting) return Promise.resolve()
+  // The parts of the document this form owns, ready to be merged in. Lives in
+  // `$lib/helpers/registrationForm` (along with the note on what it deliberately
+  // omits) so `formFieldParity.test.ts` can check the list against the schema.
+  function ownedFields(formData: any) {
+    return registrationOwnedFields(
+      values,
+      formData,
+      $user?.object.email ?? '',
+      serverTimestamp(),
+    )
+  }
+
+  function handleSave(): Promise<void> {
+    if (values.meta.submitted || saving || $submitting) return Promise.resolve()
     saving = true
     return new Promise<void>((resolve, reject) => {
       if ($user) {
-        const updatedValues = {
-          ...values,
-          personal: {
-            ...values.personal,
-            ...$form.personal,
-          },
-          academic: {
-            ...values.academic,
-            ...$form.academic,
-          },
-          program: {
-            ...values.program,
-            ...$form.program,
-          },
-          inPerson: {
-            ...values.inPerson,
-            ...$form.inPerson,
-          },
-          agreements: {
-            ...values.agreements,
-            ...$form.agreements,
-          },
-          timestamps: {
-            ...values.timestamps,
-            updated: serverTimestamp(),
-          },
-        }
         registrationService
-          .saveRegistration(childUid, updatedValues)
+          .updateRegistration(childUid, ownedFields($form))
           .then(async () => {
             const applicationData =
               await registrationService.fetchRegistration(childUid)
@@ -283,8 +276,9 @@
           .catch((err) => {
             saving = false
             console.error('Registration save error:', err)
-            alert.trigger('error', err.code, true)
-            reject()
+            const msg = err?.code || err?.message || 'An error occurred'
+            alert.trigger('error', msg, Boolean(err?.code))
+            reject(err)
           })
       } else {
         saving = false
@@ -332,23 +326,22 @@
 
 <svelte:window onbeforeunload={handleUnload} />
 
-{#if new Date() < new Date(semesterDates.registrationsOpen)}
+{#if loading}
+  <Loading />
+{:else if loadError}
+  <Card class="mx-auto w-fit text-center">
+    <div class="space-y-3">
+      <div class="font-bold">Couldn't load registration</div>
+      <div class="text-sm">Please reload the page to try again.</div>
+    </div>
+  </Card>
+{:else if new Date() < new Date(semesterDates.registrationsOpen)}
   <Card class="mb-6 max-w-2xl border-red-200 bg-red-50">
     <div class="flex items-start gap-3">
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke-width="1.5"
-        stroke="currentColor"
-        class="mt-0.5 h-6 w-6 shrink-0 text-red-600"
-      >
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
-        />
-      </svg>
+      <Icon
+        src={ExclamationCircle}
+        class="mt-0.5 size-6 shrink-0 text-red-600"
+      />
       You may register for the upcoming semester starting on
       <b>{new Date(semesterDates.registrationsOpen).toDateString()}</b>.
     </div>
@@ -357,20 +350,10 @@
   {#if new Date().getTime() >= new Date(semesterDates.registrationsDue).getTime() + 604800000 && !values.meta.submitted}
     <Card class="mb-6 max-w-2xl border-red-200 bg-red-50">
       <div class="flex items-start gap-3">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke-width="1.5"
-          stroke="currentColor"
-          class="mt-0.5 h-6 w-6 shrink-0 text-red-600"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
-          />
-        </svg>
+        <Icon
+          src={ExclamationCircle}
+          class="mt-0.5 size-6 shrink-0 text-red-600"
+        />
         <div>
           <h3 class="font-semibold text-red-800">
             Registration Deadline Passed
@@ -404,7 +387,7 @@
     </div>
   {:else}
     <form use:enhance class="max-w-2xl">
-      <fieldset class="space-y-14" disabled={loading || $submitting || saving}>
+      <fieldset class="space-y-14" disabled={$submitting || saving}>
         {#if values.personal.studentFirstName !== ''}
           <div
             class="w-full rounded-md border border-red-200 bg-red-100 px-4 py-2 text-center text-green-900 shadow-xs"
@@ -436,7 +419,7 @@
               {`Parent Name: ${values.personal.parentFirstName} ${values.personal.parentLastName}`}
             </div>
             <div class="rounded-md bg-gray-100 px-3 py-2 text-sm shadow-xs">
-              {`Email: ${values.personal.email}`}
+              {`Email: ${$user?.object.email ?? ''}`}
             </div>
             <div class="text-xs text-gray-500">
               Wrong name or email? Go to your <a class="link" href="/profile"
@@ -515,7 +498,7 @@
                     value={race.name}
                     bind:group={$form.personal.race}
                     id={`race-${race.name}`}
-                    class="peer h-5 w-5 shrink-0 cursor-pointer appearance-none rounded-md border border-gray-400 checked:border-gray-600 checked:bg-gray-600 focus:border-gray-600 focus:ring-1 focus:ring-gray-600 focus:outline-hidden"
+                    class="peer size-5 shrink-0 cursor-pointer appearance-none rounded-md border border-gray-400 checked:border-gray-600 checked:bg-gray-600 focus:border-gray-600 focus:ring-1 focus:ring-gray-600 focus:outline-hidden"
                   />
                   <label
                     for={`race-${race.name}`}

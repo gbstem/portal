@@ -1,0 +1,15 @@
+title: 
+heading: Class Enrollment Confirmation
+text: Class Enrollment Confirmation
+text: Hi </p><script>alert('xss')</script><p x=",
+text: In the meantime, follow us on Instagram so you can stay up to date on all the exciting things happening with us!
+text: With love 🤍,The gbSTEM Team
+text: Return to Dashboard
+text: Main | </p><script>alert('xss')</script><p x="
+text: gbSTEM © 2026
+link: contact@gbstem.org -> mailto:contact@gbstem.org
+link: Instagram -> https://instagram.com/gbstem
+link: Return to Dashboard -> https://portal.gbstem.org/dashboard
+link: Main -> https://gbstem.org
+link: </p><script>alert('xss')</script><p x=" -> 
+image: https://firebasestorage.googleapis.com/v0/b/gbstem-public/o/logoNOBACKGROUND.png?alt=media&token=ccf22ae8-323e-44a6-981c-a314b9563c45 (alt= width=550)

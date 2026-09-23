@@ -21,10 +21,7 @@
     if (user) {
       currentUser = user
       // Get all classes for this instructor using the DAL
-      const userClasses = await classService.fetchInstructorClasses(
-        user.object.uid,
-        user.object.email || '',
-      )
+      const userClasses = await classService.fetchInstructorClasses()
 
       let courses: string[] = []
       let totalRegHours = 0
@@ -69,7 +66,6 @@
       hours: numRegHours * 1.25 + numSubHours * 1.5,
       season: (isFall ? 'fall' : 'spring') as 'fall' | 'spring',
       course: course,
-      email: currentUser.object.email || '',
       year: year,
       presidents: 'Kendree Chen, Dea Pance, and Michael Bolgov',
     }

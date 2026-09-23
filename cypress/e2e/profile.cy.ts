@@ -1,4 +1,10 @@
-import { currentSemester } from '../../src/lib/data/collections'
+import {
+  classesCollection,
+  currentSemester,
+  decisionsCollection,
+  registrationsCollection,
+  substituteRequestsCollection,
+} from '../../src/lib/data/collections'
 import { generateDateHash } from '../support/utils'
 
 describe('Section F: Profile Customization & Account Management', () => {
@@ -8,6 +14,7 @@ describe('Section F: Profile Customization & Account Management', () => {
     const updatedEmail = `${emailPrefix}-new@gbstem.org`
     const initialPassword = 'password123'
     const newPassword = 'newpassword123'
+    const finalPassword = 'finalpassword123'
 
     // 1. Sign up a new user to prevent breaking demo seed accounts
     cy.loadSignupPage()
@@ -23,15 +30,15 @@ describe('Section F: Profile Customization & Account Management', () => {
     cy.fillInput('input[name="confirmPassword"]', initialPassword)
     cy.contains('button', 'Sign up').click()
 
-    // Handle verification dialog
-    cy.get('[role="dialog"]').contains('button', 'Go to dashboard').click()
+    // Handle email verification (emulated email side-channel)
+    cy.get('[role="dialog"]').contains('button', 'Close').click()
+    cy.get('[role="dialog"]').should('not.exist')
     cy.getLatestOobLink(initialEmail, 'VERIFY_EMAIL').then((link) => {
       cy.request(link)
     })
 
     // Visit profile
     cy.visit('/profile')
-    cy.wait(2000)
 
     // 2. Update Full Name
     cy.get('input[name="firstName"]').should('have.value', 'Profile')
@@ -48,7 +55,6 @@ describe('Section F: Profile Customization & Account Management', () => {
 
     // Verify persistence after reload
     cy.visit('/profile')
-    cy.wait(1000)
     cy.get('input[name="firstName"]').should('have.value', 'UpdatedFirst')
     cy.get('input[name="lastName"]').should('have.value', 'UpdatedLast')
 
@@ -68,7 +74,7 @@ describe('Section F: Profile Customization & Account Management', () => {
       })
     cy.waitForNotification('A verification email was sent.', 'bg-gray-200')
 
-    // Retrieve link and verify/confirm email change
+    // Handle email verification (emulated email side-channel)
     cy.getLatestOobLink(updatedEmail, 'VERIFY_AND_CHANGE_EMAIL').then(
       (link) => {
         cy.request(link)
@@ -77,8 +83,10 @@ describe('Section F: Profile Customization & Account Management', () => {
 
     // Reload and verify email field shows the updated email
     cy.visit('/profile')
-    cy.wait(2000)
-    cy.get('input[id="current-email"]').should('have.value', updatedEmail)
+    cy.get('input[id="current-email"]', { timeout: 8000 }).should(
+      'have.value',
+      updatedEmail,
+    )
 
     // 4. Change Password
     cy.fillInput('input[name="newPassword"]', newPassword)
@@ -92,19 +100,75 @@ describe('Section F: Profile Customization & Account Management', () => {
     cy.get('[role="dialog"]')
       .last()
       .within(() => {
-        cy.get('input[name="password"]').clear().type(initialPassword)
+        cy.get('input[name="password"]').clear()
+        cy.get('input[name="password"]').type(initialPassword)
         cy.contains('button', 'Reauthenticate').click()
       })
     cy.waitForNotification('Password was successfully changed.')
     cy.get('input[name="newPassword"]').should('have.value', '')
     cy.get('input[name="confirmPassword"]').should('have.value', '')
 
+    // The session has to survive the change. A password change revokes the
+    // `__session` cookie (Firebase bumps `tokensValidAfterTime`), so unless
+    // ChangePasswordForm replaced it, this server-rendered request is the one
+    // hooks.server.ts's `verifySessionCookie(..., checkRevoked)` rejects and
+    // redirects to /signin. Nothing asserted this before, which is why the
+    // same bug that failed admin's profile spec in about half its CI runs sat
+    // here unnoticed: every step after the password change was client-side,
+    // so a dead cookie never came up.
+    cy.visit('/profile')
+    cy.url().should('include', '/profile')
+    cy.get('input[id="current-email"]', { timeout: 8000 }).should(
+      'have.value',
+      updatedEmail,
+    )
+
+    // 4b. Change it a second time, reauthenticating with the password set
+    // above - which also proves the first change reached Firebase and not
+    // just the UI. Admin's equivalent spec covers the same two-change shape;
+    // this is the scenario that broke there.
+    //
+    // Honest caveat for whoever reads this next: these two steps do NOT
+    // currently fail if ChangePasswordForm's session resync regresses. Both
+    // were written against admin, where resyncing from a merely *refreshed*
+    // ID token reliably 500s on the second change (see that form's comment),
+    // and reverting this repo's fix was expected to reproduce it. It does
+    // not: with the fix reverted, this spec passed 7 runs out of 7, before
+    // and after the second change was added. So the assertions below pin the
+    // behaviour we want and would catch a session that is dropped outright,
+    // but the narrower revoked-token bug stays unproven here. Worth another
+    // look if portal ever starts bouncing people to /signin after a password
+    // change.
+    cy.fillInput('input[name="newPassword"]', finalPassword)
+    cy.fillInput('input[name="confirmPassword"]', finalPassword)
+    cy.get('input[name="confirmPassword"]')
+      .closest('.items-end')
+      .contains('button', 'Update')
+      .click()
+
+    cy.get('[role="dialog"]')
+      .last()
+      .within(() => {
+        cy.get('input[name="password"]').clear()
+        cy.get('input[name="password"]').type(newPassword)
+        cy.contains('button', 'Reauthenticate').click()
+      })
+    cy.waitForNotification('Password was successfully changed.')
+
+    cy.visit('/profile')
+    cy.url().should('include', '/profile')
+    cy.get('input[id="current-email"]', { timeout: 8000 }).should(
+      'have.value',
+      updatedEmail,
+    )
+
     // 5. Delete Account
     cy.contains('button', 'Delete account').click()
     cy.get('[role="dialog"]')
       .last()
       .within(() => {
-        cy.get('input[name="password"]').clear().type(newPassword)
+        cy.get('input[name="password"]').clear()
+        cy.get('input[name="password"]').type(finalPassword)
         cy.contains('button', 'Delete').click()
       })
     cy.url().should('include', '/signin', { timeout: 10000 })
@@ -127,13 +191,22 @@ describe('Section F: Profile Customization & Account Management', () => {
     cy.fillInput('input[name="password"]', password)
     cy.fillInput('input[name="confirmPassword"]', password)
     cy.contains('button', 'Sign up').click()
-    cy.get('[role="dialog"]').contains('button', 'Go to dashboard').click()
+
+    // Handle email verification (emulated email side-channel)
+    cy.get('[role="dialog"]').contains('button', 'Close').click()
+    cy.get('[role="dialog"]').should('not.exist')
     cy.getLatestOobLink(email, 'VERIFY_EMAIL').then((link) => {
       cy.request(link)
     })
 
     // Visiting /apply as an instructor auto-creates a draft application doc.
     cy.visit('/apply')
+    // Empirically needed: without this, /apply rendered the student-facing
+    // "Student Account Creation" form instead of the instructor "Apply" form
+    // (verified via a real test run screenshot), meaning the instructor role
+    // claim set at signup hadn't yet propagated to this session -- so no
+    // draft application doc got created, and the exists-check below failed.
+    // eslint-disable-next-line cypress/no-unnecessary-waiting
     cy.wait(2000)
 
     // getFirestoreUserId/checkFirestoreDocExists use the Admin SDK (cypress.config.ts task),
@@ -144,23 +217,246 @@ describe('Section F: Profile Customization & Account Management', () => {
       expect((uid as string).length).to.be.greaterThan(0)
 
       const applicationDocPath = `semesters/${currentSemester}/applications/${uid}`
+      // The app itself can never write a decision doc (only admin/reviewer
+      // can, per firestore.rules), so seed one directly to confirm account
+      // deletion removes it too, bypassing that same rule with the Admin SDK.
+      const decisionDocPath = `${decisionsCollection}/${uid}`
+      cy.task('mergeFirestoreDoc', {
+        docPath: decisionDocPath,
+        data: { type: 'accepted' },
+      })
 
-      // Confirm the application doc actually exists before deletion, so the "gone after
-      // deletion" check below can't be a false pass from it never having been created.
+      // Confirm both docs actually exist before deletion, so the "gone after
+      // deletion" checks below can't be a false pass from them never having
+      // been created.
       cy.task('checkFirestoreDocExists', applicationDocPath).should('eq', true)
+      cy.task('checkFirestoreDocExists', decisionDocPath).should('eq', true)
 
       cy.visit('/profile')
+      // eslint-disable-next-line cypress/no-unnecessary-waiting -- Wait for Svelte page and HMR to settle
       cy.wait(1000)
       cy.contains('button', 'Delete account').click()
       cy.get('[role="dialog"]')
         .last()
         .within(() => {
-          cy.get('input[name="password"]').clear().type(password)
+          cy.get('input[name="password"]').clear()
+          cy.get('input[name="password"]').type(password)
           cy.contains('button', 'Delete').click()
         })
       cy.url().should('include', '/signin', { timeout: 10000 })
 
       cy.task('checkFirestoreDocExists', applicationDocPath).should('eq', false)
+      cy.task('checkFirestoreDocExists', decisionDocPath).should('eq', false)
+    })
+  })
+
+  it('Test Case 14: Blocked From Deleting An Instructor Account That Owns A Class', () => {
+    const emailPrefix = generateDateHash('delete-blocked-owns-class')
+    const email = `${emailPrefix}@gbstem.org`
+    const password = 'password123'
+
+    cy.loadSignupPage()
+    cy.selectOption(
+      'input[name="role"]',
+      'High school/college student applying to be an instructor',
+      { timeout: 10000 },
+    )
+    cy.fillInput('input[name="firstName"]', 'Blocked')
+    cy.fillInput('input[name="lastName"]', 'Instructor')
+    cy.fillInput('input[name="email"]', email)
+    cy.fillInput('input[name="password"]', password)
+    cy.fillInput('input[name="confirmPassword"]', password)
+    cy.contains('button', 'Sign up').click()
+
+    cy.get('[role="dialog"]').contains('button', 'Close').click()
+    cy.get('[role="dialog"]').should('not.exist')
+    cy.getLatestOobLink(email, 'VERIFY_EMAIL').then((link) => {
+      cy.request(link)
+    })
+
+    cy.task('getFirestoreUserId', email).then((uid) => {
+      expect(uid).to.be.a('string')
+      cy.task('mergeFirestoreDoc', {
+        docPath: `${classesCollection}/blocked-instructor-class-${emailPrefix}`,
+        data: { instructorUid: uid, otherInstructorUids: [] },
+      })
+
+      cy.visit('/profile')
+      // eslint-disable-next-line cypress/no-unnecessary-waiting -- Wait for Svelte page and HMR to settle
+      cy.wait(1000)
+      cy.contains('button', 'Delete account').click()
+      cy.get('[role="dialog"]').last().should('contain', "Can't delete account")
+      cy.get('[role="dialog"]')
+        .last()
+        .should('contain', 'instructor of one or more classes')
+      cy.get('[role="dialog"]')
+        .last()
+        .find('input[type="password"]')
+        .should('not.exist')
+      cy.get('[role="dialog"]').last().contains('button', 'Close').click()
+      cy.get('[role="dialog"]').should('not.exist')
+
+      // The account was never touched.
+      cy.task('getFirestoreUserId', email).should('eq', uid)
+    })
+  })
+
+  it('Test Case 14b: Blocked From Deleting An Instructor Account With A Future Substitute Commitment', () => {
+    const emailPrefix = generateDateHash('delete-blocked-sub')
+    const email = `${emailPrefix}@gbstem.org`
+    const password = 'password123'
+
+    cy.loadSignupPage()
+    cy.selectOption(
+      'input[name="role"]',
+      'High school/college student applying to be an instructor',
+      { timeout: 10000 },
+    )
+    cy.fillInput('input[name="firstName"]', 'Blocked')
+    cy.fillInput('input[name="lastName"]', 'Substitute')
+    cy.fillInput('input[name="email"]', email)
+    cy.fillInput('input[name="password"]', password)
+    cy.fillInput('input[name="confirmPassword"]', password)
+    cy.contains('button', 'Sign up').click()
+
+    cy.get('[role="dialog"]').contains('button', 'Close').click()
+    cy.get('[role="dialog"]').should('not.exist')
+    cy.getLatestOobLink(email, 'VERIFY_EMAIL').then((link) => {
+      cy.request(link)
+    })
+
+    cy.task('getFirestoreUserId', email).then((uid) => {
+      expect(uid).to.be.a('string')
+      cy.task('mergeFirestoreDoc', {
+        docPath: `${substituteRequestsCollection}/blocked-sub-request-${emailPrefix}`,
+        data: {
+          subInstructorId: uid,
+          dateOfClass: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          subRequestStatus: 'SubstituteFound',
+        },
+      })
+
+      cy.visit('/profile')
+      // eslint-disable-next-line cypress/no-unnecessary-waiting -- Wait for Svelte page and HMR to settle
+      cy.wait(1000)
+      cy.contains('button', 'Delete account').click()
+      cy.get('[role="dialog"]').last().should('contain', "Can't delete account")
+      cy.get('[role="dialog"]')
+        .last()
+        .should('contain', 'volunteered to substitute')
+      cy.get('[role="dialog"]').last().contains('button', 'Close').click()
+      cy.get('[role="dialog"]').should('not.exist')
+
+      cy.task('getFirestoreUserId', email).should('eq', uid)
+    })
+  })
+
+  it('Test Case 15: Deleting A Student Account Removes Its Child Registrations', () => {
+    const emailPrefix = generateDateHash('delete-student')
+    const email = `${emailPrefix}@gbstem.org`
+    const password = 'password123'
+
+    cy.loadSignupPage()
+    cy.selectOption(
+      'input[name="role"]',
+      'Parent registering my child for classes',
+      { timeout: 10000 },
+    )
+    cy.fillInput('input[name="firstName"]', 'DeleteMe')
+    cy.fillInput('input[name="lastName"]', 'Parent')
+    cy.fillInput('input[name="email"]', email)
+    cy.fillInput('input[name="password"]', password)
+    cy.fillInput('input[name="confirmPassword"]', password)
+    cy.contains('button', 'Sign up').click()
+
+    cy.get('[role="dialog"]').contains('button', 'Close').click()
+    cy.get('[role="dialog"]').should('not.exist')
+    cy.getLatestOobLink(email, 'VERIFY_EMAIL').then((link) => {
+      cy.request(link)
+    })
+
+    cy.task('getFirestoreUserId', email).then((uid) => {
+      expect(uid).to.be.a('string')
+      const registrationDocPath = `${registrationsCollection}/${uid}-1`
+      cy.task('mergeFirestoreDoc', {
+        docPath: registrationDocPath,
+        data: {
+          personal: { studentFirstName: 'Kid', studentLastName: 'One' },
+          meta: { submitted: false },
+          enrolled: false,
+          classes: [],
+        },
+      })
+      cy.task('checkFirestoreDocExists', registrationDocPath).should('eq', true)
+
+      cy.visit('/profile')
+      // eslint-disable-next-line cypress/no-unnecessary-waiting -- Wait for Svelte page and HMR to settle
+      cy.wait(1000)
+      cy.contains('button', 'Delete account').click()
+      cy.get('[role="dialog"]')
+        .last()
+        .within(() => {
+          cy.get('input[name="password"]').clear()
+          cy.get('input[name="password"]').type(password)
+          cy.contains('button', 'Delete').click()
+        })
+      cy.url().should('include', '/signin', { timeout: 10000 })
+
+      cy.task('checkFirestoreDocExists', registrationDocPath).should(
+        'eq',
+        false,
+      )
+      cy.task('checkFirestoreDocExists', `users/${uid}`).should('eq', false)
+      cy.task('getFirestoreUserId', email).should('eq', null)
+    })
+  })
+
+  it('Test Case 15b: Blocked From Deleting A Student Account With An Enrolled Child', () => {
+    const emailPrefix = generateDateHash('delete-blocked-enrolled')
+    const email = `${emailPrefix}@gbstem.org`
+    const password = 'password123'
+
+    cy.loadSignupPage()
+    cy.selectOption(
+      'input[name="role"]',
+      'Parent registering my child for classes',
+      { timeout: 10000 },
+    )
+    cy.fillInput('input[name="firstName"]', 'Blocked')
+    cy.fillInput('input[name="lastName"]', 'Parent')
+    cy.fillInput('input[name="email"]', email)
+    cy.fillInput('input[name="password"]', password)
+    cy.fillInput('input[name="confirmPassword"]', password)
+    cy.contains('button', 'Sign up').click()
+
+    cy.get('[role="dialog"]').contains('button', 'Close').click()
+    cy.get('[role="dialog"]').should('not.exist')
+    cy.getLatestOobLink(email, 'VERIFY_EMAIL').then((link) => {
+      cy.request(link)
+    })
+
+    cy.task('getFirestoreUserId', email).then((uid) => {
+      expect(uid).to.be.a('string')
+      cy.task('mergeFirestoreDoc', {
+        docPath: `${registrationsCollection}/${uid}-1`,
+        data: {
+          personal: { studentFirstName: 'Kid', studentLastName: 'Two' },
+          meta: { submitted: true },
+          enrolled: true,
+          classes: ['some-class-id'],
+        },
+      })
+
+      cy.visit('/profile')
+      // eslint-disable-next-line cypress/no-unnecessary-waiting -- Wait for Svelte page and HMR to settle
+      cy.wait(1000)
+      cy.contains('button', 'Delete account').click()
+      cy.get('[role="dialog"]').last().should('contain', "Can't delete account")
+      cy.get('[role="dialog"]').last().should('contain', 'enrolled in a class')
+      cy.get('[role="dialog"]').last().contains('button', 'Close').click()
+      cy.get('[role="dialog"]').should('not.exist')
+
+      cy.task('getFirestoreUserId', email).should('eq', uid)
     })
   })
 })

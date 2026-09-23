@@ -15,12 +15,25 @@ declare namespace Cypress {
       text: string,
       options?: Partial<Cypress.Timeoutable>,
     ): Chainable<any>
+    waitForFormHydration(selector?: string): Chainable<any>
     parseCopiedEmails(clipboardText: string): Chainable<string[]>
     getLatestOobLink(
       email: string,
       requestType:
         'VERIFY_EMAIL' | 'PASSWORD_RESET' | 'VERIFY_AND_CHANGE_EMAIL',
     ): Chainable<string>
+    clearTestEmails(): Chainable<any>
+    verifyEmailSent(
+      email: string,
+      subjectSubstring: string,
+      expected?: {
+        to?: string[]
+        cc?: string[]
+        notCc?: string[]
+        from?: string
+        replyTo?: string
+      },
+    ): Chainable<any>
     waitForNotification(
       text: string,
       colorClass?: string,
@@ -39,5 +52,6 @@ declare namespace Cypress {
       docId: string,
       data: any,
     ): Chainable<any>
+    captureConfirms(answer?: boolean): Chainable<string[]>
   }
 }

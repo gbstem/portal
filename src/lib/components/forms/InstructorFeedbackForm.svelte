@@ -1,6 +1,8 @@
 <script lang="ts">
+  import { parseSubRequestDocId } from '$lib/data/docIds'
   import { user } from '$lib/client/firebase'
   import { classService } from '$lib/services/classService'
+  import { substituteService } from '$lib/services/substituteService'
   import { alert } from '$lib/stores'
   import { cn } from '$lib/utils'
   import { untrack } from 'svelte'
@@ -11,21 +13,20 @@
   import Card from '../Card.svelte'
   import FormCheckbox from '../FormCheckbox.svelte'
   import FormInput from '../FormInput.svelte'
-  import { ClassStatus } from '../helpers/ClassStatus'
+  import Loading from '../Loading.svelte'
 
   interface Props {
-    classBeingSubbed: Data.SubRequest | undefined
+    subRequest: Data.SubRequest | undefined
     sessionNumber: number
     classId?: string | undefined
   }
 
-  let { classBeingSubbed, sessionNumber, classId = undefined }: Props = $props()
+  let { subRequest, sessionNumber, classId = undefined }: Props = $props()
 
   let showValidation = false
   let currentUser: Data.User.Store
   let loading = $state(true)
-  let feedbackCompletedArray: boolean[] = []
-  let classStatusesArray: string[] = []
+  let loadError = $state(false)
 
   let classList: string[] = $state([])
 
@@ -46,9 +47,9 @@
         classNumber: untrack(() =>
           sessionNumber !== undefined
             ? sessionNumber
-            : classBeingSubbed === undefined
+            : subRequest === undefined
               ? 1
-              : classBeingSubbed.classNumber,
+              : subRequest.classNumber,
         ),
         feedback: '',
         attendanceList: {},
@@ -64,44 +65,36 @@
         if ($user) {
           const frozenUser = $user
           let id =
-            classBeingSubbed === undefined
+            subRequest === undefined
               ? classId || frozenUser.object.uid
-              : classBeingSubbed.id.split('---')[0]
-
-          const submissionValues = {
-            date: formVal.data.classDate,
-            feedback: formVal.data.feedback,
-            attendanceList: formVal.data.attendanceList,
-            courseName: classBeingSubbed?.course || '',
-            classNumber: formVal.data.classNumber,
-            instructorName:
-              classBeingSubbed === undefined
-                ? frozenUser.profile.firstName +
-                  ' ' +
-                  frozenUser.profile.lastName
-                : classBeingSubbed.subInstructorFirstName,
-          }
-
-          if (
-            formVal.data.classNumber - 1 < 0 ||
-            formVal.data.classNumber - 1 >= feedbackCompletedArray.length
-          ) {
-            alert.trigger('error', 'Invalid class number.')
-            return
-          }
-
-          feedbackCompletedArray[formVal.data.classNumber - 1] = true
-          classStatusesArray[formVal.data.classNumber - 1] =
-            ClassStatus.EverythingComplete
+              : (parseSubRequestDocId(subRequest.id)?.classId ?? '')
 
           try {
-            await classService.submitInstructorFeedback(
-              id,
-              submissionValues,
-              feedbackCompletedArray,
-              classStatusesArray,
-              classBeingSubbed?.id,
-            )
+            if (subRequest !== undefined) {
+              // A substitute's feedback goes through the server, which owns
+              // the writes to the class document that firestore.rules will
+              // not let them make from here, and derives the course and the
+              // session from the request rather than from this form.
+              await substituteService.submitSubstituteFeedback({
+                subRequestId: subRequest.id,
+                date: formVal.data.classDate,
+                feedback: formVal.data.feedback,
+                attendanceList: formVal.data.attendanceList,
+                classNumber: formVal.data.classNumber,
+              })
+            } else {
+              // The server checks the caller teaches this class, marks the
+              // session complete on the class as it stands when this saves,
+              // and fills in the course and the instructor's name itself -
+              // see /api/instructorFeedback.
+              await classService.submitInstructorFeedback({
+                classId: id,
+                date: formVal.data.classDate,
+                feedback: formVal.data.feedback,
+                attendanceList: formVal.data.attendanceList,
+                classNumber: formVal.data.classNumber,
+              })
+            }
             alert.trigger('success', 'Class Feedback saved!')
             setTimeout(() => location.reload(), 1000)
           } catch (error: any) {
@@ -132,24 +125,26 @@
           '[InstructorFeedbackForm] Error fetching initial data:',
           err,
         )
+        loadError = true
         alert.trigger('error', 'Failed to load class details.')
+      } finally {
+        loading = false
       }
-      loading = false
     }
   })
 
   async function getData() {
     let id =
-      classBeingSubbed === undefined
+      subRequest === undefined
         ? classId || currentUser.object.uid
-        : classBeingSubbed.id.split('---')[0]
+        : (parseSubRequestDocId(subRequest.id)?.classId ?? '')
     const data = await classService.fetchClassDetails(id)
     if (data) {
-      const { students, feedbackCompleted, classStatuses } = data
-      feedbackCompletedArray = feedbackCompleted
-      classStatusesArray = classStatuses
       try {
-        const list = await classService.fetchStudentNames(students)
+        const list = await classService.fetchStudentNamesForClass(
+          id,
+          subRequest?.id,
+        )
         classList = list
         const initialAttendance: Record<string, { present: boolean }> = {}
         classList.forEach((student: string) => {
@@ -165,61 +160,72 @@
 
 <Card class="sticky top-2 z-50 flex max-w-2xl flex-col gap-3 p-3 md:p-3">
   <hr class="mt-5 mb-3" />
-  <form class={cn(showValidation && 'show-validation')} use:enhance>
-    <fieldset disabled={$submitting || loading}>
-      <h2 class="mt-6 mb-4 text-lg font-bold">Class Information</h2>
-      <div class="grid gap-1 sm:grid-cols-2 sm:gap-2">
-        <div class="flex flex-col gap-1.5 sm:col-span-1">
+  {#if loading}
+    <div class="py-8">
+      <Loading />
+    </div>
+  {:else if loadError}
+    <div class="py-4 text-center text-sm text-red-600">
+      Failed to load class details. Please try again.
+    </div>
+  {:else}
+    <form class={cn(showValidation && 'show-validation')} use:enhance>
+      <fieldset disabled={$submitting}>
+        <h2 class="mt-6 mb-4 text-lg font-bold">Class Information</h2>
+        <div class="grid gap-1 sm:grid-cols-2 sm:gap-2">
+          <div class="flex flex-col gap-1.5 sm:col-span-1">
+            <FormInput
+              form={formResult}
+              name="classDate"
+              label="Date of Class"
+              type="date"
+              bind:value={$form.classDate}
+            />
+          </div>
+          <div class="flex flex-col gap-1.5 sm:col-span-1">
+            <FormInput
+              form={formResult}
+              name="classNumber"
+              label="Class Session Number"
+              type="number"
+              bind:value={$form.classNumber}
+            />
+          </div>
+        </div>
+
+        <div class="mt-4 flex flex-col gap-1.5">
           <FormInput
             form={formResult}
-            name="classDate"
-            label="Date of Class"
-            type="date"
-            bind:value={$form.classDate}
+            name="feedback"
+            label="Reflect on how the class went. What went well? What could be improved? This will be shared with your course curriculum developer and track directors."
+            bind:value={$form.feedback}
           />
         </div>
-        <div class="flex flex-col gap-1.5 sm:col-span-1">
-          <FormInput
-            form={formResult}
-            name="classNumber"
-            label="Class Session Number"
-            type="number"
-            bind:value={$form.classNumber}
-          />
+
+        <hr class="mt-5 mb-3" />
+
+        <h2 class="mb-2 text-lg font-bold">Class Attendance</h2>
+        <div class="mt-2 space-y-2">
+          {#each classList as student, i (i)}
+            {#if $form.attendanceList[student]}
+              <div class="flex flex-col gap-1.5">
+                <FormCheckbox
+                  form={formResult}
+                  name={`attendanceList.${student}.present`}
+                  label={student}
+                  bind:checked={$form.attendanceList[student].present}
+                />
+              </div>
+            {/if}
+          {/each}
         </div>
-      </div>
 
-      <div class="mt-4 flex flex-col gap-1.5">
-        <FormInput
-          form={formResult}
-          name="feedback"
-          label="Reflect on how the class went. What went well? What could be improved? This will be shared with your course curriculum developer and track directors."
-          bind:value={$form.feedback}
-        />
-      </div>
-
-      <hr class="mt-5 mb-3" />
-
-      <h2 class="mb-2 text-lg font-bold">Class Attendance</h2>
-      <div class="mt-2 space-y-2">
-        {#each classList as student, i (i)}
-          {#if $form.attendanceList[student]}
-            <div class="flex flex-col gap-1.5">
-              <FormCheckbox
-                form={formResult}
-                name={`attendanceList.${student}.present`}
-                label={student}
-                bind:checked={$form.attendanceList[student].present}
-              />
-            </div>
-          {/if}
-        {/each}
-      </div>
-
-      <div class="justify m-3 mt-5 flex">
-        <Button color="blue" type="submit" disabled={$submitting}>Submit</Button
-        >
-      </div>
-    </fieldset>
-  </form>
+        <div class="justify m-3 mt-5 flex">
+          <Button color="blue" type="submit" disabled={$submitting}
+            >Submit</Button
+          >
+        </div>
+      </fieldset>
+    </form>
+  {/if}
 </Card>

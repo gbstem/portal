@@ -1,7 +1,6 @@
-import { communityServiceEmailTemplate } from '$lib/data/emailTemplates/communityServiceEmailTemplate'
 import { verifyAuthenticated, handleApiError } from '$lib/server/apiHelpers'
 import { sendEmail } from '$lib/server/email'
-import { addDataToHtmlTemplate } from '$lib/utils'
+import { renderEmail } from '$lib/emails/render'
 import { json } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 
@@ -12,15 +11,13 @@ export interface CommunityServiceRequestBody {
   year: number | string
   course: string
   presidents: string
-  email: string
 }
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   try {
-    verifyAuthenticated(locals)
+    const user = verifyAuthenticated(locals)
     const body = (await request.json()) as CommunityServiceRequestBody
     const firstName = body.firstName
-    const email = body.email
 
     const template = {
       name: 'communityServiceEmail',
@@ -39,14 +36,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       },
     }
 
-    const htmlBody = addDataToHtmlTemplate(
-      communityServiceEmailTemplate,
-      template,
-    )
+    const htmlBody = renderEmail('communityServiceEmailTemplate', template.data)
 
     try {
       await sendEmail({
-        to: email,
+        to: user.email,
         subject: String(template.data.subject),
         html: htmlBody,
       })

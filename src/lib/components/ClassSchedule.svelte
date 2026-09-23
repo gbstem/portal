@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { parseClassDocId } from '$lib/data/docIds'
   import { user } from '$lib/client/firebase'
   import Button from '$lib/components/Button.svelte'
   import Dialog from '$lib/components/Dialog.svelte'
@@ -8,6 +9,8 @@
     computeUpdatedClassStatuses,
     findNextClassDateIndex,
   } from '$lib/helpers/classSchedule'
+  import { curriculumLink } from '$lib/helpers/curriculumLink'
+  import type { RosterStudent } from '$lib/services/classService'
   import { classService } from '$lib/services/classService'
   import { alert } from '$lib/stores'
   import {
@@ -26,9 +29,17 @@
   import ClassDetailsForm from './forms/ClassDetailsForm.svelte'
   import InstructorFeedbackForm from './forms/InstructorFeedbackForm.svelte'
   import { ClassStatus } from './helpers/ClassStatus'
-  import { generateCurriculumLink } from './helpers/curriculumLink'
   import sendClassReminder from './helpers/sendClassReminder'
-  import type Student from './types/Student'
+  import { Icon } from '@steeze-ui/svelte-icon'
+  import {
+    Check,
+    Clock,
+    DocumentDuplicate,
+    Envelope,
+    Plus,
+    XMark,
+  } from '@steeze-ui/heroicons'
+  import CircleIcon from '$lib/components/icons/CircleIcon.svelte'
 
   interface Props {
     semesterDates: Data.SemesterDates
@@ -45,13 +56,17 @@
     feedbackCompleted: [],
     instructorFirstName: '',
     instructorLastName: '',
-    instructorEmail: '',
-    otherInstructorEmails: '',
+    instructorUid: '',
+    otherInstructorUids: [],
     course: '',
     meetingLink: '',
     meetingTimes: [],
     completedClassDates: [],
   })
+
+  // null when this class's course has no page on the curriculum site, which
+  // hides the button rather than opening a URL that would 404.
+  const courseCurriculumLink = $derived(curriculumLink(values.course))
 
   // index of the next class date from the list of meeting times
   let nextClassIndex = $state(-1)
@@ -65,7 +80,7 @@
   let showStudentListDialog = $state(false)
   let showSubRequestDialog = $state(false)
   let emailHtmlContent = $state('')
-  let studentList: Student[] = $state([])
+  let studentList: RosterStudent[] = $state([])
   let addingClass = $state(false)
 
   let classToBeAdded = $state('')
@@ -74,12 +89,12 @@
   let subRequestNotes: string = $state('')
 
   /**
-   * Iterates through each student UID to get student info
-   * @param studentUids
+   * Fetches student roster for the active class via the backend API.
+   * @param targetClassId
    */
-  const getStudentList = async (studentUids: string[]) => {
+  const getStudentList = async (targetClassId: string) => {
     try {
-      const fetchedStudents = await classService.fetchStudentList(studentUids)
+      const fetchedStudents = await classService.fetchClassRoster(targetClassId)
       studentList = fetchedStudents
     } catch (err) {
       console.error('Failed to load student list:', err)
@@ -219,8 +234,11 @@
         subRequestDate,
         subRequestNotes,
         values.course,
-        values.instructorEmail,
         values.meetingLink,
+        values.instructorUid,
+        // Whoever is signed in, which for a co-taught class need not be the
+        // instructor the class document names.
+        $user?.object.uid,
       )
       .then(() => {
         alert.trigger('success', 'Sub request sent!')
@@ -228,8 +246,16 @@
           location.reload()
         }, 1000)
       })
-      .catch(() => {
-        alert.trigger('error', 'Failed to send sub request, please try again.')
+      .catch((err) => {
+        // A session's request is a single document, so filing again for a
+        // session that already has one is refused rather than overwriting it
+        // - and whoever may already be covering it.
+        alert.trigger(
+          'error',
+          err?.code === 'permission-denied'
+            ? "That session already has a sub request, so it wasn't filed again."
+            : 'Failed to send sub request, please try again.',
+        )
       })
   }
 
@@ -239,10 +265,10 @@
     values = instructorClasses[newClassId]
     studentList = [] // Reset student list
 
-    let { students, meetingTimes } = values
-    if (students) {
-      getStudentList(students)
+    if (newClassId) {
+      getStudentList(newClassId)
     }
+    let { meetingTimes } = values
     if (values && meetingTimes) {
       meetingTimes.sort((a, b) => {
         return a.getTime() - b.getTime()
@@ -260,10 +286,7 @@
     return user.subscribe(async (user) => {
       if (user) {
         // Get all classes for this instructor using the DAL
-        const userClasses = await classService.fetchInstructorClasses(
-          user.object.uid,
-          user.object.email || '',
-        )
+        const userClasses = await classService.fetchInstructorClasses()
 
         // Convert to ClassDetails format and add id field
         const classDetails: { [classId: string]: Data.ClassDetails } = {}
@@ -275,8 +298,8 @@
             feedbackCompleted: classData.feedbackCompleted,
             instructorFirstName: classData.instructorFirstName,
             instructorLastName: classData.instructorLastName,
-            instructorEmail: classData.instructorEmail,
-            otherInstructorEmails: classData.otherInstructorEmails,
+            instructorUid: classData.instructorUid,
+            otherInstructorUids: classData.otherInstructorUids,
             course: classData.course,
             meetingLink: classData.meetingLink,
             meetingTimes: classData.meetingTimes,
@@ -312,26 +335,7 @@
           onclick={() => copyToClipboard(emailHtmlContent)}
           class="flex items-center gap-1"
         >
-          <svg
-            fill="#000000"
-            height="20"
-            width="20"
-            version="1.1"
-            id="Capa_1"
-            xmlns="http://www.w3.org/2000/svg"
-            xmlns:xlink="http://www.w3.org/1999/xlink"
-            viewBox="0 0 352.804 352.804"
-            xml:space="preserve"
-          >
-            <g>
-              <path
-                d="M318.54,57.282h-47.652V15c0-8.284-6.716-15-15-15H34.264c-8.284,0-15,6.716-15,15v265.522c0,8.284,6.716,15,15,15h47.651
-         v42.281c0,8.284,6.716,15,15,15H318.54c8.284,0,15-6.716,15-15V72.282C333.54,63.998,326.824,57.282,318.54,57.282z
-          M49.264,265.522V30h191.623v27.282H96.916c-8.284,0-15,6.716-15,15v193.24H49.264z M303.54,322.804H111.916V87.282H303.54V322.804
-         z"
-              />
-            </g>
-          </svg>
+          <Icon src={DocumentDuplicate} class="size-5 text-black" />
           <span>Copy</span>
         </Button>
       </div>
@@ -361,7 +365,7 @@
   {#snippet description()}
     <div>
       <InstructorFeedbackForm
-        classBeingSubbed={undefined}
+        subRequest={undefined}
         sessionNumber={nextClassIndex + 1}
         {classId}
       />
@@ -398,26 +402,7 @@
               )}
             class="flex items-center justify-end gap-1"
           >
-            <svg
-              fill="#000000"
-              height="20"
-              width="20"
-              version="1.1"
-              id="Capa_1"
-              xmlns="http://www.w3.org/2000/svg"
-              xmlns:xlink="http://www.w3.org/1999/xlink"
-              viewBox="0 0 352.804 352.804"
-              xml:space="preserve"
-            >
-              <g>
-                <path
-                  d="M318.54,57.282h-47.652V15c0-8.284-6.716-15-15-15H34.264c-8.284,0-15,6.716-15,15v265.522c0,8.284,6.716,15,15,15h47.651
-       v42.281c0,8.284,6.716,15,15,15H318.54c8.284,0,15-6.716,15-15V72.282C333.54,63.998,326.824,57.282,318.54,57.282z
-        M49.264,265.522V30h191.623v27.282H96.916c-8.284,0-15,6.716-15,15v193.24H49.264z M303.54,322.804H111.916V87.282H303.54V322.804
-       z"
-                />
-              </g>
-            </svg>
+            <Icon src={DocumentDuplicate} class="size-5 text-black" />
             <span>Copy</span>
           </Button>
         </div>
@@ -455,7 +440,7 @@
               </tr>
             </thead>
             <tbody>
-              {#each studentList as student (student.email)}
+              {#each studentList as student (student.uid)}
                 <tr style="border-bottom: 1px solid #ccc;">
                   <td style="padding: 8px;"
                     >{normalizeCapitals(student.name)}</td
@@ -470,15 +455,9 @@
                       color="blue"
                       onclick={() =>
                         sendClassReminder({
-                          studentList,
+                          classId,
+                          studentUid: student.uid,
                           studentName: normalizeCapitals(student.name),
-                          studentEmail: student.email,
-                          instructorName:
-                            values.instructorFirstName +
-                            ' ' +
-                            values.instructorLastName,
-                          otherInstructorEmails: values.otherInstructorEmails,
-                          className: values.course,
                           nextMeetingTime:
                             nextClassIndex === -1
                               ? 'No Upcoming Classes'
@@ -487,21 +466,7 @@
                                 formatDateString(
                                   editedMeetingTimes[nextClassIndex],
                                 ),
-                        })}
-                      ><svg
-                        width="16px"
-                        height="16px"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        ><path
-                          d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
-                        ></path><polyline points="22,6 12,13 2,6"
-                        ></polyline></svg
-                      ></Button
+                        })}><Icon src={Envelope} class="size-4" /></Button
                     ></td
                   >
                 </tr>
@@ -522,7 +487,7 @@
             color={selectedClassId === classId ? 'blue' : 'gray'}
             onclick={() => selectClass(classId)}
           >
-            Class {classId.split('-')[1]}
+            Class {parseClassDocId(classId)?.classNumber}
             {#if instructorClasses[classId]?.course}
               - {instructorClasses[classId].course}
             {/if}
@@ -543,12 +508,13 @@
             formatDateString(editedMeetingTimes[nextClassIndex])}
       </div>
       <div class="mt-4 flex flex-wrap gap-2">
-        <Button
-          color="blue"
-          onclick={() =>
-            window.open(`${generateCurriculumLink(values.course)}`, '_blank')}
-          >Curriculum</Button
-        >
+        {#if courseCurriculumLink}
+          <Button
+            color="blue"
+            onclick={() => window.open(courseCurriculumLink, '_blank')}
+            >Curriculum</Button
+          >
+        {/if}
         <Button
           color="blue"
           onclick={() => {
@@ -559,10 +525,7 @@
           color="blue"
           onclick={() =>
             sendClassReminder({
-              studentList,
-              instructorName: values.instructorFirstName,
-              otherInstructorEmails: values.otherInstructorEmails,
-              className: values.course,
+              classId,
               nextMeetingTime:
                 nextClassIndex === -1
                   ? 'No Upcoming Classes'
@@ -649,99 +612,35 @@
             <span
               class="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-1 text-xs font-semibold text-red-700"
             >
-              <svg
-                class="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                ><path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M6 18L18 6M6 6l12 12"
-                /></svg
-              >
+              <Icon src={XMark} class="size-4" />
               Not Held
             </span>
           {:else if values.classStatuses[classNumber] === ClassStatus.FeedbackIncomplete}
             <span
               class="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-1 text-xs font-semibold text-yellow-800"
             >
-              <svg
-                class="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                ><path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M12 8v4l3 3"
-                /></svg
-              >
+              <Icon src={Clock} class="size-4" />
               Feedback Needed
             </span>
           {:else if values.classStatuses[classNumber] === ClassStatus.ClassUpcomingSoon}
             <span
               class="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-1 text-xs font-semibold text-blue-800"
             >
-              <svg
-                class="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                ><circle
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  fill="none"
-                /><path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M12 6v6l4 2"
-                /></svg
-              >
+              <Icon src={Clock} class="size-4" />
               Upcoming
             </span>
           {:else if values.classStatuses[classNumber] === ClassStatus.EverythingComplete}
             <span
               class="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-800"
             >
-              <svg
-                class="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                ><path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M5 13l4 4L19 7"
-                /></svg
-              >
+              <Icon src={Check} class="size-4" />
               Complete
             </span>
           {:else}
             <span
               class="inline-flex items-center gap-1 rounded-full bg-gray-200 px-2 py-1 text-xs font-semibold text-gray-700"
             >
-              <svg
-                class="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                ><circle
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  fill="none"
-                /></svg
-              >
+              <CircleIcon class="size-4" />
               Scheduled
             </span>
           {/if}
@@ -767,18 +666,7 @@
                 editedMeetingTimes = editedMeetingTimes.slice()
               }}
             >
-              <svg
-                class="mr-1 h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                ><path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M6 18L18 6M6 6l12 12"
-                /></svg
-              >
+              <Icon src={XMark} class="mr-1 size-4" />
               Delete
             </Button>
           {:else}
@@ -792,18 +680,7 @@
                   showSubRequestDialog = true
                 }}
               >
-                <svg
-                  class="mr-1 h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  ><path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M12 4v16m8-8H4"
-                  /></svg
-                >
+                <Icon src={Plus} class="mr-1 size-4" />
                 Request Sub
               </Button>
             {/if}

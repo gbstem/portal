@@ -105,7 +105,8 @@ export const registrationSchema = z.object({
   personal: z.object({
     studentFirstName: z.string().min(1, 'First name is required'),
     studentLastName: z.string().min(1, 'Last name is required'),
-    email: z.string().email('Invalid email address'),
+    // No `email`: the parent account's address is stamped by
+    // registrationOwnedFields from the session, never taken from the form.
     secondaryEmail: z.string().optional().default(''),
     phoneNumber: z
       .string()
@@ -148,20 +149,50 @@ export const registrationSchema = z.object({
   }),
 })
 
-export const otherInstructorEmailsSchema = z
-  .string()
-  .optional()
-  .default('')
-  .refine(
-    (val) => {
-      if (!val) return true
-      const parts = val.split(/[ ,]+/).filter((p) => p.length > 0)
-      return parts.every((p) => z.string().email().safeParse(p).success)
-    },
-    {
-      message: 'Please enter valid, comma-separated email addresses',
-    },
-  )
+/**
+ * The co-instructors on a class, stored as uids.
+ *
+ * This used to be a free-text comma-separated email string the class owner
+ * typed by hand, which meant any address at all could be given write access
+ * to the class document. gbSTEM leadership's rule is that nobody teaches a
+ * class they were not interviewed and accepted for, so co-instructors are now
+ * added one at a time through /api/lookupCoInstructor, which resolves an
+ * address to a uid only when it belongs to an accepted instructor. By the
+ * time a uid reaches this schema it has already been vouched for; there is
+ * nothing left for the client to validate beyond the shape.
+ */
+export const otherInstructorUidsSchema = z.array(z.string()).default([])
+
+/**
+ * The instructor's per-submission acknowledgement on ClassDetailsForm.
+ *
+ * `.refine` rather than a plain boolean because this has to *block* the save:
+ * it was previously a field named `submitting` that was written to the class
+ * document, read by nothing, and required by nothing, so the warning it
+ * carried was decorative. Submitting publishes the class for registration, so
+ * the instructor has to say so every time - which is also why it is validated
+ * but never stored: a persisted `true` would come back ticked and the gate
+ * would only ever bite once.
+ */
+export const confirmationSchema = z
+  .boolean()
+  .default(false)
+  .refine((val) => val === true, {
+    message: 'Please confirm you understand the impact of this form submission',
+  })
+
+/**
+ * What ClassDetailsForm validates: `classSchema` plus the two fields only the
+ * portal's instructor-facing form collects.
+ *
+ * Derived from `classSchema` with `.extend()` rather than spelled out again, so
+ * the two can't drift - this used to be a hand-copied duplicate living inside
+ * the component, where `formFieldParity.test.ts` couldn't reach it.
+ */
+export const classDetailsFormSchema = classSchema.extend({
+  otherInstructorUids: otherInstructorUidsSchema,
+  confirmation: confirmationSchema,
+})
 
 export const PASSWORD_MIN_LENGTH = 6
 export const PASSWORD_MAX_LENGTH = 64
@@ -181,29 +212,17 @@ export const interviewSlotSchema = z.object({
   date: z.string().min(1, 'Date and time is required'),
   meetingLink: z.string().min(1, 'Meeting link is required'),
   interviewerName: z.string().min(1, 'Interviewer name is required'),
-  interviewerEmail: z.string().email('Invalid interviewer email address'),
+  // Kept in parity with admin's copy of this schema, which owns writing
+  // interview slots - portal never creates or edits one itself. Both people
+  // are named by uid alone; a slot stores no address.
+  interviewerUid: z.string().optional().default(''),
   intervieweeFirstName: z.string().optional().default(''),
   intervieweeLastName: z.string().optional().default(''),
-  intervieweeEmail: z.string().optional().default(''),
   intervieweeId: z.string().optional().default(''),
   interviewSlotStatus: z
     .enum(['available', 'pending', 'confirmed', 'completed', 'canceled'])
     .default('available'),
 })
-
-export function getClassDetailsFormDefaults() {
-  return {
-    course: '',
-    gradeRecommendation: '',
-    classCap: 15,
-    meetingLink: '',
-    classDay1: 'Monday' as const,
-    classTime1: '',
-    classDay2: '',
-    classTime2: '',
-    online: true,
-  }
-}
 
 export function getApplyFormDefaults() {
   return {
@@ -244,7 +263,6 @@ export function getRegistrationFormDefaults() {
     personal: {
       studentFirstName: '',
       studentLastName: '',
-      email: '',
       secondaryEmail: '',
       phoneNumber: '',
       dateOfBirth: '',
@@ -281,16 +299,15 @@ export function getRegistrationFormDefaults() {
 
 export function getInterviewSlotDefaults(
   interviewerName = '',
-  interviewerEmail = '',
+  interviewerUid = '',
 ) {
   return {
     id: '',
     date: '',
     interviewerName,
-    interviewerEmail,
+    interviewerUid,
     intervieweeFirstName: '',
     intervieweeLastName: '',
-    intervieweeEmail: '',
     intervieweeId: '',
     meetingLink: '',
     interviewSlotStatus: 'available' as const,
@@ -303,8 +320,6 @@ export function getClassDataDefaults() {
     course: '',
     instructorFirstName: '',
     instructorLastName: '',
-    instructorEmail: '',
-    otherInstructorEmails: '',
     classDay1: '',
     classTime1: '',
     classDay2: '',

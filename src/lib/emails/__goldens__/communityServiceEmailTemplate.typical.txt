@@ -1,0 +1,11 @@
+title: 
+heading: Community Service Hours Confirmation for Ada
+text: Community Service Hours Confirmation for Ada
+text: Hi Ada,
+text: Warmly,Grace Hopper and Alan Turing
+text: Presidents, The Greater Boston STEM Program
+text: Main | Portal
+text: gbSTEM © 2026
+link: Main -> https://gbstem.org
+link: Portal -> https://portal.gbstem.org
+image: https://firebasestorage.googleapis.com/v0/b/gbstem-public/o/logoNOBACKGROUND.png?alt=media&token=ccf22ae8-323e-44a6-981c-a314b9563c45 (alt= width=550)

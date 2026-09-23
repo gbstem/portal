@@ -1,8 +1,13 @@
 <script lang="ts">
   import { user } from '$lib/client/firebase'
-  import { interviewService } from '$lib/services/interviewService'
+  import {
+    interviewService,
+    type BookedInterviewDetails,
+    type InterviewSlotOption,
+  } from '$lib/services/interviewService'
   import { alert } from '$lib/stores'
-  import { cn } from '$lib/utils'
+  import { validateRequestedInterviewTime } from '$lib/helpers/interviewForm'
+  import { cn, toLocalISOString } from '$lib/utils'
   import { dev } from '$app/environment'
   import { onMount } from 'svelte'
   import Link from '../Link.svelte'
@@ -20,11 +25,10 @@
   let { semesterDates }: Props = $props()
 
   let showValidation = false
-  let valuesJson: Data.InterviewSlot[] = []
-  let scheduledInterview: Data.InterviewSlot | undefined = $state()
+  let scheduledInterview: BookedInterviewDetails | undefined = $state()
   let currentUser: Data.User.Store
   let scheduled = $state(false)
-  let data: Data.InterviewSlot[] = $state([])
+  let data: InterviewSlotOption[] = $state([])
   let loading = $state(true)
   let showRequestNewTime = $state(false)
 
@@ -43,27 +47,14 @@
       validators: zod(bookingSchema as any) as any,
       async onUpdate({ form: formVal }: { form: any }) {
         if (!formVal.valid) return
-        const slot = valuesJson.find((s) => s.id === formVal.data.slotId)
-        if (!slot) return
 
         try {
-          // Confirm the slot is still available (guards against a race with another applicant)
-          const isAvailable = await interviewService.confirmSlotAvailable(
-            slot.id,
+          // Booked in a transaction server-side, so a slot another applicant
+          // has just taken is refused with a message rather than double-booked.
+          scheduledInterview = await interviewService.bookInterviewSlot(
+            formVal.data.slotId,
           )
-          if (!isAvailable) {
-            alert.trigger(
-              'error',
-              'The interview slot you selected is no longer available. Please select another slot.',
-            )
-            return
-          }
-
-          slot.interviewSlotStatus = 'pending'
-          scheduledInterview = slot
           scheduled = true
-
-          await interviewService.bookInterviewSlot(slot, currentUser)
           window.scrollTo({
             top: 0,
             behavior: 'smooth',
@@ -75,32 +66,43 @@
         } catch (err: any) {
           console.error('[InterviewForm] Booking error:', err)
           alert.trigger('error', err.message || 'Failed to book interview')
+          // Whatever was refused, the list on screen may be out of date.
+          data = await getData()
         }
       },
     },
   )
 
+  // Earliest time the picker will offer, and the `min` attribute on the input.
+  // Computed once at mount: this form is opened, used, and dismissed in one
+  // sitting, so it doesn't need to track the clock.
+  const earliestRequestableTime = toLocalISOString(new Date())
+
+  // Deliberately empty rather than pre-filled. A pre-filled datetime invites
+  // submitting it unread, and this field used to default to a hardcoded
+  // '2024-09-20T12:00' -- which passed validation (the only date guard was an
+  // upper bound), so a candidate who clicked straight through filed a request
+  // for a date two years past. Interviewers never saw it: the admin request
+  // list only renders requests that are upcoming or less than 30 days old.
   const requestFormResult = superForm(
-    defaults(
-      { dateToAdd: '2024-09-20T12:00' },
-      zod(requestSchema as any) as any,
-    ) as any,
+    defaults({ dateToAdd: '' }, zod(requestSchema as any) as any) as any,
     {
       SPA: true,
       validators: zod(requestSchema as any) as any,
       async onUpdate({ form: formVal }: { form: any }) {
         if (!formVal.valid) return
         const dateToAdd = formVal.data.dateToAdd
-        if (
-          !dev &&
-          new Date(dateToAdd) > new Date(semesterDates.instructorOrientation)
-        ) {
-          alert.trigger(
-            'error',
-            'Instructor interviews close on ' +
-              semesterDates.instructorOrientation +
-              '. Please pick a time before then.',
-          )
+        // `min` on the input is a convenience, not a control -- it is trivially
+        // bypassed, so this is the real check. Skipped wholesale in dev, as the
+        // deadline check always has been: fixture dates go stale.
+        const invalidReason = dev
+          ? null
+          : validateRequestedInterviewTime(
+              dateToAdd,
+              semesterDates.instructorOrientation,
+            )
+        if (invalidReason) {
+          alert.trigger('error', invalidReason)
           return
         }
 
@@ -151,16 +153,12 @@
   })
 
   async function getData() {
-    const result = await interviewService.fetchInterviewData(
-      currentUser.object.uid,
-      semesterDates,
-    )
+    const result = await interviewService.fetchInterviewData()
     if (result.scheduledInterview) {
       scheduledInterview = result.scheduledInterview
       scheduled = true
     }
-    valuesJson = result.availableSlots
-    return valuesJson
+    return result.availableSlots
   }
 </script>
 
@@ -207,7 +205,7 @@
                       type="radio"
                       bind:group={$bookingForm.slotId}
                       value={val.id}
-                      class="h-4 w-4"
+                      class="size-4"
                     />
                     {val.date} ({val.interviewerName})
                   </label>
@@ -233,6 +231,7 @@
                 name="dateToAdd"
                 label="Set Date (your local time)"
                 type="datetime-local"
+                min={earliestRequestableTime}
                 bind:value={$requestForm.dateToAdd}
               />
             </div>
