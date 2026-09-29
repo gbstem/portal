@@ -1,6 +1,5 @@
 import type {} from '../../data.d.ts'
 import { cloneDeep } from 'lodash-es'
-import type { RegistrationRequestBody } from '../../routes/api/registration/+server'
 import { getRegistrationFormDefaults } from '../components/forms/schemas'
 import type { RegistrationUpdate } from '../services/registrationService'
 
@@ -170,23 +169,6 @@ export function toRegistrationFormValues(v: Data.Registration) {
           ? v.agreements.submitting
           : false,
     },
-  }
-}
-
-/**
- * Constructs request payload for /api/registration endpoint.
- */
-export function buildRegistrationApiPayload(
-  userFirstName: string,
-  studentFirstName: string,
-  parentOrientationDate: string,
-  secondaryEmail: string,
-): RegistrationRequestBody {
-  return {
-    firstName: userFirstName,
-    studentName: studentFirstName,
-    parentOrientationDate,
-    secondaryEmail,
   }
 }
 

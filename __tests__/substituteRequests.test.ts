@@ -270,6 +270,66 @@ describe('claimSubRequest', () => {
     expect(transaction.update).not.toHaveBeenCalled()
   })
 
+  // The forgery this check exists for: any signed-in account names the real
+  // owner as requester and itself as instructor of record, which the rules
+  // allow because one of the two is the creator.
+  test('refuses a request naming a stranger as instructor of record', async () => {
+    storeRequest({
+      requestedByUid: 'owner-uid',
+      originalInstructorUid: 'stranger-uid',
+    })
+    storeClass()
+
+    await expect(claimSubRequest(SUB, REQUEST_ID)).rejects.toMatchObject({
+      status: 400,
+    })
+    expect(transaction.update).not.toHaveBeenCalled()
+  })
+
+  test('refuses a request naming a co-instructor as instructor of record', async () => {
+    storeRequest({
+      requestedByUid: 'co-uid',
+      originalInstructorUid: 'co-uid',
+    })
+    storeClass()
+
+    await expect(claimSubRequest(SUB, REQUEST_ID)).rejects.toMatchObject({
+      status: 400,
+    })
+  })
+
+  test('refuses a request with no instructor of record', async () => {
+    storeRequest({ originalInstructorUid: undefined })
+    storeClass()
+
+    await expect(claimSubRequest(SUB, REQUEST_ID)).rejects.toMatchObject({
+      status: 400,
+    })
+  })
+
+  test('refuses a request whose requester does not teach the class', async () => {
+    storeRequest({ requestedByUid: 'stranger-uid' })
+    storeClass()
+
+    await expect(claimSubRequest(SUB, REQUEST_ID)).rejects.toMatchObject({
+      status: 400,
+    })
+  })
+
+  test('accepts a request written before requestedByUid existed', async () => {
+    storeRequest({ requestedByUid: undefined })
+    storeClass()
+
+    await expect(claimSubRequest(SUB, REQUEST_ID)).resolves.toMatchObject(claim)
+  })
+
+  test('takes the instructor of record from the class id when the class predates instructorUid', async () => {
+    storeRequest()
+    docs[`${classesCollection}/owner-uid-1`] = { otherInstructorUids: [] }
+
+    await expect(claimSubRequest(SUB, REQUEST_ID)).resolves.toMatchObject(claim)
+  })
+
   test('refuses a request whose class no longer exists', async () => {
     storeRequest()
 

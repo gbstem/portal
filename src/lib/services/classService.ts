@@ -28,6 +28,7 @@ import type {
   EnrollRequestBody,
   EnrollResponse,
 } from '../../routes/api/enroll/+server'
+import type { ResolveCoInstructorsRequestBody } from '../../routes/api/resolveCoInstructors/+server'
 import type {
   InstructorFeedbackRequestBody,
   InstructorFeedbackResponse,
@@ -258,21 +259,29 @@ export const classService = {
   },
 
   /**
-   * Expands a class's stored `otherInstructorUids` into displayable
-   * identities. Uids whose account has been deleted come back omitted; see
-   * resolveCoInstructorIdentities on the server.
+   * Expands the `otherInstructorUids` stored on the caller's class `classId`
+   * into displayable identities. Uids whose account has been deleted come
+   * back omitted; see resolveCoInstructorIdentities on the server. The
+   * request is refused unless the caller teaches that class and it lists
+   * every one of `uids`.
    *
    * Throws on a transport failure rather than returning [], because callers
    * use the result to decide which stored uids to keep - and silently
    * returning "none of them resolved" would let one failed request wipe a
    * class's co-instructors on the next save.
    */
-  async resolveCoInstructors(uids: string[]): Promise<CoInstructor[]> {
+  async resolveCoInstructors(
+    classId: string,
+    uids: string[],
+  ): Promise<CoInstructor[]> {
     if (uids.length === 0) return []
     const res = await fetch('/api/resolveCoInstructors', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ uids }),
+      body: JSON.stringify({
+        classId,
+        uids,
+      } satisfies ResolveCoInstructorsRequestBody),
     })
     if (!res.ok) {
       throw new Error(`Failed to resolve co-instructors (${res.status})`)

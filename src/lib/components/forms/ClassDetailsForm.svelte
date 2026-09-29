@@ -347,14 +347,20 @@
    *
    * On failure nothing is written, so the uids stay unresolved and are
    * retried rather than being treated as deleted accounts.
+   *
+   * The server only resolves uids stored on a class the caller teaches, so
+   * the lookup is scoped to the selected class. A class not saved yet has no
+   * stored uids: anyone added to it came from /api/lookupCoInstructor, which
+   * already filled in their identity.
    */
   $effect(() => {
     const toResolve = unresolvedUids
-    if (toResolve.length === 0) return
+    const classId = selectedClassId
+    if (toResolve.length === 0 || !classId) return
 
     let cancelled = false
     classService
-      .resolveCoInstructors(toResolve)
+      .resolveCoInstructors(classId, toResolve)
       .then((resolved) => {
         if (cancelled) return
         const byUid = new Map(resolved.map((one) => [one.uid, one]))

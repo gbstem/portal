@@ -236,6 +236,7 @@ import {
   classesCollection,
   decisionsCollection,
   registrationsCollection,
+  semesterDates,
   substituteRequestsCollection,
 } from '$lib/data/collections'
 import { GET as classRosterGET } from '../src/routes/api/classRoster/+server'
@@ -612,8 +613,14 @@ describe('co-instructor directory routes', () => {
   })
 
   describe('resolveCoInstructorsPOST', () => {
+    const classPath = `${classesCollection}/caller-uid-1`
+
     it('expands stored uids and omits ones whose account is gone', async () => {
       mockFirestoreDocs({
+        [classPath]: {
+          instructorUid: 'caller-uid',
+          otherInstructorUids: ['uid-ada', 'uid-deleted'],
+        },
         'users/uid-ada': { firstName: 'Ada', lastName: 'Lovelace' },
         [`${decisionsCollection}/uid-ada`]: { type: 'accepted' },
       })
@@ -627,7 +634,10 @@ describe('co-instructor directory routes', () => {
         ],
         notFound: [{ uid: 'uid-deleted' }],
       })
-      mockRequest.json.mockResolvedValue({ uids: ['uid-ada', 'uid-deleted'] })
+      mockRequest.json.mockResolvedValue({
+        classId: 'caller-uid-1',
+        uids: ['uid-ada', 'uid-deleted'],
+      })
 
       const res: any = await resolveCoInstructorsPOST({
         request: mockRequest,
@@ -638,8 +648,124 @@ describe('co-instructor directory routes', () => {
       expect(res.body.instructors[0]).toMatchObject({ uid: 'uid-ada' })
     })
 
-    it('rejects a signed-in student with a 403', async () => {
+    it('lets a co-instructor of the class resolve its other co-instructors', async () => {
+      mockFirestoreDocs({
+        [`${classesCollection}/owner-uid-1`]: {
+          instructorUid: 'owner-uid',
+          otherInstructorUids: ['caller-uid', 'uid-ada'],
+        },
+      })
+      mockAuthAccounts({ 'uid-ada': 'ada@gbstem.org' })
+      mockRequest.json.mockResolvedValue({
+        classId: 'owner-uid-1',
+        uids: ['uid-ada'],
+      })
+
+      const res: any = await resolveCoInstructorsPOST({
+        request: mockRequest,
+        locals: instructorLocals,
+      } as any)
+
+      expect(res.body.instructors).toEqual([
+        expect.objectContaining({ uid: 'uid-ada', email: 'ada@gbstem.org' }),
+      ])
+    })
+
+    // The disclosure this route used to allow: any instructor-role account
+    // resolving any uid - a parent's, say - to a name and email address.
+    it('refuses a uid the class does not list, without resolving anything', async () => {
+      mockFirestoreDocs({
+        [classPath]: {
+          instructorUid: 'caller-uid',
+          otherInstructorUids: ['uid-ada'],
+        },
+      })
+      mockRequest.json.mockResolvedValue({
+        classId: 'caller-uid-1',
+        uids: ['uid-ada', 'parent-uid'],
+      })
+
+      await expect(
+        resolveCoInstructorsPOST({
+          request: mockRequest,
+          locals: instructorLocals,
+        } as any),
+      ).rejects.toEqual(expect.objectContaining({ status: 403 }))
+      expect(mockAdminAuth.getUsers).not.toHaveBeenCalled()
+    })
+
+    it("refuses the class's own instructor uid, which is not a co-instructor", async () => {
+      mockFirestoreDocs({
+        [`${classesCollection}/owner-uid-1`]: {
+          instructorUid: 'owner-uid',
+          otherInstructorUids: ['caller-uid'],
+        },
+      })
+      mockRequest.json.mockResolvedValue({
+        classId: 'owner-uid-1',
+        uids: ['owner-uid'],
+      })
+
+      await expect(
+        resolveCoInstructorsPOST({
+          request: mockRequest,
+          locals: instructorLocals,
+        } as any),
+      ).rejects.toEqual(expect.objectContaining({ status: 403 }))
+    })
+
+    it('refuses an instructor who does not teach the class', async () => {
+      mockFirestoreDocs({
+        [`${classesCollection}/other-uid-1`]: {
+          instructorUid: 'other-uid',
+          otherInstructorUids: ['uid-ada'],
+        },
+      })
+      mockRequest.json.mockResolvedValue({
+        classId: 'other-uid-1',
+        uids: ['uid-ada'],
+      })
+
+      await expect(
+        resolveCoInstructorsPOST({
+          request: mockRequest,
+          locals: instructorLocals,
+        } as any),
+      ).rejects.toEqual(expect.objectContaining({ status: 403 }))
+      expect(mockAdminAuth.getUsers).not.toHaveBeenCalled()
+    })
+
+    it('404s for a class that does not exist', async () => {
+      mockFirestoreDocs({})
+      mockRequest.json.mockResolvedValue({
+        classId: 'caller-uid-9',
+        uids: ['uid-ada'],
+      })
+
+      await expect(
+        resolveCoInstructorsPOST({
+          request: mockRequest,
+          locals: instructorLocals,
+        } as any),
+      ).rejects.toEqual(expect.objectContaining({ status: 404 }))
+    })
+
+    it('rejects a request with no classId with a 400', async () => {
       mockRequest.json.mockResolvedValue({ uids: ['uid-ada'] })
+
+      await expect(
+        resolveCoInstructorsPOST({
+          request: mockRequest,
+          locals: instructorLocals,
+        } as any),
+      ).rejects.toEqual(expect.objectContaining({ status: 400 }))
+    })
+
+    it('rejects a signed-in student with a 403', async () => {
+      mockRequest.json.mockResolvedValue({
+        classId: 'caller-uid-1',
+        uids: ['uid-ada'],
+      })
 
       await expect(
         resolveCoInstructorsPOST({
@@ -1657,38 +1783,139 @@ describe('API routes POST endpoints', () => {
     })
   })
 
-  it('registrationPOST successfully', async () => {
-    mockRequest.json.mockResolvedValue({ name: 'Student' })
-    const res = await registrationPOST({
-      request: mockRequest as any,
-      locals: { user: { email: 'test@test.com' } },
-    } as any)
-    expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
-  })
+  describe('registrationPOST', () => {
+    const parentLocals = {
+      user: { uid: 'parent-uid', email: 'parent@gbstem.org', role: 'student' },
+    }
+    const registrationPath = `${registrationsCollection}/parent-uid-1`
 
-  it('registrationPOST returns a 500 json response when sending the email fails', async () => {
-    await withRejectedSend(async () => {
-      mockRequest.json.mockResolvedValue({ name: 'Student' })
-      const res = await registrationPOST({
-        request: mockRequest as any,
-        locals: { user: { email: 'test@test.com' } },
-      } as any)
-      expect(res).toEqual(
-        expect.objectContaining({
-          body: { error: 'Failed to send email. Please try again later.' },
-          init: { status: 500 },
-        }),
+    function storeRegistration(overrides: Record<string, any> = {}) {
+      mockFirestoreDocs({
+        'users/parent-uid': { firstName: 'Pat', lastName: 'Parent' },
+        [registrationPath]: {
+          personal: {
+            studentFirstName: 'Timmy',
+            secondaryEmail: 'guardian@example.com',
+          },
+          meta: { uid: 'parent-uid-1', submitted: true },
+          ...overrides,
+        },
+      })
+    }
+
+    const sentMail = () => (MailService.send as jest.Mock).mock.calls[0][0]
+
+    beforeEach(() => {
+      ;(MailService.send as jest.Mock).mockClear()
+    })
+
+    function post(body: unknown, locals: any = parentLocals) {
+      mockRequest.json.mockResolvedValue(body)
+      return registrationPOST({ request: mockRequest, locals } as any)
+    }
+
+    it("mails the parent and the registration's second guardian, with text read server-side", async () => {
+      storeRegistration()
+
+      const res: any = await post({ registrationId: 'parent-uid-1' })
+
+      expect(res.body).toEqual({ message: 'Email sent successfully.' })
+      const mail = sentMail()
+      expect(mail.to).toEqual(['parent@gbstem.org', 'guardian@example.com'])
+      expect(mail.html).toContain('Pat')
+      expect(mail.html).toContain('Timmy')
+      expect(mail.html).toContain(semesterDates.parentOrientation)
+    })
+
+    it('mails only the parent when the registration has no second guardian', async () => {
+      storeRegistration({
+        personal: { studentFirstName: 'Timmy', secondaryEmail: '' },
+      })
+
+      await post({ registrationId: 'parent-uid-1' })
+
+      expect(sentMail().to).toEqual(['parent@gbstem.org'])
+    })
+
+    // The abuse this route used to allow: recipient and text straight from
+    // the request body. Anything extra in the body is now ignored.
+    it('ignores a recipient or text supplied in the body', async () => {
+      storeRegistration()
+
+      await post({
+        registrationId: 'parent-uid-1',
+        secondaryEmail: 'victim@example.com',
+        studentName: 'pay at evil.example',
+        firstName: 'Mallory',
+      })
+
+      const mail = sentMail()
+      expect(mail.to).not.toContain('victim@example.com')
+      expect(mail.html).not.toContain('evil.example')
+      expect(mail.html).not.toContain('Mallory')
+    })
+
+    it("refuses another parent's registration with a 403", async () => {
+      storeRegistration()
+
+      await expect(post({ registrationId: 'someone-else-1' })).rejects.toEqual(
+        expect.objectContaining({ status: 403 }),
+      )
+      expect(MailService.send).not.toHaveBeenCalled()
+    })
+
+    it('refuses a registration that has not been submitted', async () => {
+      storeRegistration({ meta: { uid: 'parent-uid-1', submitted: false } })
+
+      await expect(post({ registrationId: 'parent-uid-1' })).rejects.toEqual(
+        expect.objectContaining({ status: 404 }),
+      )
+      expect(MailService.send).not.toHaveBeenCalled()
+    })
+
+    it('refuses a registration that does not exist', async () => {
+      mockFirestoreDocs({})
+
+      await expect(post({ registrationId: 'parent-uid-2' })).rejects.toEqual(
+        expect.objectContaining({ status: 404 }),
       )
     })
-  })
 
-  it('registrationPOST propagates the auth error when the user is not signed in', async () => {
-    mockRequest.json.mockResolvedValue({ name: 'Student' })
-    await expect(
-      registrationPOST({ request: mockRequest as any, locals: {} } as any),
-    ).rejects.toEqual(
-      expect.objectContaining({ status: 401, __isSvelteKitError: true }),
-    )
+    it('rejects a body with no registrationId with a 400', async () => {
+      await expect(post({})).rejects.toEqual(
+        expect.objectContaining({ status: 400 }),
+      )
+    })
+
+    it('refuses an instructor account with a 403', async () => {
+      await expect(
+        post(
+          { registrationId: 'parent-uid-1' },
+          { user: { uid: 'parent-uid', email: 'x@x.org', role: 'instructor' } },
+        ),
+      ).rejects.toEqual(expect.objectContaining({ status: 403 }))
+    })
+
+    it('returns a 500 json response when sending the email fails', async () => {
+      storeRegistration()
+      await withRejectedSend(async () => {
+        const res = await post({ registrationId: 'parent-uid-1' })
+        expect(res).toEqual(
+          expect.objectContaining({
+            body: { error: 'Failed to send email. Please try again later.' },
+            init: { status: 500 },
+          }),
+        )
+      })
+    })
+
+    it('propagates the auth error when the user is not signed in', async () => {
+      await expect(
+        post({ registrationId: 'parent-uid-1' }, {}),
+      ).rejects.toEqual(
+        expect.objectContaining({ status: 401, __isSvelteKitError: true }),
+      )
+    })
   })
 
   it('remindStudentsPOST rejects payload missing required class fields with 400', async () => {
@@ -2567,8 +2794,15 @@ describe('API routes POST endpoints', () => {
       classDay2: '',
     }
 
-    /** Points adminDb.doc() at the class documents a test declares. */
-    function mockClasses(docs: Record<string, any>) {
+    /**
+     * Points adminDb.doc() at the class documents a test declares, alongside
+     * the caller's `accepted` decision unless `accepted` is false.
+     */
+    function mockClasses(classes: Record<string, any>, accepted = true) {
+      const docs: Record<string, any> = { ...classes }
+      if (accepted) {
+        docs[`${decisionsCollection}/uid-owner`] = { type: 'accepted' }
+      }
       mockAdminDb.doc.mockImplementation((path: string) => ({
         get: async () => ({ exists: path in docs, data: () => docs[path] }),
       }))
@@ -2620,6 +2854,41 @@ describe('API routes POST endpoints', () => {
       expect(fetchMock.mock.calls[1][1].headers.Authorization).toBe(
         'Bearer abc123',
       )
+    })
+
+    // The role claim is chosen at signup, before any interview, so without
+    // this any account could book recurring events on gbSTEM's calendar.
+    it('refuses an instructor who has not been accepted, for a new class id', async () => {
+      const fetchMock = mockGraphSuccess()
+      mockClasses({}, false)
+      mockRequest.json.mockResolvedValue(body)
+
+      await expect(
+        meetingLinkPOST({
+          request: mockRequest,
+          locals: instructorLocals,
+        } as any),
+      ).rejects.toEqual(expect.objectContaining({ status: 403 }))
+      expect(fetchMock).not.toHaveBeenCalled()
+    })
+
+    it('refuses an instructor who has not been accepted, even on their own class', async () => {
+      const fetchMock = mockGraphSuccess()
+      mockClasses(
+        {
+          [`${classesCollection}/uid-owner-1`]: { instructorUid: 'uid-owner' },
+        },
+        false,
+      )
+      mockRequest.json.mockResolvedValue(body)
+
+      await expect(
+        meetingLinkPOST({
+          request: mockRequest,
+          locals: instructorLocals,
+        } as any),
+      ).rejects.toEqual(expect.objectContaining({ status: 403 }))
+      expect(fetchMock).not.toHaveBeenCalled()
     })
 
     it('allows a co-instructor of the class', async () => {

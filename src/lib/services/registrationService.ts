@@ -5,9 +5,9 @@ import {
   registrationsCollection,
   withSemester,
 } from '$lib/data/collections'
-import { buildRegistrationApiPayload } from '$lib/helpers/registrationForm'
 import { retryTransient } from '$lib/services/retry'
 import { deleteDoc, doc, getDoc, setDoc } from 'firebase/firestore'
+import type { RegistrationRequestBody } from '../../routes/api/registration/+server'
 
 export interface ChildRegistrationSlot {
   uid: string
@@ -116,20 +116,12 @@ export const registrationService = {
   },
 
   /**
-   * Submits registration notification to the backend API endpoint.
+   * Asks the server to send the "next steps" email for a submitted
+   * registration. Only the id is sent: who it goes to and what it says are
+   * read server-side from the registration and the caller's profile.
    */
-  async submitRegistrationApi(
-    userFirstName: string,
-    studentFirstName: string,
-    parentOrientationDate: string,
-    secondaryEmail: string,
-  ): Promise<void> {
-    const payload = buildRegistrationApiPayload(
-      userFirstName,
-      studentFirstName,
-      parentOrientationDate,
-      secondaryEmail,
-    )
+  async submitRegistrationApi(registrationId: string): Promise<void> {
+    const payload: RegistrationRequestBody = { registrationId }
     const res = await fetch('/api/registration', {
       method: 'POST',
       headers: {

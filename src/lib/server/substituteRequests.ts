@@ -3,7 +3,7 @@ import {
   classesCollection,
   substituteRequestsCollection,
 } from '$lib/data/collections'
-import { parseSubRequestDocId } from '$lib/data/docIds'
+import { parseClassDocId, parseSubRequestDocId } from '$lib/data/docIds'
 import { isInstructorOfClass } from '$lib/server/classDirectory'
 import { adminDb } from '$lib/server/firebase'
 import { canSubstitute } from '$lib/server/instructorDirectory'
@@ -97,12 +97,47 @@ export async function fetchOpenSubRequests(
 }
 
 /**
+ * Whether a sub request's uids really name the class's instructors, as
+ * buildSubRequestPayload writes them: `originalInstructorUid` is the class's
+ * instructor of record, and `requestedByUid`, when present, teaches the class.
+ *
+ * Both fields are written by the requester through the client SDK, and
+ * firestore.rules only checks that one of them is the requester. So neither
+ * can be trusted alone: checking just `requestedByUid` let anybody file a
+ * request naming a class's real owner as requester and themselves as
+ * `originalInstructorUid`, and a claim then opened that class's roster to
+ * whichever substitute they chose. Requiring both to name the class's
+ * instructors means the requester - being one of them - teaches the class.
+ */
+function isFiledByInstructorsOf(
+  subRequest: Partial<Data.SubRequest>,
+  classId: string,
+  classData: Data.Class,
+): boolean {
+  // A class without an instructorUid predates the field; its id still
+  // records who created it (see parseClassDocId).
+  const instructorOfRecord =
+    classData.instructorUid || parseClassDocId(classId)?.instructorUid || ''
+  if (
+    !instructorOfRecord ||
+    subRequest.originalInstructorUid !== instructorOfRecord
+  ) {
+    return false
+  }
+  return (
+    !subRequest.requestedByUid ||
+    subRequest.requestedByUid === instructorOfRecord ||
+    isInstructorOfClass(classData, { uid: subRequest.requestedByUid })
+  )
+}
+
+/**
  * Signs `caller` up to cover one session, in a transaction, so two instructors
  * signing up for the same session at once can't both be recorded on it.
  *
  * Refused when the request is gone, already has a substitute, is the caller's
  * own, is for a session that has already happened, or was not filed by
- * someone who teaches the class. That last check matters because covering a
+ * someone who teaches the class (see isFiledByInstructorsOf). That last check matters because covering a
  * session is what opens its class roster to the substitute (see
  * authorizeSubstituteSession): a request for a class its requester doesn't
  * teach must not be claimable.
@@ -143,15 +178,14 @@ export async function claimSubRequest(
       throw error(400, 'That class has already happened.')
     }
 
-    const requesterUid =
-      subRequest.requestedByUid || subRequest.originalInstructorUid || ''
     const classSnap = await transaction.get(classRef)
     if (
-      !requesterUid ||
       !classSnap.exists ||
-      !isInstructorOfClass(classSnap.data() as Data.Class, {
-        uid: requesterUid,
-      })
+      !isFiledByInstructorsOf(
+        subRequest,
+        parsed.classId,
+        classSnap.data() as Data.Class,
+      )
     ) {
       throw error(
         400,
