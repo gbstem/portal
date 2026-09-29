@@ -1,4 +1,4 @@
-import { handle } from '../src/hooks.server'
+import { handle, handleError } from '../src/hooks.server'
 import { adminAuth } from '$lib/server/firebase'
 
 function createEvent(sessionCookie?: string) {
@@ -121,5 +121,61 @@ describe('hooks.server handle', () => {
     expect(event.locals.user).toBeNull()
     expect(resolve).toHaveBeenCalledWith(event)
     expect(result).toBe('resolved-response')
+  })
+})
+
+describe('hooks.server handleError', () => {
+  let errorSpy: jest.SpyInstance
+
+  beforeEach(() => {
+    errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    errorSpy.mockRestore()
+  })
+
+  const shape = (error: unknown, status = 500, message = 'Internal Error') =>
+    handleError({ error, event: {}, status, message } as any) as App.Error
+
+  // Unauthenticated callers reach this (a malformed POST to /api/auth is
+  // enough), so nothing about the server may leave in the response.
+  it('returns only the generic message and an id, never the stack or raw message', () => {
+    const err = new Error(
+      'ENOENT: /var/task/.svelte-kit/output/server/secret.js',
+    )
+
+    const result = shape(err)
+
+    expect(result).toEqual({
+      message: 'Internal Error',
+      errorId: expect.stringMatching(/^[0-9a-f-]{36}$/),
+    })
+    expect(JSON.stringify(result)).not.toContain('ENOENT')
+    expect(JSON.stringify(result)).not.toContain(err.stack!.split('\n')[1])
+  })
+
+  it('logs the full error under the id it returns', () => {
+    const err = new Error('boom')
+
+    const { errorId } = shape(err)
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      `[SvelteKit Server Error ${errorId}]:`,
+      err,
+    )
+  })
+
+  it('gives each error its own id', () => {
+    expect(shape(new Error('a')).errorId).not.toBe(
+      shape(new Error('b')).errorId,
+    )
+  })
+
+  it("passes a 404's message through without logging it", () => {
+    const result = shape(new Error('Not found: /nope'), 404, 'Not Found')
+
+    expect(result.message).toBe('Not Found')
+    expect(errorSpy).not.toHaveBeenCalled()
   })
 })

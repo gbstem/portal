@@ -947,6 +947,47 @@ describe('API routes POST endpoints', () => {
     )
   })
 
+  // Firebase's "no user record" error used to reach the caller as a 400, so
+  // a signed-out caller could tell which addresses have accounts.
+  it.each(['auth/email-not-found', 'auth/user-not-found'])(
+    'actionPOST resetPassword answers an unknown address (%s) exactly like a known one, sending nothing',
+    async (code) => {
+      const notFound: any = new Error(
+        'There is no user record corresponding to the provided email.',
+      )
+      notFound.code = code
+      mockAdminAuth.generatePasswordResetLink.mockRejectedValueOnce(notFound)
+      ;(MailService.send as jest.Mock).mockClear()
+      mockRequest.json.mockResolvedValue({
+        type: 'resetPassword',
+        email: 'nobody@test.com',
+      })
+
+      const res: any = await actionPOST({
+        request: mockRequest as any,
+        locals: {},
+      } as any)
+
+      expect(res.body).toEqual({ message: 'Email sent successfully.' })
+      expect(res.init?.status ?? 200).toBe(200)
+      expect(MailService.send).not.toHaveBeenCalled()
+    },
+  )
+
+  it('actionPOST resetPassword still reports other Firebase errors', async () => {
+    const invalid: any = new Error('The email address is improperly formatted.')
+    invalid.code = 'auth/invalid-email'
+    mockAdminAuth.generatePasswordResetLink.mockRejectedValueOnce(invalid)
+    mockRequest.json.mockResolvedValue({
+      type: 'resetPassword',
+      email: 'not-an-email',
+    })
+
+    await expect(
+      actionPOST({ request: mockRequest as any, locals: {} } as any),
+    ).rejects.toEqual(expect.objectContaining({ status: 400 }))
+  })
+
   it('actionPOST resetPassword fails without an email', async () => {
     mockRequest.json.mockResolvedValue({ type: 'resetPassword' })
     await expect(
