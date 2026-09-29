@@ -19,6 +19,7 @@
   import { fade } from 'svelte/transition'
 
   import type { ClassInfo } from '$lib/helpers/classesPage'
+  import { openableMeetingLink } from '$lib/helpers/meetingLink'
   import { Icon } from '@steeze-ui/svelte-icon'
   import {
     ArrowUpCircle,
@@ -511,17 +512,19 @@
 
                   <!-- Meeting Link -->
                   <div class="mt-3 border-t border-blue-200 pt-3">
-                    <div class="flex items-center text-sm text-blue-700">
-                      <Icon src={GlobeAlt} class="mr-2 size-4" />
-                      <a
-                        href={classInfo.meetingLink}
-                        target="_blank"
-                        rel="noopener"
-                        class="hover:underline"
-                      >
-                        Join Meeting
-                      </a>
-                    </div>
+                    {#if openableMeetingLink(classInfo.meetingLink)}
+                      <div class="flex items-center text-sm text-blue-700">
+                        <Icon src={GlobeAlt} class="mr-2 size-4" />
+                        <a
+                          href={openableMeetingLink(classInfo.meetingLink)}
+                          target="_blank"
+                          rel="noopener"
+                          class="hover:underline"
+                        >
+                          Join Meeting
+                        </a>
+                      </div>
+                    {/if}
 
                     <!-- Instructor Email -->
                     {#if instructorEmails[classInfo.id]}

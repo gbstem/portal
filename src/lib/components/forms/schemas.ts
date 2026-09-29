@@ -1,6 +1,10 @@
 // Zod schemas that we use for input validation across all of our forms, and
 // also in seed.ts for ensuring our test data is valid.
 import { z } from 'zod'
+import {
+  isAllowedMeetingLink,
+  MEETING_LINK_ERROR,
+} from '$lib/helpers/meetingLink'
 
 const phoneRegex = /^[\d\s\-+]+$/
 const dateRegex = /^\d{4}-\d{2}-\d{2}$/
@@ -9,7 +13,16 @@ export const classSchema = z.object({
   course: z.string().min(1, 'Course is required'),
   gradeRecommendation: z.string().optional().default(''),
   classCap: z.coerce.number().min(0, 'Capacity must be at least 0'),
-  meetingLink: z.string().optional().default(''),
+  // Empty means "none yet": the form books a Teams link on save, and an
+  // in-person class has none. See $lib/helpers/meetingLink.
+  meetingLink: z
+    .string()
+    .trim()
+    .refine((link) => link === '' || isAllowedMeetingLink(link), {
+      message: MEETING_LINK_ERROR,
+    })
+    .optional()
+    .default(''),
   classDay1: z.enum(
     [
       'Monday',

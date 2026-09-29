@@ -4,10 +4,15 @@
   import { classService } from '$lib/services/classService'
   import { registrationService } from '$lib/services/registrationService'
   import { selectedStudentIdState } from '$lib/stores.svelte'
+  import { openableMeetingLink } from '$lib/helpers/meetingLink'
   import { Icon } from '@steeze-ui/svelte-icon'
   import { Plus } from '@steeze-ui/heroicons'
 
-  type ClassDate = { course: string; meetingTime: Date; link: string }
+  type ClassDate = {
+    course: string
+    meetingTime: Date
+    link: string | undefined
+  }
   let classes: ClassDate[] = $state([])
   let nextClass: ClassDate | null = $state(null)
   let selectedStudentUid = $derived(selectedStudentIdState.current)
@@ -21,7 +26,7 @@
         fetchedClasses.push({
           course: data.course,
           meetingTime: timestampToDate(date),
-          link: data.meetingLink,
+          link: openableMeetingLink(data.meetingLink),
         })
       })
     })
@@ -102,9 +107,9 @@
           ? 'No Upcoming Classes'
           : nextClass.course + ' ' + formatDate(nextClass.meetingTime)}
       </div>
-      {#if nextClass}
+      {#if nextClass?.link}
         <div class="mb-6">
-          <a href={nextClass.link} target="_blank">
+          <a href={nextClass.link} target="_blank" rel="noopener">
             <Button color="blue" class="mt-4">Join Class</Button>
           </a>
         </div>
