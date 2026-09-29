@@ -1,6 +1,7 @@
 import { handleApiError, verifyInstructor } from '$lib/server/apiHelpers'
 import { sendEmail } from '$lib/server/email'
 import { renderEmail } from '$lib/emails/render'
+import { openableMeetingLink } from '$lib/helpers/meetingLink'
 import { formatDateInGbstemTime } from '$lib/utils'
 import { resolveCurrentInterviewerEmail } from '$lib/server/interviewerIdentity'
 import {
@@ -61,7 +62,7 @@ async function sendBookingConfirmation(
       interviewee: booked.intervieweeFirstName,
       name: booked.interviewerName,
       date: formatDateInGbstemTime(booked.date, 'long'),
-      link: booked.meetingLink,
+      link: openableMeetingLink(booked.meetingLink) ?? '',
     },
   })
 
