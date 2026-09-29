@@ -10,6 +10,7 @@
     findNextClassDateIndex,
   } from '$lib/helpers/classSchedule'
   import { curriculumLink } from '$lib/helpers/curriculumLink'
+  import { openableMeetingLink } from '$lib/helpers/meetingLink'
   import type { RosterStudent } from '$lib/services/classService'
   import { classService } from '$lib/services/classService'
   import { alert } from '$lib/stores'
@@ -191,6 +192,14 @@
       classStatuses,
       completedClassDates,
     } = values
+    const link = openableMeetingLink(meetingLink)
+    if (!link) {
+      alert.trigger(
+        'error',
+        'This class has no valid meeting link. Please update it in your class details.',
+      )
+      return
+    }
     const confirmHoldClass = confirm(
       `Please confirm you are holding class now. Confirming will redirect you to ${meetingLink}`,
     )
@@ -222,7 +231,7 @@
           classStatuses,
         )
       }
-      window.open(meetingLink)
+      window.open(link, '_blank', 'noopener')
     }
   }
 

@@ -3797,6 +3797,35 @@ describe('/api/classDetails', () => {
     ])
   })
 
+  // A stored link is opened by co-instructors, substitutes and parents, so a
+  // javascript: URL here ran as whoever clicked it.
+  it('POST refuses a meeting link that is not an allowed https host, without saving', async () => {
+    await expect(
+      postWith({
+        ...classDetailsBody,
+        details: {
+          ...classDetailsBody.details,
+          meetingLink: "javascript://teams.microsoft.com/%0aalert('x')",
+        },
+      }),
+    ).rejects.toEqual(expect.objectContaining({ status: 400 }))
+    expect(mockSaveClassDetails).not.toHaveBeenCalled()
+  })
+
+  it('POST accepts a branded Zoom link', async () => {
+    await postWith({
+      ...classDetailsBody,
+      details: {
+        ...classDetailsBody.details,
+        meetingLink: 'https://mit.zoom.us/j/99593863281',
+      },
+    })
+
+    expect(mockSaveClassDetails.mock.calls[0][2].meetingLink).toBe(
+      'https://mit.zoom.us/j/99593863281',
+    )
+  })
+
   it('POST drops ownership and roster fields rather than passing them on', async () => {
     await postWith({
       ...classDetailsBody,

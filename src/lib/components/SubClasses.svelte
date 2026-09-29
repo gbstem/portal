@@ -2,6 +2,7 @@
   import { enhance } from '$app/forms'
   import { user } from '$lib/client/firebase'
   import { curriculumLink } from '$lib/helpers/curriculumLink'
+  import { openableMeetingLink } from '$lib/helpers/meetingLink'
   import { parseSubRequestDocId } from '$lib/data/docIds'
   import {
     filterCheckedOffSubClasses,
@@ -206,6 +207,13 @@
       alert.trigger('error', 'That class could not be found. Please reload.')
       return
     }
+    if (!openableMeetingLink(classValues.meetingLink)) {
+      alert.trigger(
+        'error',
+        'This class has no valid meeting link. Please ask the class instructor for the link.',
+      )
+      return
+    }
     const confirmHoldClass = confirm(
       `Please confirm you are holding class now. Confirming will redirect you to ${classValues.meetingLink}`,
     )
@@ -219,7 +227,17 @@
       const { meetingLink } = await substituteService.recordSubstituteSession(
         subRequest.id,
       )
-      window.open(meetingLink)
+      // Checked again: this is the copy the server returned, and the one
+      // that opens.
+      const link = openableMeetingLink(meetingLink)
+      if (!link) {
+        alert.trigger(
+          'error',
+          'Class recorded, but its meeting link is not valid. Please ask the class instructor for the link.',
+        )
+        return
+      }
+      window.open(link, '_blank', 'noopener')
     } catch (err: any) {
       // Failures used to reach the console and nowhere else, so a substitute
       // whose class could not be recorded saw a page that had done nothing.
