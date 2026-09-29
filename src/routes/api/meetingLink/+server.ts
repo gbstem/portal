@@ -1,6 +1,7 @@
 import { classesCollection, semesterDates } from '$lib/data/collections'
 import { handleApiError, verifyInstructor } from '$lib/server/apiHelpers'
 import { adminDb } from '$lib/server/firebase'
+import { isAcceptedInstructor } from '$lib/server/instructorDirectory'
 import { isOwnClassId } from '$lib/data/docIds'
 import { env } from '$env/dynamic/private'
 import { error, json } from '@sveltejs/kit'
@@ -83,7 +84,9 @@ export type MeetingLinkRequestBody = z.infer<typeof meetingLinkSchema>
  *
  * Deliberately the same test /api/classDetails applies to saving the class,
  * because the link is created *before* the class is saved and there may be no
- * document to check yet:
+ * document to check yet. The caller must be an accepted instructor
+ * (`isAcceptedInstructor` - the role claim alone is set at signup, before any
+ * interview), and:
  *
  *   - an existing class: the caller is its `instructorUid` or one of its
  *     `otherInstructorUids`
@@ -100,6 +103,9 @@ async function callerMayCreateLinkFor(
   uid: string,
   classId: string,
 ): Promise<boolean> {
+  if (!(await isAcceptedInstructor(uid))) {
+    return false
+  }
   const snap = await adminDb.doc(`${classesCollection}/${classId}`).get()
   if (!snap.exists) {
     return isOwnClassId(classId, uid)

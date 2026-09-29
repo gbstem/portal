@@ -60,7 +60,6 @@
       async onUpdate({ form: formVal }) {
         if (!formVal.valid) return
         if ($user) {
-          const frozenUser = $user
           registrationService
             .updateRegistration(childUid, {
               ...ownedFields(formVal.data),
@@ -70,12 +69,7 @@
               const freshReg =
                 await registrationService.fetchRegistration(childUid)
               if (freshReg) {
-                await registrationService.submitRegistrationApi(
-                  frozenUser.profile.firstName,
-                  formVal.data.personal.studentFirstName,
-                  semesterDates.parentOrientation,
-                  formVal.data.personal.secondaryEmail,
-                )
+                await registrationService.submitRegistrationApi(childUid)
                 clearInterval(saveInterval)
                 saveInterval = undefined
                 safeSetValues(freshReg)

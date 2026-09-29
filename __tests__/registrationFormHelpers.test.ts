@@ -4,7 +4,6 @@ import {
   createEmptyRegistration,
   normalizeRegistrationData,
   toRegistrationFormValues,
-  buildRegistrationApiPayload,
 } from '$lib/helpers/registrationForm'
 
 describe('RegistrationForm Helpers', () => {
@@ -113,23 +112,6 @@ describe('RegistrationForm Helpers', () => {
       expect(formVal.personal.studentFirstName).toBe('Johnny')
       expect(formVal.academic.school).toBe('Lincoln')
       expect(formVal.program.csCourse).toBe('Python 1')
-    })
-  })
-
-  describe('buildRegistrationApiPayload', () => {
-    test('builds registration API payload correctly', () => {
-      const payload = buildRegistrationApiPayload(
-        'Sarah',
-        'Johnny',
-        'May 20, 2026',
-        'sarah@example.com',
-      )
-      expect(payload).toEqual({
-        firstName: 'Sarah',
-        studentName: 'Johnny',
-        parentOrientationDate: 'May 20, 2026',
-        secondaryEmail: 'sarah@example.com',
-      })
     })
   })
 })

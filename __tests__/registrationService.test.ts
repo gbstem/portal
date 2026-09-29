@@ -173,15 +173,13 @@ describe('registrationService (Data Access Layer)', () => {
     it('triggers POST request to /api/registration endpoint', async () => {
       ;(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true })
 
-      await registrationService.submitRegistrationApi(
-        'Parent',
-        'Timmy',
-        '2026-09-01',
-        'parent@example.com',
-      )
+      await registrationService.submitRegistrationApi('parent-uid-1')
       expect(global.fetch).toHaveBeenCalledWith(
         '/api/registration',
-        expect.objectContaining({ method: 'POST' }),
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ registrationId: 'parent-uid-1' }),
+        }),
       )
     })
 
@@ -189,12 +187,7 @@ describe('registrationService (Data Access Layer)', () => {
       ;(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false })
 
       await expect(
-        registrationService.submitRegistrationApi(
-          'Parent',
-          'Timmy',
-          '2026-09-01',
-          'parent@example.com',
-        ),
+        registrationService.submitRegistrationApi('parent-uid-1'),
       ).rejects.toThrow('Failed to submit registration via API')
     })
   })

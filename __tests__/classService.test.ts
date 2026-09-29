@@ -263,7 +263,9 @@ describe('portal classService (Data Access Layer)', () => {
 
   describe('resolveCoInstructors', () => {
     it('returns [] without calling the API when there are no uids', async () => {
-      await expect(classService.resolveCoInstructors([])).resolves.toEqual([])
+      await expect(
+        classService.resolveCoInstructors('c-1', []),
+      ).resolves.toEqual([])
       expect(global.fetch).not.toHaveBeenCalled()
     })
 
@@ -275,8 +277,14 @@ describe('portal classService (Data Access Layer)', () => {
       })
 
       await expect(
-        classService.resolveCoInstructors(['co-uid-1']),
+        classService.resolveCoInstructors('c-1', ['co-uid-1']),
       ).resolves.toEqual(instructors)
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/resolveCoInstructors',
+        expect.objectContaining({
+          body: JSON.stringify({ classId: 'c-1', uids: ['co-uid-1'] }),
+        }),
+      )
     })
 
     // Must NOT swallow this into []. The caller uses the result to decide
@@ -289,7 +297,7 @@ describe('portal classService (Data Access Layer)', () => {
       })
 
       await expect(
-        classService.resolveCoInstructors(['co-uid-1']),
+        classService.resolveCoInstructors('c-1', ['co-uid-1']),
       ).rejects.toThrow()
     })
   })
