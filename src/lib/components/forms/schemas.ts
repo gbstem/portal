@@ -223,7 +223,13 @@ export const passwordSchema = z
 
 export const interviewSlotSchema = z.object({
   date: z.string().min(1, 'Date and time is required'),
-  meetingLink: z.string().min(1, 'Meeting link is required'),
+  meetingLink: z
+    .string()
+    .trim()
+    .min(1, 'Meeting link is required')
+    .refine(isAllowedMeetingLink, {
+      message: MEETING_LINK_ERROR,
+    }),
   interviewerName: z.string().min(1, 'Interviewer name is required'),
   // Kept in parity with admin's copy of this schema, which owns writing
   // interview slots - portal never creates or edits one itself. Both people

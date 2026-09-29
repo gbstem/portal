@@ -454,6 +454,28 @@ describe('Zod Validation Schemas', () => {
       const issues = expectParseFailure(result).issues
       expect(issues.length).toBeGreaterThanOrEqual(3)
     })
+
+    it('trims meetingLink', () => {
+      const result = interviewSlotSchema.safeParse({
+        date: '2026-08-01T15:00:00.000Z',
+        meetingLink: '  https://zoom.us/j/999888777  ',
+        interviewerName: 'Jane Doe',
+      })
+      const data = expectParseSuccess(result)
+      expect(data.meetingLink).toBe('https://zoom.us/j/999888777')
+    })
+
+    it('denies invalid meeting link', () => {
+      const result = interviewSlotSchema.safeParse({
+        date: '2026-08-01T15:00:00.000Z',
+        meetingLink: 'javascript:alert(1)',
+        interviewerName: 'Jane Doe',
+      })
+      const issues = expectParseFailure(result).issues
+      expect(issues[0].message).toContain(
+        'Zoom, Microsoft Teams or Google Meet',
+      )
+    })
   })
 
   describe('Form Defaults Factories', () => {

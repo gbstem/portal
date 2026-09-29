@@ -1652,7 +1652,7 @@ describe('API routes POST endpoints', () => {
       date: new Date('2026-10-01T18:00:00.000Z'),
       interviewerName: 'Interviewer',
       interviewerUid: 'interviewer-uid-1',
-      meetingLink: 'http://zoom',
+      meetingLink: 'https://zoom.us/j/123456789',
       intervieweeFirstName: 'Student',
       ...overrides,
     })
@@ -1723,7 +1723,7 @@ describe('API routes POST endpoints', () => {
           id: 'slot-1',
           date: '2026-10-01T18:00:00.000Z',
           interviewerName: 'Interviewer',
-          meetingLink: 'http://zoom',
+          meetingLink: 'https://zoom.us/j/123456789',
           interviewSlotStatus: 'pending',
         },
         emailSent: true,
@@ -1741,6 +1741,22 @@ describe('API routes POST endpoints', () => {
 
       const [message] = (MailService.send as jest.Mock).mock.calls[0]
       expect(message.html).toContain('2:00 PM Eastern Daylight Time')
+      expect(message.html).toContain('https://zoom.us/j/123456789')
+    })
+
+    it('POST strips an invalid meeting link from the confirmation email', async () => {
+      mockBookInterviewSlot.mockResolvedValueOnce(
+        booked({ meetingLink: 'javascript:alert(1)' }),
+      )
+      mockAdminAuth.getUser.mockResolvedValueOnce({
+        uid: 'interviewer-uid-1',
+        email: 'interviewer@test.com',
+      })
+
+      await bookAs()
+
+      const [message] = (MailService.send as jest.Mock).mock.calls[0]
+      expect(message.html).not.toContain('javascript:alert(1)')
     })
 
     // The slot is booked by then, so the applicant is told so either way.

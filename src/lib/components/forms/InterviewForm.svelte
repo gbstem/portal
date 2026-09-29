@@ -11,6 +11,7 @@
   import { dev } from '$app/environment'
   import { onMount } from 'svelte'
   import Link from '../Link.svelte'
+  import { openableMeetingLink } from '$lib/helpers/meetingLink'
   import Loading from '../Loading.svelte'
   import Button from '../Button.svelte'
   import FormInput from '../FormInput.svelte'
@@ -258,13 +259,19 @@
             Your interview will be on {scheduledInterview?.date} with
             {scheduledInterview?.interviewerName}.
           </p>
-          <p class="mt-2 text-sm">
-            Your interview meeting link is <Link
-              href={scheduledInterview?.meetingLink}
-              target="_blank"
-              rel="noopener">{scheduledInterview?.meetingLink}</Link
-            >.
-          </p>
+          {#if openableMeetingLink(scheduledInterview?.meetingLink)}
+            <p class="mt-2 text-sm">
+              Your interview meeting link is <Link
+                href={openableMeetingLink(scheduledInterview?.meetingLink)}
+                target="_blank"
+                rel="noopener">{scheduledInterview?.meetingLink}</Link
+              >.
+            </p>
+          {:else if scheduledInterview?.meetingLink}
+            <p class="mt-2 text-sm font-medium text-red-600">
+              Invalid meeting link. Please contact gbSTEM support.
+            </p>
+          {/if}
 
           <p class="mt-1 text-xs text-gray-600">
             Please check your inbox for an email with interview details.
