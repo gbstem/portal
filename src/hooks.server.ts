@@ -45,18 +45,18 @@ export const handle = (async ({ event, resolve }) => {
   return resolve(event)
 }) satisfies Handle
 
-export const handleError = (({ error }) => {
-  const is404 =
-    (error as any)?.status === 404 ||
-    (error as any)?.message?.includes('Not found')
-
-  if (!is404) {
-    console.error('[SvelteKit Server Error]:', error)
+/**
+ * Shapes an *unexpected* error - anything not thrown with `error()` - for the
+ * client. Only SvelteKit's own `message` ("Internal Error", "Not Found") goes
+ * back, plus an id to quote when reporting it; the error itself is logged
+ * here under that id. This used to return the stack trace and the raw
+ * message, to any caller at all (a malformed POST to /api/auth was enough),
+ * which exposed server paths, bundle layout and dependency details.
+ */
+export const handleError = (({ error, status, message }) => {
+  const errorId = crypto.randomUUID()
+  if (status !== 404) {
+    console.error(`[SvelteKit Server Error ${errorId}]:`, error)
   }
-
-  return {
-    message: (error as any)?.message || 'An unexpected error occurred.',
-    code: (error as any)?.code || 'INTERNAL_ERROR',
-    details: (error as any)?.stack || String(error),
-  }
+  return { message, errorId }
 }) satisfies HandleServerError

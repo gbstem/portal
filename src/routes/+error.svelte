@@ -37,25 +37,14 @@
         {page.error?.message || 'Something went wrong.'}
       </p>
 
-      {#if page.error?.details}
+      {#if page.error?.errorId}
         <div
           class="mt-3 text-xs font-semibold tracking-wider text-red-800 uppercase"
         >
-          Technical Details
+          Error Reference
         </div>
-        <pre
-          class="mt-1 max-h-40 overflow-y-auto rounded-lg bg-red-900/10 p-2 font-mono text-xs break-all whitespace-pre-wrap text-red-950">{page
-            .error.details}</pre>
-      {/if}
-
-      {#if page.error?.code}
-        <div
-          class="mt-3 text-xs font-semibold tracking-wider text-red-800 uppercase"
-        >
-          Error Code
-        </div>
-        <code class="mt-1 block font-mono text-xs text-red-900"
-          >{page.error.code}</code
+        <code class="mt-1 block font-mono text-xs break-all text-red-900"
+          >{page.error.errorId}</code
         >
       {/if}
     </div>
