@@ -618,3 +618,101 @@ describe('application size caps', () => {
     )
   })
 })
+
+describe('application submit rules', () => {
+  // Used to be enforced only by the inputs' HTML `required` attribute, so
+  // only in the browser and as a browser popup.
+  function completeApplication() {
+    return {
+      personal: {
+        phoneNumber: '5559998888',
+        dateOfBirth: '2005-10-10',
+        gender: 'Female',
+        race: [],
+      },
+      academic: { school: 'MIT', graduationYear: new Date().getFullYear() },
+      program: {
+        courses: ['Python 1'],
+        preferences: '',
+        timeSlots: 'Weekends',
+        notAvailable: 'None',
+        inPerson: false,
+        reason: 'School',
+      },
+      essay: {
+        taughtBefore: false,
+        academicBackground: 'Coursework',
+        teachingScenario: 'Games',
+        why: 'Kids',
+      },
+      agreements: {
+        entireProgram: true,
+        timeCommitment: true,
+        submitting: true,
+      },
+    }
+  }
+
+  it('accepts a complete application', () => {
+    expectParseSuccess(applicationSchema.safeParse(completeApplication()))
+  })
+
+  it.each(['entireProgram', 'timeCommitment', 'submitting'] as const)(
+    'requires the %s agreement, on that field',
+    (agreement) => {
+      const data = completeApplication()
+      data.agreements[agreement] = false
+      const error = expectParseFailure(applicationSchema.safeParse(data))
+      expect(error.issues.map((i) => i.path.join('.'))).toEqual([
+        `agreements.${agreement}`,
+      ])
+    },
+  )
+
+  it.each(['entireProgram', 'timeCommitment', 'submitting'] as const)(
+    'requires the %s agreement on a registration too',
+    (agreement) => {
+      const defaults = getRegistrationFormDefaults()
+      const error = expectParseFailure(
+        registrationSchema.safeParse({
+          ...defaults,
+          agreements: { ...defaults.agreements, [agreement]: false },
+        }),
+      )
+      expect(error.issues.map((i) => i.path.join('.'))).toContain(
+        `agreements.${agreement}`,
+      )
+    },
+  )
+
+  it('requires the newcomer essays, on those fields, of first-time instructors', () => {
+    const data = completeApplication()
+    data.essay = { ...data.essay, teachingScenario: '', why: '' }
+    const error = expectParseFailure(applicationSchema.safeParse(data))
+    expect(error.issues.map((i) => i.path.join('.'))).toEqual([
+      'essay.teachingScenario',
+      'essay.why',
+    ])
+  })
+
+  it('reports the essays even while other sections are invalid', () => {
+    const data = completeApplication()
+    data.essay = { ...data.essay, why: '' }
+    data.program.timeSlots = ''
+    const error = expectParseFailure(applicationSchema.safeParse(data))
+    expect(error.issues.map((i) => i.path.join('.'))).toEqual(
+      expect.arrayContaining(['essay.why', 'program.timeSlots']),
+    )
+  })
+
+  it('does not require the newcomer essays of returning instructors', () => {
+    const data = completeApplication()
+    data.essay = {
+      ...data.essay,
+      taughtBefore: true,
+      teachingScenario: '',
+      why: '',
+    }
+    expectParseSuccess(applicationSchema.safeParse(data))
+  })
+})

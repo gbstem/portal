@@ -79,6 +79,17 @@ const textCap = [MAX_TEXT, `Max ${MAX_TEXT} characters`] as const
 const boundedList = () =>
   z.array(z.string().max(MAX_LIST_ITEM)).max(MAX_LIST_ITEMS)
 
+/**
+ * A checkbox the applicant or parent has to tick before submitting. These
+ * used to be plain booleans that only the input's HTML `required` attribute
+ * enforced, so the check happened in the browser alone and appeared as a
+ * browser popup rather than the inline message every other field shows.
+ */
+const agreementSchema = z
+  .boolean()
+  .default(false)
+  .refine((checked) => checked, { message: 'Please check this box to submit' })
+
 export const applicationSchema = z.object({
   personal: z.object({
     phoneNumber: z
@@ -129,23 +140,41 @@ export const applicationSchema = z.object({
       .min(1, 'Reason is required')
       .max(...textCap),
   }),
-  essay: z.object({
-    taughtBefore: z.boolean().default(false),
-    academicBackground: z
-      .string()
-      .min(1, 'Academic background is required')
-      .max(500, 'Max 500 characters'),
-    teachingScenario: z
-      .string()
-      .max(500, 'Max 500 characters')
-      .optional()
-      .default(''),
-    why: z.string().max(500, 'Max 500 characters').optional().default(''),
-  }),
+  essay: z
+    .object({
+      taughtBefore: z.boolean().default(false),
+      academicBackground: z
+        .string()
+        .min(1, 'Academic background is required')
+        .max(500, 'Max 500 characters'),
+      teachingScenario: z
+        .string()
+        .max(500, 'Max 500 characters')
+        .optional()
+        .default(''),
+      why: z.string().max(500, 'Max 500 characters').optional().default(''),
+    })
+    // The two newcomer essays are required only of someone who hasn't taught
+    // for gbSTEM before, which a per-field rule can't express. Refined here
+    // rather than on the whole application so the messages don't wait for
+    // every other section to be valid - zod skips an object's refinements
+    // while any of its fields fail.
+    .superRefine((essay, ctx) => {
+      if (essay.taughtBefore) return
+      for (const field of ['teachingScenario', 'why'] as const) {
+        if (!essay[field]) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [field],
+            message: 'Please answer this question',
+          })
+        }
+      }
+    }),
   agreements: z.object({
-    entireProgram: z.boolean().default(false),
-    timeCommitment: z.boolean().default(false),
-    submitting: z.boolean().default(false),
+    entireProgram: agreementSchema,
+    timeCommitment: agreementSchema,
+    submitting: agreementSchema,
   }),
 })
 
@@ -235,9 +264,9 @@ export const registrationSchema = z.object({
   agreements: z.object({
     mediaRelease: z.boolean().default(false),
     bypassAgeLimits: z.boolean().default(false),
-    entireProgram: z.boolean().default(false),
-    timeCommitment: z.boolean().default(false),
-    submitting: z.boolean().default(false),
+    entireProgram: agreementSchema,
+    timeCommitment: agreementSchema,
+    submitting: agreementSchema,
   }),
 })
 

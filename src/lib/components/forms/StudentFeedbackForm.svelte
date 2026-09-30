@@ -130,7 +130,7 @@
   })
 </script>
 
-<form class={cn(showValidation && 'show-validation')} use:enhance>
+<form novalidate class={cn(showValidation && 'show-validation')} use:enhance>
   <fieldset class="space-y-4" disabled={$submitting}>
     <h2 class="text-lg font-bold">
       Weekly Class Feedback Form{#if studentName}

@@ -269,39 +269,6 @@ describe('submitApplication', () => {
     ).rejects.toMatchObject({ status: 409 })
     expect(mockSendEmail).not.toHaveBeenCalled()
   })
-
-  it.each([['entireProgram'], ['timeCommitment'], ['submitting']] as const)(
-    'refuses without the %s agreement',
-    async (agreement) => {
-      docs[APP_PATH] = storedApplication()
-      const form = completeForm()
-      form.agreements[agreement] = false
-
-      await expect(
-        submitApplication(CALLER, form as any, DEADLINE, BEFORE_DEADLINE),
-      ).rejects.toMatchObject({ status: 400 })
-    },
-  )
-
-  it('requires the newcomer essays only from first-time instructors', async () => {
-    docs[APP_PATH] = storedApplication()
-    const newcomer = completeForm()
-    newcomer.essay.why = ''
-    await expect(
-      submitApplication(CALLER, newcomer as any, DEADLINE, BEFORE_DEADLINE),
-    ).rejects.toMatchObject({ status: 400 })
-
-    const returning = completeForm()
-    returning.essay = {
-      ...returning.essay,
-      taughtBefore: true,
-      why: '',
-      teachingScenario: '',
-    }
-    await expect(
-      submitApplication(CALLER, returning as any, DEADLINE, BEFORE_DEADLINE),
-    ).resolves.toEqual({ emailSent: true })
-  })
 })
 
 describe('applicationDeadline', () => {

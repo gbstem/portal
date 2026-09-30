@@ -213,31 +213,11 @@ export async function saveApplicationDraft(
 }
 
 /**
- * The rules `applicationSchema` can't express without becoming a ZodEffects,
- * which superforms' defaults and `formFieldParity.test.ts` both walk as a
- * plain object. The form marks these fields `required`, but only the browser
- * ever checked that.
- */
-function submissionProblem(data: SubmitData): string | null {
-  const { agreements, essay } = data
-  if (
-    !agreements.entireProgram ||
-    !agreements.timeCommitment ||
-    !agreements.submitting
-  ) {
-    return 'Please accept every agreement before submitting.'
-  }
-  if (!essay.taughtBefore && (!essay.teachingScenario || !essay.why)) {
-    return 'Please answer every essay question before submitting.'
-  }
-  return null
-}
-
-/**
  * Submits the caller's application and emails them the next steps.
  *
- * Refused after the deadline, when an agreement or a required essay is
- * missing, and when the application was already submitted. The email is sent
+ * Refused after the deadline and when the application was already
+ * submitted. `formData` has to have passed `applicationSchema`, which is what
+ * requires the agreements and the newcomer essays. The email is sent
  * after the write commits and doesn't undo it when it fails: the application
  * is in, and saying otherwise would invite a resubmission that the lock then
  * refuses.
@@ -251,9 +231,6 @@ export async function submitApplication(
   if (now >= deadline) {
     throw error(403, 'The application deadline has passed.')
   }
-  const problem = submissionProblem(formData)
-  if (problem) throw error(400, problem)
-
   await writeOwnedFields(caller, formData, true)
 
   const { firstName } = await profileNames(caller.uid)

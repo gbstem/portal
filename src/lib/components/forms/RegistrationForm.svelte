@@ -380,7 +380,7 @@
       student account, reach out to contact@gbstem.org!
     </div>
   {:else}
-    <form use:enhance class="max-w-2xl">
+    <form novalidate use:enhance class="max-w-2xl">
       <fieldset class="space-y-14" disabled={$submitting || saving}>
         {#if values.personal.studentFirstName !== ''}
           <div
