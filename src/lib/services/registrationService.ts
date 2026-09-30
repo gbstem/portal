@@ -3,27 +3,14 @@ import { db } from '$lib/client/firebase'
 import {
   maxChildrenPerAccount,
   registrationsCollection,
-  withSemester,
 } from '$lib/data/collections'
 import { retryTransient } from '$lib/services/retry'
-import { deleteDoc, doc, getDoc, setDoc } from 'firebase/firestore'
-import type { RegistrationRequestBody } from '../../routes/api/registration/+server'
+import { doc, getDoc } from 'firebase/firestore'
 
 export interface ChildRegistrationSlot {
   uid: string
   exists: boolean
   data: Data.Registration | null
-}
-
-/**
- * A partial registration write. Every save after the first is a merge, so a group
- * omitted here - or a sub-field omitted from a group - keeps whatever the last
- * writer left there. That matters because admin writes to this same document:
- * it toggles `agreements.bypassAgeLimits` and edits the parent's own answers from
- * the admin review dialog.
- */
-export type RegistrationUpdate = {
-  [K in keyof Data.Registration]?: Partial<Data.Registration[K]>
 }
 
 /**
@@ -42,39 +29,6 @@ export const registrationService = {
       return snap.data() as Data.Registration
     }
     return null
-  },
-
-  /**
-   * Creates a student's registration document with the full default shape.
-   *
-   * Deliberately a whole-document write rather than a merge: nothing exists yet to
-   * preserve, and admin's dashboard and registrations list query on
-   * `meta.submitted == false`, so a draft missing that field would be invisible
-   * there.
-   */
-  async createRegistration(
-    studentUid: string,
-    registrationData: Data.Registration,
-  ): Promise<void> {
-    const docRef = doc(db, registrationsCollection, studentUid)
-    await setDoc(docRef, withSemester(registrationData))
-  },
-
-  /**
-   * Merges the parent's edits into an existing registration document.
-   *
-   * A merge, not an overwrite, so fields the registration form doesn't own survive:
-   * `agreements.bypassAgeLimits` is admin-only (it waives the course age check that
-   * `classService` enforces), and the form's in-memory snapshot is up to one
-   * autosave interval stale. Overwriting from that snapshot silently revoked a
-   * waiver granted while the parent had the page open.
-   */
-  async updateRegistration(
-    studentUid: string,
-    changes: RegistrationUpdate,
-  ): Promise<void> {
-    const docRef = doc(db, registrationsCollection, studentUid)
-    await setDoc(docRef, withSemester(changes), { merge: true })
   },
 
   /**
@@ -105,33 +59,5 @@ export const registrationService = {
       exists: snap.exists(),
       data: snap.exists() ? (snap.data() as Data.Registration) : null,
     }))
-  },
-
-  /**
-   * Deletes a registration document from Firestore.
-   */
-  async deleteRegistration(studentUid: string): Promise<void> {
-    const docRef = doc(db, registrationsCollection, studentUid)
-    await deleteDoc(docRef)
-  },
-
-  /**
-   * Asks the server to send the "next steps" email for a submitted
-   * registration. Only the id is sent: who it goes to and what it says are
-   * read server-side from the registration and the caller's profile.
-   */
-  async submitRegistrationApi(registrationId: string): Promise<void> {
-    const payload: RegistrationRequestBody = { registrationId }
-    const res = await fetch('/api/registration', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    })
-
-    if (!res.ok) {
-      throw new Error('Failed to submit registration via API')
-    }
   },
 }

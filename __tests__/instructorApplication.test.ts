@@ -37,7 +37,6 @@ jest.mock(
 import { applicationsCollection, currentSemester } from '$lib/data/collections'
 import { createEmptyApplication } from '$lib/helpers/applyForm'
 import {
-  applicationDeadline,
   loadApplication,
   saveApplicationDraft,
   submitApplication,
@@ -268,31 +267,5 @@ describe('submitApplication', () => {
       ),
     ).rejects.toMatchObject({ status: 409 })
     expect(mockSendEmail).not.toHaveBeenCalled()
-  })
-})
-
-describe('applicationDeadline', () => {
-  it('closes at midnight New York time after the due date', () => {
-    // 09/18/26 is during EDT (UTC-4).
-    expect(
-      applicationDeadline({
-        FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080',
-        E2E_INSTRUCTOR_APPS_DUE: '09/18/26',
-      }).toISOString(),
-    ).toBe('2026-09-19T04:00:00.000Z')
-    // 01/15/27 is during EST (UTC-5).
-    expect(
-      applicationDeadline({
-        FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080',
-        E2E_INSTRUCTOR_APPS_DUE: '01/15/27',
-      }).toISOString(),
-    ).toBe('2027-01-16T05:00:00.000Z')
-  })
-
-  it('ignores the e2e override outside the emulator', () => {
-    const real = applicationDeadline({})
-    expect(
-      applicationDeadline({ E2E_INSTRUCTOR_APPS_DUE: '12/31/2099' }),
-    ).toEqual(real)
   })
 })

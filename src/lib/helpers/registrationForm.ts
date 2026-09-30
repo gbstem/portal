@@ -1,7 +1,17 @@
 import type {} from '../../data.d.ts'
 import { cloneDeep } from 'lodash-es'
 import { getRegistrationFormDefaults } from '../components/forms/schemas'
-import type { RegistrationUpdate } from '../services/registrationService'
+
+/**
+ * A partial registration write. Every save after the first is a merge, so a
+ * group omitted here - or a sub-field omitted from a group - keeps whatever
+ * the last writer left there. That matters because admin writes to this same
+ * document: it toggles `agreements.bypassAgeLimits` and edits the parent's own
+ * answers from the admin review dialog.
+ */
+export type RegistrationUpdate = {
+  [K in keyof Data.Registration]?: Partial<Data.Registration[K]>
+}
 
 /**
  * Returns default empty Data.Registration structure.
@@ -41,23 +51,17 @@ export function createEmptyRegistration(): Data.Registration {
 }
 
 /**
- * Builds the registration document for a child slot's very first write.
+ * Builds the registration document for a child's very first write, which
+ * `$lib/server/studentRegistration` makes the first time the child is opened.
  *
- * `timestamps.created` is stamped here because this is the only write that sends the
- * whole document: `registrationOwnedFields` fills `created` in only when it is already
- * missing, so a draft bootstrapped with the `null` `createEmptyRegistration` returns kept
- * that null until its parent happened to save again - and kept it forever once submitted,
- * which is what admin's `timestamps.created.toDate()` reads crashed on. The save paths
- * were fixed in portal #61; this one was missed.
+ * `timestamps.created` is stamped here because this is the only write that
+ * sends the whole document: `registrationOwnedFields` fills `created` in only
+ * when it is already missing, so a draft bootstrapped with the `null`
+ * `createEmptyRegistration` returns kept that null until its parent happened to
+ * save again - and kept it forever once submitted, which is what admin's
+ * `timestamps.created.toDate()` reads crashed on (portal #61).
  *
- * Note the caller's `serverTimestamp()` sentinel stays in the in-memory copy afterwards
- * (the bootstrap deliberately doesn't re-read the document - see `bootstrapRegistration`).
- * It is truthy, so the next save re-sends it rather than round-tripping a stored value,
- * and `created` lands on that save's server time instead of this one - at most one autosave
- * interval later. That is a bounded imprecision on a server clock, unlike the null it
- * replaces, which was a hard crash.
- *
- * @param timestamp the caller's `serverTimestamp()` sentinel.
+ * @param timestamp the caller's server-timestamp sentinel.
  */
 export function createBootstrapRegistration(
   childUid: string,
@@ -185,20 +189,21 @@ export const REGISTRATION_ADMIN_OWNED_FIELDS = ['agreements.bypassAgeLimits']
 /**
  * The parts of the registration document this form owns, ready to be merged in.
  *
- * Every save after the bootstrap write is a `{ merge: true }` write, so what
+ * `$lib/server/studentRegistration` merges this into the stored document
+ * (`{ merge: true }`), so what
  * this returns is exactly what reaches Firestore and anything omitted keeps
  * whatever the last writer left. That makes this the highest-consequence field
  * list in the form - hence living here, where `formFieldParity.test.ts` can
  * check it against the schema, rather than inside the component.
  *
- * `meta` is absent on purpose: it's written only by the submit handler and by
+ * `meta` is absent on purpose: it's written only by the submit action and by
  * the bootstrap write.
  *
  * @param accountEmail the signed-in parent account's current address. It is
  *   stamped as `personal.email` on every save, so the submitted document
  *   records the address the account had when it was submitted. Nothing reads
  *   it back - see `Data.Registration`.
- * @param timestamp the caller's `serverTimestamp()` sentinel.
+ * @param timestamp the caller's server-timestamp sentinel.
  */
 export function registrationOwnedFields(
   values: Data.Registration,
@@ -212,7 +217,7 @@ export function registrationOwnedFields(
       ...formData.personal,
       email: accountEmail,
       // The parent's names belong to their account, not to this form.
-      // `initializeForm` writes them from the signed-in profile; re-pin them
+      // `loadRegistration` writes them from the signed-in profile; re-pin them
       // here so a stale or absent form value can never overwrite them.
       parentFirstName: values.personal.parentFirstName,
       parentLastName: values.personal.parentLastName,
