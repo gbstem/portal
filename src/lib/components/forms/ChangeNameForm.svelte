@@ -82,7 +82,7 @@
 {#if loading}
   <Loading />
 {:else}
-  <form use:enhance class="w-full">
+  <form novalidate use:enhance class="w-full">
     <fieldset class="space-y-4" disabled={$delayed}>
       <span class="font-bold">Name</span>
       <div class="grid gap-2 sm:grid-cols-2">

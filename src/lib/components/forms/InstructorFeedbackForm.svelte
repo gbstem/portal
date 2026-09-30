@@ -169,7 +169,11 @@
       Failed to load class details. Please try again.
     </div>
   {:else}
-    <form class={cn(showValidation && 'show-validation')} use:enhance>
+    <form
+      novalidate
+      class={cn(showValidation && 'show-validation')}
+      use:enhance
+    >
       <fieldset disabled={$submitting}>
         <h2 class="mt-6 mb-4 text-lg font-bold">Class Information</h2>
         <div class="grid gap-1 sm:grid-cols-2 sm:gap-2">

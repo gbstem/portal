@@ -172,6 +172,7 @@
         <h2 class="mb-2 text-lg font-bold">Available Interview Slots</h2>
 
         <form
+          novalidate
           class={cn(
             'max-w-2xl',
             showValidation && 'show-validation',
@@ -225,7 +226,11 @@
         </form>
 
         {#if showRequestNewTime}
-          <form class={cn('mt-4 max-w-2xl space-y-4')} use:requestEnhance>
+          <form
+            novalidate
+            class={cn('mt-4 max-w-2xl space-y-4')}
+            use:requestEnhance
+          >
             <div class="mt-2 flex flex-col gap-1.5">
               <FormInput
                 form={requestFormResult}

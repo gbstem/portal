@@ -531,6 +531,7 @@
         {:else}
           <Card class="sticky top-2 z-50 flex justify-between gap-3 p-3 md:p-3">
             <form
+              novalidate
               use:enhance
               class={cn(showValidation && 'show-validation', 'w-full')}
             >
@@ -740,7 +741,11 @@
       Could not load class details. Please reload the page to try again.
     </div>
   {:else}
-    <form use:enhance class={cn(showValidation && 'show-validation', 'w-full')}>
+    <form
+      novalidate
+      use:enhance
+      class={cn(showValidation && 'show-validation', 'w-full')}
+    >
       {#if disabled}
         <Button
           color="blue"

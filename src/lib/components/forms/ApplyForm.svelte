@@ -112,6 +112,7 @@
 <svelte:window onbeforeunload={handleUnload} />
 
 <form
+  novalidate
   method="POST"
   action="?/submitApplication"
   use:enhance
@@ -410,7 +411,6 @@
           bind:this={saveButton}
           type="submit"
           formaction="?/saveApplication"
-          formnovalidate
           class="rounded-md bg-gray-100 px-4 py-2 text-gray-900 shadow-xs transition-colors duration-300 hover:bg-gray-200 disabled:bg-gray-200 disabled:text-gray-500"
         >
           Save draft
