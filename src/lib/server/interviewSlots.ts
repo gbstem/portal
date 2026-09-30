@@ -2,8 +2,11 @@ import { dev } from '$app/environment'
 import {
   applicationsCollection,
   interviewCollection,
+  interviewTimeRequestsCollection,
   semesterDates,
 } from '$lib/data/collections'
+import { slotRequestDocId } from '$lib/data/docIds'
+import { validateRequestedInterviewTime } from '$lib/helpers/interviewForm'
 import { adminDb } from '$lib/server/firebase'
 import { error } from '@sveltejs/kit'
 import type { QueryDocumentSnapshot } from 'firebase-admin/firestore'
@@ -206,4 +209,45 @@ export async function bookInterviewSlot(
       intervieweeFirstName: profile.firstName ?? '',
     }
   })
+}
+
+/**
+ * Records an applicant's request for an interview at a time no slot offers,
+ * for admins to add a slot for (admin's interviewService.fetchSlotRequests).
+ * Returns the applicant's first name, for the notification.
+ *
+ * `requestedTime` is the `YYYY-MM-DDTHH:mm` the applicant picked, which names
+ * the document (see slotRequestDocId); `date` is that same moment as an
+ * instant. The name is read from the applicant's own profile, and the time is
+ * checked here - the form's own check is a convenience anyone can skip.
+ * Skipped in dev, as the form's is: fixture dates go stale.
+ */
+export async function recordSlotRequest(
+  uid: string,
+  requestedTime: string,
+  date: Date,
+): Promise<{ firstName: string }> {
+  const invalidReason = dev
+    ? null
+    : validateRequestedInterviewTime(
+        date.toISOString(),
+        semesterDates.instructorOrientation,
+      )
+  if (invalidReason) {
+    throw error(400, invalidReason)
+  }
+
+  const profile = (await adminDb.doc(`users/${uid}`).get()).data() ?? {}
+  const firstName: string = profile.firstName ?? ''
+  await adminDb
+    .doc(
+      `${interviewTimeRequestsCollection}/${slotRequestDocId(uid, requestedTime)}`,
+    )
+    .set({
+      uid,
+      firstName,
+      lastName: profile.lastName ?? '',
+      date,
+    })
+  return { firstName }
 }

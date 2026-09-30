@@ -4,7 +4,10 @@ import {
   computeUpdatedClassStatuses,
   computeMeetingTimeChanges,
   findNextClassDateIndex,
+  findTodaysSessionIndex,
+  heldEarlierToday,
   buildSubRequestPayload,
+  rescheduleSessions,
 } from '$lib/helpers/classSchedule'
 import { ClassStatus } from '$lib/components/helpers/ClassStatus'
 import { SubRequestStatus } from '$lib/components/helpers/SubRequestStatus'
@@ -93,6 +96,132 @@ describe('ClassSchedule Helpers', () => {
       ])
       expect(result.newFeedback).toHaveLength(2)
       expect(result.newClassStatuses).toHaveLength(2)
+    })
+  })
+
+  describe('computeUpdatedClassStatuses - a session held early', () => {
+    test('stays held through the half hour before its start, and after it', () => {
+      const start = Date.now() + 10 * 60 * 1000
+      const meetingTimes = [new Date(start)]
+
+      const before = computeUpdatedClassStatuses(
+        [ClassStatus.FeedbackIncomplete],
+        [false],
+        meetingTimes,
+      )
+      expect(before.updatedStatuses).toEqual([ClassStatus.FeedbackIncomplete])
+
+      const after = computeUpdatedClassStatuses(
+        before.updatedStatuses,
+        [false],
+        meetingTimes,
+        new Date(start + 60 * 60 * 1000),
+      )
+      expect(after.updatedStatuses).toEqual([ClassStatus.FeedbackIncomplete])
+    })
+  })
+
+  describe('rescheduleSessions', () => {
+    const T = (day: number) => `2026-10-${String(day).padStart(2, '0')}T20:00Z`
+
+    test('keeps each kept session with its own feedback flag and status', () => {
+      const result = rescheduleSessions(
+        [T(5), T(12), T(19)],
+        [T(19), T(5), T(12), T(26)],
+        [true, false, true],
+        ['EverythingComplete', 'ClassNotHeld', 'EverythingComplete'],
+      )
+
+      expect(result).toEqual({
+        sortedEditedTimes: [T(5), T(12), T(19), T(26)],
+        newFeedback: [true, false, true, false],
+        newClassStatuses: [
+          'EverythingComplete',
+          'ClassNotHeld',
+          'EverythingComplete',
+          ClassStatus.ClassInFuture,
+        ],
+      })
+    })
+
+    // Removing sessions in ascending order shifted every later index down by
+    // one before it was used, so the second removal took out a session that
+    // was being kept - and handed its feedback flag to a different week.
+    test('removes several sessions without disturbing the ones kept', () => {
+      const result = rescheduleSessions(
+        [T(5), T(12), T(19), T(26)],
+        [T(12), T(26)],
+        [false, true, false, true],
+        ['A', 'B', 'C', 'D'],
+      )
+
+      expect(result.newFeedback).toEqual([true, true])
+      expect(result.newClassStatuses).toEqual(['B', 'D'])
+    })
+  })
+
+  // "Today" on the server is gbSTEM's day, not UTC's: an 8pm Boston class is
+  // already tomorrow in UTC.
+  describe('findTodaysSessionIndex', () => {
+    const ZONE = 'America/New_York'
+
+    test("finds this evening's session even when UTC has rolled over", () => {
+      const now = new Date('2026-10-05T23:30:00Z') // 7:30pm in Boston
+      const meetingTimes = [
+        new Date('2026-09-29T00:00:00Z'),
+        new Date('2026-10-06T00:00:00Z'), // 8pm Boston, Oct 5
+      ]
+
+      expect(findTodaysSessionIndex(meetingTimes, now, ZONE)).toBe(1)
+    })
+
+    test('returns -1 when no session falls on the day', () => {
+      const now = new Date('2026-10-07T16:00:00Z')
+      const meetingTimes = [new Date('2026-10-06T00:00:00Z')]
+
+      expect(findTodaysSessionIndex(meetingTimes, now, ZONE)).toBe(-1)
+    })
+
+    test('with two sessions today, picks the first whose hour has not passed', () => {
+      const now = new Date('2026-10-05T19:30:00Z') // 3:30pm in Boston
+      const meetingTimes = [
+        '2026-10-05T14:00:00Z', // 10am
+        '2026-10-05T19:00:00Z', // 3pm - this hour
+        '2026-10-05T22:00:00Z', // 6pm
+      ]
+
+      expect(findTodaysSessionIndex(meetingTimes, now, ZONE)).toBe(1)
+    })
+
+    test('with two sessions today both over, finds none', () => {
+      const now = new Date('2026-10-06T02:00:00Z') // 10pm in Boston
+      const meetingTimes = ['2026-10-05T14:00:00Z', '2026-10-05T19:00:00Z']
+
+      expect(findTodaysSessionIndex(meetingTimes, now, ZONE)).toBe(-1)
+    })
+  })
+
+  describe('heldEarlierToday', () => {
+    const ZONE = 'America/New_York'
+    const now = new Date('2026-10-05T23:30:00Z') // 7:30pm in Boston
+
+    test('counts a session recorded earlier on the same gbSTEM day', () => {
+      expect(
+        heldEarlierToday([new Date('2026-10-05T13:00:00Z')], now, ZONE),
+      ).toBe(true)
+    })
+
+    test("ignores yesterday's, and one stamped later than now", () => {
+      expect(
+        heldEarlierToday(
+          [
+            new Date('2026-10-05T03:00:00Z'), // 11pm Oct 4 in Boston
+            new Date('2026-10-05T23:45:00Z'),
+          ],
+          now,
+          ZONE,
+        ),
+      ).toBe(false)
     })
   })
 

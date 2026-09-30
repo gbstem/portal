@@ -2,19 +2,19 @@ import { db } from '$lib/client/firebase'
 import { SubRequestStatus } from '$lib/components/helpers/SubRequestStatus'
 import { substituteRequestsCollection } from '$lib/data/collections'
 import { accountEmailService } from '$lib/services/accountEmailService'
-import { parseSubRequestDocId, subRequestDocId } from '$lib/data/docIds'
 import { type SubClassesDataResult } from '$lib/helpers/subClasses'
 import {
   collection,
-  deleteDoc,
-  doc,
   getCountFromServer,
   getDocs,
   query,
   where,
-  writeBatch,
   type QuerySnapshot,
 } from 'firebase/firestore'
+import type {
+  CancelSubRequestBody,
+  EditSubRequestBody,
+} from '../../routes/api/subRequest/+server'
 import type {
   OpenSubRequestsResponse,
   SubstituteClaimResponse,
@@ -28,6 +28,21 @@ import type {
   SubstituteSessionRequestBody,
   SubstituteSessionResponse,
 } from '../../routes/api/substituteSession/+server'
+
+async function sendSubRequest(
+  method: 'PATCH' | 'DELETE',
+  payload: EditSubRequestBody | CancelSubRequestBody,
+): Promise<void> {
+  const res = await fetch('/api/subRequest', {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body?.message || 'Could not save that sub request.')
+  }
+}
 
 /** Requests from one or more queries, each once, carrying its document id. */
 function toSubRequests(...snapshots: QuerySnapshot[]): Data.SubRequest[] {
@@ -133,61 +148,30 @@ export const substituteService = {
   },
 
   /**
-   * Creates or updates a substitute request doc.
+   * Saves edits to one of the signed-in instructor's sub requests: its
+   * session, date and notes. Changing the session moves the request, in one
+   * transaction server-side - see /api/subRequest. Throws with the server's
+   * message on refusal.
    */
-  async saveSubRequest(
-    subRequest: Data.SubRequest,
-    originalClassNumber?: number,
-  ): Promise<void> {
-    // Keyed by the class, never by whoever is signed in: an edit has to land
-    // on the document the request was created at, and a co-instructor editing
-    // a request is not the uid in that class's id anyway.
-    const classId = parseSubRequestDocId(subRequest.id)?.classId ?? ''
-    if (!classId) {
-      throw new Error(
-        `Cannot save a sub request without a class: id was "${subRequest.id}"`,
-      )
+  async saveSubRequest(subRequest: Data.SubRequest): Promise<void> {
+    const payload: EditSubRequestBody = {
+      // The document id as read, which names the session it is moving from.
+      subRequestId: subRequest.id,
+      classNumber: subRequest.classNumber,
+      dateOfClass: new Date(subRequest.dateOfClass),
+      notes: subRequest.notes,
     }
-
-    const docRef = doc(
-      db,
-      substituteRequestsCollection,
-      subRequestDocId(classId, subRequest.classNumber),
-    )
-    // `id` is stored as the class id at creation (see buildSubRequestPayload)
-    // while the in-memory copy carries the document id, so it is restamped
-    // rather than written back as read.
-    const batch = writeBatch(db)
-    batch.set(docRef, { ...subRequest, id: classId })
-
-    // Moving a request to another session moves the document, so the one it
-    // came from has to go - in the same batch. As two writes, a failed delete
-    // left the request at both sessions, and a refused write (the new
-    // session already has a request) still deleted the old one.
-    if (
-      originalClassNumber !== undefined &&
-      subRequest.classNumber !== originalClassNumber
-    ) {
-      batch.delete(
-        doc(
-          db,
-          substituteRequestsCollection,
-          subRequestDocId(classId, originalClassNumber),
-        ),
-      )
-    }
-    await batch.commit()
+    await sendSubRequest('PATCH', payload)
   },
 
   /**
-   * Deletes a substitute request doc.
+   * Cancels one of the signed-in instructor's sub requests - see
+   * /api/subRequest. Throws with the server's message on refusal, including
+   * when the request is already gone.
    */
   async deleteSubRequest(subRequestId: string): Promise<void> {
-    // The document id as read, rather than one rebuilt from the signed-in
-    // user - deleting a document that does not exist succeeds silently, so
-    // getting this wrong reported success and left the request standing.
-    const docRef = doc(db, substituteRequestsCollection, subRequestId)
-    await deleteDoc(docRef)
+    const payload: CancelSubRequestBody = { subRequestId }
+    await sendSubRequest('DELETE', payload)
   },
 
   /**

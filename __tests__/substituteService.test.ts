@@ -149,86 +149,72 @@ describe('substituteService (Data Access Layer)', () => {
     })
   })
 
-  // Every assertion here is on the document *path*. These tests used to check
-  // only that setDoc/deleteDoc had been called at all, which is how an edit
-  // that wrote to `${signedInUid}---${n}` - a document no class has ever been
-  // stored at - passed for as long as it did.
-  const pathOf = (call: number = 0) =>
-    (firestore.doc as jest.Mock).mock.calls[call][2]
+  // Filing, editing and cancelling go through /api/subRequest: firestore.rules
+  // gives instructors no write access to subRequests. The request is named by
+  // the document id it was read from - an edit once rebuilt it from the
+  // signed-in uid (`${uid}---${n}`), a document no class has ever been stored
+  // at, and every edit landed there.
+  const sent = () => {
+    const [url, options] = (global.fetch as jest.Mock).mock.calls[0]
+    return { url, method: options.method, body: JSON.parse(options.body) }
+  }
 
   describe('saveSubRequest', () => {
-    beforeEach(() => {
-      mockBatch.commit.mockReset().mockResolvedValue(undefined)
-    })
+    it('sends the id it was read from, with the session, date and notes', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true })
 
-    it('writes back to the document the request was read from', async () => {
-      const subReq = {
-        id: 'owner-uid-1---2',
-        classNumber: 2,
-        notes: 'edited',
-      } as Data.SubRequest
-
-      await substituteService.saveSubRequest(subReq)
-
-      expect(pathOf()).toBe('owner-uid-1---2')
-      // The stored `id` field means the class, the way creation writes it.
-      expect(mockBatch.set).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.objectContaining({ id: 'owner-uid-1', notes: 'edited' }),
-      )
-      expect(mockBatch.delete).not.toHaveBeenCalled()
-      expect(mockBatch.commit).toHaveBeenCalledTimes(1)
-    })
-
-    it('moves the document when the class number changes, in one batch', async () => {
-      const subReq = {
+      await substituteService.saveSubRequest({
         id: 'owner-uid-1---2',
         classNumber: 3,
-      } as Data.SubRequest
+        dateOfClass: new Date('2026-10-05T20:00:00.000Z'),
+        notes: 'edited',
+        requestedByUid: 'someone-else',
+      } as Data.SubRequest)
 
-      await substituteService.saveSubRequest(subReq, 2)
-
-      // Written at the new session number, removed from the old one - both
-      // under the class, not under whoever is signed in, and together.
-      expect(pathOf(0)).toBe('owner-uid-1---3')
-      expect(pathOf(1)).toBe('owner-uid-1---2')
-      expect(firestore.writeBatch).toHaveBeenCalledTimes(1)
-      expect(mockBatch.set).toHaveBeenCalledTimes(1)
-      expect(mockBatch.delete).toHaveBeenCalledTimes(1)
-      expect(mockBatch.commit).toHaveBeenCalledTimes(1)
-      expect(firestore.setDoc).not.toHaveBeenCalled()
-      expect(firestore.deleteDoc).not.toHaveBeenCalled()
+      expect(sent()).toEqual({
+        url: '/api/subRequest',
+        method: 'PATCH',
+        body: {
+          subRequestId: 'owner-uid-1---2',
+          classNumber: 3,
+          dateOfClass: '2026-10-05T20:00:00.000Z',
+          notes: 'edited',
+        },
+      })
+      expect(firestore.writeBatch).not.toHaveBeenCalled()
     })
 
-    it('propagates a refused batch', async () => {
-      mockBatch.commit.mockRejectedValueOnce(new Error('permission-denied'))
+    it("throws with the server's message on refusal", async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({
+          message: 'That session already has a sub request.',
+        }),
+      })
 
       await expect(
-        substituteService.saveSubRequest(
-          { id: 'owner-uid-1---2', classNumber: 3 } as Data.SubRequest,
-          2,
-        ),
-      ).rejects.toThrow('permission-denied')
-    })
-
-    it('refuses to write a request whose class cannot be determined', async () => {
-      const subReq = { id: '', classNumber: 2 } as Data.SubRequest
-
-      await expect(substituteService.saveSubRequest(subReq)).rejects.toThrow(
-        /without a class/,
-      )
-      expect(mockBatch.set).not.toHaveBeenCalled()
+        substituteService.saveSubRequest({
+          id: 'owner-uid-1---2',
+          classNumber: 3,
+          dateOfClass: new Date(),
+          notes: '',
+        } as Data.SubRequest),
+      ).rejects.toThrow('That session already has a sub request.')
     })
   })
 
   describe('deleteSubRequest', () => {
-    it('deletes exactly the document it is given', async () => {
-      ;(firestore.deleteDoc as jest.Mock).mockResolvedValueOnce(undefined)
+    it('cancels exactly the document it is given', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true })
 
       await substituteService.deleteSubRequest('owner-uid-1---2')
 
-      expect(pathOf()).toBe('owner-uid-1---2')
-      expect(firestore.deleteDoc).toHaveBeenCalled()
+      expect(sent()).toEqual({
+        url: '/api/subRequest',
+        method: 'DELETE',
+        body: { subRequestId: 'owner-uid-1---2' },
+      })
+      expect(firestore.deleteDoc).not.toHaveBeenCalled()
     })
   })
 

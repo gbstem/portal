@@ -57,43 +57,109 @@ describe('portal classService (Data Access Layer)', () => {
     })
   })
 
-  describe('updateClassStatuses', () => {
-    it('updates classStatuses on class doc', async () => {
-      ;(firestore.updateDoc as jest.Mock).mockResolvedValueOnce(undefined)
-      await classService.updateClassStatuses('c-1', ['Everything Complete'])
-      expect(firestore.updateDoc).toHaveBeenCalled()
-    })
-  })
+  // Every schedule change goes through /api/classSchedule: firestore.rules
+  // gives instructors no write access to classes.
+  describe('class schedule changes', () => {
+    const respond = (body: unknown, ok = true) =>
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok,
+        json: async () => body,
+      })
+    const sentBody = () =>
+      JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body)
 
-  describe('updateMeetingTimes', () => {
-    it('updates meetingTimes, feedback, and statuses on class doc', async () => {
-      ;(firestore.updateDoc as jest.Mock).mockResolvedValueOnce(undefined)
-      await classService.updateMeetingTimes('c-1', [], [true], ['Complete'])
-      expect(firestore.updateDoc).toHaveBeenCalled()
-    })
-  })
+    it('refreshes statuses by class id alone', async () => {
+      respond({ classStatuses: ['ClassNotHeld'] })
 
-  describe('recordClassSession', () => {
-    it('updates completedClassDates and classStatuses', async () => {
-      ;(firestore.updateDoc as jest.Mock).mockResolvedValueOnce(undefined)
-      await classService.recordClassSession('c-1', [new Date()], ['Complete'])
-      expect(firestore.updateDoc).toHaveBeenCalled()
+      await expect(classService.refreshClassStatuses('c-1')).resolves.toEqual([
+        'ClassNotHeld',
+      ])
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/classSchedule',
+        expect.objectContaining({ method: 'POST' }),
+      )
+      expect(sentBody()).toEqual({ action: 'refreshStatuses', classId: 'c-1' })
+      expect(firestore.updateDoc).not.toHaveBeenCalled()
+    })
+
+    it('reschedules by sending only the times, and returns the saved schedule as Dates', async () => {
+      respond({
+        meetingTimes: ['2026-10-05T20:00:00.000Z'],
+        feedbackCompleted: [false],
+        classStatuses: ['ClassInFuture'],
+      })
+
+      const saved = await classService.rescheduleClass('c-1', [
+        new Date('2026-10-05T20:00:00.000Z'),
+      ])
+
+      expect(sentBody()).toEqual({
+        action: 'reschedule',
+        classId: 'c-1',
+        meetingTimes: ['2026-10-05T20:00:00.000Z'],
+      })
+      expect(saved).toEqual({
+        meetingTimes: [new Date('2026-10-05T20:00:00.000Z')],
+        feedbackCompleted: [false],
+        classStatuses: ['ClassInFuture'],
+      })
+    })
+
+    it("holds a session and passes the server's refusal on", async () => {
+      respond({ meetingLink: 'https://zoom.us/j/1' })
+      await expect(classService.holdClassSession('c-1')).resolves.toEqual({
+        meetingLink: 'https://zoom.us/j/1',
+      })
+      expect(sentBody()).toEqual({ action: 'holdSession', classId: 'c-1' })
+
+      respond({ message: 'No class session found today!' }, false)
+      await expect(classService.holdClassSession('c-1')).rejects.toThrow(
+        'No class session found today!',
+      )
     })
   })
 
   describe('submitSubRequest', () => {
-    it('saves sub request payload to substituteRequestsCollection', async () => {
-      ;(firestore.setDoc as jest.Mock).mockResolvedValueOnce(undefined)
-      await classService.submitSubRequest(
-        'c-1',
-        1,
-        '2026-09-01',
-        'Notes',
-        'Python 1',
-        'inst@example.com',
-        'https://zoom.us',
+    it('posts the session to /api/subRequest rather than writing Firestore', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ subRequestId: 'c-1---1' }),
+      })
+      const body = {
+        classId: 'c-1',
+        classNumber: 1,
+        dateOfClass: new Date('2026-10-05T20:00:00.000Z'),
+        notes: 'Notes',
+      }
+
+      await expect(classService.submitSubRequest(body)).resolves.toBe('c-1---1')
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/subRequest',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify(body),
+        }),
       )
-      expect(firestore.setDoc).toHaveBeenCalled()
+      expect(firestore.setDoc).not.toHaveBeenCalled()
+    })
+
+    it("throws with the server's message on refusal", async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({
+          message:
+            "That session already has a sub request, so it wasn't filed again.",
+        }),
+      })
+
+      await expect(
+        classService.submitSubRequest({
+          classId: 'c-1',
+          classNumber: 1,
+          dateOfClass: new Date(),
+          notes: '',
+        }),
+      ).rejects.toThrow('already has a sub request')
     })
   })
 

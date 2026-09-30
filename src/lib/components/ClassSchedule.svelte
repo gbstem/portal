@@ -6,7 +6,6 @@
   import DialogActions from '$lib/components/DialogActions.svelte'
   import {
     computeMeetingTimeChanges,
-    computeUpdatedClassStatuses,
     findNextClassDateIndex,
   } from '$lib/helpers/classSchedule'
   import { curriculumLink } from '$lib/helpers/curriculumLink'
@@ -15,7 +14,6 @@
   import { classService } from '$lib/services/classService'
   import { alert } from '$lib/stores'
   import {
-    classTodayHeld,
     copyEmails,
     copyToClipboard,
     formatDateString,
@@ -102,51 +100,51 @@
     }
   }
 
+  /**
+   * Has the server bring the class's session statuses up to date with the
+   * clock, which is what keeps admin's class overview current, and shows
+   * the result.
+   */
   function checkStatuses() {
-    const { updatedStatuses, hasChanged } = computeUpdatedClassStatuses(
-      values.classStatuses,
-      values.feedbackCompleted,
-      values.meetingTimes,
-    )
-
-    if (hasChanged) {
-      classService
-        .updateClassStatuses(classId, updatedStatuses)
-        .catch((err) => console.warn('Failed to update classStatuses:', err))
-    }
+    const refreshedClassId = classId
+    classService
+      .refreshClassStatuses(refreshedClassId)
+      .then((classStatuses) => {
+        if (classId === refreshedClassId) {
+          values.classStatuses = classStatuses
+        }
+      })
+      .catch((err) => console.warn('Failed to update classStatuses:', err))
   }
 
-  async function updateMeetingTimes(
-    newFeedback: boolean[],
-    newClassStatuses: string[],
-  ): Promise<void> {
-    const meetingTimesDate = editedMeetingTimes.map((time) => new Date(time))
-    await classService
-      .updateMeetingTimes(
+  /**
+   * Saves the edited meeting times. The server works out each session's
+   * feedback flag and status from the class as stored, and the schedule
+   * shows what it saved.
+   */
+  async function updateMeetingTimes(): Promise<void> {
+    try {
+      const saved = await classService.rescheduleClass(
         classId,
-        meetingTimesDate,
-        newFeedback,
-        newClassStatuses,
+        editedMeetingTimes.map((time) => new Date(time)),
       )
-      .then(() => {
-        nextClassIndex = findNextClassDate()
-        alert.trigger('success', 'Meeting times updated!')
-      })
+      values.meetingTimes = saved.meetingTimes
+      values.feedbackCompleted = saved.feedbackCompleted
+      values.classStatuses = saved.classStatuses
+      nextClassIndex = findNextClassDate()
+      alert.trigger('success', 'Meeting times updated!')
+    } catch (err: any) {
+      alert.trigger(
+        'error',
+        err?.message || 'Could not update meeting times. Please try again.',
+      )
+    }
   }
 
   function cancelChanges(): void {
     editMode = false
     editedMeetingTimes = [...originalMeetingTimes]
-    classService
-      .updateMeetingTimes(
-        classId,
-        values.meetingTimes,
-        values.feedbackCompleted,
-        values.classStatuses,
-      )
-      .then(() => {
-        alert.trigger('success', 'Changes cancelled!')
-      })
+    alert.trigger('success', 'Changes cancelled!')
   }
 
   function saveChanges(): void {
@@ -168,7 +166,7 @@
     )
     values.feedbackCompleted = changes.newFeedback
     values.classStatuses = changes.newClassStatuses
-    updateMeetingTimes(values.feedbackCompleted, values.classStatuses)
+    updateMeetingTimes()
   }
 
   /**
@@ -180,18 +178,13 @@
   }
 
   /**
-   * Record the class session by updating the status of the upcoming class in the class document
-   * @param classId The ID of the class to update
-   * @param link The link to the class session
+   * Records that the instructor is holding today's session, then opens the
+   * class's meeting. Which session is today, and what that marks on the
+   * class, is decided server-side - see classService.holdClassSession.
+   * @param classId The ID of the class being held
    */
   const recordClass = async (classId: string) => {
-    let {
-      meetingLink,
-      meetingTimes,
-      feedbackCompleted,
-      classStatuses,
-      completedClassDates,
-    } = values
+    const { meetingLink } = values
     const link = openableMeetingLink(meetingLink)
     if (!link) {
       alert.trigger(
@@ -203,52 +196,28 @@
     const confirmHoldClass = confirm(
       `Please confirm you are holding class now. Confirming will redirect you to ${meetingLink}`,
     )
-    if (confirmHoldClass) {
-      if (!classTodayHeld(completedClassDates))
-        completedClassDates = [...completedClassDates, new Date()]
-      let classToday = false
-      if (
-        nextClassIndex !== -1 &&
-        nextClassIndex < meetingTimes.length &&
-        new Date().toDateString() ===
-          meetingTimes[nextClassIndex].toDateString()
-      ) {
-        classToday = true
-        classStatuses[nextClassIndex] = feedbackCompleted[nextClassIndex]
-          ? ClassStatus.EverythingComplete
-          : ClassStatus.FeedbackIncomplete
-      }
-      if (!classToday) {
-        alert.trigger(
-          'error',
-          'No class session found today! Please update your class schedule if you are planning to hold class today.',
-        )
-        return
-      } else {
-        await classService.recordClassSession(
-          classId,
-          completedClassDates,
-          classStatuses,
-        )
-      }
-      window.open(link, '_blank', 'noopener')
+    if (!confirmHoldClass) return
+    try {
+      await classService.holdClassSession(classId)
+    } catch (err: any) {
+      alert.trigger(
+        'error',
+        err?.message || 'Could not record this class. Please try again.',
+      )
+      return
     }
+    window.open(link, '_blank', 'noopener')
+    checkStatuses()
   }
 
   function sendSubRequest() {
     classService
-      .submitSubRequest(
+      .submitSubRequest({
         classId,
-        subRequestClassNumber,
-        subRequestDate,
-        subRequestNotes,
-        values.course,
-        values.meetingLink,
-        values.instructorUid,
-        // Whoever is signed in, which for a co-taught class need not be the
-        // instructor the class document names.
-        $user?.object.uid,
-      )
+        classNumber: subRequestClassNumber,
+        dateOfClass: new Date(subRequestDate),
+        notes: subRequestNotes,
+      })
       .then(() => {
         alert.trigger('success', 'Sub request sent!')
         window.setTimeout(() => {
@@ -256,14 +225,11 @@
         }, 1000)
       })
       .catch((err) => {
-        // A session's request is a single document, so filing again for a
-        // session that already has one is refused rather than overwriting it
-        // - and whoever may already be covering it.
+        // Includes a session that already has a request, which is refused
+        // rather than overwritten - whoever may already be covering it.
         alert.trigger(
           'error',
-          err?.code === 'permission-denied'
-            ? "That session already has a sub request, so it wasn't filed again."
-            : 'Failed to send sub request, please try again.',
+          err?.message || 'Failed to send sub request, please try again.',
         )
       })
   }

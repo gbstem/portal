@@ -163,76 +163,41 @@ describe('interviewService (Data Access Layer)', () => {
   })
 
   describe('requestInterviewSlot', () => {
-    const currentUser = {
-      object: { uid: 'uid-1', email: 'applicant@example.com' },
-      profile: { firstName: 'Timmy', lastName: 'Tester' },
-    } as Data.User.Store
-
-    it('saves the requested timeslot and notifies via email', async () => {
-      ;(firestore.setDoc as jest.Mock).mockResolvedValueOnce(undefined)
+    it('posts the picked time to /api/slotRequest rather than writing Firestore', async () => {
       ;(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true })
 
-      await interviewService.requestInterviewSlot(
-        '2026-06-01T10:00',
-        currentUser,
-      )
+      await interviewService.requestInterviewSlot('2026-06-01T10:00')
 
-      expect(firestore.setDoc).toHaveBeenCalledTimes(1)
+      expect(firestore.setDoc).not.toHaveBeenCalled()
       expect(global.fetch).toHaveBeenCalledWith(
         '/api/slotRequest',
         expect.objectContaining({ method: 'POST' }),
       )
     })
 
-    it('logs but does not throw if the slot request email API responds not-ok', async () => {
-      ;(firestore.setDoc as jest.Mock).mockResolvedValueOnce(undefined)
-      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
-        ok: false,
-        json: () => Promise.resolve({ message: 'bad request' }),
-      })
-      const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
-
-      await expect(
-        interviewService.requestInterviewSlot('2026-06-01T10:00', currentUser),
-      ).resolves.toBeUndefined()
-
-      expect(errorSpy).toHaveBeenCalledWith(
-        'Interview slot request failed:',
-        'bad request',
-      )
-      errorSpy.mockRestore()
-    })
-
-    it('propagates errors from setDoc', async () => {
-      ;(firestore.setDoc as jest.Mock).mockRejectedValueOnce(
-        new Error('permission-denied'),
-      )
-      await expect(
-        interviewService.requestInterviewSlot('2026-06-01T10:00', currentUser),
-      ).rejects.toThrow('permission-denied')
-    })
-
-    it('sends no address at all - the handler uses the verified session email', async () => {
-      ;(firestore.setDoc as jest.Mock).mockResolvedValueOnce(undefined)
+    it('sends the picked time and the instant it means, and nothing about the applicant', async () => {
       ;(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true })
 
-      const userWithoutEmail = {
-        object: { uid: 'uid-1', email: null },
-        profile: { firstName: 'Timmy', lastName: 'Tester' },
-      } as unknown as Data.User.Store
-
-      await interviewService.requestInterviewSlot(
-        '2026-06-01T10:00',
-        userWithoutEmail,
-      )
+      await interviewService.requestInterviewSlot('2026-06-01T10:00')
 
       const [, options] = (global.fetch as jest.Mock).mock.calls[0]
-      const body = JSON.parse(options.body)
-      expect(body).not.toHaveProperty('intervieweeEmail')
-      expect(body).toEqual({
-        firstName: 'Timmy',
-        timeSlot: expect.any(String),
+      // The name and uid are read server-side, the address from the session.
+      expect(JSON.parse(options.body)).toEqual({
+        requestedTime: '2026-06-01T10:00',
+        date: new Date('2026-06-01T10:00').toISOString(),
       })
+    })
+
+    it("throws with the server's message on refusal", async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        json: () =>
+          Promise.resolve({ message: 'Please pick a time in the future.' }),
+      })
+
+      await expect(
+        interviewService.requestInterviewSlot('2026-06-01T10:00'),
+      ).rejects.toThrow('Please pick a time in the future.')
     })
   })
 })

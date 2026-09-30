@@ -23,15 +23,16 @@ export function computeUpdatedClassStatuses(
 
   const updateStatuses = (classStatus: string, index: number) => {
     const meetingDate = new Date(meetingTimes[index])
-    if (
-      now > meetingDate &&
-      classStatus !== ClassStatus.EverythingComplete &&
-      classStatus !== ClassStatus.FeedbackIncomplete
-    ) {
+    const held =
+      classStatus === ClassStatus.EverythingComplete ||
+      classStatus === ClassStatus.FeedbackIncomplete
+    if (now > meetingDate && !held) {
       return feedbackCompleted[index]
         ? ClassStatus.EverythingComplete
         : ClassStatus.ClassNotHeld
-    } else if (isClassUpcoming(meetingDate)) {
+    } else if (isClassUpcoming(meetingDate) && !held) {
+      // A session held a few minutes early is still held: turning it back
+      // into "upcoming" let it become "not held" once its start time passed.
       return ClassStatus.ClassUpcomingSoon
     } else if (
       classStatus === ClassStatus.FeedbackIncomplete &&
@@ -52,7 +53,8 @@ export function computeUpdatedClassStatuses(
 }
 
 /**
- * Computes updated meeting times, feedback array, and status array when meeting times are edited.
+ * Computes updated meeting times, feedback array, and status array when
+ * meeting times are edited, plus the email telling parents what moved.
  */
 export function computeMeetingTimeChanges(
   originalMeetingTimes: string[],
@@ -65,11 +67,39 @@ export function computeMeetingTimeChanges(
   newClassStatuses: string[]
   emailHtmlContent: string
 } {
-  const emailHtmlContent = generateMeetingTimeChangeEmail(
-    originalMeetingTimes,
-    editedMeetingTimes,
-  )
+  return {
+    ...rescheduleSessions(
+      originalMeetingTimes,
+      editedMeetingTimes,
+      feedbackCompleted,
+      classStatuses,
+    ),
+    emailHtmlContent: generateMeetingTimeChangeEmail(
+      originalMeetingTimes,
+      editedMeetingTimes,
+    ),
+  }
+}
 
+/**
+ * The class's per-session arrays after its meeting times are edited: sessions
+ * that kept their time keep their feedback flag and status, removed ones drop
+ * theirs, and added ones start as not yet held. Times are compared as the
+ * strings given, so both lists must use the same format.
+ *
+ * Shared by the schedule view and /api/classSchedule, which is what actually
+ * saves the result.
+ */
+export function rescheduleSessions(
+  originalMeetingTimes: string[],
+  editedMeetingTimes: string[],
+  feedbackCompleted: boolean[],
+  classStatuses: string[],
+): {
+  sortedEditedTimes: string[]
+  newFeedback: boolean[]
+  newClassStatuses: string[]
+} {
   // Sort meeting times chronologically
   const sortedEditedTimes = [...editedMeetingTimes].sort((a, b) => {
     return new Date(a).getTime() - new Date(b).getTime()
@@ -95,8 +125,10 @@ export function computeMeetingTimeChanges(
   let newFeedback = [...feedbackCompleted]
   let newClassStatuses = [...classStatuses]
 
-  // Update feedback and classStatuses arrays for deleted times
-  removed.forEach((index) => {
+  // Update feedback and classStatuses arrays for deleted times, last first:
+  // removing an earlier session shifts every later index down by one, so in
+  // ascending order a second removal took out the wrong session's entries.
+  ;[...removed].reverse().forEach((index) => {
     newFeedback.splice(index, 1)
     newClassStatuses.splice(index, 1)
   })
@@ -119,8 +151,65 @@ export function computeMeetingTimeChanges(
     sortedEditedTimes: uniqueTimes,
     newFeedback,
     newClassStatuses,
-    emailHtmlContent,
   }
+}
+
+/** The calendar day (`YYYY-MM-DD`) and hour (0-23) of `date` in `timeZone`. */
+function dayAndHourIn(
+  date: Date,
+  timeZone: string,
+): { day: string; hour: number } {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date)
+  const part = (type: string) =>
+    parts.find((candidate) => candidate.type === type)?.value ?? ''
+  return {
+    day: `${part('year')}-${part('month')}-${part('day')}`,
+    hour: Number(part('hour')),
+  }
+}
+
+/**
+ * The index of the session being held today, or -1 when none is. With two
+ * sessions today, it is the first that hasn't started its hour yet - the same
+ * choice findNextClassDateIndex makes in the browser, but on `timeZone`'s
+ * calendar, since the server's own time zone is not the class's.
+ */
+export function findTodaysSessionIndex(
+  meetingTimes: (Date | string)[],
+  now: Date,
+  timeZone: string,
+): number {
+  const today = dayAndHourIn(now, timeZone)
+  const todays = meetingTimes
+    .map((time, index) => ({
+      index,
+      ...dayAndHourIn(new Date(time), timeZone),
+    }))
+    .filter((session) => session.day === today.day)
+  if (todays.length <= 1) return todays[0]?.index ?? -1
+  return todays.find((session) => session.hour >= today.hour)?.index ?? -1
+}
+
+/**
+ * Whether a session was already recorded as held earlier today, on
+ * `timeZone`'s calendar - the server-side counterpart of `classTodayHeld`.
+ */
+export function heldEarlierToday(
+  completedClassDates: Date[],
+  now: Date,
+  timeZone: string,
+): boolean {
+  const today = dayAndHourIn(now, timeZone).day
+  return completedClassDates.some(
+    (date) => date < now && dayAndHourIn(date, timeZone).day === today,
+  )
 }
 
 /**
