@@ -65,21 +65,43 @@ export const tokenSchema = z.object({
     .max(48, 'Maximum is 48 hours'),
 })
 
+/**
+ * Upper bounds on every free-text and list field of the application, draft or
+ * submitted. They are far above anything a real answer needs; they exist so a
+ * hand-crafted request can't store an arbitrarily large document for admin
+ * to load and render. `schemas.test.ts` fails if a string or array field in
+ * either schema goes without one.
+ */
+const MAX_TEXT = 2000
+const MAX_LIST_ITEMS = 50
+const MAX_LIST_ITEM = 200
+const textCap = [MAX_TEXT, `Max ${MAX_TEXT} characters`] as const
+const boundedList = () =>
+  z.array(z.string().max(MAX_LIST_ITEM)).max(MAX_LIST_ITEMS)
+
 export const applicationSchema = z.object({
   personal: z.object({
     phoneNumber: z
       .string()
       .min(1, 'Phone number is required')
+      .max(...textCap)
       .regex(phoneRegex, 'Invalid phone number format'),
     dateOfBirth: z
       .string()
       .min(1, 'Date of birth is required')
+      .max(...textCap)
       .regex(dateRegex, 'Invalid date format (YYYY-MM-DD)'),
-    gender: z.string().min(1, 'Gender is required'),
-    race: z.array(z.string()).default([]),
+    gender: z
+      .string()
+      .min(1, 'Gender is required')
+      .max(...textCap),
+    race: boundedList().default([]),
   }),
   academic: z.object({
-    school: z.string().min(1, 'School is required'),
+    school: z
+      .string()
+      .min(1, 'School is required')
+      .max(...textCap),
     graduationYear: z.coerce
       .number()
       .int()
@@ -87,12 +109,25 @@ export const applicationSchema = z.object({
       .max(new Date().getFullYear() + 20, 'Invalid year'),
   }),
   program: z.object({
-    courses: z.array(z.string()).min(1, 'Select at least one course'),
-    preferences: z.string().optional().default(''),
-    timeSlots: z.string().min(1, 'Timeslots description is required'),
-    notAvailable: z.string().min(1, 'Conflict description is required'),
+    courses: boundedList().min(1, 'Select at least one course'),
+    preferences: z
+      .string()
+      .max(...textCap)
+      .optional()
+      .default(''),
+    timeSlots: z
+      .string()
+      .min(1, 'Timeslots description is required')
+      .max(...textCap),
+    notAvailable: z
+      .string()
+      .min(1, 'Conflict description is required')
+      .max(...textCap),
     inPerson: z.boolean().default(false),
-    reason: z.string().min(1, 'Reason is required'),
+    reason: z
+      .string()
+      .min(1, 'Reason is required')
+      .max(...textCap),
   }),
   essay: z.object({
     taughtBefore: z.boolean().default(false),
@@ -121,8 +156,11 @@ export const applicationSchema = z.object({
  * and values of the wrong type or of unbounded size - `formFieldParity.test.ts`
  * keeps its fields in step with `applicationSchema`'s.
  */
-const draftText = z.string().max(2000, 'Max 2000 characters').default('')
-const draftList = z.array(z.string().max(200)).max(50).default([])
+const draftText = z
+  .string()
+  .max(...textCap)
+  .default('')
+const draftList = boundedList().default([])
 export const applicationDraftSchema = z.object({
   personal: z.object({
     phoneNumber: draftText,

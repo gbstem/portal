@@ -568,3 +568,53 @@ describe('applicationDraftSchema', () => {
     ).toBe(false)
   })
 })
+
+/**
+ * Dotted paths of every string or array in a Zod object schema - including
+ * an array's elements, as `path[]` - that has no upper bound.
+ */
+function unboundedFields(schema: z.ZodTypeAny, path = ''): string[] {
+  let node: any = schema
+  while (node?._def?.innerType || node?._def?.schema) {
+    node = node._def.innerType ?? node._def.schema
+  }
+  if (node instanceof z.ZodObject) {
+    return Object.entries(node.shape as Record<string, z.ZodTypeAny>).flatMap(
+      ([key, child]) => unboundedFields(child, path ? `${path}.${key}` : key),
+    )
+  }
+  if (node instanceof z.ZodString) {
+    return node.maxLength === null ? [path] : []
+  }
+  if (node instanceof z.ZodArray) {
+    return [
+      ...(node._def.maxLength === null ? [path] : []),
+      ...unboundedFields(node.element, `${path}[]`),
+    ]
+  }
+  return []
+}
+
+describe('application size caps', () => {
+  // Without a bound, a hand-crafted request could store a document as large
+  // as Firestore allows, which admin then loads and renders.
+  it.each([
+    ['applicationSchema', applicationSchema],
+    ['applicationDraftSchema', applicationDraftSchema],
+  ])('%s bounds every string and list', (_name, schema) => {
+    expect(unboundedFields(schema)).toEqual([])
+  })
+
+  it('refuses an oversized submitted answer', () => {
+    const defaults = getApplyFormDefaults()
+    const error = expectParseFailure(
+      applicationSchema.safeParse({
+        ...defaults,
+        program: { ...defaults.program, timeSlots: 'x'.repeat(2001) },
+      }),
+    )
+    expect(error.issues.map((i) => i.path.join('.'))).toContain(
+      'program.timeSlots',
+    )
+  })
+})
