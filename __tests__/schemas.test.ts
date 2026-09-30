@@ -10,6 +10,7 @@ import {
   getRegistrationFormDefaults,
   interviewSlotSchema,
   passwordSchema,
+  registrationDraftSchema,
   registrationSchema,
   tokenSchema,
 } from '../src/lib/components/forms/schemas'
@@ -595,12 +596,14 @@ function unboundedFields(schema: z.ZodTypeAny, path = ''): string[] {
   return []
 }
 
-describe('application size caps', () => {
+describe('application and registration size caps', () => {
   // Without a bound, a hand-crafted request could store a document as large
   // as Firestore allows, which admin then loads and renders.
   it.each([
     ['applicationSchema', applicationSchema],
     ['applicationDraftSchema', applicationDraftSchema],
+    ['registrationSchema', registrationSchema],
+    ['registrationDraftSchema', registrationDraftSchema],
   ])('%s bounds every string and list', (_name, schema) => {
     expect(unboundedFields(schema)).toEqual([])
   })
@@ -714,5 +717,31 @@ describe('application submit rules', () => {
       why: '',
     }
     expectParseSuccess(applicationSchema.safeParse(data))
+  })
+})
+
+describe('registrationDraftSchema', () => {
+  it("has exactly registrationSchema's fields, with the same types", () => {
+    expect(leafKinds(registrationDraftSchema)).toEqual(
+      leafKinds(registrationSchema),
+    )
+  })
+
+  it('accepts the empty form a new child starts from', () => {
+    expectParseSuccess(
+      registrationDraftSchema.safeParse(getRegistrationFormDefaults()),
+    )
+  })
+
+  it('refuses keys the form does not have', () => {
+    const data = expectParseSuccess(
+      registrationDraftSchema.safeParse({
+        ...getRegistrationFormDefaults(),
+        meta: { submitted: true },
+        classes: ['someone-elses-class'],
+      }),
+    )
+    expect(data).not.toHaveProperty('meta')
+    expect(data).not.toHaveProperty('classes')
   })
 })

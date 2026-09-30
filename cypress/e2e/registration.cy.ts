@@ -181,7 +181,11 @@ function assertRegistrationDoc(
 }
 
 function saveDraft() {
+  // Waits on the request, not just the toast: back-to-back saves show the
+  // same toast, so the previous one can still be up when this one is sent.
+  cy.intercept('POST', '/apply?/saveRegistration*').as('saveRegistration')
   cy.contains('button', 'Save draft').click()
+  cy.wait('@saveRegistration')
   cy.waitForNotification('Your progress was saved.')
 }
 
@@ -220,6 +224,9 @@ describe('Section B: Student Registration & Account Management', () => {
       'have.value',
       'Child 1',
     )
+    // The page is server-rendered, so the picker is on screen before its
+    // buttons work.
+    cy.get('form[data-hydrated]').should('exist')
 
     // Click "Add Child Account" to add new children up to maxChildrenPerAccount
     for (let i = 2; i <= maxChildrenPerAccount; i++) {
@@ -325,8 +332,8 @@ describe('Section B: Student Registration & Account Management', () => {
     fillRegistrationForm(input)
     saveDraft()
 
-    // The draft save goes through `handleSave`/`$form`, a different path from
-    // the submit handler's validated `formVal.data` - so it needs its own check.
+    // The draft save is a different action from submit, validated against
+    // the lenient draft schema - so it needs its own check.
     assertRegistrationDoc(input, { submitted: false })
   })
 

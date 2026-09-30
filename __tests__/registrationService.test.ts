@@ -11,8 +11,6 @@ function firestoreError(code: string) {
 jest.mock('firebase/firestore', () => ({
   doc: jest.fn(() => ({})),
   getDoc: jest.fn(),
-  setDoc: jest.fn(),
-  deleteDoc: jest.fn(),
 }))
 
 describe('registrationService (Data Access Layer)', () => {
@@ -40,61 +38,6 @@ describe('registrationService (Data Access Layer)', () => {
 
       const res = await registrationService.fetchRegistration('reg-1')
       expect(res).toBeNull()
-    })
-  })
-
-  describe('createRegistration', () => {
-    it('writes the whole document with semester info, without merging', async () => {
-      ;(firestore.setDoc as jest.Mock).mockResolvedValueOnce(undefined)
-      const mockData = {
-        personal: { studentFirstName: 'Timmy' },
-        meta: { uid: 'reg-1', submitted: false },
-      } as Data.Registration
-
-      await registrationService.createRegistration('reg-1', mockData)
-
-      expect(firestore.setDoc).toHaveBeenCalledTimes(1)
-      const [, payload, options] = (firestore.setDoc as jest.Mock).mock.calls[0]
-      expect(payload).toEqual(
-        expect.objectContaining({
-          personal: { studentFirstName: 'Timmy' },
-          semester: expect.any(String),
-        }),
-      )
-      // The draft has to land with `meta.submitted` present, since admin's lists
-      // query on `meta.submitted == false`.
-      expect(payload.meta).toEqual({ uid: 'reg-1', submitted: false })
-      expect(options).toBeUndefined()
-    })
-  })
-
-  describe('updateRegistration', () => {
-    it('merges only the given fields so admin-owned ones survive', async () => {
-      ;(firestore.setDoc as jest.Mock).mockResolvedValueOnce(undefined)
-
-      await registrationService.updateRegistration('reg-1', {
-        personal: { studentFirstName: 'Timmy' },
-      })
-
-      expect(firestore.setDoc).toHaveBeenCalledTimes(1)
-      const [, payload, options] = (firestore.setDoc as jest.Mock).mock.calls[0]
-      expect(payload).toEqual({
-        personal: { studentFirstName: 'Timmy' },
-        semester: expect.any(String),
-      })
-      // Never a full overwrite - see updateRegistration's docstring.
-      expect(options).toEqual({ merge: true })
-      expect(payload).not.toHaveProperty('agreements')
-    })
-
-    it('propagates errors from setDoc', async () => {
-      ;(firestore.setDoc as jest.Mock).mockRejectedValueOnce(
-        new Error('permission-denied'),
-      )
-
-      await expect(
-        registrationService.updateRegistration('reg-1', {}),
-      ).rejects.toThrow('permission-denied')
     })
   })
 
@@ -158,37 +101,6 @@ describe('registrationService (Data Access Layer)', () => {
       // One extra read: the failed slot retried, the others succeeded first try.
       expect(firestore.getDoc).toHaveBeenCalledTimes(maxChildrenPerAccount + 1)
       warnSpy.mockRestore()
-    })
-  })
-
-  describe('deleteRegistration', () => {
-    it('deletes registration document from Firestore', async () => {
-      ;(firestore.deleteDoc as jest.Mock).mockResolvedValueOnce(undefined)
-      await registrationService.deleteRegistration('reg-1')
-      expect(firestore.deleteDoc).toHaveBeenCalled()
-    })
-  })
-
-  describe('submitRegistrationApi', () => {
-    it('triggers POST request to /api/registration endpoint', async () => {
-      ;(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true })
-
-      await registrationService.submitRegistrationApi('parent-uid-1')
-      expect(global.fetch).toHaveBeenCalledWith(
-        '/api/registration',
-        expect.objectContaining({
-          method: 'POST',
-          body: JSON.stringify({ registrationId: 'parent-uid-1' }),
-        }),
-      )
-    })
-
-    it('throws error if API request fails', async () => {
-      ;(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false })
-
-      await expect(
-        registrationService.submitRegistrationApi('parent-uid-1'),
-      ).rejects.toThrow('Failed to submit registration via API')
     })
   })
 })

@@ -228,14 +228,12 @@ import {
   GET as interviewGET,
   POST as interviewPOST,
 } from '../src/routes/api/interview/+server'
-import { POST as registrationPOST } from '../src/routes/api/registration/+server'
 import { POST as lookupCoInstructorPOST } from '../src/routes/api/lookupCoInstructor/+server'
 import { NOT_AN_ACCEPTED_INSTRUCTOR } from '$lib/server/instructorDirectory'
 import {
   classesCollection,
   decisionsCollection,
   registrationsCollection,
-  semesterDates,
   substituteRequestsCollection,
 } from '$lib/data/collections'
 import { GET as classRosterGET } from '../src/routes/api/classRoster/+server'
@@ -1800,141 +1798,6 @@ describe('API routes POST endpoints', () => {
 
     it('POST propagates the auth error when the user is not signed in', async () => {
       await expect(bookAs({})).rejects.toEqual(
-        expect.objectContaining({ status: 401, __isSvelteKitError: true }),
-      )
-    })
-  })
-
-  describe('registrationPOST', () => {
-    const parentLocals = {
-      user: { uid: 'parent-uid', email: 'parent@gbstem.org', role: 'student' },
-    }
-    const registrationPath = `${registrationsCollection}/parent-uid-1`
-
-    function storeRegistration(overrides: Record<string, any> = {}) {
-      mockFirestoreDocs({
-        'users/parent-uid': { firstName: 'Pat', lastName: 'Parent' },
-        [registrationPath]: {
-          personal: {
-            studentFirstName: 'Timmy',
-            secondaryEmail: 'guardian@example.com',
-          },
-          meta: { uid: 'parent-uid-1', submitted: true },
-          ...overrides,
-        },
-      })
-    }
-
-    const sentMail = () => (MailService.send as jest.Mock).mock.calls[0][0]
-
-    beforeEach(() => {
-      ;(MailService.send as jest.Mock).mockClear()
-    })
-
-    function post(body: unknown, locals: any = parentLocals) {
-      mockRequest.json.mockResolvedValue(body)
-      return registrationPOST({ request: mockRequest, locals } as any)
-    }
-
-    it("mails the parent and the registration's second guardian, with text read server-side", async () => {
-      storeRegistration()
-
-      const res: any = await post({ registrationId: 'parent-uid-1' })
-
-      expect(res.body).toEqual({ message: 'Email sent successfully.' })
-      const mail = sentMail()
-      expect(mail.to).toEqual(['parent@gbstem.org', 'guardian@example.com'])
-      expect(mail.html).toContain('Pat')
-      expect(mail.html).toContain('Timmy')
-      expect(mail.html).toContain(semesterDates.parentOrientation)
-    })
-
-    it('mails only the parent when the registration has no second guardian', async () => {
-      storeRegistration({
-        personal: { studentFirstName: 'Timmy', secondaryEmail: '' },
-      })
-
-      await post({ registrationId: 'parent-uid-1' })
-
-      expect(sentMail().to).toEqual(['parent@gbstem.org'])
-    })
-
-    // The abuse this route used to allow: recipient and text straight from
-    // the request body. Anything extra in the body is now ignored.
-    it('ignores a recipient or text supplied in the body', async () => {
-      storeRegistration()
-
-      await post({
-        registrationId: 'parent-uid-1',
-        secondaryEmail: 'victim@example.com',
-        studentName: 'pay at evil.example',
-        firstName: 'Mallory',
-      })
-
-      const mail = sentMail()
-      expect(mail.to).not.toContain('victim@example.com')
-      expect(mail.html).not.toContain('evil.example')
-      expect(mail.html).not.toContain('Mallory')
-    })
-
-    it("refuses another parent's registration with a 403", async () => {
-      storeRegistration()
-
-      await expect(post({ registrationId: 'someone-else-1' })).rejects.toEqual(
-        expect.objectContaining({ status: 403 }),
-      )
-      expect(MailService.send).not.toHaveBeenCalled()
-    })
-
-    it('refuses a registration that has not been submitted', async () => {
-      storeRegistration({ meta: { uid: 'parent-uid-1', submitted: false } })
-
-      await expect(post({ registrationId: 'parent-uid-1' })).rejects.toEqual(
-        expect.objectContaining({ status: 404 }),
-      )
-      expect(MailService.send).not.toHaveBeenCalled()
-    })
-
-    it('refuses a registration that does not exist', async () => {
-      mockFirestoreDocs({})
-
-      await expect(post({ registrationId: 'parent-uid-2' })).rejects.toEqual(
-        expect.objectContaining({ status: 404 }),
-      )
-    })
-
-    it('rejects a body with no registrationId with a 400', async () => {
-      await expect(post({})).rejects.toEqual(
-        expect.objectContaining({ status: 400 }),
-      )
-    })
-
-    it('refuses an instructor account with a 403', async () => {
-      await expect(
-        post(
-          { registrationId: 'parent-uid-1' },
-          { user: { uid: 'parent-uid', email: 'x@x.org', role: 'instructor' } },
-        ),
-      ).rejects.toEqual(expect.objectContaining({ status: 403 }))
-    })
-
-    it('returns a 500 json response when sending the email fails', async () => {
-      storeRegistration()
-      await withRejectedSend(async () => {
-        const res = await post({ registrationId: 'parent-uid-1' })
-        expect(res).toEqual(
-          expect.objectContaining({
-            body: { error: 'Failed to send email. Please try again later.' },
-            init: { status: 500 },
-          }),
-        )
-      })
-    })
-
-    it('propagates the auth error when the user is not signed in', async () => {
-      await expect(
-        post({ registrationId: 'parent-uid-1' }, {}),
-      ).rejects.toEqual(
         expect.objectContaining({ status: 401, __isSvelteKitError: true }),
       )
     })

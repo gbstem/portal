@@ -2,11 +2,7 @@ import {
   applicationDraftSchema,
   applicationSchema,
 } from '$lib/components/forms/schemas'
-import {
-  applicationsCollection,
-  semesterDates,
-  withSemester,
-} from '$lib/data/collections'
+import { applicationsCollection, withSemester } from '$lib/data/collections'
 import {
   applicationOwnedFields,
   normalizeApplicationData,
@@ -15,6 +11,7 @@ import {
 import { renderEmail } from '$lib/emails/render'
 import { sendEmail } from '$lib/server/email'
 import { adminDb } from '$lib/server/firebase'
+import { profileNames } from '$lib/server/userProfile'
 import { error } from '@sveltejs/kit'
 import { FieldValue } from 'firebase-admin/firestore'
 import type { z } from 'zod'
@@ -27,10 +24,8 @@ import type { z } from 'zod'
  * schema, the deadline, and that a submitted application can't be edited - was
  * only ever enforced in the applicant's own browser.
  *
- * TODO(server-side-forms): once RegistrationForm is also server-side, take
- * `create`/`update` on `applications` away from applicants in firestore.rules
- * (both repos). Until then an applicant can still bypass all of this with a
- * direct client-SDK write.
+ * firestore.rules gives applicants no write access to applications at all,
+ * so this module is the only way an applicant's application changes.
  */
 
 export interface ApplicantCaller {
@@ -51,57 +46,6 @@ export interface ApplicationView {
 
 function applicationRef(uid: string) {
   return adminDb.doc(`${applicationsCollection}/${uid}`)
-}
-
-async function profileNames(uid: string) {
-  const profile = (await adminDb.doc(`users/${uid}`).get()).data() ?? {}
-  return {
-    firstName: String(profile.firstName ?? ''),
-    lastName: String(profile.lastName ?? ''),
-  }
-}
-
-/**
- * The UTC offset of New York at `at`, in minutes (e.g. -240 during EDT).
- */
-function newYorkOffsetMinutes(at: Date): number {
-  const name =
-    new Intl.DateTimeFormat('en-US', {
-      timeZone: 'America/New_York',
-      timeZoneName: 'shortOffset',
-    })
-      .formatToParts(at)
-      .find((part) => part.type === 'timeZoneName')?.value ?? 'GMT-5'
-  const match = /GMT([+-]\d+)(?::(\d+))?/.exec(name)
-  if (!match) return -300
-  const hours = Number(match[1])
-  const minutes = Number(match[2] ?? 0)
-  return hours * 60 + Math.sign(hours) * minutes
-}
-
-/**
- * The first instant applications are closed: midnight in New York at the end
- * of the due date, which the form advertises as "due <date> at 11:59 PM ET".
- *
- * `env.E2E_INSTRUCTOR_APPS_DUE` replaces the due date, and only while the
- * Firestore emulator is in use - Cypress can move the browser's clock but not
- * the server's, so without it the e2e submit test could only pass during an
- * application window.
- */
-export function applicationDeadline(
-  env: Record<string, string | undefined>,
-): Date {
-  const override = env.FIRESTORE_EMULATOR_HOST
-    ? env.E2E_INSTRUCTOR_APPS_DUE
-    : undefined
-  const due = new Date(override || semesterDates.newInstructorAppsDue)
-  const midnightAfterUtc = new Date(
-    Date.UTC(due.getFullYear(), due.getMonth(), due.getDate() + 1),
-  )
-  return new Date(
-    midnightAfterUtc.getTime() -
-      newYorkOffsetMinutes(midnightAfterUtc) * 60_000,
-  )
 }
 
 /**

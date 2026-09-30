@@ -66,8 +66,8 @@ export const tokenSchema = z.object({
 })
 
 /**
- * Upper bounds on every free-text and list field of the application, draft or
- * submitted. They are far above anything a real answer needs; they exist so a
+ * Upper bounds on every free-text and list field of an application or a
+ * registration, draft or submitted. They are far above anything a real answer needs; they exist so a
  * hand-crafted request can't store an arbitrarily large document for admin
  * to load and render. `schemas.test.ts` fails if a string or array field in
  * either schema goes without one.
@@ -224,42 +224,95 @@ export const applicationDraftSchema = z.object({
 
 export const registrationSchema = z.object({
   personal: z.object({
-    studentFirstName: z.string().min(1, 'First name is required'),
-    studentLastName: z.string().min(1, 'Last name is required'),
+    studentFirstName: z
+      .string()
+      .min(1, 'First name is required')
+      .max(...textCap),
+    studentLastName: z
+      .string()
+      .min(1, 'Last name is required')
+      .max(...textCap),
     // No `email`: the parent account's address is stamped by
     // registrationOwnedFields from the session, never taken from the form.
-    secondaryEmail: z.string().optional().default(''),
+    secondaryEmail: z
+      .string()
+      .max(...textCap)
+      .optional()
+      .default(''),
     phoneNumber: z
       .string()
       .min(1, 'Phone number is required')
+      .max(...textCap)
       .regex(phoneRegex, 'Invalid phone number format'),
     dateOfBirth: z
       .string()
       .min(1, 'Date of birth is required')
+      .max(...textCap)
       .regex(dateRegex, 'Invalid date format (YYYY-MM-DD)'),
-    gender: z.string().min(1, 'Gender is required'),
-    race: z.array(z.string()).default([]),
+    gender: z
+      .string()
+      .min(1, 'Gender is required')
+      .max(...textCap),
+    race: boundedList().default([]),
     frlp: z
       .string()
-      .min(1, 'Federal Free or Reduced Lunch Program status is required'),
-    parentEducation: z.string().min(1, 'Parent education is required'),
+      .min(1, 'Federal Free or Reduced Lunch Program status is required')
+      .max(...textCap),
+    parentEducation: z
+      .string()
+      .min(1, 'Parent education is required')
+      .max(...textCap),
   }),
   academic: z.object({
-    school: z.string().min(1, 'School is required'),
-    grade: z.string().min(1, 'Grade is required'),
+    school: z
+      .string()
+      .min(1, 'School is required')
+      .max(...textCap),
+    grade: z
+      .string()
+      .min(1, 'Grade is required')
+      .max(...textCap),
   }),
   // During student registration in the portal website, these aren't specified yet.
   program: z.object({
-    csCourse: z.string().optional().default(''),
-    mathCourse: z.string().optional().default(''),
-    engineeringCourse: z.string().optional().default(''),
-    scienceCourse: z.string().optional().default(''),
+    csCourse: z
+      .string()
+      .max(...textCap)
+      .optional()
+      .default(''),
+    mathCourse: z
+      .string()
+      .max(...textCap)
+      .optional()
+      .default(''),
+    engineeringCourse: z
+      .string()
+      .max(...textCap)
+      .optional()
+      .default(''),
+    scienceCourse: z
+      .string()
+      .max(...textCap)
+      .optional()
+      .default(''),
     inPerson: z.boolean().default(false),
-    reason: z.string().optional().default(''),
+    reason: z
+      .string()
+      .max(...textCap)
+      .optional()
+      .default(''),
   }),
   inPerson: z.object({
-    allergies: z.string().optional().default(''),
-    parentPickup: z.string().optional().default(''),
+    allergies: z
+      .string()
+      .max(...textCap)
+      .optional()
+      .default(''),
+    parentPickup: z
+      .string()
+      .max(...textCap)
+      .optional()
+      .default(''),
   }),
   agreements: z.object({
     mediaRelease: z.boolean().default(false),
@@ -267,6 +320,49 @@ export const registrationSchema = z.object({
     entireProgram: agreementSchema,
     timeCommitment: agreementSchema,
     submitting: agreementSchema,
+  }),
+})
+
+/**
+ * What a draft save of a registration accepts: `registrationSchema`'s fields
+ * with none of its "required" rules, for the same reasons as
+ * `applicationDraftSchema`. `formFieldParity.test.ts` and `schemas.test.ts`
+ * keep the two in step.
+ */
+export const registrationDraftSchema = z.object({
+  personal: z.object({
+    studentFirstName: draftText,
+    studentLastName: draftText,
+    secondaryEmail: draftText,
+    phoneNumber: draftText,
+    dateOfBirth: draftText,
+    gender: draftText,
+    race: draftList,
+    frlp: draftText,
+    parentEducation: draftText,
+  }),
+  academic: z.object({
+    school: draftText,
+    grade: draftText,
+  }),
+  program: z.object({
+    csCourse: draftText,
+    mathCourse: draftText,
+    engineeringCourse: draftText,
+    scienceCourse: draftText,
+    inPerson: z.boolean().default(false),
+    reason: draftText,
+  }),
+  inPerson: z.object({
+    allergies: draftText,
+    parentPickup: draftText,
+  }),
+  agreements: z.object({
+    mediaRelease: z.boolean().default(false),
+    bypassAgeLimits: z.boolean().default(false),
+    entireProgram: z.boolean().default(false),
+    timeCommitment: z.boolean().default(false),
+    submitting: z.boolean().default(false),
   }),
 })
 
