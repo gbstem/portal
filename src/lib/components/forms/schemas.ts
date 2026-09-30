@@ -65,21 +65,43 @@ export const tokenSchema = z.object({
     .max(48, 'Maximum is 48 hours'),
 })
 
+/**
+ * Upper bounds on every free-text and list field of the application, draft or
+ * submitted. They are far above anything a real answer needs; they exist so a
+ * hand-crafted request can't store an arbitrarily large document for admin
+ * to load and render. `schemas.test.ts` fails if a string or array field in
+ * either schema goes without one.
+ */
+const MAX_TEXT = 2000
+const MAX_LIST_ITEMS = 50
+const MAX_LIST_ITEM = 200
+const textCap = [MAX_TEXT, `Max ${MAX_TEXT} characters`] as const
+const boundedList = () =>
+  z.array(z.string().max(MAX_LIST_ITEM)).max(MAX_LIST_ITEMS)
+
 export const applicationSchema = z.object({
   personal: z.object({
     phoneNumber: z
       .string()
       .min(1, 'Phone number is required')
+      .max(...textCap)
       .regex(phoneRegex, 'Invalid phone number format'),
     dateOfBirth: z
       .string()
       .min(1, 'Date of birth is required')
+      .max(...textCap)
       .regex(dateRegex, 'Invalid date format (YYYY-MM-DD)'),
-    gender: z.string().min(1, 'Gender is required'),
-    race: z.array(z.string()).default([]),
+    gender: z
+      .string()
+      .min(1, 'Gender is required')
+      .max(...textCap),
+    race: boundedList().default([]),
   }),
   academic: z.object({
-    school: z.string().min(1, 'School is required'),
+    school: z
+      .string()
+      .min(1, 'School is required')
+      .max(...textCap),
     graduationYear: z.coerce
       .number()
       .int()
@@ -87,12 +109,25 @@ export const applicationSchema = z.object({
       .max(new Date().getFullYear() + 20, 'Invalid year'),
   }),
   program: z.object({
-    courses: z.array(z.string()).min(1, 'Select at least one course'),
-    preferences: z.string().optional().default(''),
-    timeSlots: z.string().min(1, 'Timeslots description is required'),
-    notAvailable: z.string().min(1, 'Conflict description is required'),
+    courses: boundedList().min(1, 'Select at least one course'),
+    preferences: z
+      .string()
+      .max(...textCap)
+      .optional()
+      .default(''),
+    timeSlots: z
+      .string()
+      .min(1, 'Timeslots description is required')
+      .max(...textCap),
+    notAvailable: z
+      .string()
+      .min(1, 'Conflict description is required')
+      .max(...textCap),
     inPerson: z.boolean().default(false),
-    reason: z.string().min(1, 'Reason is required'),
+    reason: z
+      .string()
+      .min(1, 'Reason is required')
+      .max(...textCap),
   }),
   essay: z.object({
     taughtBefore: z.boolean().default(false),
@@ -106,6 +141,50 @@ export const applicationSchema = z.object({
       .optional()
       .default(''),
     why: z.string().max(500, 'Max 500 characters').optional().default(''),
+  }),
+  agreements: z.object({
+    entireProgram: z.boolean().default(false),
+    timeCommitment: z.boolean().default(false),
+    submitting: z.boolean().default(false),
+  }),
+})
+
+/**
+ * What a draft save of the application accepts: `applicationSchema`'s fields
+ * with none of its "required" rules, since a draft is by definition
+ * unfinished. It exists so the server still refuses keys the form doesn't have
+ * and values of the wrong type or of unbounded size - `formFieldParity.test.ts`
+ * keeps its fields in step with `applicationSchema`'s.
+ */
+const draftText = z
+  .string()
+  .max(...textCap)
+  .default('')
+const draftList = boundedList().default([])
+export const applicationDraftSchema = z.object({
+  personal: z.object({
+    phoneNumber: draftText,
+    dateOfBirth: draftText,
+    gender: draftText,
+    race: draftList,
+  }),
+  academic: z.object({
+    school: draftText,
+    graduationYear: z.coerce.number().int(),
+  }),
+  program: z.object({
+    courses: draftList,
+    preferences: draftText,
+    timeSlots: draftText,
+    notAvailable: draftText,
+    inPerson: z.boolean().default(false),
+    reason: draftText,
+  }),
+  essay: z.object({
+    taughtBefore: z.boolean().default(false),
+    academicBackground: draftText,
+    teachingScenario: draftText,
+    why: draftText,
   }),
   agreements: z.object({
     entireProgram: z.boolean().default(false),

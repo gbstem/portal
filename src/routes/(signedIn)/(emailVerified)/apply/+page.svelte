@@ -11,6 +11,9 @@
   import { registrationService } from '$lib/services/registrationService'
   import { alert } from '$lib/stores'
   import { onMount } from 'svelte'
+  import type { PageProps } from './$types'
+
+  let { data }: PageProps = $props()
 
   // if this is a registration, iterate through the user's uid and check if uid-1, uid-2, etc. exists
   // if it does, add it to the options array
@@ -101,7 +104,14 @@
 {#if page.data.user?.role === 'instructor'}
   <h1 class="mb-4 text-5xl font-bold md:text-6xl">Apply</h1>
   <div class="mx-auto flex max-w-6xl flex-col items-center px-2 py-8 md:px-8">
-    <ApplyForm {semesterDates} />
+    {#if data.applyForm && data.application}
+      <ApplyForm
+        data={data.applyForm}
+        application={data.application}
+        email={data.user?.email ?? ''}
+        {semesterDates}
+      />
+    {/if}
   </div>
 {:else}
   <h1 class="mb-4 text-5xl font-bold md:text-6xl">Student Account Creation</h1>

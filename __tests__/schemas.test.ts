@@ -1,6 +1,7 @@
 import { MEETING_LINK_ERROR } from '$lib/helpers/meetingLink'
 import { z } from 'zod'
 import {
+  applicationDraftSchema,
   applicationSchema,
   classSchema,
   getApplyFormDefaults,
@@ -510,5 +511,110 @@ describe('Zod Validation Schemas', () => {
       expect(defaults.students).toEqual([])
       expect(defaults.online).toBe(true)
     })
+  })
+})
+
+/**
+ * Dotted leaf paths of a Zod object schema, each with the Zod type that
+ * describes it once Optional/Default/Effects wrappers are peeled off.
+ */
+function leafKinds(schema: z.ZodTypeAny, prefix = ''): Record<string, string> {
+  let node: any = schema
+  while (node?._def?.innerType || node?._def?.schema) {
+    node = node._def.innerType ?? node._def.schema
+  }
+  if (node instanceof z.ZodObject) {
+    return Object.assign(
+      {},
+      ...Object.entries(node.shape as Record<string, z.ZodTypeAny>).map(
+        ([key, child]) => leafKinds(child, prefix ? `${prefix}.${key}` : key),
+      ),
+    )
+  }
+  return { [prefix]: node._def.typeName }
+}
+
+describe('applicationDraftSchema', () => {
+  // A field missing from the draft schema is stripped from every draft save,
+  // and the next load shows it blank; an extra one lets a draft write a key
+  // the submitted form never has.
+  it("has exactly applicationSchema's fields, with the same types", () => {
+    expect(leafKinds(applicationDraftSchema)).toEqual(
+      leafKinds(applicationSchema),
+    )
+  })
+
+  it('accepts the empty form a new applicant starts from', () => {
+    expectParseSuccess(applicationDraftSchema.safeParse(getApplyFormDefaults()))
+  })
+
+  it('refuses keys the form does not have', () => {
+    const data = expectParseSuccess(
+      applicationDraftSchema.safeParse({
+        ...getApplyFormDefaults(),
+        meta: { submitted: true, decided: true },
+      }),
+    )
+    expect(data).not.toHaveProperty('meta')
+  })
+
+  it('caps the size of free-text fields', () => {
+    const defaults = getApplyFormDefaults()
+    expect(
+      applicationDraftSchema.safeParse({
+        ...defaults,
+        essay: { ...defaults.essay, why: 'x'.repeat(2001) },
+      }).success,
+    ).toBe(false)
+  })
+})
+
+/**
+ * Dotted paths of every string or array in a Zod object schema - including
+ * an array's elements, as `path[]` - that has no upper bound.
+ */
+function unboundedFields(schema: z.ZodTypeAny, path = ''): string[] {
+  let node: any = schema
+  while (node?._def?.innerType || node?._def?.schema) {
+    node = node._def.innerType ?? node._def.schema
+  }
+  if (node instanceof z.ZodObject) {
+    return Object.entries(node.shape as Record<string, z.ZodTypeAny>).flatMap(
+      ([key, child]) => unboundedFields(child, path ? `${path}.${key}` : key),
+    )
+  }
+  if (node instanceof z.ZodString) {
+    return node.maxLength === null ? [path] : []
+  }
+  if (node instanceof z.ZodArray) {
+    return [
+      ...(node._def.maxLength === null ? [path] : []),
+      ...unboundedFields(node.element, `${path}[]`),
+    ]
+  }
+  return []
+}
+
+describe('application size caps', () => {
+  // Without a bound, a hand-crafted request could store a document as large
+  // as Firestore allows, which admin then loads and renders.
+  it.each([
+    ['applicationSchema', applicationSchema],
+    ['applicationDraftSchema', applicationDraftSchema],
+  ])('%s bounds every string and list', (_name, schema) => {
+    expect(unboundedFields(schema)).toEqual([])
+  })
+
+  it('refuses an oversized submitted answer', () => {
+    const defaults = getApplyFormDefaults()
+    const error = expectParseFailure(
+      applicationSchema.safeParse({
+        ...defaults,
+        program: { ...defaults.program, timeSlots: 'x'.repeat(2001) },
+      }),
+    )
+    expect(error.issues.map((i) => i.path.join('.'))).toContain(
+      'program.timeSlots',
+    )
   })
 })
