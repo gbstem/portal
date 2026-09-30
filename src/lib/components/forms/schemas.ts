@@ -114,6 +114,47 @@ export const applicationSchema = z.object({
   }),
 })
 
+/**
+ * What a draft save of the application accepts: `applicationSchema`'s fields
+ * with none of its "required" rules, since a draft is by definition
+ * unfinished. It exists so the server still refuses keys the form doesn't have
+ * and values of the wrong type or of unbounded size - `formFieldParity.test.ts`
+ * keeps its fields in step with `applicationSchema`'s.
+ */
+const draftText = z.string().max(2000, 'Max 2000 characters').default('')
+const draftList = z.array(z.string().max(200)).max(50).default([])
+export const applicationDraftSchema = z.object({
+  personal: z.object({
+    phoneNumber: draftText,
+    dateOfBirth: draftText,
+    gender: draftText,
+    race: draftList,
+  }),
+  academic: z.object({
+    school: draftText,
+    graduationYear: z.coerce.number().int(),
+  }),
+  program: z.object({
+    courses: draftList,
+    preferences: draftText,
+    timeSlots: draftText,
+    notAvailable: draftText,
+    inPerson: z.boolean().default(false),
+    reason: draftText,
+  }),
+  essay: z.object({
+    taughtBefore: z.boolean().default(false),
+    academicBackground: draftText,
+    teachingScenario: draftText,
+    why: draftText,
+  }),
+  agreements: z.object({
+    entireProgram: z.boolean().default(false),
+    timeCommitment: z.boolean().default(false),
+    submitting: z.boolean().default(false),
+  }),
+})
+
 export const registrationSchema = z.object({
   personal: z.object({
     studentFirstName: z.string().min(1, 'First name is required'),

@@ -214,7 +214,6 @@ import { load as signedOutLayoutLoad } from '../src/routes/(signedOut)/+layout.s
 import { load as pageLoad } from '../src/routes/+page'
 
 import { POST as actionPOST } from '../src/routes/api/action/+server'
-import { POST as applicationPOST } from '../src/routes/api/application/+server'
 import {
   DELETE as authDELETE,
   POST as authPOST,
@@ -1043,40 +1042,6 @@ describe('API routes POST endpoints', () => {
         status: 401,
         __isSvelteKitError: true,
       }),
-    )
-  })
-
-  it('applicationPOST successfully', async () => {
-    mockRequest.json.mockResolvedValue({ firstName: 'Student' })
-    const res = await applicationPOST({
-      request: mockRequest as any,
-      locals: { user: { email: 'test@test.com' } },
-    } as any)
-    expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
-  })
-
-  it('applicationPOST returns a 500 json response when sending the email fails', async () => {
-    await withRejectedSend(async () => {
-      mockRequest.json.mockResolvedValue({ firstName: 'Student' })
-      const res = await applicationPOST({
-        request: mockRequest as any,
-        locals: { user: { email: 'test@test.com' } },
-      } as any)
-      expect(res).toEqual(
-        expect.objectContaining({
-          body: { error: 'Failed to send email. Please try again later.' },
-          init: { status: 500 },
-        }),
-      )
-    })
-  })
-
-  it('applicationPOST propagates the auth error when the user is not signed in', async () => {
-    mockRequest.json.mockResolvedValue({ firstName: 'Student' })
-    await expect(
-      applicationPOST({ request: mockRequest as any, locals: {} } as any),
-    ).rejects.toEqual(
-      expect.objectContaining({ status: 401, __isSvelteKitError: true }),
     )
   })
 

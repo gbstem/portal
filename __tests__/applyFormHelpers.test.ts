@@ -3,7 +3,6 @@ import {
   createEmptyApplication,
   toApplyFormValues,
   normalizeApplicationData,
-  buildApplyApiPayload,
 } from '$lib/helpers/applyForm'
 
 describe('ApplyForm Helpers', () => {
@@ -52,13 +51,6 @@ describe('ApplyForm Helpers', () => {
       const formValues = toApplyFormValues(app)
       expect(formValues.academic.school).toBe('Harvard')
       expect(formValues.program.courses).toEqual(['Python 1'])
-    })
-  })
-
-  describe('buildApplyApiPayload', () => {
-    test('constructs API payload for application submit', () => {
-      const payload = buildApplyApiPayload('Jane')
-      expect(payload).toEqual({ firstName: 'Jane' })
     })
   })
 })

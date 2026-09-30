@@ -5,13 +5,11 @@ import type {} from '../src/data.d.ts'
 jest.mock('firebase/firestore', () => ({
   doc: jest.fn(() => ({})),
   getDoc: jest.fn(),
-  setDoc: jest.fn(),
 }))
 
 describe('applicationService (Data Access Layer)', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    global.fetch = jest.fn() as jest.Mock
   })
 
   describe('fetchUserApplication', () => {
@@ -64,71 +62,6 @@ describe('applicationService (Data Access Layer)', () => {
         applicationService.fetchUserApplication('uid-1'),
       ).rejects.toThrow('permission-denied')
       expect(firestore.getDoc).toHaveBeenCalledTimes(1)
-    })
-  })
-
-  describe('createUserApplication', () => {
-    it('writes the whole document with semester info, without merging', async () => {
-      ;(firestore.setDoc as jest.Mock).mockResolvedValueOnce(undefined)
-      const mockApp = {
-        personal: { email: 'test@example.com' },
-        meta: {
-          uid: 'uid-1',
-          submitted: false,
-          interview: false,
-          decided: false,
-        },
-      } as Data.Application
-
-      await applicationService.createUserApplication('uid-1', mockApp)
-
-      expect(firestore.setDoc).toHaveBeenCalledTimes(1)
-      const [, payload, options] = (firestore.setDoc as jest.Mock).mock.calls[0]
-      expect(payload).toEqual(
-        expect.objectContaining({
-          personal: { email: 'test@example.com' },
-          semester: expect.any(String),
-        }),
-      )
-      // The draft has to land with every meta field present, since admin's lists
-      // query on `meta.submitted == false` / `meta.decided == false`.
-      expect(payload.meta).toEqual({
-        uid: 'uid-1',
-        submitted: false,
-        interview: false,
-        decided: false,
-      })
-      expect(options).toBeUndefined()
-    })
-  })
-
-  describe('updateUserApplication', () => {
-    it('merges only the given fields so admin-owned ones survive', async () => {
-      ;(firestore.setDoc as jest.Mock).mockResolvedValueOnce(undefined)
-
-      await applicationService.updateUserApplication('uid-1', {
-        personal: { phoneNumber: '555-123-4567' },
-      })
-
-      expect(firestore.setDoc).toHaveBeenCalledTimes(1)
-      const [, payload, options] = (firestore.setDoc as jest.Mock).mock.calls[0]
-      expect(payload).toEqual({
-        personal: { phoneNumber: '555-123-4567' },
-        semester: expect.any(String),
-      })
-      // Never a full overwrite - see updateUserApplication's docstring.
-      expect(options).toEqual({ merge: true })
-      expect(payload).not.toHaveProperty('meta')
-    })
-
-    it('propagates errors from setDoc', async () => {
-      ;(firestore.setDoc as jest.Mock).mockRejectedValueOnce(
-        new Error('permission-denied'),
-      )
-
-      await expect(
-        applicationService.updateUserApplication('uid-1', {}),
-      ).rejects.toThrow('permission-denied')
     })
   })
 
@@ -214,26 +147,6 @@ describe('applicationService (Data Access Layer)', () => {
       const status =
         await applicationService.fetchApplicationDashboardStatus('uid-1')
       expect(status).toBe('waitlisted')
-    })
-  })
-
-  describe('submitApplicationApi', () => {
-    it('triggers POST request to /api/application endpoint', async () => {
-      ;(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true })
-
-      await applicationService.submitApplicationApi('Jane')
-      expect(global.fetch).toHaveBeenCalledWith(
-        '/api/application',
-        expect.objectContaining({ method: 'POST' }),
-      )
-    })
-
-    it('throws error if response is not ok', async () => {
-      ;(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false })
-
-      await expect(
-        applicationService.submitApplicationApi('Jane'),
-      ).rejects.toThrow('Failed to submit application via API')
     })
   })
 })

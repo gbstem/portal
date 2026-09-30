@@ -1,6 +1,5 @@
 import type {} from '../../data.d.ts'
 import { cloneDeep } from 'lodash-es'
-import type { ApplicationRequestBody } from '../../routes/api/application/+server'
 import { getApplyFormDefaults } from '../components/forms/schemas'
 
 /**
@@ -124,17 +123,6 @@ export function normalizeApplicationData(
 }
 
 /**
- * Constructs request payload for /api/application endpoint.
- */
-export function buildApplyApiPayload(
-  firstName: string,
-): ApplicationRequestBody {
-  return {
-    firstName,
-  }
-}
-
-/**
  * Fields inside the application document that this form must never write.
  *
  * Nothing inside the schema's own sections is admin-owned here - the whole of
@@ -146,24 +134,22 @@ export const APPLICATION_ADMIN_OWNED_FIELDS: string[] = []
 /**
  * What `applicationOwnedFields` returns: `meta` is dropped, but every group it
  * does return is complete, since each one spreads the last-loaded values before
- * the form's. Saying so (rather than returning the looser `ApplicationUpdate`)
- * is what lets the bootstrap write combine this with `values` and still be a
- * whole `Data.Application`.
+ * the form's, so a save can never drop a field the form doesn't render.
  */
 export type OwnedApplicationFields = Omit<Data.Application, 'meta'>
 
 /**
  * The parts of the application document this form owns, ready to be merged in.
  *
- * Every save after the bootstrap write is a `{ merge: true }` write, so what
+ * `$lib/server/instructorApplication` merges this into the stored document
+ * (`{ merge: true }`), so what
  * this returns is exactly what reaches Firestore and anything omitted keeps
- * whatever the last writer left. See `registrationOwnedFields` for why this
- * lives here rather than in the component.
+ * whatever the last writer left.
  *
  * `meta` is absent on purpose: echoing this form's snapshot of
  * `meta.decided`/`meta.interview` back on every autosave is what used to revert
  * a decision recorded while the applicant had the page open, and
- * `meta.submitted` is written only by the submit handler.
+ * `meta.submitted` is written only by the submit action.
  *
  * `toApplyFormValues` deliberately omits `personal.firstName`/`lastName`, so
  * the spread below leaves the names `normalizeApplicationData` took from the
@@ -173,7 +159,7 @@ export type OwnedApplicationFields = Omit<Data.Application, 'meta'>
  *   as `personal.email` on every save, so the submitted document records the
  *   address the account had when it was submitted. Nothing reads it back - see
  *   `Data.Application`.
- * @param timestamp the caller's `serverTimestamp()` sentinel.
+ * @param timestamp the caller's server-timestamp sentinel.
  */
 export function applicationOwnedFields(
   values: Data.Application,

@@ -240,7 +240,11 @@ function assertApplicationDoc(
 }
 
 function saveApplicationDraft() {
+  // Waits on the request, not just the toast: back-to-back saves show the
+  // same toast, so the previous one can still be up when this one is sent.
+  cy.intercept('POST', '/apply?/saveApplication').as('saveApplication')
   cy.contains('button', 'Save draft').click()
+  cy.wait('@saveApplication')
   cy.waitForNotification('Your progress was saved.')
 }
 
@@ -735,6 +739,9 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
 
     cy.visit('/apply')
     cy.get('body').should('contain', 'Application submitted and in review!')
+    // The page is server-rendered, so the text above is there before the
+    // Sign out button works.
+    cy.get('form[data-hydrated]').should('exist')
     cy.signOutViaUi()
   })
 
