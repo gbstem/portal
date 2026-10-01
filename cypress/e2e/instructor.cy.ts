@@ -4,6 +4,7 @@ import {
   classesCollection,
   currentSemester,
   instructorFeedbackCollection,
+  interviewCollection,
   interviewTimeRequestsCollection,
   substituteRequestsCollection,
 } from '../../src/lib/data/collections'
@@ -19,6 +20,7 @@ import {
   SEEDED_STUDENTS,
   SEEDED_STUDENT_EMAIL,
   SEEDED_STUDENT_NAME,
+  adminTimestampMs,
   expectDocExists,
   fileSubRequest,
   readClassDoc,
@@ -826,6 +828,7 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
     cy.contains('button', 'Request A Time').should('be.visible')
 
     // Scenario 2: Book slot
+    cy.intercept('POST', '/api/interview').as('bookInterview')
     cy.visit('/dashboard')
     cy.get('input[type="radio"]')
       .first()
@@ -844,6 +847,38 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
           'instructor-interview@gbstem.org',
           'your interview with',
         )
+
+        // Both halves of what bookInterviewSlot writes in one transaction: the
+        // slot, claimed for this applicant from their profile, and their
+        // application, flagged so admin stops listing them as needing an
+        // interview. The confirmation text below is rendered from the
+        // response, so on its own it shows neither write.
+        cy.wait('@bookInterview')
+          .its('response.body.interview')
+          .then((booked: any) => {
+            cy.task(
+              'readFirestoreDoc',
+              `${interviewCollection}/${booked.id}`,
+            ).then((slot: any) => {
+              expect(slot, 'the booked slot').to.not.equal(null)
+              expect(slot.interviewSlotStatus).to.equal('pending')
+              expect(slot.intervieweeId).to.equal('instructor-interview-uid')
+              expect(slot.intervieweeFirstName).to.equal('Interview')
+              expect(slot.intervieweeLastName).to.equal('Instructor')
+              // The slot's own details are left as the interviewer set them.
+              expect(slot.meetingLink).to.equal(booked.meetingLink)
+              expect(slot.interviewerName).to.equal(booked.interviewerName)
+              expect(adminTimestampMs(slot.date), 'the slot time').to.equal(
+                new Date(booked.date).getTime(),
+              )
+            })
+          })
+        cy.task(
+          'readFirestoreDoc',
+          `${applicationsCollection}/instructor-interview-uid`,
+        ).then((application: any) => {
+          expect(application.meta.interview, 'meta.interview').to.equal(true)
+        })
 
         cy.get('body')
           .contains(/Your interview will be on/)
