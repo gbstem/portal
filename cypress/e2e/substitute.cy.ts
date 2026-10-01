@@ -16,6 +16,7 @@ import {
   SUBSTITUTE_UID,
   afterOrientation,
   expectDocExists,
+  expectRequestOnItsSession,
   fileSubRequest,
   readClassDoc,
   subRequestRow,
@@ -129,14 +130,44 @@ describe('Section I: Substitute Requests And Cover', () => {
     signInAsOwner()
 
     // Request Sub
+    const notes = 'Sub to cover lists and loops'
     cy.contains('button', 'Request Sub').first().click()
     cy.get('[role="dialog"]').should('contain', 'Submit A Sub Request')
+    cy.get('[role="dialog"]').find('input[type="text"]').type(notes)
     cy.get('[role="dialog"]')
-      .find('input[type="text"]')
-      .type('Sub to cover lists and loops')
+      .find('input[type="number"]')
+      .invoke('val')
+      .then(Number)
+      .as('classNumber')
     cy.contains('button', 'Confirm Request').click({ force: true })
     cy.waitForNotification('Sub request sent!')
     cy.get('[role="dialog"]').should('not.exist')
+
+    // The whole request as filed by the class's own instructor. Everything
+    // but the notes and the session comes from the class, not the form.
+    cy.get<number>('@classNumber').then((classNumber) => {
+      cy.task(
+        'readFirestoreDoc',
+        `${substituteRequestsCollection}/${subRequestDocId(SEEDED_CLASS_ID, classNumber)}`,
+      ).then((request: any) => {
+        expect(request, 'sub request document').to.not.equal(null)
+        const { dateOfClass: _dateOfClass, ...rest } = request
+        expect(rest).to.deep.equal({
+          // The class id: buildSubRequestPayload stores it as `id`.
+          id: SEEDED_CLASS_ID,
+          classNumber,
+          notes,
+          course: 'Python 1',
+          link: SEEDED_MEETING_LINK,
+          originalInstructorUid: OWNER_UID,
+          requestedByUid: OWNER_UID,
+          subInstructorFirstName: '',
+          subInstructorId: '',
+          subRequestStatus: 'SubstituteNeeded',
+        })
+        expectRequestOnItsSession(request)
+      })
+    })
 
     // window.location.reload() fires ~1000ms after the sub request -- give the
     // lookup extra retry budget to span that instead of a fixed pre-wait.
@@ -211,6 +242,11 @@ describe('Section I: Substitute Requests And Cover', () => {
           expect(moved.requestedByUid).to.equal(OWNER_UID)
         })
       })
+      // ...and it takes the new session's time with it, not the old one's.
+      cy.task(
+        'readFirestoreDoc',
+        `${substituteRequestsCollection}/${subRequestDocId(SEEDED_CLASS_ID, movedTo)}`,
+      ).then(expectRequestOnItsSession)
 
       // Moving it to another session moves the document...
       expectDocExists(

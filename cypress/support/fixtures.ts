@@ -142,3 +142,36 @@ export function subRequestRow(classNumber: number) {
     .parent()
     .contains('div', `class #${classNumber}`, { timeout: 10000 })
 }
+
+/** A Firestore timestamp as the Admin SDK task hands it back, in epoch ms. */
+export function adminTimestampMs(value: {
+  _seconds?: number
+  _nanoseconds?: number
+  seconds?: number
+  nanoseconds?: number
+}): number {
+  const seconds = value._seconds ?? value.seconds ?? NaN
+  const nanoseconds = value._nanoseconds ?? value.nanoseconds ?? 0
+  return seconds * 1000 + Math.floor(nanoseconds / 1e6)
+}
+
+/**
+ * Asserts a stored sub request's `dateOfClass` is the scheduled time of the
+ * session it names - `meetingTimes[classNumber - 1]` on the seeded class. A
+ * request that drifts from its session tells the substitute the wrong time,
+ * and nothing on screen would show it: the cards print whatever is stored.
+ */
+export function expectRequestOnItsSession(subRequest: any) {
+  cy.task('readFirestoreDoc', `${classesCollection}/${SEEDED_CLASS_ID}`).then(
+    (klass: any) => {
+      const session = klass.meetingTimes[subRequest.classNumber - 1]
+      expect(session, `session ${subRequest.classNumber} exists`).to.not.equal(
+        undefined,
+      )
+      expect(
+        adminTimestampMs(subRequest.dateOfClass),
+        `dateOfClass is session ${subRequest.classNumber}'s time`,
+      ).to.equal(adminTimestampMs(session))
+    },
+  )
+}

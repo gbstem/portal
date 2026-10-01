@@ -3910,6 +3910,8 @@ describe('/api/subRequest', () => {
     handler({ request: { json: async () => body }, locals } as any)
   const session = {
     classNumber: 2,
+    // Sent by clients from before the date was read off the schedule, and
+    // dropped: none of the handlers below may pass it on.
     dateOfClass: '2026-10-05T20:00:00.000Z',
     notes: 'Loops.',
   }
@@ -3935,7 +3937,6 @@ describe('/api/subRequest', () => {
       'c-1',
       {
         classNumber: 2,
-        dateOfClass: new Date('2026-10-05T20:00:00.000Z'),
         notes: 'Loops.',
       },
     )

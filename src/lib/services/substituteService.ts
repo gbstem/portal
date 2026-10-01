@@ -149,7 +149,7 @@ export const substituteService = {
 
   /**
    * Saves edits to one of the signed-in instructor's sub requests: its
-   * session, date and notes. Changing the session moves the request, in one
+   * session and notes. Its date follows the session, server-side. Changing the session moves the request, in one
    * transaction server-side - see /api/subRequest. Throws with the server's
    * message on refusal.
    */
@@ -158,7 +158,6 @@ export const substituteService = {
       // The document id as read, which names the session it is moving from.
       subRequestId: subRequest.id,
       classNumber: subRequest.classNumber,
-      dateOfClass: new Date(subRequest.dateOfClass),
       notes: subRequest.notes,
     }
     await sendSubRequest('PATCH', payload)
