@@ -394,7 +394,7 @@ function fillClassDetailsForm(input: ClassDetailsInput) {
  */
 function expectedClassDoc(
   input: ClassDetailsInput,
-  context: { meetingLink: string },
+  context: { meetingLink: string; students?: string[] },
 ) {
   return {
     semester: currentSemester,
@@ -414,27 +414,29 @@ function expectedClassDoc(
     instructorUid: 'instructor-demo-uid',
     otherInstructorUids: expectedCoInstructorUids(input.coInstructorEmails),
     // Owned by registration/admin - the form must not touch the roster.
-    students: SEEDED_STUDENTS,
+    students: context.students ?? SEEDED_STUDENTS,
   }
 }
 
 function assertClassDoc(
   input: ClassDetailsInput,
-  context: { meetingLink: string },
+  context: { meetingLink: string; students?: string[]; classId?: string },
 ) {
   cy.getFirebaseAuthToken().then((authToken: string) => {
-    cy.getFirestoreDoc(authToken, classesCollection, SEEDED_CLASS_ID).then(
-      (data: any) => {
-        expect(data, 'class document').to.not.equal(null)
-        expect(
-          prepareDocForCompare(data, { omit: CLASS_COMPUTED_FIELDS }),
-        ).to.deep.equal(
-          prepareDocForCompare(expectedClassDoc(input, context), {
-            omit: CLASS_COMPUTED_FIELDS,
-          }),
-        )
-      },
-    )
+    cy.getFirestoreDoc(
+      authToken,
+      classesCollection,
+      context.classId ?? SEEDED_CLASS_ID,
+    ).then((data: any) => {
+      expect(data, 'class document').to.not.equal(null)
+      expect(
+        prepareDocForCompare(data, { omit: CLASS_COMPUTED_FIELDS }),
+      ).to.deep.equal(
+        prepareDocForCompare(expectedClassDoc(input, context), {
+          omit: CLASS_COMPUTED_FIELDS,
+        }),
+      )
+    })
   })
 }
 
@@ -443,24 +445,29 @@ function assertClassDoc(
  * as `meetingTimes`, or the feedback form's `classNumber - 1` indexing walks
  * off the end of one of them.
  */
-function assertGeneratedSchedule(options: { regenerated: boolean }) {
+function assertGeneratedSchedule(options: {
+  regenerated: boolean
+  classId?: string
+}) {
   cy.getFirebaseAuthToken().then((authToken: string) => {
-    cy.getFirestoreDoc(authToken, classesCollection, SEEDED_CLASS_ID).then(
-      (data: any) => {
-        const count = data.meetingTimes.length
-        expect(count, 'meeting times').to.be.greaterThan(0)
-        expect(data.feedbackCompleted).to.have.length(count)
-        expect(data.classStatuses).to.have.length(count)
-        if (options.regenerated) {
-          expect(data.feedbackCompleted).to.deep.equal(
-            new Array(count).fill(false),
-          )
-          expect(data.classStatuses).to.deep.equal(
-            new Array(count).fill('ClassInFuture'),
-          )
-        }
-      },
-    )
+    cy.getFirestoreDoc(
+      authToken,
+      classesCollection,
+      options.classId ?? SEEDED_CLASS_ID,
+    ).then((data: any) => {
+      const count = data.meetingTimes.length
+      expect(count, 'meeting times').to.be.greaterThan(0)
+      expect(data.feedbackCompleted).to.have.length(count)
+      expect(data.classStatuses).to.have.length(count)
+      if (options.regenerated) {
+        expect(data.feedbackCompleted).to.deep.equal(
+          new Array(count).fill(false),
+        )
+        expect(data.classStatuses).to.deep.equal(
+          new Array(count).fill('ClassInFuture'),
+        )
+      }
+    })
   })
 }
 
@@ -1309,6 +1316,9 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
       online: false,
     }
 
+    // A retry has to create it again rather than find it already there.
+    cy.task('deleteFirestoreDoc', `${classesCollection}/${newClassId}`)
+
     cy.signedInSession('instructor')
 
     cy.contains('h2', 'Class Details')
@@ -1323,16 +1333,31 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
     cy.get('input[name="confirmation"]').check({ force: true })
     saveClassDetails()
 
-    cy.getFirebaseAuthToken().then((authToken: string) => {
-      cy.getFirestoreDoc(authToken, classesCollection, newClassId).then(
-        (data: any) => {
-          expect(data, 'new class document').to.not.equal(null)
-          expect(data.course).to.equal(input.course)
-          expect(data.instructorUid).to.equal('instructor-demo-uid')
-          // A new class records its owner by uid alone.
-          expect(data).to.not.have.property('instructorEmail')
-        },
-      )
+    // The create path builds the whole document from nothing - an empty
+    // roster and progress, a generated schedule, the co-instructor's uid -
+    // where every other class details test edits the seeded class, so it is
+    // checked whole. A new class records its owner by uid alone: no address.
+    assertClassDoc(input, {
+      meetingLink: '',
+      students: [],
+      classId: newClassId,
+    })
+    assertGeneratedSchedule({ regenerated: true, classId: newClassId })
+    cy.task('readFirestoreDoc', `${classesCollection}/${newClassId}`).then(
+      (data: any) => {
+        expect(data.completedClassDates, 'nothing held yet').to.deep.equal([])
+      },
+    )
+
+    // ...and it reaches both instructors' dashboards, which list their
+    // classes from the uid-keyed instructorClasses index, not the class.
+    ;[OWNER_UID, COHOST_UID].forEach((uid) => {
+      cy.task(
+        'readFirestoreDoc',
+        `${INSTRUCTOR_CLASSES_COLLECTION}/${uid}`,
+      ).then((mapping: any) => {
+        expect(mapping.classIds, `${uid}'s classes`).to.include(newClassId)
+      })
     })
   })
 
