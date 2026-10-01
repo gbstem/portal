@@ -46,7 +46,6 @@
   let updating = $state(false)
   let subRequestsFromUser: Data.SubRequest[] = $state([])
   let stringSubRequestDates: string[] = $state([])
-  let originalSubClassNumbers: number[] = $state([])
 
   // Sized to match userSubClassesList/subRequestsFromUser so bind:open
   // never binds to undefined (Svelte forbids that when the prop has a
@@ -96,9 +95,6 @@
     stringSubRequestDates = userSubRequests.map((subRequest) =>
       timestampToDate(subRequest.dateOfClass).toString(),
     )
-    originalSubClassNumbers = userSubRequests.map(
-      (subRequest) => subRequest.classNumber,
-    )
     userSubClassesList = userSubClasses
     void loadCoveredInstructorEmails()
     return classesMissingSubs
@@ -124,15 +120,15 @@
     const editingSubRequest = subRequestsFromUser[i]
     editingSubRequest.dateOfClass = new Date(stringSubRequestDates[i])
     substituteService
-      .saveSubRequest(editingSubRequest, originalSubClassNumbers[i])
+      .saveSubRequest(editingSubRequest)
       .then(() => {
         alert.trigger('success', 'Sub request updated!')
         getData(currentUser.object.uid)
       })
-      .catch(() => {
+      .catch((err) => {
         alert.trigger(
           'error',
-          'Failed to update sub request, please try again.',
+          err?.message || 'Failed to update sub request, please try again.',
         )
       })
   }
@@ -151,10 +147,10 @@
           )
           getData(currentUser.object.uid)
         })
-        .catch(() => {
+        .catch((err) => {
           alert.trigger(
             'error',
-            'Failed to delete sub request, please try again.',
+            err?.message || 'Failed to delete sub request, please try again.',
           )
         })
     }

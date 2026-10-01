@@ -2,6 +2,7 @@ const mockDoc = jest.fn()
 const mockCollection = jest.fn()
 const mockRunTransaction = jest.fn()
 const mockCanSubstitute = jest.fn()
+const mockIsAcceptedInstructor = jest.fn()
 
 jest.mock('$lib/server/firebase', () => ({
   adminDb: {
@@ -13,6 +14,7 @@ jest.mock('$lib/server/firebase', () => ({
 
 jest.mock('$lib/server/instructorDirectory', () => ({
   canSubstitute: (...args: any[]) => mockCanSubstitute(...args),
+  isAcceptedInstructor: (...args: any[]) => mockIsAcceptedInstructor(...args),
 }))
 
 jest.mock(
@@ -33,14 +35,22 @@ import {
   substituteRequestsCollection,
 } from '$lib/data/collections'
 import {
+  cancelSubRequest,
   claimSubRequest,
+  editSubRequest,
   fetchOpenSubRequests,
+  fileSubRequest,
   serializeSubRequest,
 } from '$lib/server/substituteRequests'
 
 /** Every document the fake Firestore holds, by path. */
 let docs: Record<string, any>
-let transaction: { get: jest.Mock; update: jest.Mock }
+let transaction: {
+  get: jest.Mock
+  update: jest.Mock
+  set: jest.Mock
+  delete: jest.Mock
+}
 let query: { where: jest.Mock; orderBy: jest.Mock; get: jest.Mock }
 
 function snapshot(path: string) {
@@ -101,9 +111,12 @@ beforeEach(() => {
   transaction = {
     get: jest.fn(async (ref: { path: string }) => snapshot(ref.path)),
     update: jest.fn(),
+    set: jest.fn(),
+    delete: jest.fn(),
   }
   mockRunTransaction.mockImplementation(async (fn: any) => fn(transaction))
   mockCanSubstitute.mockResolvedValue(true)
+  mockIsAcceptedInstructor.mockResolvedValue(true)
 })
 
 describe('fetchOpenSubRequests', () => {
@@ -364,5 +377,198 @@ describe('serializeSubRequest', () => {
         dateOfClass: new Date(FUTURE),
       } as Data.SubRequest).dateOfClass,
     ).toBe(FUTURE)
+  })
+})
+
+describe("fileSubRequest - the class instructor's side", () => {
+  const CLASS_PATH = `${classesCollection}/owner-uid-1`
+  const input = {
+    classNumber: 2,
+    dateOfClass: new Date(FUTURE),
+    notes: 'Loops.',
+  }
+
+  beforeEach(() => {
+    docs[CLASS_PATH] = {
+      course: 'Python 1',
+      meetingLink: 'https://zoom.us/j/1',
+      instructorUid: 'owner-uid',
+      otherInstructorUids: ['co-uid'],
+      meetingTimes: [timestamp(PAST), timestamp(FUTURE), timestamp(FUTURE)],
+    }
+  })
+
+  const written = () => transaction.set.mock.calls[0]
+
+  test("names the class's instructor of record and the co-instructor asking, from the class", async () => {
+    await expect(
+      fileSubRequest({ uid: 'co-uid' }, 'owner-uid-1', input),
+    ).resolves.toBe(REQUEST_ID)
+
+    const [ref, data] = written()
+    expect(ref.path).toBe(REQUEST_PATH)
+    expect(data).toEqual(
+      expect.objectContaining({
+        id: 'owner-uid-1',
+        classNumber: 2,
+        course: 'Python 1',
+        link: 'https://zoom.us/j/1',
+        originalInstructorUid: 'owner-uid',
+        requestedByUid: 'co-uid',
+        subInstructorId: '',
+        subRequestStatus: SubRequestStatus.SubstituteNeeded,
+      }),
+    )
+  })
+
+  test('refuses an instructor who has not been accepted', async () => {
+    mockIsAcceptedInstructor.mockResolvedValue(false)
+    await expect(
+      fileSubRequest({ uid: 'owner-uid' }, 'owner-uid-1', input),
+    ).rejects.toMatchObject({ status: 403 })
+    expect(mockRunTransaction).not.toHaveBeenCalled()
+  })
+
+  test("refuses someone who doesn't teach the class", async () => {
+    await expect(
+      fileSubRequest({ uid: 'sub-uid' }, 'owner-uid-1', input),
+    ).rejects.toMatchObject({ status: 403 })
+    expect(transaction.set).not.toHaveBeenCalled()
+  })
+
+  test('refuses a session that is not on the schedule', async () => {
+    for (const classNumber of [0, 4]) {
+      await expect(
+        fileSubRequest({ uid: 'owner-uid' }, 'owner-uid-1', {
+          ...input,
+          classNumber,
+        }),
+      ).rejects.toMatchObject({ status: 400 })
+    }
+    expect(transaction.set).not.toHaveBeenCalled()
+  })
+
+  // Whoever may already be covering it would be written over.
+  test('refuses a session that already has a request', async () => {
+    storeRequest({ subInstructorId: 'sub-uid' })
+    await expect(
+      fileSubRequest({ uid: 'owner-uid' }, 'owner-uid-1', input),
+    ).rejects.toMatchObject({
+      status: 409,
+      message:
+        "That session already has a sub request, so it wasn't filed again.",
+    })
+    expect(transaction.set).not.toHaveBeenCalled()
+  })
+})
+
+describe('editSubRequest and cancelSubRequest', () => {
+  const edit = {
+    classNumber: 2,
+    dateOfClass: new Date('2099-10-06T20:00:00.000Z'),
+    notes: 'Recursion instead.',
+  }
+
+  beforeEach(() => {
+    docs[`${classesCollection}/owner-uid-1`] = {
+      instructorUid: 'owner-uid',
+      meetingTimes: [timestamp(FUTURE), timestamp(FUTURE), timestamp(FUTURE)],
+    }
+  })
+
+  test('changes only the date and notes when the session stays put', async () => {
+    storeRequest({ requestedByUid: 'co-uid' })
+
+    await expect(
+      editSubRequest({ uid: 'co-uid' }, REQUEST_ID, edit),
+    ).resolves.toBe(REQUEST_ID)
+
+    expect(transaction.update).toHaveBeenCalledWith(
+      expect.objectContaining({ path: REQUEST_PATH }),
+      { dateOfClass: edit.dateOfClass, notes: edit.notes },
+    )
+    expect(transaction.set).not.toHaveBeenCalled()
+    expect(transaction.delete).not.toHaveBeenCalled()
+  })
+
+  test('moves the request to another session in the same transaction', async () => {
+    storeRequest()
+
+    await expect(
+      editSubRequest({ uid: 'owner-uid' }, REQUEST_ID, {
+        ...edit,
+        classNumber: 3,
+      }),
+    ).resolves.toBe('owner-uid-1---3')
+
+    const [ref, data] = transaction.set.mock.calls[0]
+    expect(ref.path).toBe(`${substituteRequestsCollection}/owner-uid-1---3`)
+    expect(data).toEqual(
+      expect.objectContaining({
+        id: 'owner-uid-1',
+        classNumber: 3,
+        notes: edit.notes,
+        originalInstructorUid: 'owner-uid',
+      }),
+    )
+    expect(transaction.delete).toHaveBeenCalledWith(
+      expect.objectContaining({ path: REQUEST_PATH }),
+    )
+  })
+
+  test('refuses moving onto a session that already has a request', async () => {
+    storeRequest()
+    docs[`${substituteRequestsCollection}/owner-uid-1---3`] = { classNumber: 3 }
+
+    await expect(
+      editSubRequest({ uid: 'owner-uid' }, REQUEST_ID, {
+        ...edit,
+        classNumber: 3,
+      }),
+    ).rejects.toMatchObject({ status: 409 })
+    expect(transaction.delete).not.toHaveBeenCalled()
+  })
+
+  test('refuses moving a request somebody has signed up to cover', async () => {
+    storeRequest({
+      subInstructorId: 'sub-uid',
+      subRequestStatus: SubRequestStatus.SubstituteFound,
+    })
+
+    await expect(
+      editSubRequest({ uid: 'owner-uid' }, REQUEST_ID, {
+        ...edit,
+        classNumber: 3,
+      }),
+    ).rejects.toMatchObject({ status: 409 })
+    expect(transaction.set).not.toHaveBeenCalled()
+  })
+
+  test('refuses the substitute, and anyone else who neither filed it nor owns the class', async () => {
+    storeRequest({ subInstructorId: 'sub-uid' })
+
+    for (const uid of ['sub-uid', 'co-uid']) {
+      await expect(
+        editSubRequest({ uid }, REQUEST_ID, edit),
+      ).rejects.toMatchObject({ status: 403 })
+      await expect(cancelSubRequest({ uid }, REQUEST_ID)).rejects.toMatchObject(
+        { status: 403 },
+      )
+    }
+    expect(transaction.update).not.toHaveBeenCalled()
+    expect(transaction.delete).not.toHaveBeenCalled()
+  })
+
+  test("cancels one of the caller's own requests, and 404s one that is gone", async () => {
+    storeRequest()
+
+    await cancelSubRequest({ uid: 'owner-uid' }, REQUEST_ID)
+    expect(transaction.delete).toHaveBeenCalledWith(
+      expect.objectContaining({ path: REQUEST_PATH }),
+    )
+
+    await expect(
+      cancelSubRequest({ uid: 'owner-uid' }, 'owner-uid-1---9'),
+    ).rejects.toMatchObject({ status: 404 })
   })
 })

@@ -4,6 +4,7 @@ import {
   classesCollection,
   currentSemester,
   instructorFeedbackCollection,
+  interviewTimeRequestsCollection,
   substituteRequestsCollection,
 } from '../../src/lib/data/collections'
 import semesterDates from '../../src/lib/data/semesterDates.json'
@@ -24,7 +25,7 @@ import {
   subRequestRow,
 } from '../support/fixtures'
 import { generateDateHash, prepareDocForCompare } from '../support/utils'
-import { subRequestDocId } from '../../src/lib/data/docIds'
+import { slotRequestDocId, subRequestDocId } from '../../src/lib/data/docIds'
 
 /** Every field the instructor application form renders. */
 interface ApplicationInput {
@@ -298,6 +299,10 @@ function expectedCoInstructorUids(emails: string[]): string[] {
  * the semester's date range rather than anything this form sets. All four are
  * asserted separately by `assertGeneratedSchedule`.
  */
+/** A stored session time, as `getFirestoreDoc` returns it, in epoch ms. */
+const sessionTime = (value: { timestampValue: string }) =>
+  new Date(value.timestampValue).getTime()
+
 const CLASS_COMPUTED_FIELDS = [
   'meetingTimes',
   'completedClassDates',
@@ -801,6 +806,22 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
       'admin@gbstem.org',
       'New Interview Timeslot Request From',
     )
+    // The request itself is what admins work from, and /api/slotRequest now
+    // saves it - firestore.rules gives applicants no write access to it. The
+    // name is the applicant's profile, not anything the form sent.
+    cy.task(
+      'readFirestoreDoc',
+      `${interviewTimeRequestsCollection}/${slotRequestDocId('instructor-interview-uid', formattedDate)}`,
+    ).then((request: any) => {
+      expect(request, 'the saved time request').to.not.equal(null)
+      expect(request.uid).to.equal('instructor-interview-uid')
+      expect(request.firstName).to.equal('Interview')
+      expect(request.lastName).to.equal('Instructor')
+      expect(
+        (request.date._seconds ?? request.date.seconds) * 1000,
+        'the requested time',
+      ).to.equal(new Date(formattedDate).getTime())
+    })
     cy.get('input[name="dateToAdd"]').should('not.exist')
     cy.contains('button', 'Request A Time').should('be.visible')
 
@@ -1442,6 +1463,11 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
 
     cy.signedInSession('instructor')
 
+    let earliestBefore: number
+    readClassDoc().then((before: any) => {
+      earliestBefore = Math.min(...before.meetingTimes.map(sessionTime))
+    })
+
     // Edit Schedule & Delete Class Session
     cy.contains('button', 'Edit Schedule').click()
     cy.get('input[type="datetime-local"]').first().should('be.visible')
@@ -1468,6 +1494,94 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
 
     // Verify it worked
     cy.get('body').should('contain', 'June 20')
+
+    // ...in the class document, which /api/classSchedule writes now that
+    // firestore.rules gives instructors no write access to classes. The
+    // per-session arrays are worked out server-side and must stay in step
+    // with the times, or feedback lands on the wrong week.
+    readClassDoc().then((after: any) => {
+      const times: number[] = after.meetingTimes.map(sessionTime)
+      const added = times.indexOf(new Date('2026-06-20T11:00').getTime())
+      expect(added, 'the added session').to.be.greaterThan(-1)
+      expect(times, 'the deleted session').to.not.include(earliestBefore)
+      expect(times, 'sorted').to.deep.equal([...times].sort((x, y) => x - y))
+      expect(after.feedbackCompleted).to.have.length(times.length)
+      expect(after.classStatuses).to.have.length(times.length)
+      expect(after.feedbackCompleted[added], 'a new session').to.equal(false)
+    })
+  })
+
+  it("Test Case 14b: Joining Today's Class Records It As Held", () => {
+    // "Join Class" marks today's session held on the class before opening the
+    // meeting. That used to be a browser write; it goes through
+    // /api/classSchedule now, which decides which session is today on
+    // gbSTEM's calendar. The real clock, not a frozen one: the server can't
+    // see Cypress's.
+    const HELD = ['FeedbackIncomplete', 'EverythingComplete']
+    const bostonDay = (time: number) =>
+      new Date(time).toLocaleDateString('en-CA', {
+        timeZone: 'America/New_York',
+      })
+    const today = bostonDay(Date.now())
+    cy.intercept('POST', '/api/classSchedule', (req) => {
+      if (req.body.action === 'holdSession') req.alias = 'holdSession'
+    })
+    cy.signedInSession('instructor')
+
+    // A session a couple of minutes from now, so there is one today however
+    // earlier tests left the schedule. Added through the UI, which is the
+    // only way to store a real timestamp.
+    const soon = new Date(Date.now() + 2 * 60 * 1000)
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const soonLocal = `${soon.getFullYear()}-${pad(soon.getMonth() + 1)}-${pad(soon.getDate())}T${pad(soon.getHours())}:${pad(soon.getMinutes())}`
+    cy.contains('button', 'Add Class to Schedule', { timeout: 15000 }).click()
+    cy.get('[role="dialog"]').within(() => {
+      cy.fillInput('input[type="datetime-local"]', soonLocal)
+      cy.contains('button', 'Add Class').click({ force: true })
+    })
+    cy.waitForNotification('Meeting times updated!')
+    cy.contains('button', 'Close').click()
+    // Closing reloads the page.
+    cy.contains('button', 'Join Class', { timeout: 15000 }).should('be.visible')
+
+    // Only `completedClassDates` is compared exactly: the status refresh every
+    // page load makes can still be landing, but it never touches that field.
+    let before: any
+    readClassDoc().then((data: any) => {
+      before = data
+    })
+
+    cy.captureConfirms().as('confirms')
+    cy.window().then((win) => {
+      cy.stub(win, 'open').as('windowOpen')
+    })
+    cy.contains('button', 'Join Class').click()
+    cy.get('@confirms')
+      .its(0)
+      .should('contain', 'confirm you are holding class now')
+    cy.wait('@holdSession')
+      .its('request.body')
+      .should('deep.equal', { action: 'holdSession', classId: SEEDED_CLASS_ID })
+    cy.get('@windowOpen').should('have.been.calledWith', SEEDED_MEETING_LINK)
+
+    readClassDoc().then((after: any) => {
+      expect(
+        after.completedClassDates.length,
+        'the day stamped as held',
+      ).to.equal((before.completedClassDates ?? []).length + 1)
+      // Which of today's sessions depends on what earlier tests left, so
+      // this asks that one of today's, and only today's, became held.
+      const newlyHeldDays = after.classStatuses
+        .map((status: string, i: number) => ({ status, i }))
+        .filter(
+          ({ status, i }: { status: string; i: number }) =>
+            HELD.includes(status) && !HELD.includes(before.classStatuses[i]),
+        )
+        .map(({ i }: { i: number }) =>
+          bostonDay(sessionTime(after.meetingTimes[i])),
+        )
+      expect(newlyHeldDays, "today's session newly held").to.deep.equal([today])
+    })
   })
 })
 

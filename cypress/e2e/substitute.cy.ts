@@ -62,6 +62,12 @@ function requestCoverForASession(
  * nothing to ask about. Rather than have each test depend on what the ones
  * before it did to the schedule, they say how many they need.
  */
+// Sessions this spec has added so far. Each gets its own date: numbering them
+// by how many "Request Sub" buttons show could pick a date an earlier test
+// already added, and a duplicate time changes nothing - no "notify the
+// parents" dialog, so addSessionToSchedule waits for one that never comes.
+let sessionsAdded = 0
+
 function ensureRequestableSessions(count: number) {
   // The dashboard renders before the class does, and counting buttons on a
   // page that has not drawn its schedule yet always reads zero - which then
@@ -75,7 +81,10 @@ function ensureRequestableSessions(count: number) {
     for (let i = available; i < count; i += 1) {
       // Late in the semester, so an added session is always in the future of
       // the frozen clock and never collides with a seeded meeting time.
-      addSessionToSchedule(`2026-12-0${i + 1}T11:00`)
+      sessionsAdded += 1
+      addSessionToSchedule(
+        `2026-12-${String(sessionsAdded).padStart(2, '0')}T11:00`,
+      )
     }
   })
 }
@@ -161,11 +170,20 @@ describe('Section I: Substitute Requests And Cover', () => {
     // button, which is how it survived.
     const notes = 'Original notes: lists and loops.'
     const editedNotes = 'Edited notes: recursion, slides in Drive.'
-    afterOrientation()
-    cy.signedInSession('instructor')
+    signInAsOwner()
+    // The request moves to the session after the one it's filed for, which
+    // has to exist: /api/subRequest refuses a session that isn't on the
+    // schedule, since a substitute recording one past the end would write
+    // beyond the class's per-session arrays.
+    ensureRequestableSessions(2)
 
     fileSubRequest(notes).then((classNumber) => {
       const movedTo = classNumber + 1
+      // An earlier test's request there would be refused as a collision.
+      cy.task(
+        'deleteFirestoreDoc',
+        `${substituteRequestsCollection}/${subRequestDocId(SEEDED_CLASS_ID, movedTo)}`,
+      )
       subRequestRow(classNumber).within(() => {
         cy.contains('button', 'Edit').click()
       })

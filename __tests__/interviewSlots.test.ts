@@ -48,10 +48,12 @@ jest.mock(
 import {
   applicationsCollection,
   interviewCollection,
+  interviewTimeRequestsCollection,
 } from '$lib/data/collections'
 import {
   bookInterviewSlot,
   fetchInterviewData,
+  recordSlotRequest,
 } from '$lib/server/interviewSlots'
 
 type Filter = [field: string, op: string, value: unknown]
@@ -143,6 +145,9 @@ beforeEach(() => {
   mockDoc.mockImplementation((path: string) => ({
     path,
     get: async () => snapshot(path),
+    set: async (data: unknown) => {
+      docs[path] = data
+    },
   }))
   mockCollection.mockImplementation((path: string) => makeQuery(path))
   transaction = {
@@ -333,5 +338,50 @@ describe('bookInterviewSlot', () => {
     await expect(bookInterviewSlot(APPLICANT, 'slot-1')).rejects.toMatchObject({
       status: 404,
     })
+  })
+})
+
+describe('recordSlotRequest', () => {
+  const requestPath = (requestedTime: string) =>
+    `${interviewTimeRequestsCollection}/uid-1-${requestedTime}`
+
+  test("saves the request under the applicant's uid, with their profile name", async () => {
+    const date = at(2 * DAY)
+
+    await expect(
+      recordSlotRequest('uid-1', '2026-10-05T14:00', date),
+    ).resolves.toEqual({ firstName: 'Grace' })
+
+    // The name comes from the profile, never from the request.
+    expect(docs[requestPath('2026-10-05T14:00')]).toEqual({
+      uid: 'uid-1',
+      firstName: 'Grace',
+      lastName: 'Hopper',
+      date,
+    })
+  })
+
+  test('refuses a time in the past, and saves nothing', async () => {
+    await expect(
+      recordSlotRequest('uid-1', '2020-10-05T14:00', at(-DAY)),
+    ).rejects.toMatchObject({
+      status: 400,
+      message: 'Please pick a time in the future.',
+    })
+    expect(docs[requestPath('2020-10-05T14:00')]).toBeUndefined()
+  })
+
+  test('refuses a time after interviews close', async () => {
+    await expect(
+      recordSlotRequest('uid-1', '2099-10-05T14:00', at(60 * DAY)),
+    ).rejects.toMatchObject({ status: 400 })
+  })
+
+  test('skips the time checks in dev, as the form does - fixture dates go stale', async () => {
+    mockDev = true
+
+    await recordSlotRequest('uid-1', '2020-10-05T14:00', at(-DAY))
+
+    expect(docs[requestPath('2020-10-05T14:00')]).toBeDefined()
   })
 })

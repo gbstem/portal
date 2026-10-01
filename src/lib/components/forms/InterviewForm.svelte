@@ -27,7 +27,6 @@
 
   let showValidation = false
   let scheduledInterview: BookedInterviewDetails | undefined = $state()
-  let currentUser: Data.User.Store
   let scheduled = $state(false)
   let data: InterviewSlotOption[] = $state([])
   let loading = $state(true)
@@ -108,7 +107,7 @@
         }
 
         try {
-          await interviewService.requestInterviewSlot(dateToAdd, currentUser)
+          await interviewService.requestInterviewSlot(dateToAdd)
           window.scrollTo({
             top: 0,
             behavior: 'smooth',
@@ -141,7 +140,6 @@
   onMount(() => {
     return user.subscribe(async (user) => {
       if (user) {
-        currentUser = user
         try {
           data = await getData()
         } catch (err) {

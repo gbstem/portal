@@ -1,29 +1,25 @@
 import { db } from '$lib/client/firebase'
-import {
-  classesCollection,
-  substituteRequestsCollection,
-} from '$lib/data/collections'
+import { classesCollection } from '$lib/data/collections'
 import type { CoInstructor } from '$lib/helpers/classDetailsForm'
 import {
   parseClassInfoDoc,
   sortClassesBySpotsRemaining,
   type ClassInfo,
 } from '$lib/helpers/classesPage'
-import { subRequestDocId } from '$lib/data/docIds'
-import { buildSubRequestPayload } from '$lib/helpers/classSchedule'
 import { accountEmailService } from '$lib/services/accountEmailService'
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  setDoc,
-  updateDoc,
-} from 'firebase/firestore'
+import { collection, doc, getDoc, getDocs } from 'firebase/firestore'
 import type {
   ClassDetailsRequestBody,
   ClassDetailsResponse,
 } from '../../routes/api/classDetails/+server'
+import type {
+  ClassScheduleRequestBody,
+  SerializedSchedule,
+} from '../../routes/api/classSchedule/+server'
+import type {
+  FileSubRequestBody,
+  SubRequestResponse,
+} from '../../routes/api/subRequest/+server'
 import type {
   EnrollRequestBody,
   EnrollResponse,
@@ -96,78 +92,67 @@ export const classService = {
   },
 
   /**
-   * Updates classStatuses field on a class document.
+   * Brings a class's session statuses up to date with the clock, server-side,
+   * and returns them - see /api/classSchedule.
    */
-  async updateClassStatuses(
-    classId: string,
-    updatedStatuses: string[],
-  ): Promise<void> {
-    const classRef = doc(db, classesCollection, classId)
-    await updateDoc(classRef, { classStatuses: updatedStatuses })
+  async refreshClassStatuses(classId: string): Promise<string[]> {
+    const { classStatuses } = await postClassSchedule<{
+      classStatuses: string[]
+    }>({ action: 'refreshStatuses', classId })
+    return classStatuses
   },
 
   /**
-   * Updates meetingTimes, feedbackCompleted, and classStatuses for a class.
+   * Replaces a class's meeting times. The server carries each kept session's
+   * feedback flag and status across and returns the schedule as saved - see
+   * /api/classSchedule.
    */
-  async updateMeetingTimes(
+  async rescheduleClass(
     classId: string,
     meetingTimes: Date[],
-    feedbackCompleted: boolean[],
-    classStatuses: string[],
-  ): Promise<void> {
-    const classRef = doc(db, classesCollection, classId)
-    await updateDoc(classRef, {
-      meetingTimes,
-      feedbackCompleted,
-      classStatuses,
-    })
-  },
-
-  /**
-   * Updates recorded completed class dates and class statuses for a class session.
-   */
-  async recordClassSession(
-    classId: string,
-    completedClassDates: Date[],
-    classStatuses: string[],
-  ): Promise<void> {
-    const classRef = doc(db, classesCollection, classId)
-    await updateDoc(classRef, {
-      completedClassDates,
-      classStatuses,
-    })
-  },
-
-  /**
-   * Submits a substitute teacher request.
-   */
-  async submitSubRequest(
-    classId: string,
-    subRequestClassNumber: number,
-    subRequestDate: string,
-    subRequestNotes: string,
-    course: string,
-    meetingLink: string,
-    instructorUid?: string,
-    requestedByUid?: string,
-  ): Promise<void> {
-    const subRequest = buildSubRequestPayload({
+  ): Promise<{
+    meetingTimes: Date[]
+    feedbackCompleted: boolean[]
+    classStatuses: string[]
+  }> {
+    const schedule = await postClassSchedule<SerializedSchedule>({
+      action: 'reschedule',
       classId,
-      subRequestClassNumber,
-      subRequestDate,
-      subRequestNotes,
-      course,
-      meetingLink,
-      instructorUid,
-      requestedByUid,
+      meetingTimes,
     })
+    return {
+      ...schedule,
+      meetingTimes: schedule.meetingTimes.map((time) => new Date(time)),
+    }
+  },
 
-    const docRef = doc(
-      db,
-      substituteRequestsCollection,
-      subRequestDocId(classId, subRequestClassNumber),
-    )
-    await setDoc(docRef, subRequest)
+  /**
+   * Records that the signed-in instructor is holding today's session of a
+   * class, and returns its meeting link. Throws with the server's message
+   * when no session is scheduled today - see /api/classSchedule.
+   */
+  async holdClassSession(classId: string): Promise<{ meetingLink: string }> {
+    return postClassSchedule({ action: 'holdSession', classId })
+  },
+
+  /**
+   * Files a substitute request for one session of a class. Who it names is
+   * read from the class server-side - see /api/subRequest. Throws with the
+   * server's message on refusal, including when the session already has one.
+   */
+  async submitSubRequest(body: FileSubRequestBody): Promise<string> {
+    const res = await fetch('/api/subRequest', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    const response = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      throw new Error(
+        response?.message || 'Failed to send sub request, please try again.',
+      )
+    }
+    return (response as SubRequestResponse).subRequestId
   },
 
   /**
@@ -407,6 +392,24 @@ export const classService = {
   ): Promise<StudentFeedbackResponse> {
     return postFeedback('/api/studentFeedback', payload)
   },
+}
+
+async function postClassSchedule<T>(
+  body: ClassScheduleRequestBody,
+): Promise<T> {
+  const res = await fetch('/api/classSchedule', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  const response = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    throw new Error(
+      response?.message ||
+        'Could not update the class schedule. Please try again.',
+    )
+  }
+  return response as T
 }
 
 async function postFeedback<T>(route: string, payload: unknown): Promise<T> {

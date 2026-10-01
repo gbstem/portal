@@ -145,10 +145,27 @@ jest.mock('$lib/server/instructorClasses', () => ({
 // cover authentication, validation and the confirmation email.
 const mockFetchOpenSubRequests = jest.fn()
 const mockClaimSubRequest = jest.fn()
+const mockFileSubRequest = jest.fn()
+const mockEditSubRequest = jest.fn()
+const mockCancelSubRequest = jest.fn()
 jest.mock('$lib/server/substituteRequests', () => ({
   ...jest.requireActual('$lib/server/substituteRequests'),
   fetchOpenSubRequests: (...args: any[]) => mockFetchOpenSubRequests(...args),
   claimSubRequest: (...args: any[]) => mockClaimSubRequest(...args),
+  fileSubRequest: (...args: any[]) => mockFileSubRequest(...args),
+  editSubRequest: (...args: any[]) => mockEditSubRequest(...args),
+  cancelSubRequest: (...args: any[]) => mockCancelSubRequest(...args),
+}))
+
+// And the schedule transactions (classSchedule.test.ts).
+const mockRefreshClassStatuses = jest.fn()
+const mockRescheduleClass = jest.fn()
+const mockHoldClassSession = jest.fn()
+jest.mock('$lib/server/classSchedule', () => ({
+  ...jest.requireActual('$lib/server/classSchedule'),
+  refreshClassStatuses: (...args: any[]) => mockRefreshClassStatuses(...args),
+  rescheduleClass: (...args: any[]) => mockRescheduleClass(...args),
+  holdClassSession: (...args: any[]) => mockHoldClassSession(...args),
 }))
 
 // And the enrollment transactions (classEnrollments.test.ts).
@@ -173,10 +190,12 @@ jest.mock('$lib/server/classFeedback', () => ({
 // And the booking transaction (interviewSlots.test.ts).
 const mockFetchInterviewData = jest.fn()
 const mockBookInterviewSlot = jest.fn()
+const mockRecordSlotRequest = jest.fn()
 jest.mock('$lib/server/interviewSlots', () => ({
   ...jest.requireActual('$lib/server/interviewSlots'),
   fetchInterviewData: (...args: any[]) => mockFetchInterviewData(...args),
   bookInterviewSlot: (...args: any[]) => mockBookInterviewSlot(...args),
+  recordSlotRequest: (...args: any[]) => mockRecordSlotRequest(...args),
 }))
 
 // Mocks for firebase/app, auth, firestore, storage
@@ -255,6 +274,12 @@ import {
   GET as classDetailsGET,
   POST as classDetailsPOST,
 } from '../src/routes/api/classDetails/+server'
+import { POST as classSchedulePOST } from '../src/routes/api/classSchedule/+server'
+import {
+  DELETE as subRequestDELETE,
+  PATCH as subRequestPATCH,
+  POST as subRequestPOST,
+} from '../src/routes/api/subRequest/+server'
 import MailService from '@sendgrid/mail'
 
 // Shared helper for exercising the `catch (mailError)` branch that every
@@ -2346,54 +2371,94 @@ describe('API routes POST endpoints', () => {
     })
   })
 
-  it('slotRequestPOST successfully uses authenticated user email', async () => {
-    mockRequest.json.mockResolvedValue({
-      firstName: 'Student',
-      timeSlot: '2026-06-01 10:00 AM',
-      intervieweeEmail: 'outdated@test.com',
-    })
-    const res = await slotRequestPOST({
-      request: mockRequest as any,
-      locals: { user: { email: 'authenticated@test.com' } },
-    } as any)
-    expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
-    expect(MailService.send).toHaveBeenCalledWith(
-      expect.objectContaining({
-        to: ['admin@gbstem.org'],
-        cc: ['contact@gbstem.org'],
-      }),
-    )
-  })
+  describe('slotRequestPOST', () => {
+    const slotRequestBody = {
+      requestedTime: '2026-06-01T10:00',
+      date: '2026-06-01T14:00:00.000Z',
+    }
+    const applicantLocals = {
+      user: {
+        uid: 'applicant-uid',
+        email: 'authenticated@test.com',
+        role: 'instructor',
+      },
+    }
 
-  it('slotRequestPOST returns a 500 json response when sending the email fails', async () => {
-    await withRejectedSend(async () => {
+    beforeEach(() => {
+      mockRecordSlotRequest
+        .mockClear()
+        .mockResolvedValue({ firstName: 'Grace' })
+    })
+
+    it('saves the request as the signed-in applicant, then emails admins', async () => {
       mockRequest.json.mockResolvedValue({
-        firstName: 'Student',
-        timeSlot: '2026-06-01 10:00 AM',
+        ...slotRequestBody,
+        // Ignored: the uid and name come from the session and the profile.
+        uid: 'someone-else',
+        firstName: 'Mallory',
       })
-      const res = await slotRequestPOST({
+      const res: any = await slotRequestPOST({
         request: mockRequest as any,
-        locals: { user: { email: 'test@test.com' } },
+        locals: applicantLocals,
       } as any)
-      expect(res).toEqual(
+
+      expect(mockRecordSlotRequest).toHaveBeenCalledWith(
+        'applicant-uid',
+        '2026-06-01T10:00',
+        new Date('2026-06-01T14:00:00.000Z'),
+      )
+      expect(res.body).toEqual({ emailSent: true })
+      expect(MailService.send).toHaveBeenCalledWith(
         expect.objectContaining({
-          body: { error: 'Failed to send email. Please try again later.' },
-          init: { status: 500 },
+          to: ['admin@gbstem.org'],
+          cc: ['contact@gbstem.org'],
+          subject: expect.stringContaining('Grace'),
         }),
       )
     })
-  })
 
-  it('slotRequestPOST propagates the auth error when the user is not signed in', async () => {
-    mockRequest.json.mockResolvedValue({
-      firstName: 'Student',
-      timeSlot: '2026-06-01 10:00 AM',
+    // Admins work from the saved request, so a failed email doesn't fail it.
+    it('still succeeds when the email fails, saying it was not sent', async () => {
+      await withRejectedSend(async () => {
+        mockRequest.json.mockResolvedValue(slotRequestBody)
+        const res: any = await slotRequestPOST({
+          request: mockRequest as any,
+          locals: applicantLocals,
+        } as any)
+        expect(mockRecordSlotRequest).toHaveBeenCalled()
+        expect(res.body).toEqual({ emailSent: false })
+      })
     })
-    await expect(
-      slotRequestPOST({ request: mockRequest as any, locals: {} } as any),
-    ).rejects.toEqual(
-      expect.objectContaining({ status: 401, __isSvelteKitError: true }),
-    )
+
+    it('refuses a malformed time without saving', async () => {
+      mockRequest.json.mockResolvedValue({
+        ...slotRequestBody,
+        requestedTime: '../../users/x',
+      })
+      await expect(
+        slotRequestPOST({
+          request: mockRequest as any,
+          locals: applicantLocals,
+        } as any),
+      ).rejects.toEqual(expect.objectContaining({ status: 400 }))
+      expect(mockRecordSlotRequest).not.toHaveBeenCalled()
+    })
+
+    it('refuses a parent with a 403 and a signed-out caller with a 401', async () => {
+      mockRequest.json.mockResolvedValue(slotRequestBody)
+      await expect(
+        slotRequestPOST({
+          request: mockRequest as any,
+          locals: { user: { uid: 's-1', role: 'student' } },
+        } as any),
+      ).rejects.toEqual(expect.objectContaining({ status: 403 }))
+      await expect(
+        slotRequestPOST({ request: mockRequest as any, locals: {} } as any),
+      ).rejects.toEqual(
+        expect.objectContaining({ status: 401, __isSvelteKitError: true }),
+      )
+      expect(mockRecordSlotRequest).not.toHaveBeenCalled()
+    })
   })
 
   describe('/api/substitute', () => {
@@ -3756,5 +3821,173 @@ describe('/api/classDetails', () => {
         message: 'You are not an instructor of that class.',
       }),
     )
+  })
+})
+
+describe('/api/classSchedule', () => {
+  const postWith = (body: unknown, locals: any = instructorLocals) =>
+    classSchedulePOST({
+      request: { json: async () => body },
+      locals,
+    } as any)
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+  })
+
+  it('refreshes statuses as the signed-in instructor', async () => {
+    mockRefreshClassStatuses.mockResolvedValue(['ClassNotHeld'])
+
+    const res: any = await postWith({
+      action: 'refreshStatuses',
+      classId: 'c-1',
+    })
+
+    expect(mockRefreshClassStatuses).toHaveBeenCalledWith(
+      { uid: 'caller-uid' },
+      'c-1',
+    )
+    expect(res.body).toEqual({ classStatuses: ['ClassNotHeld'] })
+  })
+
+  it('reschedules with the times as Dates, and nothing else from the client', async () => {
+    mockRescheduleClass.mockResolvedValue({ meetingTimes: [] })
+
+    await postWith({
+      action: 'reschedule',
+      classId: 'c-1',
+      meetingTimes: ['2026-10-05T20:00:00.000Z'],
+      // Ignored: the server works these out from the class as stored.
+      classStatuses: ['EverythingComplete'],
+      feedbackCompleted: [true],
+    })
+
+    expect(mockRescheduleClass).toHaveBeenCalledWith(
+      { uid: 'caller-uid' },
+      'c-1',
+      [new Date('2026-10-05T20:00:00.000Z')],
+    )
+  })
+
+  it('holds a session and returns the link', async () => {
+    mockHoldClassSession.mockResolvedValue({
+      meetingLink: 'https://zoom.us/j/1',
+    })
+
+    const res: any = await postWith({ action: 'holdSession', classId: 'c-1' })
+
+    expect(mockHoldClassSession).toHaveBeenCalledWith(
+      { uid: 'caller-uid' },
+      'c-1',
+    )
+    expect(res.body).toEqual({ meetingLink: 'https://zoom.us/j/1' })
+  })
+
+  it('refuses an unknown action, and a reschedule with no sessions', async () => {
+    await expect(
+      postWith({ action: 'setStatuses', classId: 'c-1' }),
+    ).rejects.toEqual(expect.objectContaining({ status: 400 }))
+    await expect(
+      postWith({ action: 'reschedule', classId: 'c-1', meetingTimes: [] }),
+    ).rejects.toEqual(expect.objectContaining({ status: 400 }))
+    expect(mockRescheduleClass).not.toHaveBeenCalled()
+  })
+
+  it('refuses a parent with a 403 and a signed-out caller with a 401', async () => {
+    const body = { action: 'holdSession', classId: 'c-1' }
+    await expect(
+      postWith(body, { user: { uid: 's-1', role: 'student' } }),
+    ).rejects.toEqual(expect.objectContaining({ status: 403 }))
+    await expect(postWith(body, {})).rejects.toEqual(
+      expect.objectContaining({ status: 401 }),
+    )
+    expect(mockHoldClassSession).not.toHaveBeenCalled()
+  })
+})
+
+describe('/api/subRequest', () => {
+  const call = (handler: any, body: unknown, locals: any = instructorLocals) =>
+    handler({ request: { json: async () => body }, locals } as any)
+  const session = {
+    classNumber: 2,
+    dateOfClass: '2026-10-05T20:00:00.000Z',
+    notes: 'Loops.',
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    mockFileSubRequest.mockResolvedValue('c-1---2')
+    mockEditSubRequest.mockResolvedValue('c-1---3')
+    mockCancelSubRequest.mockResolvedValue(undefined)
+  })
+
+  it('POST files as the signed-in instructor, taking nobody else from the client', async () => {
+    const res: any = await call(subRequestPOST, {
+      classId: 'c-1',
+      ...session,
+      // Ignored: who the request names is read from the class.
+      requestedByUid: 'someone-else',
+      originalInstructorUid: 'someone-else',
+    })
+
+    expect(mockFileSubRequest).toHaveBeenCalledWith(
+      { uid: 'caller-uid' },
+      'c-1',
+      {
+        classNumber: 2,
+        dateOfClass: new Date('2026-10-05T20:00:00.000Z'),
+        notes: 'Loops.',
+      },
+    )
+    expect(res.body).toEqual({ subRequestId: 'c-1---2' })
+  })
+
+  it('PATCH edits by document id and returns where the request now is', async () => {
+    const res: any = await call(subRequestPATCH, {
+      subRequestId: 'c-1---2',
+      ...session,
+      classNumber: 3,
+    })
+
+    expect(mockEditSubRequest).toHaveBeenCalledWith(
+      { uid: 'caller-uid' },
+      'c-1---2',
+      expect.objectContaining({ classNumber: 3 }),
+    )
+    expect(res.body).toEqual({ subRequestId: 'c-1---3' })
+  })
+
+  it('DELETE cancels by document id', async () => {
+    await call(subRequestDELETE, { subRequestId: 'c-1---2' })
+    expect(mockCancelSubRequest).toHaveBeenCalledWith(
+      { uid: 'caller-uid' },
+      'c-1---2',
+    )
+  })
+
+  it('refuses a session number below 1', async () => {
+    await expect(
+      call(subRequestPOST, { classId: 'c-1', ...session, classNumber: 0 }),
+    ).rejects.toEqual(expect.objectContaining({ status: 400 }))
+    expect(mockFileSubRequest).not.toHaveBeenCalled()
+  })
+
+  it('refuses a parent with a 403 and a signed-out caller with a 401, on every method', async () => {
+    const student = { user: { uid: 's-1', role: 'student' } }
+    for (const [handler, body] of [
+      [subRequestPOST, { classId: 'c-1', ...session }],
+      [subRequestPATCH, { subRequestId: 'c-1---2', ...session }],
+      [subRequestDELETE, { subRequestId: 'c-1---2' }],
+    ]) {
+      await expect(call(handler, body, student)).rejects.toEqual(
+        expect.objectContaining({ status: 403 }),
+      )
+      await expect(call(handler, body, {})).rejects.toEqual(
+        expect.objectContaining({ status: 401 }),
+      )
+    }
+    expect(mockFileSubRequest).not.toHaveBeenCalled()
+    expect(mockEditSubRequest).not.toHaveBeenCalled()
+    expect(mockCancelSubRequest).not.toHaveBeenCalled()
   })
 })

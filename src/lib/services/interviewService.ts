@@ -1,8 +1,4 @@
-import { db } from '$lib/client/firebase'
-import { interviewTimeRequestsCollection } from '$lib/data/collections'
-import { slotRequestDocId } from '$lib/data/docIds'
 import { formatDateLocal } from '$lib/utils'
-import { doc, setDoc } from 'firebase/firestore'
 import type {
   InterviewBookingRequestBody,
   InterviewBookingResponse,
@@ -89,31 +85,17 @@ export const interviewService = {
   },
 
   /**
-   * Requests a new interview timeslot be added, and notifies via email.
+   * Requests a new interview timeslot be added. The request is saved and
+   * admins are notified server-side - see /api/slotRequest. Throws with the
+   * server's message when the request is refused.
+   *
+   * `dateToAdd` is the form's `YYYY-MM-DDTHH:mm`, in the applicant's own time
+   * zone, so it is sent as an instant too.
    */
-  async requestInterviewSlot(
-    dateToAdd: string,
-    currentUser: Data.User.Store,
-  ): Promise<void> {
-    await setDoc(
-      doc(
-        db,
-        interviewTimeRequestsCollection,
-        slotRequestDocId(currentUser.object.uid, dateToAdd),
-      ),
-      {
-        uid: currentUser.object.uid,
-        firstName: currentUser.profile.firstName,
-        lastName: currentUser.profile.lastName,
-        date: new Date(dateToAdd),
-      },
-    )
-
-    // No email: the handler has used the session's verified address since
-    // Phase 1, so intervieweeEmail was already dead on arrival.
+  async requestInterviewSlot(dateToAdd: string): Promise<void> {
     const payload: SlotRequestRequestBody = {
-      firstName: currentUser.profile.firstName,
-      timeSlot: formatDateLocal(new Date(dateToAdd)),
+      requestedTime: dateToAdd,
+      date: new Date(dateToAdd),
     }
     const res = await fetch('/api/slotRequest', {
       method: 'POST',
@@ -123,8 +105,8 @@ export const interviewService = {
       body: JSON.stringify(payload),
     })
     if (!res.ok) {
-      const { message } = await res.json()
-      console.error('Interview slot request failed:', message)
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body?.message || 'Failed to request timeslot')
     }
   },
 }
