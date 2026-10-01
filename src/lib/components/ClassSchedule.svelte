@@ -83,7 +83,6 @@
   let addingClass = $state(false)
 
   let classToBeAdded = $state('')
-  let subRequestDate: string = $state('')
   let subRequestClassNumber: number = $state(0)
   let subRequestNotes: string = $state('')
 
@@ -215,7 +214,6 @@
       .submitSubRequest({
         classId,
         classNumber: subRequestClassNumber,
-        dateOfClass: new Date(subRequestDate),
         notes: subRequestNotes,
       })
       .then(() => {
@@ -649,7 +647,6 @@
               <Button
                 color="blue"
                 onclick={() => {
-                  subRequestDate = classTime
                   subRequestClassNumber = classNumber + 1
                   subRequestNotes = ''
                   showSubRequestDialog = true
@@ -683,11 +680,8 @@
           bind:value={subRequestClassNumber}
           label="Please confirm the class number ."
         />
-        <DateTimeInput
-          class="rounded-sm border p-1"
-          bind:value={subRequestDate}
-          label="Please confirm the date and time of the class you would like to request a sub for."
-        />
+        <!-- No date field: the server dates the request from the session's
+             own scheduled time, so it can't disagree with the number above. -->
         <TextInput
           class="rounded-sm border p-1"
           bind:value={subRequestNotes}

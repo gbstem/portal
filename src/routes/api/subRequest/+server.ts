@@ -8,10 +8,10 @@ import { json } from '@sveltejs/kit'
 import { z } from 'zod'
 import type { RequestHandler } from './$types'
 
-// Who the request names is read from the class, never taken from here.
+// Who the request names, and when its session is, are read from the class,
+// never taken from here.
 const sessionFields = {
   classNumber: z.coerce.number().int().min(1),
-  dateOfClass: z.coerce.date(),
   notes: z.string().max(5000),
 }
 

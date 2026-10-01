@@ -160,7 +160,7 @@ describe('substituteService (Data Access Layer)', () => {
   }
 
   describe('saveSubRequest', () => {
-    it('sends the id it was read from, with the session, date and notes', async () => {
+    it('sends the id it was read from, with the session and notes - not the date, which follows the session', async () => {
       ;(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true })
 
       await substituteService.saveSubRequest({
@@ -177,7 +177,6 @@ describe('substituteService (Data Access Layer)', () => {
         body: {
           subRequestId: 'owner-uid-1---2',
           classNumber: 3,
-          dateOfClass: '2026-10-05T20:00:00.000Z',
           notes: 'edited',
         },
       })

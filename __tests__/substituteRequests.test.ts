@@ -66,6 +66,15 @@ const timestamp = (iso: string) => ({ toDate: () => new Date(iso) })
 const FUTURE = '2099-10-05T20:00:00.000Z'
 const PAST = '2020-10-05T20:00:00.000Z'
 const SUB = { uid: 'sub-uid', email: 'sub@gbstem.org' }
+/**
+ * A class's three scheduled sessions, each at a different time, so a request
+ * dated from the wrong one shows up.
+ */
+const SESSION_TIMES = [
+  '2099-10-01T20:00:00.000Z',
+  '2099-10-03T20:00:00.000Z',
+  '2099-10-08T20:00:00.000Z',
+]
 const REQUEST_ID = 'owner-uid-1---2'
 const REQUEST_PATH = `${substituteRequestsCollection}/${REQUEST_ID}`
 
@@ -384,7 +393,6 @@ describe("fileSubRequest - the class instructor's side", () => {
   const CLASS_PATH = `${classesCollection}/owner-uid-1`
   const input = {
     classNumber: 2,
-    dateOfClass: new Date(FUTURE),
     notes: 'Loops.',
   }
 
@@ -394,7 +402,7 @@ describe("fileSubRequest - the class instructor's side", () => {
       meetingLink: 'https://zoom.us/j/1',
       instructorUid: 'owner-uid',
       otherInstructorUids: ['co-uid'],
-      meetingTimes: [timestamp(PAST), timestamp(FUTURE), timestamp(FUTURE)],
+      meetingTimes: SESSION_TIMES.map(timestamp),
     }
   })
 
@@ -419,6 +427,13 @@ describe("fileSubRequest - the class instructor's side", () => {
         subRequestStatus: SubRequestStatus.SubstituteNeeded,
       }),
     )
+  })
+
+  test("dates the request from the session's scheduled time", async () => {
+    await fileSubRequest({ uid: 'owner-uid' }, 'owner-uid-1', input)
+
+    const [, data] = written()
+    expect(data.dateOfClass).toEqual(new Date(SESSION_TIMES[1]))
   })
 
   test('refuses an instructor who has not been accepted', async () => {
@@ -465,18 +480,17 @@ describe("fileSubRequest - the class instructor's side", () => {
 describe('editSubRequest and cancelSubRequest', () => {
   const edit = {
     classNumber: 2,
-    dateOfClass: new Date('2099-10-06T20:00:00.000Z'),
     notes: 'Recursion instead.',
   }
 
   beforeEach(() => {
     docs[`${classesCollection}/owner-uid-1`] = {
       instructorUid: 'owner-uid',
-      meetingTimes: [timestamp(FUTURE), timestamp(FUTURE), timestamp(FUTURE)],
+      meetingTimes: SESSION_TIMES.map(timestamp),
     }
   })
 
-  test('changes only the date and notes when the session stays put', async () => {
+  test('changes only the notes, and re-reads the date from the schedule, when the session stays put', async () => {
     storeRequest({ requestedByUid: 'co-uid' })
 
     await expect(
@@ -485,7 +499,7 @@ describe('editSubRequest and cancelSubRequest', () => {
 
     expect(transaction.update).toHaveBeenCalledWith(
       expect.objectContaining({ path: REQUEST_PATH }),
-      { dateOfClass: edit.dateOfClass, notes: edit.notes },
+      { dateOfClass: new Date(SESSION_TIMES[1]), notes: edit.notes },
     )
     expect(transaction.set).not.toHaveBeenCalled()
     expect(transaction.delete).not.toHaveBeenCalled()
@@ -507,6 +521,8 @@ describe('editSubRequest and cancelSubRequest', () => {
       expect.objectContaining({
         id: 'owner-uid-1',
         classNumber: 3,
+        // The new session's time, not the one it was filed for.
+        dateOfClass: new Date(SESSION_TIMES[2]),
         notes: edit.notes,
         originalInstructorUid: 'owner-uid',
       }),

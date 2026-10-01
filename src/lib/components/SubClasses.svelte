@@ -15,7 +15,6 @@
   import { onMount } from 'svelte'
   import Button from './Button.svelte'
   import Card from './Card.svelte'
-  import DateTimeInput from './DateTimeInput.svelte'
   import Dialog from './Dialog.svelte'
   import NumberInput from './NumberInput.svelte'
   import TextInput from './TextInput.svelte'
@@ -45,7 +44,6 @@
   let classesCheckedOff: any[] = $state([])
   let updating = $state(false)
   let subRequestsFromUser: Data.SubRequest[] = $state([])
-  let stringSubRequestDates: string[] = $state([])
 
   // Sized to match userSubClassesList/subRequestsFromUser so bind:open
   // never binds to undefined (Svelte forbids that when the prop has a
@@ -92,9 +90,6 @@
     classesMissingSubs = missing
     classesCheckedOff = new Array(missing.length).fill(null)
     subRequestsFromUser = userSubRequests
-    stringSubRequestDates = userSubRequests.map((subRequest) =>
-      timestampToDate(subRequest.dateOfClass).toString(),
-    )
     userSubClassesList = userSubClasses
     void loadCoveredInstructorEmails()
     return classesMissingSubs
@@ -118,7 +113,6 @@
       return
     }
     const editingSubRequest = subRequestsFromUser[i]
-    editingSubRequest.dateOfClass = new Date(stringSubRequestDates[i])
     substituteService
       .saveSubRequest(editingSubRequest)
       .then(() => {
@@ -378,11 +372,6 @@
                       class="rounded-sm border p-1"
                       bind:value={subRequestsFromUser[i].classNumber}
                       label="Please confirm the class number ."
-                    />
-                    <DateTimeInput
-                      class="rounded-sm border p-1"
-                      bind:value={stringSubRequestDates[i]}
-                      label="Please confirm the date and time of the class you would like to request a sub for."
                     />
                     <TextInput
                       class="rounded-sm border p-1"

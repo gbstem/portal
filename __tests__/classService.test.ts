@@ -156,7 +156,6 @@ describe('portal classService (Data Access Layer)', () => {
         classService.submitSubRequest({
           classId: 'c-1',
           classNumber: 1,
-          dateOfClass: new Date(),
           notes: '',
         }),
       ).rejects.toThrow('already has a sub request')

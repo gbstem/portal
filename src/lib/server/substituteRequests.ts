@@ -41,11 +41,15 @@ export interface SubstituteCaller {
   email: string
 }
 
-/** What an instructor chooses when filing or editing a sub request. */
+/**
+ * What an instructor chooses when filing or editing a sub request. The
+ * session's date is deliberately not one of them: it is read off the class's
+ * schedule (see `scheduledSessionDate`), so a request can't name one session
+ * and the time of another.
+ */
 export interface SubRequestInput {
   /** 1-based, the way the schedule counts sessions. */
   classNumber: number
-  dateOfClass: Date
   notes: string
 }
 
@@ -224,23 +228,40 @@ export async function claimSubRequest(
   })
 }
 
-/** A session number that names one of the class's scheduled sessions. */
-function requireScheduledSession(classData: Data.Class, classNumber: number) {
-  const sessions = classData.meetingTimes?.length ?? 0
+/**
+ * The scheduled time of session `classNumber`, refusing a number that names
+ * none of the class's sessions.
+ *
+ * This is the only source of a request's `dateOfClass`. Both dialogs used to
+ * send a date alongside the session number and the server stored it as sent,
+ * so the two could disagree - moving a request to the next session kept the
+ * old session's date, and the substitute was told the wrong time.
+ *
+ * TODO: a request still keeps the date it was filed with if the instructor
+ * later moves that session through "Edit Schedule" (/api/classSchedule); that
+ * path would have to re-date the class's open requests to close this fully.
+ */
+function scheduledSessionDate(
+  classData: Data.Class,
+  classNumber: number,
+): Date {
+  const sessions = classData.meetingTimes ?? []
   if (
     !Number.isInteger(classNumber) ||
     classNumber < 1 ||
-    classNumber > sessions
+    classNumber > sessions.length
   ) {
     throw error(400, 'That class session is not on the schedule.')
   }
+  return toDate(sessions[classNumber - 1])
 }
 
 /**
  * Files a request for cover of one session of class `classId`, as an
  * accepted instructor who owns or co-teaches it. Returns the request's id.
  *
- * Only the session, its date and the notes come from the caller. Who the
+ * Only the session and the notes come from the caller. The date is the
+ * session's scheduled time, and who the
  * request names - the class's instructor of record, and the caller as the one
  * asking - comes from the class document and the session, which is what
  * isFiledByInstructorsOf checks at claim time; firestore.rules could only
@@ -273,7 +294,7 @@ export async function fileSubRequest(
     if (!isInstructorOfClass(classData, { uid: caller.uid })) {
       throw error(403, 'You are not an instructor of that class.')
     }
-    requireScheduledSession(classData, input.classNumber)
+    const dateOfClass = scheduledSessionDate(classData, input.classNumber)
     if ((await transaction.get(subRequestRef)).exists) {
       throw error(409, SESSION_ALREADY_REQUESTED)
     }
@@ -283,7 +304,7 @@ export async function fileSubRequest(
       buildSubRequestPayload({
         classId,
         subRequestClassNumber: input.classNumber,
-        subRequestDate: input.dateOfClass.toISOString(),
+        subRequestDate: dateOfClass.toISOString(),
         subRequestNotes: input.notes,
         course: classData.course ?? '',
         meetingLink: classData.meetingLink ?? '',
@@ -321,15 +342,16 @@ async function getOwnSubRequest(
 }
 
 /**
- * Changes the session, date or notes of one of the caller's own requests.
- * Returns its id, which changes with the session.
+ * Changes the session or notes of one of the caller's own requests, and
+ * re-reads its date from the class's schedule. Returns its id, which changes
+ * with the session.
  *
  * Moving to another session moves the document: the request is written at
  * the new session and removed from the old one in the same transaction, so a
  * failure can't leave it at both, and a session that already has a request is
  * refused rather than overwritten. A request somebody has signed up for stays
  * at its session - the substitute agreed to cover that one - so moving it is
- * refused too; its date and notes can still change.
+ * refused too; its notes can still change.
  */
 export async function editSubRequest(
   caller: { uid: string },
@@ -342,7 +364,19 @@ export async function editSubRequest(
       caller.uid,
       subRequestId,
     )
-    const edits = { dateOfClass: input.dateOfClass, notes: input.notes }
+    const classSnap = await transaction.get(
+      adminDb.doc(`${classesCollection}/${classId}`),
+    )
+    if (!classSnap.exists) {
+      throw error(404, 'That class no longer exists.')
+    }
+    const edits = {
+      dateOfClass: scheduledSessionDate(
+        classSnap.data() as Data.Class,
+        input.classNumber,
+      ),
+      notes: input.notes,
+    }
 
     if (input.classNumber === subRequest.classNumber) {
       transaction.update(subRequestRef, edits)
@@ -358,14 +392,6 @@ export async function editSubRequest(
         "Somebody has signed up to cover that session, so it can't be moved. Cancel it and file a new request instead.",
       )
     }
-    const classSnap = await transaction.get(
-      adminDb.doc(`${classesCollection}/${classId}`),
-    )
-    if (!classSnap.exists) {
-      throw error(404, 'That class no longer exists.')
-    }
-    requireScheduledSession(classSnap.data() as Data.Class, input.classNumber)
-
     const movedId = subRequestDocId(classId, input.classNumber)
     const movedRef = adminDb.doc(`${substituteRequestsCollection}/${movedId}`)
     if ((await transaction.get(movedRef)).exists) {
