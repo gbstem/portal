@@ -3,6 +3,7 @@ import {
   maxChildrenPerAccount,
   registrationsCollection,
 } from '../../src/lib/data/collections'
+import { registrationDocId } from '../../src/lib/data/docIds'
 import { generateDateHash, prepareDocForCompare } from '../support/utils'
 
 /** Every field the portal's registration form actually renders. */
@@ -240,6 +241,40 @@ describe('Section B: Student Registration & Account Management', () => {
       `You can only register up to ${maxChildrenPerAccount} children`,
       'bg-red-200',
     )
+
+    // Opening each child is what creates its draft, server-side. Each has to
+    // exist, carrying the parent's account details and still unsubmitted -
+    // admin's lists of unfinished registrations query `meta.submitted`.
+    cy.get('@parentEmail').then((parentEmail: any) => {
+      cy.task('getFirestoreUserId', parentEmail).then((uid: any) => {
+        for (let n = 1; n <= maxChildrenPerAccount; n++) {
+          cy.task(
+            'readFirestoreDoc',
+            `${registrationsCollection}/${registrationDocId(uid, n)}`,
+          ).then((draft: any) => {
+            expect(draft, `child ${n}'s draft`).to.not.equal(null)
+            expect(draft.personal).to.include({
+              parentFirstName: 'Parent',
+              parentLastName: 'Test',
+              email: parentEmail,
+            })
+            expect(draft.meta.submitted, `child ${n} unsubmitted`).to.equal(
+              false,
+            )
+          })
+        }
+
+        // The toast above is the browser's own check. The server has to hold
+        // the same line for a request that skips it, so asking for one more
+        // child by URL goes back to the first and creates nothing.
+        cy.visit(`/apply?child=${maxChildrenPerAccount + 1}`)
+        cy.location('search').should('equal', '')
+        cy.task(
+          'checkFirestoreDocExists',
+          `${registrationsCollection}/${registrationDocId(uid, maxChildrenPerAccount + 1)}`,
+        ).should('eq', false)
+      })
+    })
   })
 
   it('Test Case 7: Complete and Submit a Registration Form', () => {

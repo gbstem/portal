@@ -57,6 +57,15 @@ describe('Section F: Profile Customization & Account Management', () => {
     cy.visit('/profile')
     cy.get('input[name="firstName"]').should('have.value', 'UpdatedFirst')
     cy.get('input[name="lastName"]').should('have.value', 'UpdatedLast')
+    // ...in `users/{uid}` itself, which every other read of the name (the
+    // registration's parent name, class and feedback records) works from.
+    // The form reading its own write back can't show it went anywhere else.
+    cy.task('getFirestoreUserId', initialEmail).then((uid) => {
+      cy.task('readFirestoreDoc', `users/${uid}`).should('deep.equal', {
+        firstName: 'UpdatedFirst',
+        lastName: 'UpdatedLast',
+      })
+    })
 
     // 3. Change Email
     cy.fillInput('input[name="newEmail"]', updatedEmail)
@@ -229,6 +238,14 @@ describe('Section F: Profile Customization & Account Management', () => {
       // Confirm both docs actually exist before deletion, so the "gone after
       // deletion" checks below can't be a false pass from them never having
       // been created.
+      // A brand-new instructor has no dashboard index yet; give them one,
+      // since deletion is meant to clear it like the other two.
+      const instructorClassesPath = `instructorClasses/${uid}`
+      cy.task('mergeFirestoreDoc', {
+        docPath: instructorClassesPath,
+        data: { classIds: [] },
+      })
+
       cy.task('checkFirestoreDocExists', applicationDocPath).should('eq', true)
       cy.task('checkFirestoreDocExists', decisionDocPath).should('eq', true)
 
@@ -247,6 +264,15 @@ describe('Section F: Profile Customization & Account Management', () => {
 
       cy.task('checkFirestoreDocExists', applicationDocPath).should('eq', false)
       cy.task('checkFirestoreDocExists', decisionDocPath).should('eq', false)
+      cy.task('checkFirestoreDocExists', instructorClassesPath).should(
+        'eq',
+        false,
+      )
+      // The instructor branch of deleteAccount shares only its last two
+      // steps with the student one Test Case 15 covers - the profile and the
+      // Auth account - so they are checked here too.
+      cy.task('checkFirestoreDocExists', `users/${uid}`).should('eq', false)
+      cy.task('getFirestoreUserId', email).should('eq', null)
     })
   })
 
