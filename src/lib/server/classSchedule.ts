@@ -1,3 +1,4 @@
+import { toDate } from '$lib/shared/timestamps'
 import { ClassStatus } from '$lib/components/helpers/ClassStatus'
 import { classesCollection } from '$lib/data/collections'
 import {
@@ -26,15 +27,6 @@ export interface SerializedSchedule {
 
 export const NO_SESSION_TODAY =
   'No class session found today! Please update your class schedule if you are planning to hold class today.'
-
-/** A stored session time - a Firestore Timestamp, or a Date in tests. */
-function toDate(value: unknown): Date {
-  if (value instanceof Date) return value
-  if (value && typeof (value as { toDate?: unknown }).toDate === 'function') {
-    return (value as { toDate: () => Date }).toDate()
-  }
-  return new Date(value as string)
-}
 
 /**
  * Runs `fn` in a transaction on class `classId`, once the caller is known to

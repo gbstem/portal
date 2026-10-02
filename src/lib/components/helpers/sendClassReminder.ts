@@ -1,3 +1,4 @@
+import { errorMessage } from '$lib/shared/apiErrors'
 import { alert } from '$lib/stores'
 import type { ClassRemindStudentsRequestBody } from '../../../routes/api/remindStudents/+server'
 
@@ -39,8 +40,10 @@ function sendClassReminder(opts: SendClassReminderOptions) {
         if (res.ok) {
           alert.trigger('success', 'Reminder emails were sent!')
         } else {
-          const { message } = await res.json().catch(() => ({}))
-          alert.trigger('error', message || 'Failed to send reminder emails.')
+          alert.trigger(
+            'error',
+            await errorMessage(res, 'Failed to send reminder emails.'),
+          )
         }
       })
     }
@@ -72,8 +75,10 @@ function sendClassReminder(opts: SendClassReminderOptions) {
             'Reminder email was sent to ' + (studentName || '') + '!',
           )
         } else {
-          const { message } = await res.json().catch(() => ({}))
-          alert.trigger('error', message || 'Failed to send reminder email.')
+          alert.trigger(
+            'error',
+            await errorMessage(res, 'Failed to send reminder email.'),
+          )
         }
       })
     }

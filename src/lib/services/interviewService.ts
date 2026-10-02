@@ -1,3 +1,4 @@
+import { errorMessage } from '$lib/shared/apiErrors'
 import { formatDateLocal } from '$lib/utils'
 import type {
   InterviewBookingRequestBody,
@@ -105,8 +106,7 @@ export const interviewService = {
       body: JSON.stringify(payload),
     })
     if (!res.ok) {
-      const body = await res.json().catch(() => ({}))
-      throw new Error(body?.message || 'Failed to request timeslot')
+      throw new Error(await errorMessage(res, 'Failed to request timeslot'))
     }
   },
 }

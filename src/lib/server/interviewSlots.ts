@@ -1,3 +1,4 @@
+import { toDate } from '$lib/shared/timestamps'
 import { dev } from '$app/environment'
 import {
   applicationsCollection,
@@ -51,14 +52,6 @@ export interface BookedInterview {
 export interface InterviewCaller {
   uid: string
   email: string
-}
-
-function toDate(value: unknown): Date {
-  if (value instanceof Date) return value
-  if (value && typeof (value as { toDate?: unknown }).toDate === 'function') {
-    return (value as { toDate: () => Date }).toDate()
-  }
-  return new Date(value as string)
 }
 
 /** Whether a slot at `date` can still be booked. */

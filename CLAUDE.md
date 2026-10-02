@@ -14,6 +14,8 @@ Portal and admin share the **same Firestore database and Firebase project** and 
 
 **Ship a cross-repo change as two PRs on a branch of the same name in both repos.** CI relies on that: portal's e2e job seeds the emulator from an admin branch with the same name when one exists, and from admin's default branch otherwise (see `.github/workflows/ci.yml`). Without it, a portal PR whose tests need a new seed fixture could not go green until the admin PR merged — so CI stopped gating exactly the coordinated changes that most need gating, and the way out was to merge admin unreviewed. The job logs which admin revision it seeded from, so check that line first when an e2e failure looks like missing data.
 
+**`src/lib/shared/` is the same in both repos, file for file.** It holds small utilities both sites need (`timestamps.ts`: `toDate`/`toDateOrNull` for a stored date in any shape; `apiErrors.ts`: `errorMessage(res, fallback)` for a refused `fetch` to one of our routes), each with a test of the same name in `__tests__/`. Files there import nothing from `$lib`, so they can be copied across verbatim: change one in both repos together, on branches of the same name. Before writing a helper that isn't specific to this site (another `typeof value.toDate === 'function'`, another `res.json().catch(...)`), look there first, and put a new one there rather than in the file that happens to need it.
+
 ## Route groups are auth gates, not just folders
 
 - `(signedIn)/+layout.server.ts` redirects to `/signin` if `locals.user === null`.

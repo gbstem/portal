@@ -1,3 +1,4 @@
+import { errorMessage } from '$lib/shared/apiErrors'
 import { auth, db } from '$lib/client/firebase'
 import {
   createUserWithEmailAndPassword,
@@ -102,8 +103,7 @@ export const userService = {
   async deleteAccountViaApi(): Promise<void> {
     const res = await fetch('/api/account', { method: 'DELETE' })
     if (!res.ok) {
-      const body = await res.json().catch(() => ({}))
-      throw new Error(body.message ?? 'Failed to delete account.')
+      throw new Error(await errorMessage(res, 'Failed to delete account.'))
     }
   },
 }

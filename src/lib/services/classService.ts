@@ -1,3 +1,4 @@
+import { errorMessage } from '$lib/shared/apiErrors'
 import { db } from '$lib/client/firebase'
 import { classesCollection } from '$lib/data/collections'
 import type { CoInstructor } from '$lib/helpers/classDetailsForm'
@@ -62,9 +63,11 @@ export const classService = {
     }
     const res = await fetch(`/api/classRoster?${params.toString()}`)
     if (!res.ok) {
-      const errData = await res.json().catch(() => ({}))
       throw new Error(
-        errData.message || `Failed to fetch class roster: ${res.statusText}`,
+        await errorMessage(
+          res,
+          `Failed to fetch class roster: ${res.statusText}`,
+        ),
       )
     }
     const data = await res.json()
@@ -167,9 +170,11 @@ export const classService = {
       body: JSON.stringify(body),
     })
     if (!res.ok) {
-      const errData = await res.json().catch(() => ({}))
       throw new Error(
-        errData?.message || 'Could not save class details. Please try again.',
+        await errorMessage(
+          res,
+          'Could not save class details. Please try again.',
+        ),
       )
     }
   },
@@ -361,8 +366,7 @@ export const classService = {
       body: JSON.stringify(payload),
     })
     if (!res.ok) {
-      const body = await res.json().catch(() => ({}))
-      throw new Error(body?.message || 'Error unenrolling from class!')
+      throw new Error(await errorMessage(res, 'Error unenrolling from class!'))
     }
   },
 

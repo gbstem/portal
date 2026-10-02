@@ -1,3 +1,4 @@
+import { toDate } from '$lib/shared/timestamps'
 import { SubRequestStatus } from '$lib/components/helpers/SubRequestStatus'
 import {
   classesCollection,
@@ -55,14 +56,6 @@ export interface SubRequestInput {
 
 export const SESSION_ALREADY_REQUESTED =
   "That session already has a sub request, so it wasn't filed again."
-
-function toDate(value: unknown): Date {
-  if (value instanceof Date) return value
-  if (value && typeof (value as { toDate?: unknown }).toDate === 'function') {
-    return (value as { toDate: () => Date }).toDate()
-  }
-  return new Date(value as string)
-}
 
 export function serializeSubRequest(
   subRequest: Data.SubRequest,
