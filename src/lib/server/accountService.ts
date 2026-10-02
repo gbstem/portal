@@ -1,3 +1,4 @@
+import { toDate } from '$lib/shared/timestamps'
 import { registrationDocId } from '$lib/data/docIds'
 import {
   applicationsCollection,
@@ -25,14 +26,6 @@ import type {
 export interface AccountDeletionEligibility {
   canDelete: boolean
   reason: string | null
-}
-
-function toDate(value: unknown): Date {
-  if (value instanceof Date) return value
-  if (value && typeof (value as { toDate?: unknown }).toDate === 'function') {
-    return (value as { toDate: () => Date }).toDate()
-  }
-  return new Date(value as string)
 }
 
 function hasFutureSubRequest(docs: QueryDocumentSnapshot[]): boolean {

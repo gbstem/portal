@@ -1,3 +1,4 @@
+import { toDateOrNull } from '$lib/shared/timestamps'
 import { isOwnClassId } from '$lib/data/docIds'
 import { classesCollection, withSemester } from '$lib/data/collections'
 import {
@@ -60,11 +61,7 @@ export interface ClassDetailsCaller {
 }
 
 function toIsoString(value: unknown): string {
-  if (value instanceof Date) return value.toISOString()
-  if (value && typeof (value as { toDate?: unknown }).toDate === 'function') {
-    return (value as { toDate: () => Date }).toDate().toISOString()
-  }
-  return String(value)
+  return toDateOrNull(value)?.toISOString() ?? String(value)
 }
 
 function serializeClass(data: Record<string, any>): SerializedClass {

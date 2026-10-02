@@ -1,3 +1,4 @@
+import { errorMessage } from '$lib/shared/apiErrors'
 import { db } from '$lib/client/firebase'
 import { SubRequestStatus } from '$lib/components/helpers/SubRequestStatus'
 import { substituteRequestsCollection } from '$lib/data/collections'
@@ -39,8 +40,7 @@ async function sendSubRequest(
     body: JSON.stringify(payload),
   })
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body?.message || 'Could not save that sub request.')
+    throw new Error(await errorMessage(res, 'Could not save that sub request.'))
   }
 }
 

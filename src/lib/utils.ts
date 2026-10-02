@@ -1,3 +1,4 @@
+import { toDate } from '$lib/shared/timestamps'
 import { alert } from '$lib/stores'
 import type { ClassValue } from 'clsx'
 import clsx from 'clsx'
@@ -156,22 +157,9 @@ export function formatDateStringLocal(time: string) {
   })
 }
 
-export const timestampToDate = (timestamp: Timestamp | Date) => {
-  if (timestamp instanceof Date) {
-    return timestamp
-  }
-  if (timestamp && typeof timestamp === 'object' && 'seconds' in timestamp) {
-    // `nanoseconds` matters: dropping it silently rounded every stored time
-    // down to the whole second, so a meeting time moved by up to 999ms every
-    // time its class was read and saved back. That went unnoticed because the
-    // shift is invisible in the UI and, in instructor.cy.ts, because the
-    // earlier tests in the spec always saved the class first - truncating the
-    // seeded times before the one test that compares them ever read them.
-    const nanoseconds = (timestamp as { nanoseconds?: number }).nanoseconds ?? 0
-    return new Date(timestamp.seconds * 1000 + Math.floor(nanoseconds / 1e6))
-  }
-  return new Date(timestamp)
-}
+/** `toDate` under the name the components know it by. */
+export const timestampToDate = (timestamp: Timestamp | Date) =>
+  toDate(timestamp)
 
 export const classTodayHeld = (datesHeld: Date[]) => {
   return (
