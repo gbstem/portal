@@ -26,7 +26,10 @@
     if (data.page !== 'registration' || childNumber === data.childNumber) {
       return
     }
-    goto(`?child=${childNumber}`, { noScroll: true })
+    // keepFocus: when the other child's form lands, SvelteKit would otherwise
+    // move focus back to the page - away from the picker, or from a field the
+    // parent has gone on to in the meantime.
+    goto(`?child=${childNumber}`, { noScroll: true, keepFocus: true })
   }
 
   function selectChild(name: string) {

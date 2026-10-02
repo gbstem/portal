@@ -250,8 +250,6 @@ describe('Section F: Profile Customization & Account Management', () => {
       cy.task('checkFirestoreDocExists', decisionDocPath).should('eq', true)
 
       cy.visit('/profile')
-      // eslint-disable-next-line cypress/no-unnecessary-waiting -- Wait for Svelte page and HMR to settle
-      cy.wait(1000)
       cy.contains('button', 'Delete account').click()
       cy.get('[role="dialog"]')
         .last()
@@ -308,8 +306,6 @@ describe('Section F: Profile Customization & Account Management', () => {
       })
 
       cy.visit('/profile')
-      // eslint-disable-next-line cypress/no-unnecessary-waiting -- Wait for Svelte page and HMR to settle
-      cy.wait(1000)
       cy.contains('button', 'Delete account').click()
       cy.get('[role="dialog"]').last().should('contain', "Can't delete account")
       cy.get('[role="dialog"]')
@@ -363,8 +359,6 @@ describe('Section F: Profile Customization & Account Management', () => {
       })
 
       cy.visit('/profile')
-      // eslint-disable-next-line cypress/no-unnecessary-waiting -- Wait for Svelte page and HMR to settle
-      cy.wait(1000)
       cy.contains('button', 'Delete account').click()
       cy.get('[role="dialog"]').last().should('contain', "Can't delete account")
       cy.get('[role="dialog"]')
@@ -416,8 +410,6 @@ describe('Section F: Profile Customization & Account Management', () => {
       cy.task('checkFirestoreDocExists', registrationDocPath).should('eq', true)
 
       cy.visit('/profile')
-      // eslint-disable-next-line cypress/no-unnecessary-waiting -- Wait for Svelte page and HMR to settle
-      cy.wait(1000)
       cy.contains('button', 'Delete account').click()
       cy.get('[role="dialog"]')
         .last()
@@ -474,8 +466,6 @@ describe('Section F: Profile Customization & Account Management', () => {
       })
 
       cy.visit('/profile')
-      // eslint-disable-next-line cypress/no-unnecessary-waiting -- Wait for Svelte page and HMR to settle
-      cy.wait(1000)
       cy.contains('button', 'Delete account').click()
       cy.get('[role="dialog"]').last().should('contain', "Can't delete account")
       cy.get('[role="dialog"]').last().should('contain', 'enrolled in a class')
