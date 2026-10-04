@@ -1029,8 +1029,21 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
             'EverythingComplete',
           )
           expect(klass.feedbackCompleted[1], 'week 2 untouched').to.equal(false)
+          // The schedule view brings every session's status up to date with
+          // the server's real clock - cy.clock above moves only the
+          // browser's - so week 2 reads "not held" once its date has really
+          // passed. Either way it is what the clock alone makes it: week 1's
+          // feedback must not have marked it complete.
+          const week2 = sessionTime(klass.meetingTimes[1])
+          const now = Date.now()
+          const expectedWeek2 =
+            week2 < now
+              ? 'ClassNotHeld'
+              : week2 - now < 30 * 60 * 1000
+                ? 'ClassUpcomingSoon'
+                : 'ClassInFuture'
           expect(klass.classStatuses[1], 'week 2 untouched').to.equal(
-            'ClassInFuture',
+            expectedWeek2,
           )
         },
       )
@@ -1182,9 +1195,16 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
     // The regression this guards: the schedule used to be rebuilt whenever a
     // checkbox happened to be ticked, so an instructor raising their class cap
     // could wipe the meeting dates students were already enrolled against.
+    cy.intercept('POST', '/api/classSchedule', (req) => {
+      if (req.body.action === 'refreshStatuses') req.alias = 'refreshStatuses'
+    })
     cy.signedInSession('instructor')
     cy.captureConfirms(false).as('confirms')
 
+    // The schedule view brings session statuses up to date with the
+    // server's clock as the page loads. Read the class only after that, or
+    // `before` can predate a status the refresh then changes on its own.
+    cy.wait('@refreshStatuses')
     let before: any
     readClassDoc().then((data: any) => {
       expect(data, 'class document').to.not.equal(null)
