@@ -74,20 +74,15 @@ function bookingsQuery(uid: string) {
 }
 
 /**
- * The caller's booking for this application cycle, if they have one. A slot
- * dated before applications opened is a previous cycle's interview, and a
- * missed one no longer holds their interview - they can book again.
+ * The caller's booking, if they have one: their latest slot that wasn't
+ * missed. A missed one no longer holds their interview - they can book again.
+ * Only this semester's slots are queried, so every one is this cycle's.
  */
 function currentBooking(
   bookings: QueryDocumentSnapshot[],
 ): QueryDocumentSnapshot | undefined {
-  const cycleStart = new Date(semesterDates.returningInstructorAppsOpen)
   return bookings
-    .filter(
-      (booking) =>
-        booking.data().interviewSlotStatus !== 'missed' &&
-        toDate(booking.data().date) > cycleStart,
-    )
+    .filter((booking) => booking.data().interviewSlotStatus !== 'missed')
     .sort(
       (a, b) =>
         toDate(b.data().date).getTime() - toDate(a.data().date).getTime(),

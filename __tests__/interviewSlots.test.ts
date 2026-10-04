@@ -24,9 +24,6 @@ jest.mock('$app/environment', () => ({
 jest.mock('$lib/data/collections', () => ({
   ...jest.requireActual('$lib/data/collections'),
   semesterDates: {
-    returningInstructorAppsOpen: new Date(
-      Date.now() - 30 * 24 * 60 * 60 * 1000,
-    ).toISOString(),
     instructorOrientation: new Date(
       Date.now() + 30 * 24 * 60 * 60 * 1000,
     ).toISOString(),
@@ -249,16 +246,21 @@ describe('fetchInterviewData', () => {
     expect(scheduledInterview).toBeNull()
   })
 
-  test("ignores a booking from a previous cycle's interviews", async () => {
-    slot('slot-last-year', {
-      date: timestamp(at(-300 * DAY)),
+  test('shows the booking made after a missed one', async () => {
+    slot('slot-missed', {
+      date: timestamp(at(-HOUR)),
+      interviewSlotStatus: 'missed',
+      missedBy: 'interviewee',
+      intervieweeId: 'uid-1',
+    })
+    slot('slot-rebooked', {
       interviewSlotStatus: 'pending',
       intervieweeId: 'uid-1',
     })
 
     const { scheduledInterview } = await fetchInterviewData('uid-1')
 
-    expect(scheduledInterview).toBeNull()
+    expect(scheduledInterview?.id).toBe('slot-rebooked')
   })
 })
 
