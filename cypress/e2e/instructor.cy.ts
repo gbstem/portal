@@ -899,6 +899,58 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
     cy.signOutViaUi()
   })
 
+  it('Test Case 8g: A Decided Applicant Can Neither Request Nor Book An Interview', () => {
+    // The dashboard offers neither once a decision is in, so this goes
+    // straight to the routes: their refusal is the guarantee, not the UI.
+    // The rejected applicant's interview is cleared first, as if it had been
+    // marked missed, so the decision is the only thing in the way.
+    const applicationPath = `${applicationsCollection}/instructor-rejected-uid`
+    cy.task('mergeFirestoreDoc', {
+      docPath: applicationPath,
+      data: { meta: { interview: false, decisionType: 'rejected' } },
+    })
+    cy.signedInSession('instructor', {
+      email: 'instructor-rejected@gbstem.org',
+    })
+
+    const requestedTime = '2030-01-15T10:00'
+    cy.request({
+      method: 'POST',
+      url: '/api/slotRequest',
+      body: { requestedTime, date: new Date(requestedTime).toISOString() },
+      failOnStatusCode: false,
+    }).then((res) => {
+      expect(res.status, '/api/slotRequest').to.equal(409)
+      expect(res.body.message).to.equal(
+        'A decision has already been made on your application.',
+      )
+    })
+    cy.task(
+      'checkFirestoreDocExists',
+      `${interviewTimeRequestsCollection}/${slotRequestDocId('instructor-rejected-uid', requestedTime)}`,
+    ).should('eq', false)
+
+    cy.request({
+      method: 'POST',
+      url: '/api/interview',
+      body: { slotId: 'slot-1' },
+      failOnStatusCode: false,
+    }).then((res) => {
+      expect(res.status, '/api/interview').to.equal(409)
+      expect(res.body.message).to.equal(
+        'A decision has already been made on your application.',
+      )
+    })
+    cy.task('readFirestoreDoc', applicationPath).then((application: any) => {
+      expect(application.meta.interview, 'meta.interview').to.equal(false)
+    })
+
+    cy.task('mergeFirestoreDoc', {
+      docPath: applicationPath,
+      data: { meta: { interview: true } },
+    })
+  })
+
   it('Test Case 10b: Instructor Submit Attendance Feedback', () => {
     // Set system clock to 1 day after instructor orientation date so ClassSchedule is rendered
     const orientationDate = new Date(semesterDates.instructorOrientation)

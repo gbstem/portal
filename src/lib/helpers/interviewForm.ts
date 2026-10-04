@@ -1,5 +1,48 @@
 import type {} from '../../data.d.ts'
 
+type ApplicationMeta = Partial<Data.Application['meta']>
+
+/**
+ * Whether `decision` settles an application: any official decision except
+ * `interview`, which only invites the applicant to schedule one.
+ */
+export function isFinalDecision(
+  decision: Data.Decision | null | undefined,
+): boolean {
+  return Boolean(decision) && decision !== 'interview'
+}
+
+/** Why an applicant can't be given an interview right now. */
+export type InterviewIneligibility = 'unsubmitted' | 'scheduled' | 'decided'
+
+/**
+ * Why the applicant behind `meta` can't book or request an interview, or null
+ * when they need one: submitted, with no interview held or booked (a missed
+ * one doesn't count - see `meta.interview`), and not yet decided.
+ *
+ * The same rule as admin's interviewIneligibility
+ * ($lib/helpers/setInterviewTimes), which decides who admins can schedule and
+ * whose time requests they see. Change both together.
+ */
+export function interviewIneligibility(
+  meta: ApplicationMeta | undefined,
+): InterviewIneligibility | null {
+  if (!meta?.submitted) return 'unsubmitted'
+  if (meta.interview) return 'scheduled'
+  if (isFinalDecision(meta.decisionType)) return 'decided'
+  return null
+}
+
+/** What an applicant is told when interviewIneligibility refuses them. */
+export const interviewIneligibilityMessages: Record<
+  InterviewIneligibility,
+  string
+> = {
+  unsubmitted: 'Submit your application before scheduling an interview.',
+  scheduled: 'You already have an interview scheduled.',
+  decided: 'A decision has already been made on your application.',
+}
+
 /**
  * Validates a time a candidate has asked us to add as an interview slot.
  *
