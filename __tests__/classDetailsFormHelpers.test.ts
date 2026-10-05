@@ -6,7 +6,6 @@ import {
   coInstructorDisplayName,
   coInstructorUids,
   getDefaultClassValues,
-  instructorClassMappingDiff,
   normalizeInstructorEmail,
   removeCoInstructor,
   toFormValues,
@@ -152,34 +151,6 @@ describe('ClassDetailsForm Helpers', () => {
           ada,
         ),
       ).toBe(true)
-    })
-  })
-
-  describe('instructorClassMappingDiff', () => {
-    test('reports only what changed', () => {
-      expect(
-        instructorClassMappingDiff(['a', 'b'], ['b', 'c'], 'owner'),
-      ).toEqual({ added: ['c'], removed: ['a'] })
-    })
-
-    test('never adds or revokes the class owner', () => {
-      // The owner's mapping is written unconditionally on every save, and
-      // they also reach the class through the `${uid}-${n}` ID prefix, so
-      // revoking it here would be both wrong and useless.
-      expect(
-        instructorClassMappingDiff(['owner', 'a'], ['owner'], 'owner'),
-      ).toEqual({ added: [], removed: ['a'] })
-      expect(instructorClassMappingDiff([], ['owner'], 'owner')).toEqual({
-        added: [],
-        removed: [],
-      })
-    })
-
-    test('is empty when nothing moved', () => {
-      expect(instructorClassMappingDiff(['a'], ['a'], 'owner')).toEqual({
-        added: [],
-        removed: [],
-      })
     })
   })
 

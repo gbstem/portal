@@ -1,6 +1,5 @@
 const mockDoc = jest.fn()
 const mockCollection = jest.fn()
-const mockGetAll = jest.fn()
 const mockRunTransaction = jest.fn()
 const mockIsAcceptedInstructor = jest.fn()
 const mockIsAcceptedInstructorAccount = jest.fn()
@@ -9,7 +8,6 @@ jest.mock('$lib/server/firebase', () => ({
   adminDb: {
     doc: (...args: any[]) => mockDoc(...args),
     collection: (...args: any[]) => mockCollection(...args),
-    getAll: (...args: any[]) => mockGetAll(...args),
     runTransaction: (...args: any[]) => mockRunTransaction(...args),
   },
 }))
@@ -22,10 +20,7 @@ jest.mock('$lib/server/instructorDirectory', () => ({
 }))
 
 jest.mock('firebase-admin/firestore', () => ({
-  FieldPath: { documentId: () => '__name__' },
   FieldValue: {
-    arrayUnion: (value: string) => ({ arrayUnion: value }),
-    arrayRemove: (value: string) => ({ arrayRemove: value }),
     delete: () => ({ delete: true }),
   },
 }))
@@ -45,7 +40,6 @@ jest.mock(
 import { classesCollection, currentSemester } from '$lib/data/collections'
 import {
   fetchInstructorClasses,
-  INSTRUCTOR_CLASSES_COLLECTION,
   saveClassDetails,
   type ClassDetailsFields,
 } from '$lib/server/instructorClasses'
@@ -126,32 +120,31 @@ beforeEach(() => {
     path,
     get: async () => snapshot(path),
   }))
-  // A collection query that honours document-id range bounds, so the test
-  // sees exactly what Firestore would return for them.
+  // A collection query that honours `==` and `array-contains`, so the test
+  // sees exactly what Firestore would return.
   mockCollection.mockImplementation((collectionPath: string) => {
-    const bounds: { op: string; value: string }[] = []
-    const query: { where: jest.Mock; get: () => Promise<{ docs: any[] }> } = {
-      where: jest.fn((_field: string, op: string, value: string) => {
-        bounds.push({ op, value })
-        return query
-      }),
+    const query = (
+      filters: { field: string; op: string; value: string }[],
+    ): { where: jest.Mock; get: () => Promise<{ docs: any[] }> } => ({
+      where: jest.fn((field: string, op: string, value: string) =>
+        query([...filters, { field, op, value }]),
+      ),
       get: async () => ({
         docs: Object.keys(docs)
           .filter((path) => path.startsWith(`${collectionPath}/`))
-          .map((path) => path.slice(collectionPath.length + 1))
-          .filter((id) =>
-            bounds.every(({ op, value }) =>
-              op === '>=' ? id >= value : id < value,
-            ),
+          .filter((path) =>
+            filters.every(({ field, op, value }) => {
+              const stored = docs[path][field]
+              return op === 'array-contains'
+                ? Array.isArray(stored) && stored.includes(value)
+                : stored === value
+            }),
           )
-          .map((id) => snapshot(`${collectionPath}/${id}`)),
+          .map((path) => snapshot(path)),
       }),
-    }
-    return query
+    })
+    return query([])
   })
-  mockGetAll.mockImplementation(async (...refs: { path: string }[]) =>
-    refs.map((ref) => snapshot(ref.path)),
-  )
   transaction = {
     get: jest.fn(async (ref: { path: string }) => snapshot(ref.path)),
     set: jest.fn(),
@@ -165,13 +158,19 @@ describe('fetchInstructorClasses', () => {
   test('returns owned and shared classes, with session dates as ISO strings', async () => {
     docs[`${classesCollection}/uid-1-1`] = {
       course: 'Python 1',
+      instructorUid: 'uid-1',
       meetingTimes: [timestamp('2026-10-05T20:00:00.000Z')],
       completedClassDates: [timestamp('2026-10-06T20:00:00.000Z')],
     }
-    docs[`${classesCollection}/shared-class`] = { course: 'Scratch 1' }
-    docs[`${classesCollection}/someone-else-1`] = { course: 'Math 1' }
-    docs[`${INSTRUCTOR_CLASSES_COLLECTION}/uid-1`] = {
-      classIds: ['shared-class', 'deleted-class'],
+    docs[`${classesCollection}/shared-class`] = {
+      course: 'Scratch 1',
+      instructorUid: 'uid-2',
+      otherInstructorUids: ['uid-1'],
+    }
+    docs[`${classesCollection}/someone-else-1`] = {
+      course: 'Math 1',
+      instructorUid: 'uid-2',
+      otherInstructorUids: ['uid-3'],
     }
 
     const classes = await fetchInstructorClasses('uid-1')
@@ -186,32 +185,38 @@ describe('fetchInstructorClasses', () => {
     expect(classes['shared-class'].meetingTimes).toEqual([])
   })
 
-  test('finds owned classes with a document-id range query, not a scan', async () => {
-    await fetchInstructorClasses('uid-1')
-
-    expect(mockCollection).toHaveBeenCalledWith(classesCollection)
-    const query = mockCollection.mock.results[0].value
-    expect(query.where).toHaveBeenCalledWith('__name__', '>=', 'uid-1-')
-    expect(query.where).toHaveBeenCalledWith('__name__', '<', 'uid-1.')
-  })
-
-  test("drops another uid's classes that fall inside the caller's id range", async () => {
-    docs[`${classesCollection}/instructor-demo-uid-1`] = { course: 'Python 1' }
-    docs[`${classesCollection}/instructor-2`] = { course: 'Python 2' }
-
-    const classes = await fetchInstructorClasses('instructor')
-
-    expect(Object.keys(classes)).toEqual(['instructor-2'])
-  })
-
-  test('makes no batched read when nothing beyond their own is shared', async () => {
-    docs[`${classesCollection}/uid-1-1`] = { course: 'Python 1' }
-    docs[`${INSTRUCTOR_CLASSES_COLLECTION}/uid-1`] = { classIds: ['uid-1-1'] }
+  test('finds an owned class by instructorUid, whatever its id', async () => {
+    docs[`${classesCollection}/class-python1`] = {
+      course: 'Python 1',
+      instructorUid: 'uid-1',
+    }
 
     const classes = await fetchInstructorClasses('uid-1')
 
-    expect(Object.keys(classes)).toEqual(['uid-1-1'])
-    expect(mockGetAll).not.toHaveBeenCalled()
+    expect(Object.keys(classes)).toEqual(['class-python1'])
+  })
+
+  test("leaves out a class under the caller's id prefix that names someone else", async () => {
+    docs[`${classesCollection}/uid-1-1`] = {
+      course: 'Python 1',
+      instructorUid: 'uid-2',
+    }
+
+    const classes = await fetchInstructorClasses('uid-1')
+
+    expect(classes).toEqual({})
+  })
+
+  test("leaves out a class once they're taken off its co-instructors", async () => {
+    docs[`${classesCollection}/owner-1`] = {
+      course: 'Python 1',
+      instructorUid: 'owner',
+      otherInstructorUids: ['uid-2'],
+    }
+
+    const classes = await fetchInstructorClasses('uid-1')
+
+    expect(classes).toEqual({})
   })
 })
 
@@ -220,7 +225,7 @@ describe('saveClassDetails', () => {
     docs['users/owner-uid'] = { firstName: 'Ada', lastName: 'Lovelace' }
   })
 
-  test("creates a class under the caller's own id, owned by and listed for them", async () => {
+  test("creates a class under the caller's own id, owned by them", async () => {
     await saveClassDetails(OWNER, CLASS_ID, details(), schedule)
 
     expect(classWrite(CLASS_ID)).toEqual({
@@ -234,12 +239,8 @@ describe('saveClassDetails', () => {
       instructorLastName: 'Lovelace',
       semester: currentSemester,
     })
-    expect(writesTo(`${INSTRUCTOR_CLASSES_COLLECTION}/owner-uid`)).toEqual([
-      { classIds: { arrayUnion: CLASS_ID } },
-    ])
-    for (const [, , options] of transaction.set.mock.calls) {
-      expect(options).toEqual({ merge: true })
-    }
+    expect(transaction.set).toHaveBeenCalledTimes(1)
+    expect(transaction.set.mock.calls[0][2]).toEqual({ merge: true })
   })
 
   test("refuses creating a class under anyone else's id", async () => {
@@ -287,13 +288,9 @@ describe('saveClassDetails', () => {
     expect(written.classCap).toBe(9)
     expect(written).not.toHaveProperty('instructorUid')
     expect(written).not.toHaveProperty('instructorEmail')
-    expect(writesTo(`${INSTRUCTOR_CLASSES_COLLECTION}/owner-uid`)).toEqual([
-      { classIds: { arrayUnion: CLASS_ID } },
-    ])
-    expect(writesTo(`${INSTRUCTOR_CLASSES_COLLECTION}/co-1`)).toEqual([])
   })
 
-  test('adds and revokes mappings against the stored co-instructor list', async () => {
+  test('checks only the co-instructors added since the stored list', async () => {
     storeClass({ otherInstructorUids: ['co-1', 'co-2'] })
 
     await saveClassDetails(
@@ -303,13 +300,6 @@ describe('saveClassDetails', () => {
     )
 
     expect(classWrite(CLASS_ID).otherInstructorUids).toEqual(['co-2', 'co-3'])
-    expect(writesTo(`${INSTRUCTOR_CLASSES_COLLECTION}/co-3`)).toEqual([
-      { classIds: { arrayUnion: CLASS_ID } },
-    ])
-    expect(writesTo(`${INSTRUCTOR_CLASSES_COLLECTION}/co-1`)).toEqual([
-      { classIds: { arrayRemove: CLASS_ID } },
-    ])
-    expect(writesTo(`${INSTRUCTOR_CLASSES_COLLECTION}/co-2`)).toEqual([])
     expect(mockIsAcceptedInstructorAccount).toHaveBeenCalledTimes(1)
     expect(mockIsAcceptedInstructorAccount).toHaveBeenCalledWith('co-3')
   })

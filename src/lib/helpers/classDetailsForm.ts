@@ -96,8 +96,7 @@ export function coInstructorUids(list: CoInstructor[]): string[] {
  * resolve an address that doesn't belong to an accepted instructor, and it is
  * the only side that can check it. This covers only what the client knows:
  * the same person twice, or the class owner adding themselves (they are
- * already the instructor, and a self-entry would let a later removal strip
- * their own instructorClasses mapping).
+ * already the instructor).
  */
 export function coInstructorAddError(
   list: CoInstructor[],
@@ -156,29 +155,6 @@ export function canClaimClassOwnership(
   const storedUid = stored?.instructorUid ?? ''
   if (!storedUid) return true
   return storedUid === user.uid
-}
-
-/**
- * Which instructorClasses mappings a save has to add and which to revoke.
- *
- * The owner is excluded from both sides: their mapping is added
- * unconditionally on every save, and they also reach the class through the
- * `${uid}-${n}` class ID prefix, so revoking it would be both wrong and
- * useless. Removing a co-instructor's *mapping* only takes the class off
- * their dashboard; what actually revokes their write access is their uid
- * leaving `otherInstructorUids`, which firestore.rules reads directly.
- */
-export function instructorClassMappingDiff(
-  previousUids: string[],
-  nextUids: string[],
-  ownerUid: string,
-): { added: string[]; removed: string[] } {
-  const previous = new Set(previousUids.filter((uid) => uid !== ownerUid))
-  const next = new Set(nextUids.filter((uid) => uid !== ownerUid))
-  return {
-    added: [...next].filter((uid) => !previous.has(uid)),
-    removed: [...previous].filter((uid) => !next.has(uid)),
-  }
 }
 
 /**

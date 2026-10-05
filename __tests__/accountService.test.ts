@@ -211,10 +211,9 @@ describe('checkAccountDeletionEligibility (instructor)', () => {
 })
 
 describe('deleteAccount (instructor)', () => {
-  it('deletes the application, decision, instructorClasses and users documents, then the Auth account', async () => {
+  it('deletes the application, decision and users documents, then the Auth account', async () => {
     docs[`${applicationsCollection}/${UID}`] = { meta: { uid: UID } }
     docs[`${decisionsCollection}/${UID}`] = { type: 'accepted' }
-    docs[`instructorClasses/${UID}`] = { classIds: [] }
 
     await deleteAccount(UID, 'instructor')
 
@@ -222,7 +221,6 @@ describe('deleteAccount (instructor)', () => {
       [
         `${applicationsCollection}/${UID}`,
         `${decisionsCollection}/${UID}`,
-        `instructorClasses/${UID}`,
         `users/${UID}`,
       ].sort(),
     )
@@ -251,7 +249,7 @@ describe('deleteAccount (instructor)', () => {
     )
   })
 
-  it('skips deleting application/decision/instructorClasses documents that never existed', async () => {
+  it('skips deleting application/decision documents that never existed', async () => {
     await deleteAccount(UID, 'instructor')
 
     expect(deletedPaths()).toEqual([`users/${UID}`])

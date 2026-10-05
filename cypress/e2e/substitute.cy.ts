@@ -1,4 +1,5 @@
 import {
+  classesCollection,
   currentSemester,
   instructorFeedbackCollection,
   substituteRequestsCollection,
@@ -8,6 +9,7 @@ import {
   COHOST_UID,
   OWNER_EMAIL,
   OWNER_UID,
+  SCRATCH_CLASS_ID,
   SEEDED_CLASS_ID,
   SEEDED_MEETING_LINK,
   SEEDED_STUDENT_EMAIL,
@@ -520,9 +522,13 @@ describe('Section I: Substitute Requests And Cover', () => {
     // `NoSubstituteNeeded` state, which nothing could reach before, so a
     // substitute's 1.5 hours per covered class were never credited at all.
     //
-    // This account teaches no class of its own and co-instructs none in this
-    // spec, so every hour on the page is substitute hours - one covered class
-    // at 1.5 hours each.
+    // This account teaches no class of its own, and is taken off the one the
+    // seed has them co-instructing, so every hour on the page is substitute
+    // hours - one covered class at 1.5 hours each.
+    cy.task('mergeFirestoreDoc', {
+      docPath: `${classesCollection}/${SCRATCH_CLASS_ID}`,
+      data: { otherInstructorUids: [] },
+    })
     cy.signedInSession('instructor', {
       email: COHOST_EMAIL,
       initialPage: '/community-service',

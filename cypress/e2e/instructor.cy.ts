@@ -12,9 +12,9 @@ import semesterDates from '../../src/lib/data/semesterDates.json'
 import {
   COHOST_EMAIL,
   COHOST_UID,
-  INSTRUCTOR_CLASSES_COLLECTION,
   OWNER_EMAIL,
   OWNER_UID,
+  SCRATCH_CLASS_ID,
   SEEDED_CLASS_ID,
   SEEDED_MEETING_LINK,
   SEEDED_STUDENTS,
@@ -302,6 +302,12 @@ function expectedCoInstructorUids(emails: string[]): string[] {
  * asserted separately by `assertGeneratedSchedule`.
  */
 /** A stored session time, as `getFirestoreDoc` returns it, in epoch ms. */
+/**
+ * The class Test Case 13g creates, under the demo instructor's own uid, with
+ * the co-instructor on it. The seed runs once per spec, so it outlives 13g.
+ */
+const CREATED_CLASS_ID = 'instructor-demo-uid-1'
+
 const sessionTime = (value: { timestampValue: string }) =>
   new Date(value.timestampValue).getTime()
 
@@ -478,9 +484,10 @@ function saveClassDetails() {
 
 /**
  * Puts the seeded class into exactly the state a completed "add a
- * co-instructor" save leaves behind: the uid on the class document (which is
- * what firestore.rules reads to allow writes) and the class on the
- * co-instructor's dashboard index.
+ * co-instructor" save leaves behind: the uid on the class document, which is
+ * both what authorizes their writes and what lists the class on their
+ * dashboard. It is made the only class naming them, removing the one Test
+ * Case 13g left behind, so what their dashboard shows is this class alone.
  *
  * Written straight through the Admin SDK rather than by driving the owner's
  * form, because that flow is already what Test Cases 13h-13j cover - these
@@ -489,13 +496,10 @@ function saveClassDetails() {
  * them to fail for reasons that have nothing to do with what they assert.
  */
 function grantCoInstructorAccess() {
+  cy.task('deleteFirestoreDoc', `${classesCollection}/${CREATED_CLASS_ID}`)
   cy.task('mergeFirestoreDoc', {
     docPath: `${classesCollection}/${SEEDED_CLASS_ID}`,
     data: { otherInstructorUids: [COHOST_UID] },
-  })
-  cy.task('mergeFirestoreDoc', {
-    docPath: `${INSTRUCTOR_CLASSES_COLLECTION}/${COHOST_UID}`,
-    data: { classIds: [SEEDED_CLASS_ID] },
   })
 }
 
@@ -1373,7 +1377,7 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
     // authorizes on its id: exactly `${uid}-${n}` under the caller's own uid.
     // The seeded class isn't keyed that way, so nextClassDocId starts
     // this instructor's numbering at 1.
-    const newClassId = 'instructor-demo-uid-1'
+    const newClassId = CREATED_CLASS_ID
     // `online: false` so the save doesn't also try to create a real meeting
     // link - out of scope for what this test is checking.
     const input: ClassDetailsInput = {
@@ -1420,17 +1424,6 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
         expect(data.completedClassDates, 'nothing held yet').to.deep.equal([])
       },
     )
-
-    // ...and it reaches both instructors' dashboards, which list their
-    // classes from the uid-keyed instructorClasses index, not the class.
-    ;[OWNER_UID, COHOST_UID].forEach((uid) => {
-      cy.task(
-        'readFirestoreDoc',
-        `${INSTRUCTOR_CLASSES_COLLECTION}/${uid}`,
-      ).then((mapping: any) => {
-        expect(mapping.classIds, `${uid}'s classes`).to.include(newClassId)
-      })
-    })
   })
 
   it('Test Case 13h: Class Details - Only Accepted Instructors Can Be Added', () => {
@@ -1489,9 +1482,8 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
   })
 
   it('Test Case 13i: Class Details - Removing A Co-Instructor Revokes Their Access', () => {
-    // Removal had no revocation path at all before this: a uid added to
-    // instructorClasses stayed there forever, so a co-instructor taken off a
-    // class kept seeing it on their dashboard indefinitely.
+    // Taking a uid off `otherInstructorUids` is the whole revocation: the
+    // same field gates their writes and lists the class on their dashboard.
     cy.signedInSession('instructor')
 
     cy.contains('h2', 'Class Details')
@@ -1505,11 +1497,8 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
     cy.get('input[name="confirmation"]').check({ force: true })
     saveClassDetails()
 
-    cy.task(
-      'readFirestoreDoc',
-      `${INSTRUCTOR_CLASSES_COLLECTION}/${COHOST_UID}`,
-    ).then((mapping: any) => {
-      expect(mapping.classIds, 'granted').to.include(SEEDED_CLASS_ID)
+    readClassDoc().then((data: any) => {
+      expect(data.otherInstructorUids, 'granted').to.deep.equal([COHOST_UID])
     })
 
     // Now take them off again.
@@ -1524,16 +1513,8 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
     cy.get('input[name="confirmation"]').check({ force: true })
     saveClassDetails()
 
-    // The class document is what actually gates write access...
     readClassDoc().then((data: any) => {
-      expect(data.otherInstructorUids).to.deep.equal([])
-    })
-    // ...and the dashboard index has to stop listing it too.
-    cy.task(
-      'readFirestoreDoc',
-      `${INSTRUCTOR_CLASSES_COLLECTION}/${COHOST_UID}`,
-    ).then((mapping: any) => {
-      expect(mapping.classIds ?? [], 'revoked').to.not.include(SEEDED_CLASS_ID)
+      expect(data.otherInstructorUids, 'revoked').to.deep.equal([])
     })
   })
 
@@ -1722,8 +1703,8 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
  *
  * Test Cases 13h-13j cover the adding and removing itself. Everything here is
  * about the other side of that: being on `otherInstructorUids` is what
- * firestore.rules reads to allow a write, and the uid-keyed `instructorClasses`
- * index is what puts the class on their dashboard - so a co-instructor reaches
+ * authorizes their writes and what puts the class on their dashboard - so a
+ * co-instructor reaches
  * the same schedule, roster, feedback form and sub-request flow the owner does,
  * against a class whose document names somebody else as its instructor.
  *
@@ -1740,8 +1721,7 @@ describe('Section G: Co-Instructor Access To A Shared Class', () => {
     cy.intercept('POST', '/api/instructorFeedback').as('instructorFeedback')
 
     // The co-instructor owns no class at all, so the only thing that can put
-    // one on this page is the instructorClasses mapping their uid being added
-    // wrote. "Your Classes" itself is gated on an accepted decision, which is
+    // one on this page is their uid on its `otherInstructorUids`. "Your Classes" itself is gated on an accepted decision, which is
     // also what let them be added in the first place.
     cy.contains('h2', 'Your Classes').should('be.visible')
     cy.contains('Next Upcoming Class:').should('be.visible')
@@ -1828,21 +1808,31 @@ describe('Section G: Co-Instructor Access To A Shared Class', () => {
   it('Test Case 13l: Co-Instructor - The Shared Class Counts Toward Their Service Hours', () => {
     // Community service hours are what instructors actually take away from
     // gbSTEM, and they're counted from `fetchInstructorClasses` - the same
-    // mapping the dashboard uses - so a co-instructor is credited for the
+    // list the dashboard uses - so a co-instructor is credited for the
     // sessions of a class they were added to rather than having to be its
-    // owner. Nothing outside this test covers that.
+    // owner. Nothing outside this test covers that. The seed also has them
+    // co-teaching the Scratch class, so its held sessions count too.
     grantCoInstructorAccess()
 
-    let heldSessions = 0
-    readClassDoc().then((klass: any) => {
-      heldSessions = klass.classStatuses.filter(
+    const held = (klass: any) =>
+      klass.classStatuses.filter(
         (status: string) =>
           status === 'EverythingComplete' || status === 'FeedbackIncomplete',
       ).length
+    let heldSessions = 0
+    readClassDoc().then((klass: any) => {
       expect(
-        heldSessions,
+        held(klass),
         'a held session to be credited for (see Test Case 13k)',
       ).to.be.greaterThan(0)
+      heldSessions += held(klass)
+    })
+    cy.task(
+      'readFirestoreDoc',
+      `${classesCollection}/${SCRATCH_CLASS_ID}`,
+    ).then((klass: any) => {
+      expect(klass.otherInstructorUids).to.include(COHOST_UID)
+      heldSessions += held(klass)
     })
 
     cy.then(() => {
@@ -2036,35 +2026,15 @@ describe('Section G: Co-Instructor Access To A Shared Class', () => {
       // Leaving must not disturb whose class it is.
       expect(after.instructorUid).to.equal(OWNER_UID)
     })
-    cy.task(
-      'readFirestoreDoc',
-      `${INSTRUCTOR_CLASSES_COLLECTION}/${COHOST_UID}`,
-    ).then((mapping: any) => {
-      expect(
-        mapping.classIds ?? [],
-        'class taken off their dashboard too',
-      ).to.not.include(SEEDED_CLASS_ID)
-    })
   })
 
   it('Test Case 13q: Co-Instructor - A Revoked Co-Instructor’s Save Is Refused', () => {
     // Test Case 13i asserts the removal is written down; this asserts it is
     // *enforced*, by the server rather than by the UI. The state is a stale
-    // dashboard mapping: the class no longer lists the uid but the mapping
-    // still does, so the class is still on screen and openable for edit.
+    // tab: the co-instructor opened the form while still on the class, and
+    // the owner took them off before they saved.
     grantCoInstructorAccess()
-    cy.task('mergeFirestoreDoc', {
-      docPath: `${classesCollection}/${SEEDED_CLASS_ID}`,
-      data: { otherInstructorUids: [] },
-    })
-
     cy.signedInSession('instructor', { email: COHOST_EMAIL })
-
-    let before: any
-    readClassDoc().then((data: any) => {
-      expect(data, 'class document').to.not.equal(null)
-      before = data
-    })
 
     cy.contains('h2', 'Class Details')
       .closest('.rounded-xl')
@@ -2074,6 +2044,16 @@ describe('Section G: Co-Instructor Access To A Shared Class', () => {
     cy.get('input[name="course"]')
       .should('not.be.disabled')
       .and('not.have.value', '')
+
+    cy.task('mergeFirestoreDoc', {
+      docPath: `${classesCollection}/${SEEDED_CLASS_ID}`,
+      data: { otherInstructorUids: [] },
+    })
+    let before: any
+    readClassDoc().then((data: any) => {
+      expect(data, 'class document').to.not.equal(null)
+      before = data
+    })
 
     cy.fillInput('input[name="classCap"]', '29')
     cy.get('input[name="confirmation"]').check({ force: true })
