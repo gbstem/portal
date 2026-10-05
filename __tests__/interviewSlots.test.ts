@@ -24,9 +24,6 @@ jest.mock('$app/environment', () => ({
 jest.mock('$lib/data/collections', () => ({
   ...jest.requireActual('$lib/data/collections'),
   semesterDates: {
-    returningInstructorAppsOpen: new Date(
-      Date.now() - 30 * 24 * 60 * 60 * 1000,
-    ).toISOString(),
     instructorOrientation: new Date(
       Date.now() + 30 * 24 * 60 * 60 * 1000,
     ).toISOString(),
@@ -234,16 +231,36 @@ describe('fetchInterviewData', () => {
     expect(scheduledInterview?.interviewSlotStatus).toBe('pending')
   })
 
-  test("ignores a booking from a previous cycle's interviews", async () => {
-    slot('slot-last-year', {
-      date: timestamp(at(-300 * DAY)),
-      interviewSlotStatus: 'pending',
+  // Marked missed in admin: it no longer holds their interview, so the
+  // booking list shows again.
+  test('ignores a booking that was missed', async () => {
+    slot('slot-missed', {
+      date: timestamp(at(-HOUR)),
+      interviewSlotStatus: 'missed',
+      missedBy: 'interviewer',
       intervieweeId: 'uid-1',
     })
 
     const { scheduledInterview } = await fetchInterviewData('uid-1')
 
     expect(scheduledInterview).toBeNull()
+  })
+
+  test('shows the booking made after a missed one', async () => {
+    slot('slot-missed', {
+      date: timestamp(at(-HOUR)),
+      interviewSlotStatus: 'missed',
+      missedBy: 'interviewee',
+      intervieweeId: 'uid-1',
+    })
+    slot('slot-rebooked', {
+      interviewSlotStatus: 'pending',
+      intervieweeId: 'uid-1',
+    })
+
+    const { scheduledInterview } = await fetchInterviewData('uid-1')
+
+    expect(scheduledInterview?.id).toBe('slot-rebooked')
   })
 })
 
@@ -310,23 +327,52 @@ describe('bookInterviewSlot', () => {
     expect(transaction.update).not.toHaveBeenCalled()
   })
 
-  test('refuses a second interview in the same cycle', async () => {
+  // meta.interview is set with every booking and cleared when one is
+  // cancelled or missed, so it alone says whether they have one.
+  test('refuses a second interview while one is booked or held', async () => {
     slot('slot-1')
-    slot('slot-mine', {
-      interviewSlotStatus: 'pending',
-      intervieweeId: 'uid-1',
-    })
+    docs[`${applicationsCollection}/uid-1`].meta.interview = true
 
     await expect(bookInterviewSlot(APPLICANT, 'slot-1')).rejects.toMatchObject({
       status: 409,
-      message: 'You already have an interview booked.',
+      message: 'You already have an interview scheduled.',
     })
     expect(transaction.update).not.toHaveBeenCalled()
   })
 
-  test('refuses a caller with no application to interview for', async () => {
+  test('refuses an applicant who already has a decision', async () => {
     slot('slot-1')
-    delete docs[`${applicationsCollection}/uid-1`]
+    docs[`${applicationsCollection}/uid-1`].meta.decisionType = 'rejected'
+
+    await expect(bookInterviewSlot(APPLICANT, 'slot-1')).rejects.toMatchObject({
+      status: 409,
+      message: 'A decision has already been made on your application.',
+    })
+    expect(transaction.update).not.toHaveBeenCalled()
+  })
+
+  test('books an applicant invited to interview', async () => {
+    slot('slot-1')
+    docs[`${applicationsCollection}/uid-1`].meta.decisionType = 'interview'
+
+    await bookInterviewSlot(APPLICANT, 'slot-1')
+
+    expect(transaction.update).toHaveBeenCalledWith(
+      expect.objectContaining({ path: `${applicationsCollection}/uid-1` }),
+      { 'meta.interview': true },
+    )
+  })
+
+  test.each([
+    ['no application', undefined],
+    ['an unsubmitted application', { meta: { submitted: false } }],
+  ])('refuses a caller with %s', async (_, application) => {
+    slot('slot-1')
+    if (application) {
+      docs[`${applicationsCollection}/uid-1`] = application
+    } else {
+      delete docs[`${applicationsCollection}/uid-1`]
+    }
 
     await expect(bookInterviewSlot(APPLICANT, 'slot-1')).rejects.toMatchObject({
       status: 400,
@@ -360,6 +406,26 @@ describe('recordSlotRequest', () => {
       date,
     })
   })
+
+  test.each([
+    ['already has an interview', { submitted: true, interview: true }, 409],
+    [
+      'already has a decision',
+      { submitted: true, decisionType: 'accepted' },
+      409,
+    ],
+    ['has not submitted', { submitted: false }, 400],
+  ])(
+    'refuses an applicant who %s, and saves nothing',
+    async (_, meta, status) => {
+      docs[`${applicationsCollection}/uid-1`] = { meta }
+
+      await expect(
+        recordSlotRequest('uid-1', '2026-10-05T14:00', at(2 * DAY)),
+      ).rejects.toMatchObject({ status })
+      expect(docs[requestPath('2026-10-05T14:00')]).toBeUndefined()
+    },
+  )
 
   test('refuses a time in the past, and saves nothing', async () => {
     await expect(

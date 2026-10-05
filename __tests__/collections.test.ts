@@ -45,11 +45,13 @@ describe('collections.ts', () => {
     expect(studentFeedbackCollection).toBe(
       `semesters/${currentSemester}/classFeedback`,
     )
+    expect(interviewTimeRequestsCollection).toBe(
+      `semesters/${currentSemester}/interviewTimeRequests`,
+    )
   })
 
   it('leaves non-semesterized collections and constants unchanged', () => {
     expect(substituteRequestsCollection).toBe('subRequests')
-    expect(interviewTimeRequestsCollection).toBe('interviewTimeRequests')
     expect(maxChildrenPerAccount).toBe(5)
   })
 

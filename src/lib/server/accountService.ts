@@ -4,6 +4,7 @@ import {
   applicationsCollection,
   classesCollection,
   decisionsCollection,
+  interviewTimeRequestsCollection,
   maxChildrenPerAccount,
   registrationsCollection,
   substituteRequestsCollection,
@@ -134,7 +135,8 @@ export async function checkAccountDeletionEligibility(
  *
  * Instructor: `applications/{uid}`, `decisions/{uid}` (the Admin SDK bypasses
  * the admin/reviewer-only write rule) and `instructorClasses/{uid}`, each
- * only if it exists.
+ * only if it exists, and every interview time request they filed this
+ * semester.
  *
  * Student: every existing child registration, plus `confirmations/{uid}` -
  * one per parent account, part of the registration, not a historical
@@ -174,6 +176,14 @@ export async function deleteAccount(
           decisionRef,
           instructorClassesRef,
         )
+      const timeRequests = await transaction.get(
+        adminDb
+          .collection(interviewTimeRequestsCollection)
+          .where('uid', '==', uid),
+      )
+      for (const request of timeRequests.docs) {
+        transaction.delete(request.ref)
+      }
       if (applicationSnap.exists) transaction.delete(applicationRef)
       if (decisionSnap.exists) transaction.delete(decisionRef)
       if (instructorClassesSnap.exists) {

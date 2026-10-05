@@ -83,6 +83,7 @@ import {
   applicationsCollection,
   classesCollection,
   decisionsCollection,
+  interviewTimeRequestsCollection,
   registrationsCollection,
   substituteRequestsCollection,
 } from '$lib/data/collections'
@@ -228,6 +229,28 @@ describe('deleteAccount (instructor)', () => {
       ].sort(),
     )
     expect(mockDeleteUser).toHaveBeenCalledWith(UID)
+  })
+
+  it("deletes every interview time request they filed, and no one else's", async () => {
+    docs[`${interviewTimeRequestsCollection}/${UID}-2026-10-05T14:00`] = {
+      uid: UID,
+    }
+    docs[`${interviewTimeRequestsCollection}/${UID}-2026-10-06T14:00`] = {
+      uid: UID,
+    }
+    docs[`${interviewTimeRequestsCollection}/other-2026-10-05T14:00`] = {
+      uid: 'other',
+    }
+
+    await deleteAccount(UID, 'instructor')
+
+    expect(deletedPaths().sort()).toEqual(
+      [
+        `${interviewTimeRequestsCollection}/${UID}-2026-10-05T14:00`,
+        `${interviewTimeRequestsCollection}/${UID}-2026-10-06T14:00`,
+        `users/${UID}`,
+      ].sort(),
+    )
   })
 
   it('skips deleting application/decision/instructorClasses documents that never existed', async () => {

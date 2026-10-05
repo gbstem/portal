@@ -1,7 +1,54 @@
 import type {} from '../src/data.d.ts'
-import { validateRequestedInterviewTime } from '$lib/helpers/interviewForm'
+import {
+  interviewIneligibility,
+  isFinalDecision,
+  validateRequestedInterviewTime,
+} from '$lib/helpers/interviewForm'
 
 describe('InterviewForm Helpers', () => {
+  // Admin's helpers/setInterviewTimes has the same rule and the same cases.
+  describe('isFinalDecision', () => {
+    test.each([
+      ['accepted', true],
+      ['substitute', true],
+      ['waitlisted', true],
+      ['rejected', true],
+      // An invitation to interview, not a decision on the applicant.
+      ['interview', false],
+      [null, false],
+      [undefined, false],
+    ] as const)('%s -> %s', (decision, expected) => {
+      expect(isFinalDecision(decision)).toBe(expected)
+    })
+  })
+
+  describe('interviewIneligibility', () => {
+    const meta = (overrides: Record<string, unknown> = {}) => ({
+      uid: 'uid-1',
+      submitted: true,
+      interview: false,
+      decided: false,
+      ...overrides,
+    })
+
+    test.each([
+      ['a submitted, unscheduled, undecided applicant', meta(), null],
+      [
+        'one invited to interview',
+        meta({ decided: true, decisionType: 'interview' }),
+        null,
+      ],
+      // Notes or a likely decision set `decided` without deciding anything.
+      ['one with only notes', meta({ decided: true }), null],
+      ['no application', undefined, 'unsubmitted'],
+      ['an unsubmitted one', meta({ submitted: false }), 'unsubmitted'],
+      ['a scheduled one', meta({ interview: true }), 'scheduled'],
+      ['a decided one', meta({ decisionType: 'rejected' }), 'decided'],
+    ] as const)('%s -> %s', (_, value, expected) => {
+      expect(interviewIneligibility(value as any)).toBe(expected)
+    })
+  })
+
   describe('validateRequestedInterviewTime', () => {
     const closesOn = '09/20/26'
     const now = new Date('2026-09-02T12:00:00')

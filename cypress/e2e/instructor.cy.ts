@@ -899,6 +899,58 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
     cy.signOutViaUi()
   })
 
+  it('Test Case 8g: A Decided Applicant Can Neither Request Nor Book An Interview', () => {
+    // The dashboard offers neither once a decision is in, so this goes
+    // straight to the routes: their refusal is the guarantee, not the UI.
+    // The rejected applicant's interview is cleared first, as if it had been
+    // marked missed, so the decision is the only thing in the way.
+    const applicationPath = `${applicationsCollection}/instructor-rejected-uid`
+    cy.task('mergeFirestoreDoc', {
+      docPath: applicationPath,
+      data: { meta: { interview: false, decisionType: 'rejected' } },
+    })
+    cy.signedInSession('instructor', {
+      email: 'instructor-rejected@gbstem.org',
+    })
+
+    const requestedTime = '2030-01-15T10:00'
+    cy.request({
+      method: 'POST',
+      url: '/api/slotRequest',
+      body: { requestedTime, date: new Date(requestedTime).toISOString() },
+      failOnStatusCode: false,
+    }).then((res) => {
+      expect(res.status, '/api/slotRequest').to.equal(409)
+      expect(res.body.message).to.equal(
+        'A decision has already been made on your application.',
+      )
+    })
+    cy.task(
+      'checkFirestoreDocExists',
+      `${interviewTimeRequestsCollection}/${slotRequestDocId('instructor-rejected-uid', requestedTime)}`,
+    ).should('eq', false)
+
+    cy.request({
+      method: 'POST',
+      url: '/api/interview',
+      body: { slotId: 'slot-1' },
+      failOnStatusCode: false,
+    }).then((res) => {
+      expect(res.status, '/api/interview').to.equal(409)
+      expect(res.body.message).to.equal(
+        'A decision has already been made on your application.',
+      )
+    })
+    cy.task('readFirestoreDoc', applicationPath).then((application: any) => {
+      expect(application.meta.interview, 'meta.interview').to.equal(false)
+    })
+
+    cy.task('mergeFirestoreDoc', {
+      docPath: applicationPath,
+      data: { meta: { interview: true } },
+    })
+  })
+
   it('Test Case 10b: Instructor Submit Attendance Feedback', () => {
     // Set system clock to 1 day after instructor orientation date so ClassSchedule is rendered
     const orientationDate = new Date(semesterDates.instructorOrientation)
@@ -977,8 +1029,21 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
             'EverythingComplete',
           )
           expect(klass.feedbackCompleted[1], 'week 2 untouched').to.equal(false)
+          // The schedule view brings every session's status up to date with
+          // the server's real clock - cy.clock above moves only the
+          // browser's - so week 2 reads "not held" once its date has really
+          // passed. Either way it is what the clock alone makes it: week 1's
+          // feedback must not have marked it complete.
+          const week2 = sessionTime(klass.meetingTimes[1])
+          const now = Date.now()
+          const expectedWeek2 =
+            week2 < now
+              ? 'ClassNotHeld'
+              : week2 - now < 30 * 60 * 1000
+                ? 'ClassUpcomingSoon'
+                : 'ClassInFuture'
           expect(klass.classStatuses[1], 'week 2 untouched').to.equal(
-            'ClassInFuture',
+            expectedWeek2,
           )
         },
       )
@@ -1130,9 +1195,16 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
     // The regression this guards: the schedule used to be rebuilt whenever a
     // checkbox happened to be ticked, so an instructor raising their class cap
     // could wipe the meeting dates students were already enrolled against.
+    cy.intercept('POST', '/api/classSchedule', (req) => {
+      if (req.body.action === 'refreshStatuses') req.alias = 'refreshStatuses'
+    })
     cy.signedInSession('instructor')
     cy.captureConfirms(false).as('confirms')
 
+    // The schedule view brings session statuses up to date with the
+    // server's clock as the page loads. Read the class only after that, or
+    // `before` can predate a status the refresh then changes on its own.
+    cy.wait('@refreshStatuses')
     let before: any
     readClassDoc().then((data: any) => {
       expect(data, 'class document').to.not.equal(null)
