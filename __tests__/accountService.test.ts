@@ -119,9 +119,7 @@ beforeEach(() => {
   docs = {}
   // Mirrors real Firestore: a transaction refuses any read queued after a
   // write, so a get()/getAll() call issued too late throws here exactly
-  // like it would against the emulator - this is what caught
-  // deleteAccount's student branch reading `confirmations` after already
-  // queuing the registration deletes.
+  // like it would against the emulator.
   let wrote = false
   transaction = {
     get: jest.fn(async (refOrQuery: any) => {
@@ -317,7 +315,7 @@ describe('checkAccountDeletionEligibility (student)', () => {
 })
 
 describe('deleteAccount (student)', () => {
-  it('deletes every existing registration, confirmations, and the users document, then the Auth account', async () => {
+  it('deletes every existing registration and the users document, then the Auth account', async () => {
     docs[`${registrationsCollection}/${PARENT_UID}-1`] = {
       enrolled: false,
       classes: [],
@@ -326,7 +324,6 @@ describe('deleteAccount (student)', () => {
       enrolled: false,
       classes: [],
     }
-    docs[`confirmations/${PARENT_UID}`] = { confirmed: true }
 
     await deleteAccount(PARENT_UID, 'student')
 
@@ -334,14 +331,13 @@ describe('deleteAccount (student)', () => {
       [
         `${registrationsCollection}/${PARENT_UID}-1`,
         `${registrationsCollection}/${PARENT_UID}-2`,
-        `confirmations/${PARENT_UID}`,
         `users/${PARENT_UID}`,
       ].sort(),
     )
     expect(mockDeleteUser).toHaveBeenCalledWith(PARENT_UID)
   })
 
-  it('skips a confirmations document that never existed', async () => {
+  it('deletes only the users document when there are no registrations', async () => {
     await deleteAccount(PARENT_UID, 'student')
 
     expect(deletedPaths()).toEqual([`users/${PARENT_UID}`])
