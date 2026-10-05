@@ -3,7 +3,6 @@ import { isOwnClassId } from '$lib/data/docIds'
 import { classesCollection, withSemester } from '$lib/data/collections'
 import {
   canClaimClassOwnership,
-  instructorClassMappingDiff,
   scheduleSourceChanged,
 } from '$lib/helpers/classDetailsForm'
 import { isInstructorOfClass } from '$lib/server/classDirectory'
@@ -14,16 +13,7 @@ import {
   NOT_AN_ACCEPTED_INSTRUCTOR,
 } from '$lib/server/instructorDirectory'
 import { error } from '@sveltejs/kit'
-import { FieldPath, FieldValue } from 'firebase-admin/firestore'
-
-/**
- * The classes each instructor reaches without owning them, keyed by
- * instructor uid: `{ classIds: [...] }`. Only this module reads or writes it -
- * firestore.rules closes it to every client - and every change to a class's
- * `otherInstructorUids` updates it in the same transaction, so the two can't
- * disagree.
- */
-export const INSTRUCTOR_CLASSES_COLLECTION = 'instructorClasses'
+import { FieldValue } from 'firebase-admin/firestore'
 
 /** A class as it crosses the wire: its session dates as ISO strings. */
 export type SerializedClass = Omit<
@@ -72,58 +62,29 @@ function serializeClass(data: Record<string, any>): SerializedClass {
   } as SerializedClass
 }
 
-function mappingRef(uid: string) {
-  return adminDb.doc(`${INSTRUCTOR_CLASSES_COLLECTION}/${uid}`)
-}
-
 /**
- * Every class this instructor can reach this semester: the ones they own
- * (see `isOwnClassId`) plus the ones shared with them as a co-instructor.
- *
- * Owned classes come from a document-id range query over the caller's own
- * prefix rather than a scan of the whole collection.
+ * Every class this instructor can reach this semester: the ones naming them
+ * as `instructorUid` or in `otherInstructorUids`, the same fields
+ * `isInstructorOfClass` authorizes their writes on.
  */
 export async function fetchInstructorClasses(
   uid: string,
 ): Promise<Record<string, SerializedClass>> {
-  const [mappingSnap, ownedSnap] = await Promise.all([
-    mappingRef(uid).get(),
-    adminDb
-      .collection(classesCollection)
-      .where(FieldPath.documentId(), '>=', `${uid}-`)
-      .where(FieldPath.documentId(), '<', `${uid}.`)
-      .get(),
+  const classes = adminDb.collection(classesCollection)
+  const snaps = await Promise.all([
+    classes.where('instructorUid', '==', uid).get(),
+    classes.where('otherInstructorUids', 'array-contains', uid).get(),
   ])
 
-  const classes: Record<string, SerializedClass> = {}
-  for (const snap of ownedSnap.docs) {
-    if (isOwnClassId(snap.id, uid)) {
-      classes[snap.id] = serializeClass(snap.data())
-    }
+  const result: Record<string, SerializedClass> = {}
+  for (const snap of snaps.flatMap(({ docs }) => docs)) {
+    result[snap.id] = serializeClass(snap.data())
   }
-
-  const sharedIds = ((mappingSnap.data()?.classIds ?? []) as string[]).filter(
-    (classId) => !(classId in classes),
-  )
-  if (sharedIds.length > 0) {
-    const sharedSnaps = await adminDb.getAll(
-      ...sharedIds.map((classId) =>
-        adminDb.doc(`${classesCollection}/${classId}`),
-      ),
-    )
-    for (const snap of sharedSnaps) {
-      if (snap.exists) {
-        classes[snap.id] = serializeClass(snap.data() ?? {})
-      }
-    }
-  }
-
-  return classes
+  return result
 }
 
 /**
- * Creates or updates a class from ClassDetailsForm, and keeps every affected
- * instructor's dashboard in step with it.
+ * Creates or updates a class from ClassDetailsForm.
  *
  * Everything that decides *who* a class belongs to is settled here rather than
  * taken from the browser:
@@ -135,10 +96,8 @@ export async function fetchInstructorClasses(
  *   - a co-instructor uid that wasn't already on the class must belong to an
  *     accepted instructor
  *   - the previous co-instructor list is read from the stored class, not
- *     reported by the client, so the mappings added and revoked are always
- *     the real difference
- *
- * The class write and every mapping write share one transaction.
+ *     reported by the client, so the uids checked are the ones really being
+ *     added
  */
 export async function saveClassDetails(
   caller: ClassDetailsCaller,
@@ -187,11 +146,8 @@ export async function saveClassDetails(
     const nextUids = [...new Set(details.otherInstructorUids)].filter(
       (uid) => uid !== ownerUid,
     )
-    const { added, removed } = instructorClassMappingDiff(
-      stored?.otherInstructorUids ?? [],
-      nextUids,
-      ownerUid,
-    )
+    const previousUids = new Set(stored?.otherInstructorUids ?? [])
+    const added = nextUids.filter((uid) => !previousUids.has(uid))
     for (const uid of added) {
       if (!(await isAcceptedInstructorAccount(uid))) {
         throw error(400, NOT_AN_ACCEPTED_INSTRUCTOR)
@@ -235,19 +191,5 @@ export async function saveClassDetails(
     }
 
     transaction.set(classRef, withSemester(classFields), { merge: true })
-    for (const uid of [ownerUid, ...added]) {
-      transaction.set(
-        mappingRef(uid),
-        { classIds: FieldValue.arrayUnion(classId) },
-        { merge: true },
-      )
-    }
-    for (const uid of removed) {
-      transaction.set(
-        mappingRef(uid),
-        { classIds: FieldValue.arrayRemove(classId) },
-        { merge: true },
-      )
-    }
   })
 }

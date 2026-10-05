@@ -572,8 +572,7 @@ Co-instructors file and cancel sub requests too; that half stays in
 ### Co-Instructors (Test Cases 13h-13q)
 
 A class stores its co-instructors as `otherInstructorUids`. That list is what
-`firestore.rules`'s `isInstructorOfClass()` reads to allow a write, and the
-uid-keyed `instructorClasses` mapping is what puts the class on a
+`isInstructorOfClass()` reads to allow a write, and what puts the class on a
 co-instructor's dashboard. Test Cases 13h-13j cover adding and removing them;
 13k-13q cover what one can then see and do, and where a co-instructor
 deliberately differs from the class's primary instructor.
@@ -584,9 +583,8 @@ deliberately differs from the class's primary instructor.
   an address with no gbSTEM account are all refused with the _same_ message, so
   the field can't be used to probe for accounts.
 - **13i / 13p - Removal revokes access**: whether the primary removes them or
-  they remove themselves, the uid leaves the class document (ending write
-  access) _and_ the class leaves their `instructorClasses` mapping (ending
-  dashboard access).
+  they remove themselves, the uid leaves the class document, which ends both
+  write access and dashboard access.
 - **13j - A co-instructor never becomes the owner**: saving the class details
   form does not restamp `instructorUid`, which would lock the real owner out of
   their own class.

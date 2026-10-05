@@ -47,13 +47,6 @@ export const COHOST_EMAIL = 'cohost@gbstem.org'
 export const SUBSTITUTE_UID = 'instructor-substitute-uid'
 export const SUBSTITUTE_EMAIL = 'substitute@gbstem.org'
 
-/**
- * Not semester-scoped, unlike every other collection here: it's the uid-keyed
- * index of which classes to show an instructor on their dashboard. See
- * classService's fetchInstructorClasses.
- */
-export const INSTRUCTOR_CLASSES_COLLECTION = 'instructorClasses'
-
 /** Reads the seeded class document straight out of Firestore. */
 export function readClassDoc(): Cypress.Chainable<any> {
   return cy

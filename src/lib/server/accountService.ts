@@ -15,7 +15,6 @@ import {
   type RegistrationForDeletion,
 } from '$lib/helpers/accountDeletion'
 import { adminAuth, adminDb } from '$lib/server/firebase'
-import { INSTRUCTOR_CLASSES_COLLECTION } from '$lib/server/instructorClasses'
 import { error } from '@sveltejs/kit'
 import type {
   DocumentReference,
@@ -133,10 +132,9 @@ export async function checkAccountDeletionEligibility(
  * live account with no way to retry, and a retry is a no-op over data
  * that's already gone.
  *
- * Instructor: `applications/{uid}`, `decisions/{uid}` (the Admin SDK bypasses
- * the admin/reviewer-only write rule) and `instructorClasses/{uid}`, each
- * only if it exists, and every interview time request they filed this
- * semester.
+ * Instructor: `applications/{uid}` and `decisions/{uid}` (the Admin SDK
+ * bypasses the admin/reviewer-only write rule), each only if it exists, and
+ * every interview time request they filed this semester.
  *
  * Student: every existing child registration. `checkIns` is deliberately
  * never touched: a record only exists for a student enrolled in a class this
@@ -160,15 +158,10 @@ export async function deleteAccount(
       }
       const applicationRef = adminDb.doc(`${applicationsCollection}/${uid}`)
       const decisionRef = adminDb.doc(`${decisionsCollection}/${uid}`)
-      const instructorClassesRef = adminDb.doc(
-        `${INSTRUCTOR_CLASSES_COLLECTION}/${uid}`,
+      const [applicationSnap, decisionSnap] = await transaction.getAll(
+        applicationRef,
+        decisionRef,
       )
-      const [applicationSnap, decisionSnap, instructorClassesSnap] =
-        await transaction.getAll(
-          applicationRef,
-          decisionRef,
-          instructorClassesRef,
-        )
       const timeRequests = await transaction.get(
         adminDb
           .collection(interviewTimeRequestsCollection)
@@ -179,9 +172,6 @@ export async function deleteAccount(
       }
       if (applicationSnap.exists) transaction.delete(applicationRef)
       if (decisionSnap.exists) transaction.delete(decisionRef)
-      if (instructorClassesSnap.exists) {
-        transaction.delete(instructorClassesRef)
-      }
     } else {
       const { eligibility, existingRegistrationRefs } =
         await studentEligibility(uid, transaction)
