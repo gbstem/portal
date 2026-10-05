@@ -2,6 +2,7 @@ import {
   classesCollection,
   currentSemester,
   instructorFeedbackCollection,
+  semesterCollectionPath,
   substituteRequestsCollection,
 } from '../../src/lib/data/collections'
 import {
@@ -546,6 +547,23 @@ describe('Section I: Substitute Requests And Cover', () => {
       .find('strong')
       .eq(1)
       .should('have.text', '1.5')
+
+    // A session they covered last semester counts too, though admin's
+    // scripts/archive-past-sub-requests.ts has moved it under that semester.
+    cy.task('mergeFirestoreDoc', {
+      docPath: `${semesterCollectionPath('Spring26', 'subRequests')}/${SEEDED_CLASS_ID}---1`,
+      data: {
+        subInstructorId: COHOST_UID,
+        subRequestStatus: 'NoSubstituteNeeded',
+        semester: 'Spring26',
+      },
+    })
+    cy.reload()
+    cy.contains('h2', 'You have completed 2 classes').should('be.visible')
+    cy.contains('div', 'as a substitute instructor')
+      .find('strong')
+      .eq(1)
+      .should('have.text', '3')
   })
 
   it('Test Case 15g: Sub Request - The Substitute Can Remind The Class', () => {

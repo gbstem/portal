@@ -5,6 +5,7 @@ import type {} from '../src/data.d.ts'
 
 jest.mock('firebase/firestore', () => ({
   collection: jest.fn(() => ({})),
+  collectionGroup: jest.fn(() => ({})),
   doc: jest.fn(() => ({})),
   query: jest.fn(() => ({})),
   where: jest.fn(() => ({})),
@@ -117,7 +118,7 @@ describe('substituteService (Data Access Layer)', () => {
   })
 
   describe('countCompletedSubClasses', () => {
-    it('counts server-side, only the sessions this user covered and closed out', async () => {
+    it('counts server-side, in every semester, only the sessions this user covered and closed out', async () => {
       ;(firestore.getCountFromServer as jest.Mock).mockResolvedValueOnce({
         data: () => ({ count: 3 }),
       })
@@ -125,6 +126,9 @@ describe('substituteService (Data Access Layer)', () => {
       const count = await substituteService.countCompletedSubClasses('user123')
 
       expect(count).toBe(3)
+      expect((firestore.collectionGroup as jest.Mock).mock.calls[0][1]).toBe(
+        'subRequests',
+      )
       expect(firestore.where).toHaveBeenCalledWith(
         'subInstructorId',
         '==',

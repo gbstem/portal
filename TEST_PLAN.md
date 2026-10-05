@@ -514,7 +514,9 @@ written against a defect.
   The stored feedback names the substitute and the course they covered, both
   read from the request rather than from the form.
 - **15f - A covered class earns the substitute their hours**: the covered class
-  shows up as 1.5 hours of substitute instruction on `/community-service`.
+  shows up as 1.5 hours of substitute instruction on `/community-service`, and
+  one covered last semester and archived under `semesters/{id}/subRequests`
+  counts as well.
 - **15g - The substitute can remind the class**: the reminder reaches the
   roster and is signed by the substitute - for that session they are who the
   students are meeting. (It looked the roster up by the sub request's id rather
