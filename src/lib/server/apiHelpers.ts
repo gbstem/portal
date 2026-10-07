@@ -2,12 +2,27 @@ import { error, isHttpError } from '@sveltejs/kit'
 import { ZodError } from 'zod'
 
 /**
- * Ensures the user is signed in (authenticated).
- * Throws a 401 if not signed in.
+ * Ensures the user is signed in (authenticated) *and* has a verified email.
+ * Throws a 401 if not signed in, or a 403 if the address is unverified.
+ *
+ * The verified check lives here, not only in the `(emailVerified)` layout,
+ * because a layout redirect protects neither an /api/* route nor a form
+ * action. Accounts idle for too long have `emailVerified` reset, and
+ * `firestore.rules` refuses their reads the same way - this is the half of
+ * that which the Admin SDK's rules bypass would otherwise leave open.
+ *
+ * Pass `allowUnverified` only for what an unverified person must still reach:
+ * requesting the verification email itself, and managing their own account.
  */
-export function verifyAuthenticated(locals: App.Locals) {
+export function verifyAuthenticated(
+  locals: App.Locals,
+  { allowUnverified = false }: { allowUnverified?: boolean } = {},
+) {
   if (!locals.user) {
     throw error(401, 'User not signed in.')
+  }
+  if (!allowUnverified && !locals.user.emailVerified) {
+    throw error(403, 'Verify your email address first.')
   }
   return locals.user
 }

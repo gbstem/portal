@@ -323,7 +323,12 @@ function mockAuthAccounts(accounts: Record<string, string>) {
 }
 
 const instructorLocals = {
-  user: { uid: 'caller-uid', email: 'caller@gbstem.org', role: 'instructor' },
+  user: {
+    uid: 'caller-uid',
+    email: 'caller@gbstem.org',
+    role: 'instructor',
+    emailVerified: true,
+  },
 }
 
 beforeEach(() => {
@@ -340,7 +345,12 @@ describe('resolveEmailsPOST', () => {
   let mockRequest: any
 
   const parentLocals = {
-    user: { uid: 'parent-uid', email: 'parent@example.com', role: 'student' },
+    user: {
+      uid: 'parent-uid',
+      email: 'parent@example.com',
+      role: 'student',
+      emailVerified: true,
+    },
   }
   const classPath = `${classesCollection}/instructor-uid-1`
   const enrolledClass = {
@@ -606,7 +616,9 @@ describe('co-instructor directory routes', () => {
       await expect(
         lookupCoInstructorPOST({
           request: mockRequest,
-          locals: { user: { uid: 's-1', role: 'student' } },
+          locals: {
+            user: { uid: 's-1', role: 'student', emailVerified: true },
+          },
         } as any),
       ).rejects.toEqual(expect.objectContaining({ status: 403 }))
     })
@@ -792,7 +804,9 @@ describe('co-instructor directory routes', () => {
       await expect(
         resolveCoInstructorsPOST({
           request: mockRequest,
-          locals: { user: { uid: 's-1', role: 'student' } },
+          locals: {
+            user: { uid: 's-1', role: 'student', emailVerified: true },
+          },
         } as any),
       ).rejects.toEqual(expect.objectContaining({ status: 403 }))
     })
@@ -898,9 +912,31 @@ describe('API routes POST endpoints', () => {
     })
     const res = await actionPOST({
       request: mockRequest as any,
-      locals: { user: { email: 'test@test.com' } },
+      locals: { user: { email: 'test@test.com', emailVerified: false } },
     } as any)
     expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
+  })
+
+  it('actionPOST changeEmail refuses an unverified account, since its link would verify the new address', async () => {
+    mockRequest.json.mockResolvedValue({
+      type: 'changeEmail',
+      newEmail: 'new@test.com',
+    })
+    await expect(
+      actionPOST({
+        request: mockRequest as any,
+        locals: {
+          user: {
+            email: 'old@test.com',
+            role: 'student',
+            emailVerified: false,
+          },
+        },
+      } as any),
+    ).rejects.toMatchObject({ status: 403 })
+    expect(
+      mockAdminAuth.generateVerifyAndChangeEmailLink,
+    ).not.toHaveBeenCalled()
   })
 
   it('actionPOST changeEmail successfully', async () => {
@@ -911,7 +947,7 @@ describe('API routes POST endpoints', () => {
     })
     const res = await actionPOST({
       request: mockRequest as any,
-      locals: { user: { email: 'old@test.com' } },
+      locals: { user: { email: 'old@test.com', emailVerified: true } },
     } as any)
     expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
     expect(mockAdminAuth.generateVerifyAndChangeEmailLink).toHaveBeenCalledWith(
@@ -925,7 +961,7 @@ describe('API routes POST endpoints', () => {
     await expect(
       actionPOST({
         request: mockRequest as any,
-        locals: { user: { email: 'old@test.com' } },
+        locals: { user: { email: 'old@test.com', emailVerified: true } },
       } as any),
     ).rejects.toEqual(
       expect.objectContaining({
@@ -961,7 +997,7 @@ describe('API routes POST endpoints', () => {
     })
     const res = await actionPOST({
       request: mockRequest as any,
-      locals: { user: { email: 'attacker@test.com' } },
+      locals: { user: { email: 'attacker@test.com', emailVerified: true } },
     } as any)
     expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
     expect(mockAdminAuth.generatePasswordResetLink).toHaveBeenCalledWith(
@@ -1042,7 +1078,7 @@ describe('API routes POST endpoints', () => {
 
     const res = await actionPOST({
       request: mockRequest as any,
-      locals: { user: { email: 'test@test.com' } },
+      locals: { user: { email: 'test@test.com', emailVerified: true } },
     } as any)
 
     expect(res).toEqual(
@@ -1362,7 +1398,7 @@ describe('API routes POST endpoints', () => {
     })
     const res = await communityServicePOST({
       request: mockRequest as any,
-      locals: { user: { email: 'student@test.com' } },
+      locals: { user: { email: 'student@test.com', emailVerified: true } },
     } as any)
     expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
     expect(MailService.send).toHaveBeenCalledWith(
@@ -1384,7 +1420,7 @@ describe('API routes POST endpoints', () => {
       })
       const res = await communityServicePOST({
         request: mockRequest as any,
-        locals: { user: { email: 'test@test.com' } },
+        locals: { user: { email: 'test@test.com', emailVerified: true } },
       } as any)
       expect(res).toEqual(
         expect.objectContaining({
@@ -1408,7 +1444,12 @@ describe('API routes POST endpoints', () => {
     const CLASS_ID = 'teacher-uid-1'
     const STUDENT_UID = 'parent-uid-1'
     const parentLocals = {
-      user: { uid: 'parent-uid', email: 'parent@test.com', role: 'student' },
+      user: {
+        uid: 'parent-uid',
+        email: 'parent@test.com',
+        role: 'student',
+        emailVerified: true,
+      },
     }
 
     /** The documents as enrollStudent returns them; `classOverrides` edits the class. */
@@ -1588,7 +1629,12 @@ describe('API routes POST endpoints', () => {
     it('POST rejects an instructor with a 403', async () => {
       await expect(
         call(enrollPOST, undefined, {
-          user: { uid: 'i', email: 'i@x.org', role: 'instructor' },
+          user: {
+            uid: 'i',
+            email: 'i@x.org',
+            role: 'instructor',
+            emailVerified: true,
+          },
         }),
       ).rejects.toEqual(expect.objectContaining({ status: 403 }))
       expect(mockEnrollStudent).not.toHaveBeenCalled()
@@ -1618,7 +1664,12 @@ describe('API routes POST endpoints', () => {
     it('DELETE rejects an instructor with a 403', async () => {
       await expect(
         call(enrollDELETE, undefined, {
-          user: { uid: 'i', email: 'i@x.org', role: 'instructor' },
+          user: {
+            uid: 'i',
+            email: 'i@x.org',
+            role: 'instructor',
+            emailVerified: true,
+          },
         }),
       ).rejects.toEqual(expect.objectContaining({ status: 403 }))
       expect(mockUnenrollStudent).not.toHaveBeenCalled()
@@ -1631,6 +1682,7 @@ describe('API routes POST endpoints', () => {
         uid: 'applicant-uid',
         email: 'applicant@test.com',
         role: 'instructor',
+        emailVerified: true,
       },
     }
 
@@ -1676,7 +1728,14 @@ describe('API routes POST endpoints', () => {
     it('GET rejects a student with a 403', async () => {
       await expect(
         interviewGET({
-          locals: { user: { uid: 's', email: 's@x.org', role: 'student' } },
+          locals: {
+            user: {
+              uid: 's',
+              email: 's@x.org',
+              role: 'student',
+              emailVerified: true,
+            },
+          },
         } as any),
       ).rejects.toEqual(expect.objectContaining({ status: 403 }))
       expect(mockFetchInterviewData).not.toHaveBeenCalled()
@@ -1816,7 +1875,14 @@ describe('API routes POST endpoints', () => {
 
     it('POST rejects a student with a 403', async () => {
       await expect(
-        bookAs({ user: { uid: 's', email: 's@x.org', role: 'student' } }),
+        bookAs({
+          user: {
+            uid: 's',
+            email: 's@x.org',
+            role: 'student',
+            emailVerified: true,
+          },
+        }),
       ).rejects.toEqual(expect.objectContaining({ status: 403 }))
       expect(mockBookInterviewSlot).not.toHaveBeenCalled()
     })
@@ -1858,7 +1924,13 @@ describe('API routes POST endpoints', () => {
     await expect(
       remindStudentsPOST({
         request: mockRequest as any,
-        locals: { user: { email: 'test@test.com', role: 'student' } },
+        locals: {
+          user: {
+            email: 'test@test.com',
+            role: 'student',
+            emailVerified: true,
+          },
+        },
       } as any),
     ).rejects.toEqual(
       expect.objectContaining({
@@ -1970,6 +2042,7 @@ describe('API routes POST endpoints', () => {
           uid: 'caller-uid',
           email: 'caller@gbstem.org',
           role: 'instructor',
+          emailVerified: true,
         },
       },
     } as any)
@@ -2203,7 +2276,9 @@ describe('API routes POST endpoints', () => {
       await expect(
         classRosterGET({
           url,
-          locals: { user: { uid: 's-1', role: 'student' } },
+          locals: {
+            user: { uid: 's-1', role: 'student', emailVerified: true },
+          },
         } as any),
       ).rejects.toEqual(
         expect.objectContaining({ status: 403, __isSvelteKitError: true }),
@@ -2381,6 +2456,7 @@ describe('API routes POST endpoints', () => {
         uid: 'applicant-uid',
         email: 'authenticated@test.com',
         role: 'instructor',
+        emailVerified: true,
       },
     }
 
@@ -2449,7 +2525,9 @@ describe('API routes POST endpoints', () => {
       await expect(
         slotRequestPOST({
           request: mockRequest as any,
-          locals: { user: { uid: 's-1', role: 'student' } },
+          locals: {
+            user: { uid: 's-1', role: 'student', emailVerified: true },
+          },
         } as any),
       ).rejects.toEqual(expect.objectContaining({ status: 403 }))
       await expect(
@@ -2464,7 +2542,12 @@ describe('API routes POST endpoints', () => {
   describe('/api/substitute', () => {
     const SUB_REQUEST_ID = 'owner-uid-1---1'
     const subLocals = {
-      user: { uid: 'sub-uid', email: 'sub@gbstem.org', role: 'instructor' },
+      user: {
+        uid: 'sub-uid',
+        email: 'sub@gbstem.org',
+        role: 'instructor',
+        emailVerified: true,
+      },
     }
 
     /** The request as claimSubRequest returns it; `overrides` edits it. */
@@ -2514,7 +2597,14 @@ describe('API routes POST endpoints', () => {
     it('GET rejects a student with a 403', async () => {
       await expect(
         substituteGET({
-          locals: { user: { uid: 's', email: 's@x.org', role: 'student' } },
+          locals: {
+            user: {
+              uid: 's',
+              email: 's@x.org',
+              role: 'student',
+              emailVerified: true,
+            },
+          },
         } as any),
       ).rejects.toEqual(expect.objectContaining({ status: 403 }))
       expect(mockFetchOpenSubRequests).not.toHaveBeenCalled()
@@ -2698,7 +2788,12 @@ describe('API routes POST endpoints', () => {
     it('POST throws 403 when user is not an instructor', async () => {
       await expect(
         claimAs({
-          user: { uid: 's', email: 'student@gbstem.org', role: 'student' },
+          user: {
+            uid: 's',
+            email: 'student@gbstem.org',
+            role: 'student',
+            emailVerified: true,
+          },
         }),
       ).rejects.toEqual(
         expect.objectContaining({ status: 403, __isSvelteKitError: true }),
@@ -2735,7 +2830,12 @@ describe('API routes POST endpoints', () => {
     }
 
     const instructorLocals = {
-      user: { uid: 'uid-owner', email: 'owner@gbstem.org', role: 'instructor' },
+      user: {
+        uid: 'uid-owner',
+        email: 'owner@gbstem.org',
+        role: 'instructor',
+        emailVerified: true,
+      },
     }
     const body = {
       classId: 'uid-owner-1',
@@ -2913,7 +3013,9 @@ describe('API routes POST endpoints', () => {
       await expect(
         meetingLinkPOST({
           request: mockRequest,
-          locals: { user: { uid: 'uid-kid', role: 'student' } },
+          locals: {
+            user: { uid: 'uid-kid', role: 'student', emailVerified: true },
+          },
         } as any),
       ).rejects.toEqual(
         expect.objectContaining({ status: 403, __isSvelteKitError: true }),
@@ -3160,7 +3262,12 @@ describe('substitute session endpoints', () => {
 
   const SUB_REQUEST_ID = 'owner-uid-1---2'
   const substituteLocals = {
-    user: { uid: 'sub-uid', email: 'sub@gbstem.org', role: 'instructor' },
+    user: {
+      uid: 'sub-uid',
+      email: 'sub@gbstem.org',
+      role: 'instructor',
+      emailVerified: true,
+    },
   }
 
   /**
@@ -3358,7 +3465,14 @@ describe('substitute session endpoints', () => {
       await expect(
         substituteSessionPOST({
           request: mockRequest as any,
-          locals: { user: { uid: 's', email: 's@x.org', role: 'student' } },
+          locals: {
+            user: {
+              uid: 's',
+              email: 's@x.org',
+              role: 'student',
+              emailVerified: true,
+            },
+          },
         } as any),
       ).rejects.toEqual(expect.objectContaining({ status: 403 }))
     })
@@ -3538,7 +3652,7 @@ describe('class feedback endpoints', () => {
     it('refuses a student account', async () => {
       await expect(
         call(instructorFeedbackPOST, body, {
-          user: { uid: 'parent-uid', role: 'student' },
+          user: { uid: 'parent-uid', role: 'student', emailVerified: true },
         }),
       ).rejects.toEqual(expect.objectContaining({ status: 403 }))
       expect(mockFileInstructorFeedback).not.toHaveBeenCalled()
@@ -3589,7 +3703,12 @@ describe('class feedback endpoints', () => {
 
   describe('/api/studentFeedback', () => {
     const parentLocals = {
-      user: { uid: 'parent-uid', email: 'parent@test.com', role: 'student' },
+      user: {
+        uid: 'parent-uid',
+        email: 'parent@test.com',
+        role: 'student',
+        emailVerified: true,
+      },
     }
     const body = {
       studentId: 'parent-uid-1',
@@ -3724,7 +3843,7 @@ describe('/api/classDetails', () => {
   it('GET rejects a student with a 403 and a signed-out caller with a 401', async () => {
     await expect(
       classDetailsGET({
-        locals: { user: { uid: 's-1', role: 'student' } },
+        locals: { user: { uid: 's-1', role: 'student', emailVerified: true } },
       } as any),
     ).rejects.toEqual(expect.objectContaining({ status: 403 }))
     await expect(classDetailsGET({ locals: {} } as any)).rejects.toEqual(
@@ -3803,7 +3922,9 @@ describe('/api/classDetails', () => {
 
   it('POST rejects a student with a 403', async () => {
     await expect(
-      postWith(classDetailsBody, { user: { uid: 's-1', role: 'student' } }),
+      postWith(classDetailsBody, {
+        user: { uid: 's-1', role: 'student', emailVerified: true },
+      }),
     ).rejects.toEqual(expect.objectContaining({ status: 403 }))
     expect(mockSaveClassDetails).not.toHaveBeenCalled()
   })
@@ -3896,7 +4017,9 @@ describe('/api/classSchedule', () => {
   it('refuses a parent with a 403 and a signed-out caller with a 401', async () => {
     const body = { action: 'holdSession', classId: 'c-1' }
     await expect(
-      postWith(body, { user: { uid: 's-1', role: 'student' } }),
+      postWith(body, {
+        user: { uid: 's-1', role: 'student', emailVerified: true },
+      }),
     ).rejects.toEqual(expect.objectContaining({ status: 403 }))
     await expect(postWith(body, {})).rejects.toEqual(
       expect.objectContaining({ status: 401 }),
@@ -3974,7 +4097,9 @@ describe('/api/subRequest', () => {
   })
 
   it('refuses a parent with a 403 and a signed-out caller with a 401, on every method', async () => {
-    const student = { user: { uid: 's-1', role: 'student' } }
+    const student = {
+      user: { uid: 's-1', role: 'student', emailVerified: true },
+    }
     for (const [handler, body] of [
       [subRequestPOST, { classId: 'c-1', ...session }],
       [subRequestPATCH, { subRequestId: 'c-1---2', ...session }],
