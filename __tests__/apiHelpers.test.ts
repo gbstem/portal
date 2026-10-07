@@ -29,8 +29,26 @@ describe('apiHelpers', () => {
       expect(err.body.message).toBe('User not signed in.')
     })
 
+    it('throws 403 if the email is not verified', () => {
+      const locals = {
+        user: { uid: '456', role: 'student', emailVerified: false },
+      } as any as App.Locals
+      expect(() => verifyAuthenticated(locals)).toThrow(
+        expect.objectContaining({
+          status: 403,
+          body: { message: 'Verify your email address first.' },
+        }),
+      )
+    })
+
+    it('lets an unverified user through when allowUnverified is set', () => {
+      const user = { uid: '456', role: 'student', emailVerified: false }
+      const locals = { user } as any as App.Locals
+      expect(verifyAuthenticated(locals, { allowUnverified: true })).toBe(user)
+    })
+
     it('returns the user if signed in', () => {
-      const user = { uid: '456', role: 'student' }
+      const user = { uid: '456', role: 'student', emailVerified: true }
       const locals = { user } as any as App.Locals
       const result = verifyAuthenticated(locals)
       expect(result).toBe(user)
@@ -46,7 +64,7 @@ describe('apiHelpers', () => {
 
     it('throws 403 for a signed-in instructor', () => {
       const locals = {
-        user: { uid: '123', role: 'instructor' },
+        user: { uid: '123', role: 'instructor', emailVerified: true },
       } as any as App.Locals
       expect(() => verifyStudent(locals)).toThrow(
         expect.objectContaining({
@@ -57,7 +75,7 @@ describe('apiHelpers', () => {
     })
 
     it('returns the user for a student account', () => {
-      const user = { uid: '456', role: 'student' }
+      const user = { uid: '456', role: 'student', emailVerified: true }
       const locals = { user } as any as App.Locals
       expect(verifyStudent(locals)).toBe(user)
     })
