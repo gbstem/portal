@@ -34,10 +34,17 @@ const APPLY_FORM_ID = 'apply'
 const REGISTRATION_FORM_ID = 'registration'
 
 export const load: PageServerLoad = async ({ locals, url }) => {
-  if (locals.user?.role === 'instructor') {
+  // The (emailVerified) layout redirects too, but SvelteKit runs this load
+  // alongside it rather than after, and loadApplication/loadRegistration
+  // create draft documents, so without this an unverified account's visit
+  // writes them before the layout's redirect lands.
+  if (!locals.user?.emailVerified) {
+    throw redirect(303, '/profile')
+  }
+  if (locals.user.role === 'instructor') {
     return loadApplicationPage(locals.user)
   }
-  if (locals.user?.role === 'student') {
+  if (locals.user.role === 'student') {
     return loadRegistrationPage(locals.user, url)
   }
   return { page: null }

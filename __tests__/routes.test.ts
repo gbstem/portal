@@ -233,6 +233,18 @@ import { load as signedOutLayoutLoad } from '../src/routes/(signedOut)/+layout.s
 import { load as pageLoad } from '../src/routes/+page'
 
 import { POST as actionPOST } from '../src/routes/api/action/+server'
+// And the hour tally (communityService.test.ts).
+const mockCommunityServiceSummary = jest.fn()
+jest.mock('$lib/server/communityService', () => ({
+  ...jest.requireActual('$lib/server/communityService'),
+  communityServiceSummary: (...args: any[]) =>
+    mockCommunityServiceSummary(...args),
+}))
+const mockProfileNames = jest.fn()
+jest.mock('$lib/server/userProfile', () => ({
+  profileNames: (...args: any[]) => mockProfileNames(...args),
+}))
+
 import {
   DELETE as authDELETE,
   POST as authPOST,
@@ -1387,57 +1399,105 @@ describe('API routes POST endpoints', () => {
     )
   })
 
-  it('communityServicePOST successfully', async () => {
-    mockRequest.json.mockResolvedValue({
-      firstName: 'Student',
-      hours: 10,
-      season: 'fall',
-      year: 2026,
-      course: 'Math',
-      presidents: 'Kendree Chen',
-    })
-    const res = await communityServicePOST({
-      request: mockRequest as any,
-      locals: { user: { email: 'student@test.com', emailVerified: true } },
-    } as any)
-    expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
-    expect(MailService.send).toHaveBeenCalledWith(
-      expect.objectContaining({
-        to: ['student@test.com'],
-      }),
-    )
-  })
+  describe('/api/communityService', () => {
+    const INSTRUCTOR = {
+      uid: 'teacher-uid',
+      email: 'teacher@test.com',
+      role: 'instructor',
+      emailVerified: true,
+    }
 
-  it('communityServicePOST returns a 500 json response when sending the email fails', async () => {
-    await withRejectedSend(async () => {
-      mockRequest.json.mockResolvedValue({
-        firstName: 'Student',
-        hours: 10,
+    beforeEach(() => {
+      mockCommunityServiceSummary.mockReset().mockResolvedValue({
+        classSessions: 8,
+        subSessions: 2,
+        classHours: 10,
+        subHours: 3,
+        totalHours: 13,
+        course: 'Python 1',
         season: 'fall',
         year: 2026,
-        course: 'Math',
-        presidents: 'Kendree Chen',
+      })
+      mockProfileNames
+        .mockReset()
+        .mockResolvedValue({ firstName: 'Alex', lastName: 'Teacher' })
+      ;(MailService.send as jest.Mock).mockClear()
+    })
+
+    it('emails the instructor the hours computed server-side, ignoring anything in the body', async () => {
+      mockRequest.json.mockResolvedValue({
+        firstName: 'Forged',
+        hours: 777,
+        season: 'spring',
+        year: 1987,
+        course: 'Not A Course',
+        presidents: 'Somebody Else',
       })
       const res = await communityServicePOST({
         request: mockRequest as any,
-        locals: { user: { email: 'test@test.com', emailVerified: true } },
+        locals: { user: INSTRUCTOR },
       } as any)
-      expect(res).toEqual(
-        expect.objectContaining({
-          body: { error: 'Failed to send email. Please try again later.' },
-          init: { status: 500 },
-        }),
+      expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
+      expect(mockCommunityServiceSummary).toHaveBeenCalledWith('teacher-uid')
+      expect(mockProfileNames).toHaveBeenCalledWith('teacher-uid')
+
+      const [message] = (MailService.send as jest.Mock).mock.calls[0]
+      expect(message.to).toEqual(['teacher@test.com'])
+      expect(message.subject).toContain('for Alex')
+      expect(message.html).toContain('13 hours')
+      expect(message.html).toContain('Python 1')
+      expect(message.html).toContain('fall')
+      expect(message.html).toContain('2026')
+      expect(message.html).toContain('Kendree Chen')
+      for (const forged of [
+        'Forged',
+        '777',
+        '1987',
+        'Not A Course',
+        'Somebody Else',
+      ]) {
+        expect(message.html).not.toContain(forged)
+      }
+    })
+
+    it('returns a 500 json response when sending the email fails', async () => {
+      await withRejectedSend(async () => {
+        const res = await communityServicePOST({
+          request: mockRequest as any,
+          locals: { user: INSTRUCTOR },
+        } as any)
+        expect(res).toEqual(
+          expect.objectContaining({
+            body: { error: 'Failed to send email. Please try again later.' },
+            init: { status: 500 },
+          }),
+        )
+      })
+    })
+
+    it('refuses a student account', async () => {
+      await expect(
+        communityServicePOST({
+          request: mockRequest as any,
+          locals: {
+            user: { ...INSTRUCTOR, uid: 'parent-uid', role: 'student' },
+          },
+        } as any),
+      ).rejects.toMatchObject({ status: 403 })
+      expect(mockCommunityServiceSummary).not.toHaveBeenCalled()
+      expect(MailService.send).not.toHaveBeenCalled()
+    })
+
+    it('refuses a caller who is not signed in', async () => {
+      await expect(
+        communityServicePOST({
+          request: mockRequest as any,
+          locals: {},
+        } as any),
+      ).rejects.toEqual(
+        expect.objectContaining({ status: 401, __isSvelteKitError: true }),
       )
     })
-  })
-
-  it('communityServicePOST propagates the auth error when the user is not signed in', async () => {
-    mockRequest.json.mockResolvedValue({ name: 'Student' })
-    await expect(
-      communityServicePOST({ request: mockRequest as any, locals: {} } as any),
-    ).rejects.toEqual(
-      expect.objectContaining({ status: 401, __isSvelteKitError: true }),
-    )
   })
 
   describe('/api/enroll', () => {

@@ -1057,15 +1057,51 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
   it('Test Case 11: Instructor Community Service Hours', () => {
     cy.signedInSession('instructor', { initialPage: '/community-service' })
 
+    // The hours the page shows, which the server computed...
+    cy.contains('h2', 'total hours')
+      .invoke('text')
+      .then((text) => /equaling ([\d.]+) total hours/.exec(text)?.[1])
+      .as('totalHours')
+      .should('be.a', 'string')
+
     // Click confirm hours button and verify email notification toast
     cy.contains('button', 'Get Hours Confirmation Email')
       .should('not.be.disabled')
       .click()
     cy.waitForNotification('Email sent successfully!')
-    cy.verifyEmailSent(
-      'instructor@gbstem.org',
-      'gbSTEM Community Service Hours Confirmation',
-    )
+    // ...are the hours the email attests to.
+    cy.get<string>('@totalHours').then((totalHours) => {
+      cy.verifyEmailSent(
+        'instructor@gbstem.org',
+        'gbSTEM Community Service Hours Confirmation',
+      )
+        .its('html')
+        .should('contain', `completed ${totalHours} hours`)
+    })
+
+    // The email is an attestation from gbSTEM, so a request naming its own
+    // figures gets the same computed ones.
+    cy.clearTestEmails()
+    cy.request('POST', '/api/communityService', {
+      firstName: 'Forged',
+      hours: 777,
+      season: 'spring',
+      year: 1987,
+      course: 'Not A Course',
+      presidents: 'Somebody Else',
+    })
+    cy.get<string>('@totalHours').then((totalHours) => {
+      cy.verifyEmailSent(
+        'instructor@gbstem.org',
+        'gbSTEM Community Service Hours Confirmation',
+      )
+        .its('html')
+        .should('contain', `completed ${totalHours} hours`)
+        .and('not.contain', 'Forged')
+        .and('not.contain', '777')
+        .and('not.contain', 'Not A Course')
+        .and('not.contain', 'Somebody Else')
+    })
   })
 
   it('Test Case 13: Class Details - Every Field Reaches Firestore', () => {

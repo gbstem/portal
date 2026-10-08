@@ -417,6 +417,78 @@ describe('Zod Validation Schemas', () => {
     })
   })
 
+  // The second guardian's address is copied on the confirmation email, so
+  // only a real address (or none) may be saved - in a draft too, since admin
+  // copies stored addresses into mail.
+  describe.each([
+    ['registrationSchema', registrationSchema],
+    ['registrationDraftSchema', registrationDraftSchema],
+  ])('%s secondaryEmail and student name', (_name, schema) => {
+    const withPersonal = (personal: Record<string, unknown>) => {
+      const defaults = getRegistrationFormDefaults()
+      return {
+        ...defaults,
+        personal: {
+          ...defaults.personal,
+          studentFirstName: 'John',
+          studentLastName: 'Doe',
+          phoneNumber: '123-456-7890',
+          frlp: 'No',
+          parentEducation: 'College Degree',
+          ...personal,
+        },
+      }
+    }
+    const issuePaths = (value: unknown) =>
+      (schema.safeParse(value).error?.issues ?? []).map((i) => i.path.join('.'))
+
+    it.each(['', 'guardian@example.com'])(
+      'accepts %j as the secondary email',
+      (secondaryEmail) => {
+        expect(issuePaths(withPersonal({ secondaryEmail }))).not.toContain(
+          'personal.secondaryEmail',
+        )
+      },
+    )
+
+    it.each([
+      'not-an-address',
+      'victim@example.com, other@example.com',
+      `${'a'.repeat(250)}@example.com`,
+    ])('refuses %j as the secondary email', (secondaryEmail) => {
+      expect(issuePaths(withPersonal({ secondaryEmail }))).toContain(
+        'personal.secondaryEmail',
+      )
+    })
+
+    it('trims whitespace around the secondary email', () => {
+      expect(
+        schema.shape.personal.shape.secondaryEmail.parse(
+          '  guardian@example.com ',
+        ),
+      ).toBe('guardian@example.com')
+    })
+
+    it('caps the student name at 100 characters', () => {
+      expect(
+        issuePaths(withPersonal({ studentFirstName: 'x'.repeat(100) })),
+      ).not.toContain('personal.studentFirstName')
+      expect(
+        issuePaths(
+          withPersonal({
+            studentFirstName: 'x'.repeat(101),
+            studentLastName: 'x'.repeat(101),
+          }),
+        ),
+      ).toEqual(
+        expect.arrayContaining([
+          'personal.studentFirstName',
+          'personal.studentLastName',
+        ]),
+      )
+    })
+  })
+
   describe('passwordSchema', () => {
     it('passes for a valid password within 6 to 64 characters', () => {
       expect(passwordSchema.safeParse('123456').success).toBe(true)
