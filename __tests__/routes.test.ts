@@ -917,7 +917,10 @@ describe('API routes POST endpoints', () => {
     expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
   })
 
-  it('actionPOST changeEmail refuses an unverified account, since its link would verify the new address', async () => {
+  // The email change goes through the client SDK's verifyBeforeUpdateEmail,
+  // which Firebase refuses without a recent sign-in. A server route that
+  // issued the same link would accept any live session cookie, so none may.
+  it('actionPOST refuses changeEmail and issues no verify-and-change link', async () => {
     mockRequest.json.mockResolvedValue({
       type: 'changeEmail',
       newEmail: 'new@test.com',
@@ -926,49 +929,13 @@ describe('API routes POST endpoints', () => {
       actionPOST({
         request: mockRequest as any,
         locals: {
-          user: {
-            email: 'old@test.com',
-            role: 'student',
-            emailVerified: false,
-          },
+          user: { email: 'old@test.com', role: 'student', emailVerified: true },
         },
       } as any),
-    ).rejects.toMatchObject({ status: 403 })
+    ).rejects.toMatchObject({ status: 400 })
     expect(
       mockAdminAuth.generateVerifyAndChangeEmailLink,
     ).not.toHaveBeenCalled()
-  })
-
-  it('actionPOST changeEmail successfully', async () => {
-    mockRequest.json.mockResolvedValue({
-      type: 'changeEmail',
-      newEmail: 'new@test.com',
-      firstName: 'Student',
-    })
-    const res = await actionPOST({
-      request: mockRequest as any,
-      locals: { user: { email: 'old@test.com', emailVerified: true } },
-    } as any)
-    expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
-    expect(mockAdminAuth.generateVerifyAndChangeEmailLink).toHaveBeenCalledWith(
-      'old@test.com',
-      'new@test.com',
-    )
-  })
-
-  it('actionPOST changeEmail fails without a newEmail', async () => {
-    mockRequest.json.mockResolvedValue({ type: 'changeEmail' })
-    await expect(
-      actionPOST({
-        request: mockRequest as any,
-        locals: { user: { email: 'old@test.com', emailVerified: true } },
-      } as any),
-    ).rejects.toEqual(
-      expect.objectContaining({
-        status: 400,
-        message: 'Invalid request body.',
-      }),
-    )
   })
 
   it('actionPOST resetPassword successfully', async () => {
@@ -989,8 +956,8 @@ describe('API routes POST endpoints', () => {
   it('actionPOST resetPassword ignores a signed-in caller-supplied email and uses their own', async () => {
     // A signed-in caller can only reset their own password - otherwise a
     // logged-in attacker could target any other account by supplying its
-    // email here, the same hole changeEmail/verifyEmail don't have because
-    // they read the email off the session rather than the request body.
+    // email here, the same hole verifyEmail doesn't have because it reads
+    // the email off the session rather than the request body.
     mockRequest.json.mockResolvedValue({
       type: 'resetPassword',
       email: 'victim@test.com',

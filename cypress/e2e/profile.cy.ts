@@ -83,12 +83,14 @@ describe('Section F: Profile Customization & Account Management', () => {
       })
     cy.waitForNotification('A verification email was sent.', 'bg-gray-200')
 
-    // Handle email verification (emulated email side-channel)
-    cy.getLatestOobLink(updatedEmail, 'VERIFY_AND_CHANGE_EMAIL').then(
-      (link) => {
-        cy.request(link)
-      },
-    )
+    // Firebase, not this app, sends the verify-and-change link, so it comes
+    // from the Auth emulator rather than the emulated email side-channel.
+    cy.getChangeEmailLink(updatedEmail).then((link) => {
+      cy.request(link)
+    })
+    // In production, applying it also has Firebase email the old address a
+    // link that undoes the change. The Auth emulator only sends that
+    // RECOVER_EMAIL link for a direct updateEmail, so it can't be checked here.
 
     // Reload and verify email field shows the updated email
     cy.visit('/profile')
