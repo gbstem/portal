@@ -1,3 +1,7 @@
+/**
+ * @jest-environment node
+ */
+// The routes answer with Fetch API `Response`s, which jsdom does not provide.
 // Mock Svelte Store reset
 jest.mock(
   'svelte/store',
@@ -41,12 +45,23 @@ jest.mock(
       location,
       __isSvelteKitRedirect: true,
     }),
-    json: (body: any, init?: any) => ({ body, init, __isSvelteKitJson: true }),
     isHttpError: (err: any) =>
       err && (err.__isSvelteKitError || (err.status && err.body)),
   }),
   { virtual: true },
 )
+
+const parsedBodies = new WeakMap<Response, Promise<any>>()
+
+/** A route response's JSON body. A body can only be read once, so it's cached. */
+function bodyOf(res: Response): Promise<any> {
+  let body = parsedBodies.get(res)
+  if (!body) {
+    body = res.json()
+    parsedBodies.set(res, body)
+  }
+  return body
+}
 
 // Mock lodash-es
 jest.mock(
@@ -124,8 +139,8 @@ jest.mock('firebase-admin/firestore', () => ({
   getFirestore: jest.fn(() => mockAdminDb),
 }))
 
-// Mock verifyToken from $lib/server/firebase
-jest.mock('$lib/server/firebase', () => ({
+// Mock verifyToken from #lib/server/firebase
+jest.mock('#lib/server/firebase.js', () => ({
   adminAuth: mockAdminAuth,
   adminDb: mockAdminDb,
 }))
@@ -134,8 +149,8 @@ jest.mock('$lib/server/firebase', () => ({
 // route tests here cover authentication, validation and delegation.
 const mockFetchInstructorClasses = jest.fn()
 const mockSaveClassDetails = jest.fn()
-jest.mock('$lib/server/instructorClasses', () => ({
-  ...jest.requireActual('$lib/server/instructorClasses'),
+jest.mock('#lib/server/instructorClasses.js', () => ({
+  ...jest.requireActual('#lib/server/instructorClasses.js'),
   fetchInstructorClasses: (...args: any[]) =>
     mockFetchInstructorClasses(...args),
   saveClassDetails: (...args: any[]) => mockSaveClassDetails(...args),
@@ -148,8 +163,8 @@ const mockClaimSubRequest = jest.fn()
 const mockFileSubRequest = jest.fn()
 const mockEditSubRequest = jest.fn()
 const mockCancelSubRequest = jest.fn()
-jest.mock('$lib/server/substituteRequests', () => ({
-  ...jest.requireActual('$lib/server/substituteRequests'),
+jest.mock('#lib/server/substituteRequests.js', () => ({
+  ...jest.requireActual('#lib/server/substituteRequests.js'),
   fetchOpenSubRequests: (...args: any[]) => mockFetchOpenSubRequests(...args),
   claimSubRequest: (...args: any[]) => mockClaimSubRequest(...args),
   fileSubRequest: (...args: any[]) => mockFileSubRequest(...args),
@@ -161,8 +176,8 @@ jest.mock('$lib/server/substituteRequests', () => ({
 const mockRefreshClassStatuses = jest.fn()
 const mockRescheduleClass = jest.fn()
 const mockHoldClassSession = jest.fn()
-jest.mock('$lib/server/classSchedule', () => ({
-  ...jest.requireActual('$lib/server/classSchedule'),
+jest.mock('#lib/server/classSchedule.js', () => ({
+  ...jest.requireActual('#lib/server/classSchedule.js'),
   refreshClassStatuses: (...args: any[]) => mockRefreshClassStatuses(...args),
   rescheduleClass: (...args: any[]) => mockRescheduleClass(...args),
   holdClassSession: (...args: any[]) => mockHoldClassSession(...args),
@@ -171,8 +186,8 @@ jest.mock('$lib/server/classSchedule', () => ({
 // And the enrollment transactions (classEnrollments.test.ts).
 const mockEnrollStudent = jest.fn()
 const mockUnenrollStudent = jest.fn()
-jest.mock('$lib/server/classEnrollments', () => ({
-  ...jest.requireActual('$lib/server/classEnrollments'),
+jest.mock('#lib/server/classEnrollments.js', () => ({
+  ...jest.requireActual('#lib/server/classEnrollments.js'),
   enrollStudent: (...args: any[]) => mockEnrollStudent(...args),
   unenrollStudent: (...args: any[]) => mockUnenrollStudent(...args),
 }))
@@ -180,8 +195,8 @@ jest.mock('$lib/server/classEnrollments', () => ({
 // And the feedback transactions (classFeedback.test.ts).
 const mockFileInstructorFeedback = jest.fn()
 const mockFileStudentFeedback = jest.fn()
-jest.mock('$lib/server/classFeedback', () => ({
-  ...jest.requireActual('$lib/server/classFeedback'),
+jest.mock('#lib/server/classFeedback.js', () => ({
+  ...jest.requireActual('#lib/server/classFeedback.js'),
   fileInstructorFeedback: (...args: any[]) =>
     mockFileInstructorFeedback(...args),
   fileStudentFeedback: (...args: any[]) => mockFileStudentFeedback(...args),
@@ -191,8 +206,8 @@ jest.mock('$lib/server/classFeedback', () => ({
 const mockFetchInterviewData = jest.fn()
 const mockBookInterviewSlot = jest.fn()
 const mockRecordSlotRequest = jest.fn()
-jest.mock('$lib/server/interviewSlots', () => ({
-  ...jest.requireActual('$lib/server/interviewSlots'),
+jest.mock('#lib/server/interviewSlots.js', () => ({
+  ...jest.requireActual('#lib/server/interviewSlots.js'),
   fetchInterviewData: (...args: any[]) => mockFetchInterviewData(...args),
   bookInterviewSlot: (...args: any[]) => mockBookInterviewSlot(...args),
   recordSlotRequest: (...args: any[]) => mockRecordSlotRequest(...args),
@@ -235,21 +250,21 @@ import { load as pageLoad } from '../src/routes/+page'
 import { POST as actionPOST } from '../src/routes/api/action/+server'
 // And the hour tally (communityService.test.ts).
 const mockCommunityServiceSummary = jest.fn()
-jest.mock('$lib/server/communityService', () => ({
-  ...jest.requireActual('$lib/server/communityService'),
+jest.mock('#lib/server/communityService.js', () => ({
+  ...jest.requireActual('#lib/server/communityService.js'),
   communityServiceSummary: (...args: any[]) =>
     mockCommunityServiceSummary(...args),
 }))
 const mockProfileNames = jest.fn()
-jest.mock('$lib/server/userProfile', () => ({
+jest.mock('#lib/server/userProfile.js', () => ({
   profileNames: (...args: any[]) => mockProfileNames(...args),
 }))
 
 // And the class reads (classListings.test.ts).
 const mockFetchClassListings = jest.fn()
 const mockFetchStudentClasses = jest.fn()
-jest.mock('$lib/server/classListings', () => ({
-  ...jest.requireActual('$lib/server/classListings'),
+jest.mock('#lib/server/classListings.js', () => ({
+  ...jest.requireActual('#lib/server/classListings.js'),
   fetchClassListings: (...args: any[]) => mockFetchClassListings(...args),
   fetchStudentClasses: (...args: any[]) => mockFetchStudentClasses(...args),
 }))
@@ -269,18 +284,18 @@ import {
   POST as interviewPOST,
 } from '../src/routes/api/interview/+server'
 import { POST as lookupCoInstructorPOST } from '../src/routes/api/lookupCoInstructor/+server'
-import { NOT_AN_ACCEPTED_INSTRUCTOR } from '$lib/server/instructorDirectory'
+import { NOT_AN_ACCEPTED_INSTRUCTOR } from '#lib/server/instructorDirectory.js'
 import {
   classesCollection,
   decisionsCollection,
   registrationsCollection,
   substituteRequestsCollection,
-} from '$lib/data/collections'
+} from '#lib/data/collections.js'
 import { GET as classRosterGET } from '../src/routes/api/classRoster/+server'
 import { POST as remindStudentsPOST } from '../src/routes/api/remindStudents/+server'
 import { POST as resolveCoInstructorsPOST } from '../src/routes/api/resolveCoInstructors/+server'
 import { POST as resolveEmailsPOST } from '../src/routes/api/resolveEmails/+server'
-import { EMAIL_LOOKUP_REFUSED } from '$lib/server/emailIntents'
+import { EMAIL_LOOKUP_REFUSED } from '#lib/server/emailIntents.js'
 import { POST as slotRequestPOST } from '../src/routes/api/slotRequest/+server'
 import {
   GET as substituteGET,
@@ -410,7 +425,7 @@ describe('resolveEmailsPOST', () => {
 
     const res: any = await post()
 
-    expect(res.body).toEqual({
+    expect(await bodyOf(res)).toEqual({
       emails: { 'instructor-uid': 'current@gbstem.org' },
     })
   })
@@ -420,7 +435,7 @@ describe('resolveEmailsPOST', () => {
 
     const res: any = await post()
 
-    expect(res.body).toEqual({ emails: { 'instructor-uid': null } })
+    expect(await bodyOf(res)).toEqual({ emails: { 'instructor-uid': null } })
   })
 
   // Every refusal gets the same message and resolves nothing, so none of them
@@ -490,7 +505,9 @@ describe('resolveEmailsPOST', () => {
 
       const res: any = await post(instructorLocals)
 
-      expect(res.body).toEqual({ emails: { 'owner-uid': 'owner@gbstem.org' } })
+      expect(await bodyOf(res)).toEqual({
+        emails: { 'owner-uid': 'owner@gbstem.org' },
+      })
     })
 
     // Signing up for a session is what grants the address, and only the
@@ -588,7 +605,7 @@ describe('co-instructor directory routes', () => {
         locals: instructorLocals,
       } as any)
 
-      expect(res.body.instructor).toMatchObject({
+      expect((await bodyOf(res)).instructor).toMatchObject({
         uid: 'uid-ada',
         accepted: true,
       })
@@ -704,8 +721,10 @@ describe('co-instructor directory routes', () => {
         locals: instructorLocals,
       } as any)
 
-      expect(res.body.instructors).toHaveLength(1)
-      expect(res.body.instructors[0]).toMatchObject({ uid: 'uid-ada' })
+      expect((await bodyOf(res)).instructors).toHaveLength(1)
+      expect((await bodyOf(res)).instructors[0]).toMatchObject({
+        uid: 'uid-ada',
+      })
     })
 
     it('lets a co-instructor of the class resolve its other co-instructors', async () => {
@@ -726,7 +745,7 @@ describe('co-instructor directory routes', () => {
         locals: instructorLocals,
       } as any)
 
-      expect(res.body.instructors).toEqual([
+      expect((await bodyOf(res)).instructors).toEqual([
         expect.objectContaining({ uid: 'uid-ada', email: 'ada@gbstem.org' }),
       ])
     })
@@ -940,7 +959,7 @@ describe('API routes POST endpoints', () => {
       request: mockRequest as any,
       locals: { user: { email: 'test@test.com', emailVerified: false } },
     } as any)
-    expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
+    expect(res).toBeInstanceOf(Response)
   })
 
   // The email change goes through the client SDK's verifyBeforeUpdateEmail,
@@ -973,7 +992,7 @@ describe('API routes POST endpoints', () => {
       request: mockRequest as any,
       locals: {},
     } as any)
-    expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
+    expect(res).toBeInstanceOf(Response)
     expect(mockAdminAuth.generatePasswordResetLink).toHaveBeenCalledWith(
       'test@test.com',
     )
@@ -992,7 +1011,7 @@ describe('API routes POST endpoints', () => {
       request: mockRequest as any,
       locals: { user: { email: 'attacker@test.com', emailVerified: true } },
     } as any)
-    expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
+    expect(res).toBeInstanceOf(Response)
     expect(mockAdminAuth.generatePasswordResetLink).toHaveBeenCalledWith(
       'attacker@test.com',
     )
@@ -1019,8 +1038,8 @@ describe('API routes POST endpoints', () => {
         locals: {},
       } as any)
 
-      expect(res.body).toEqual({ message: 'Email sent successfully.' })
-      expect(res.init?.status ?? 200).toBe(200)
+      expect(await bodyOf(res)).toEqual({ message: 'Email sent successfully.' })
+      expect(res.status).toBe(200)
       expect(MailService.send).not.toHaveBeenCalled()
     },
   )
@@ -1074,12 +1093,11 @@ describe('API routes POST endpoints', () => {
       locals: { user: { email: 'test@test.com', emailVerified: true } },
     } as any)
 
-    expect(res).toEqual(
-      expect.objectContaining({
-        body: { error: 'Failed to send email. Please try again later.' },
-        init: { status: 500 },
-      }),
-    )
+    expect(res.status).toBe(500)
+
+    expect(await bodyOf(res)).toEqual({
+      error: 'Failed to send email. Please try again later.',
+    })
   })
 
   it('actionPOST propagates the auth error when the user is not signed in', async () => {
@@ -1113,7 +1131,7 @@ describe('API routes POST endpoints', () => {
       request: mockRequest,
       cookies: mockCookies,
     } as any)
-    expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
+    expect(res).toBeInstanceOf(Response)
     expect(mockCookies.set).toHaveBeenCalledWith(
       '__session',
       'sessionCookieVal',
@@ -1129,7 +1147,7 @@ describe('API routes POST endpoints', () => {
     )
 
     const delRes = await authDELETE({ cookies: mockCookies } as any)
-    expect(delRes).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
+    expect(delRes).toBeInstanceOf(Response)
   })
 
   it('authPOST fails if user is admin', async () => {
@@ -1269,7 +1287,7 @@ describe('API routes POST endpoints', () => {
 
       const res: any = await signupPOST({ request: mockRequest } as any)
 
-      expect(res.body).toEqual({ role: 'instructor' })
+      expect(await bodyOf(res)).toEqual({ role: 'instructor' })
       expect(set).toHaveBeenCalledWith({
         firstName: 'Timmy',
         lastName: 'Turner',
@@ -1300,7 +1318,7 @@ describe('API routes POST endpoints', () => {
 
       const res: any = await signupPOST({ request: mockRequest } as any)
 
-      expect(res.body).toEqual({ role: 'student' })
+      expect(await bodyOf(res)).toEqual({ role: 'student' })
     })
 
     it('refuses an account that already has a profile', async () => {
@@ -1392,7 +1410,7 @@ describe('API routes POST endpoints', () => {
         emailVerified: true,
       }
       const res: any = await classesGET({ locals: { user } } as any)
-      expect(res.body).toEqual({ classes: [{ id: 'c-1' }] })
+      expect(await bodyOf(res)).toEqual({ classes: [{ id: 'c-1' }] })
       expect(mockFetchClassListings).toHaveBeenCalledWith(user)
     })
 
@@ -1426,7 +1444,7 @@ describe('API routes POST endpoints', () => {
         locals: { user: PARENT },
         url: url('parent-uid-1'),
       } as any)
-      expect(res.body).toEqual({ classes: [{ id: 'c-1' }] })
+      expect(await bodyOf(res)).toEqual({ classes: [{ id: 'c-1' }] })
       expect(mockFetchStudentClasses).toHaveBeenCalledWith(
         'parent-uid',
         'parent-uid-1',
@@ -1488,7 +1506,7 @@ describe('API routes POST endpoints', () => {
         request: mockRequest as any,
         locals: { user: INSTRUCTOR },
       } as any)
-      expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
+      expect(res).toBeInstanceOf(Response)
       expect(mockCommunityServiceSummary).toHaveBeenCalledWith('teacher-uid')
       expect(mockProfileNames).toHaveBeenCalledWith('teacher-uid')
 
@@ -1517,12 +1535,10 @@ describe('API routes POST endpoints', () => {
           request: mockRequest as any,
           locals: { user: INSTRUCTOR },
         } as any)
-        expect(res).toEqual(
-          expect.objectContaining({
-            body: { error: 'Failed to send email. Please try again later.' },
-            init: { status: 500 },
-          }),
-        )
+        expect(res.status).toBe(500)
+        expect(await bodyOf(res)).toEqual({
+          error: 'Failed to send email. Please try again later.',
+        })
       })
     })
 
@@ -1630,7 +1646,7 @@ describe('API routes POST endpoints', () => {
       expect(message.html).toContain('Wednesday at 4:30 PM')
       expect(message.html).toContain('https://zoom.us/j/1')
       expect(message.html).toContain('current-teacher@test.com')
-      expect(res.body).toEqual({ emailSent: true })
+      expect(await bodyOf(res)).toEqual({ emailSent: true })
     })
 
     it('POST ignores a recipient the caller tries to name', async () => {
@@ -1663,7 +1679,7 @@ describe('API routes POST endpoints', () => {
 
       expect(mockAdminAuth.getUser).not.toHaveBeenCalled()
       expect(MailService.send).not.toHaveBeenCalled()
-      expect(res.body).toEqual({ emailSent: false })
+      expect(await bodyOf(res)).toEqual({ emailSent: false })
     })
 
     it('POST sends no confirmation when the instructorUid names no account', async () => {
@@ -1673,7 +1689,7 @@ describe('API routes POST endpoints', () => {
       const res: any = await call(enrollPOST)
 
       expect(MailService.send).not.toHaveBeenCalled()
-      expect(res.body).toEqual({ emailSent: false })
+      expect(await bodyOf(res)).toEqual({ emailSent: false })
     })
 
     it('POST uses the in-person template for an in-person class', async () => {
@@ -1697,7 +1713,7 @@ describe('API routes POST endpoints', () => {
       const res: any = await call(enrollPOST)
 
       expect(MailService.send).not.toHaveBeenCalled()
-      expect(res.body).toEqual({ emailSent: false })
+      expect(await bodyOf(res)).toEqual({ emailSent: false })
     })
 
     it('POST reports the enrollment without an email when sending fails', async () => {
@@ -1710,7 +1726,7 @@ describe('API routes POST endpoints', () => {
 
         const res: any = await call(enrollPOST)
 
-        expect(res.body).toEqual({ emailSent: false })
+        expect(await bodyOf(res)).toEqual({ emailSent: false })
       })
     })
 
@@ -1768,7 +1784,7 @@ describe('API routes POST endpoints', () => {
         CLASS_ID,
         STUDENT_UID,
       )
-      expect(res.body).toEqual({ message: 'Unenrolled from class.' })
+      expect(await bodyOf(res)).toEqual({ message: 'Unenrolled from class.' })
       expect(MailService.send).not.toHaveBeenCalled()
     })
 
@@ -1833,7 +1849,7 @@ describe('API routes POST endpoints', () => {
       const res: any = await interviewGET({ locals: applicantLocals } as any)
 
       expect(mockFetchInterviewData).toHaveBeenCalledWith('applicant-uid')
-      expect(res.body).toEqual(data)
+      expect(await bodyOf(res)).toEqual(data)
     })
 
     it('GET rejects a student with a 403', async () => {
@@ -1876,7 +1892,7 @@ describe('API routes POST endpoints', () => {
         }),
       )
       // No interviewer address or uid goes back to the applicant.
-      expect(res.body).toEqual({
+      expect(await bodyOf(res)).toEqual({
         interview: {
           id: 'slot-1',
           date: '2026-10-01T18:00:00.000Z',
@@ -1927,8 +1943,8 @@ describe('API routes POST endpoints', () => {
 
       expect(mockAdminAuth.getUser).not.toHaveBeenCalled()
       expect(MailService.send).not.toHaveBeenCalled()
-      expect(res.body.emailSent).toBe(false)
-      expect(res.body.interview.id).toBe('slot-1')
+      expect((await bodyOf(res)).emailSent).toBe(false)
+      expect((await bodyOf(res)).interview.id).toBe('slot-1')
     })
 
     it('POST still returns the booking, unconfirmed, when the interviewer uid names no account', async () => {
@@ -1938,8 +1954,8 @@ describe('API routes POST endpoints', () => {
       const res: any = await bookAs()
 
       expect(MailService.send).not.toHaveBeenCalled()
-      expect(res.body.emailSent).toBe(false)
-      expect(res.body.interview.id).toBe('slot-1')
+      expect((await bodyOf(res)).emailSent).toBe(false)
+      expect((await bodyOf(res)).interview.id).toBe('slot-1')
     })
 
     it('POST still returns the booking when the email fails to send', async () => {
@@ -1950,8 +1966,8 @@ describe('API routes POST endpoints', () => {
           email: 'interviewer@test.com',
         })
         const res: any = await bookAs()
-        expect(res.body.emailSent).toBe(false)
-        expect(res.body.interview.id).toBe('slot-1')
+        expect((await bodyOf(res)).emailSent).toBe(false)
+        expect((await bodyOf(res)).interview.id).toBe('slot-1')
       })
     })
 
@@ -2073,8 +2089,8 @@ describe('API routes POST endpoints', () => {
         request: mockRequest as any,
         locals: instructorLocals,
       } as any)
-      expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
-      expect(res.body.count).toBe(0)
+      expect(res).toBeInstanceOf(Response)
+      expect((await bodyOf(res)).count).toBe(0)
     })
   })
 
@@ -2222,8 +2238,8 @@ describe('API routes POST endpoints', () => {
       locals: instructorLocals,
     } as any)
 
-    expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
-    expect(res.body.count).toBe(2)
+    expect(res).toBeInstanceOf(Response)
+    expect((await bodyOf(res)).count).toBe(2)
     expect(MailService.send).toHaveBeenCalledTimes(2)
     expect(MailService.send).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -2270,7 +2286,7 @@ describe('API routes POST endpoints', () => {
       locals: instructorLocals,
     } as any)
 
-    expect(res.body.count).toBe(1)
+    expect((await bodyOf(res)).count).toBe(1)
     expect(MailService.send).toHaveBeenCalledTimes(1)
     expect(MailService.send).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -2315,7 +2331,7 @@ describe('API routes POST endpoints', () => {
       locals: instructorLocals,
     } as any)
 
-    expect(res.body.count).toBe(1)
+    expect((await bodyOf(res)).count).toBe(1)
     expect(MailService.send).toHaveBeenCalledWith(
       expect.objectContaining({
         to: ['ada@example.com'],
@@ -2370,8 +2386,10 @@ describe('API routes POST endpoints', () => {
       locals: instructorLocals,
     } as any)
 
-    expect(res.init.status).toBe(400)
-    expect(res.body.message).toBe('That class has no students to remind.')
+    expect(res.status).toBe(400)
+    expect((await bodyOf(res)).message).toBe(
+      'That class has no students to remind.',
+    )
   })
 
   describe('GET /api/classRoster', () => {
@@ -2472,8 +2490,8 @@ describe('API routes POST endpoints', () => {
         locals: instructorLocals,
       } as any)
 
-      expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
-      expect(res.body.students).toEqual([
+      expect(res).toBeInstanceOf(Response)
+      expect((await bodyOf(res)).students).toEqual([
         {
           uid: 'ada-parent-1',
           name: 'Ada Lovelace',
@@ -2493,11 +2511,11 @@ describe('API routes POST endpoints', () => {
           school: '',
         },
       ])
-      expect(res.body.students[0]).not.toHaveProperty('dateOfBirth')
-      expect(res.body.students[0]).not.toHaveProperty('gender')
-      expect(res.body.students[0]).not.toHaveProperty('race')
-      expect(res.body.students[0]).not.toHaveProperty('frlp')
-      expect(res.body.students[0]).not.toHaveProperty('allergies')
+      expect((await bodyOf(res)).students[0]).not.toHaveProperty('dateOfBirth')
+      expect((await bodyOf(res)).students[0]).not.toHaveProperty('gender')
+      expect((await bodyOf(res)).students[0]).not.toHaveProperty('race')
+      expect((await bodyOf(res)).students[0]).not.toHaveProperty('frlp')
+      expect((await bodyOf(res)).students[0]).not.toHaveProperty('allergies')
     })
 
     it('returns roster for co-instructor', async () => {
@@ -2522,7 +2540,7 @@ describe('API routes POST endpoints', () => {
         url,
         locals: instructorLocals,
       } as any)
-      expect(res.body.students[0].name).toBe('Charles Babbage')
+      expect((await bodyOf(res)).students[0].name).toBe('Charles Babbage')
     })
 
     it('returns roster for substitute when subRequestId is valid', async () => {
@@ -2553,7 +2571,7 @@ describe('API routes POST endpoints', () => {
         url,
         locals: instructorLocals,
       } as any)
-      expect(res.body.students[0].name).toBe('Grace Hopper')
+      expect((await bodyOf(res)).students[0].name).toBe('Grace Hopper')
     })
   })
 
@@ -2594,7 +2612,7 @@ describe('API routes POST endpoints', () => {
         '2026-06-01T10:00',
         new Date('2026-06-01T14:00:00.000Z'),
       )
-      expect(res.body).toEqual({ emailSent: true })
+      expect(await bodyOf(res)).toEqual({ emailSent: true })
       expect(MailService.send).toHaveBeenCalledWith(
         expect.objectContaining({
           to: ['admin@gbstem.org'],
@@ -2613,7 +2631,7 @@ describe('API routes POST endpoints', () => {
           locals: applicantLocals,
         } as any)
         expect(mockRecordSlotRequest).toHaveBeenCalled()
-        expect(res.body).toEqual({ emailSent: false })
+        expect(await bodyOf(res)).toEqual({ emailSent: false })
       })
     })
 
@@ -2702,7 +2720,7 @@ describe('API routes POST endpoints', () => {
       const res: any = await substituteGET({ locals: subLocals } as any)
 
       expect(mockFetchOpenSubRequests).toHaveBeenCalledWith('sub-uid')
-      expect(res.body).toEqual({ subRequests: open })
+      expect(await bodyOf(res)).toEqual({ subRequests: open })
     })
 
     it('GET rejects a student with a 403', async () => {
@@ -2742,7 +2760,7 @@ describe('API routes POST endpoints', () => {
           replyTo: 'orig@gbstem.org',
         }),
       )
-      expect(res.body.subRequest).toMatchObject({
+      expect((await bodyOf(res)).subRequest).toMatchObject({
         id: SUB_REQUEST_ID,
         notes: 'Fractions.',
         dateOfClass: '2026-09-10T20:00:00.000Z',
@@ -2809,7 +2827,7 @@ describe('API routes POST endpoints', () => {
 
       const res = await claimAs()
 
-      expect(res).toEqual(expect.objectContaining({ __isSvelteKitJson: true }))
+      expect(res).toBeInstanceOf(Response)
       expect(MailService.send).toHaveBeenCalledWith(
         expect.objectContaining({ cc: ['orig@gbstem.org'] }),
       )
@@ -2827,12 +2845,10 @@ describe('API routes POST endpoints', () => {
 
       expect(mockAdminAuth.getUser).not.toHaveBeenCalled()
       expect(MailService.send).not.toHaveBeenCalled()
-      expect(res).toEqual(
-        expect.objectContaining({
-          body: { error: 'Original instructor email could not be resolved.' },
-          init: { status: 400 },
-        }),
-      )
+      expect(res.status).toBe(400)
+      expect(await bodyOf(res)).toEqual({
+        error: 'Original instructor email could not be resolved.',
+      })
     })
 
     it('POST returns 400 when the instructor uid names no account', async () => {
@@ -2844,12 +2860,10 @@ describe('API routes POST endpoints', () => {
       const res = await claimAs()
 
       expect(MailService.send).not.toHaveBeenCalled()
-      expect(res).toEqual(
-        expect.objectContaining({
-          body: { error: 'Original instructor email could not be resolved.' },
-          init: { status: 400 },
-        }),
-      )
+      expect(res.status).toBe(400)
+      expect(await bodyOf(res)).toEqual({
+        error: 'Original instructor email could not be resolved.',
+      })
     })
 
     it('POST returns a 500 json response when sending the email fails', async () => {
@@ -2862,12 +2876,10 @@ describe('API routes POST endpoints', () => {
           email: 'orig@gbstem.org',
         })
         const res = await claimAs()
-        expect(res).toEqual(
-          expect.objectContaining({
-            body: { error: 'Failed to send email. Please try again later.' },
-            init: { status: 500 },
-          }),
-        )
+        expect(res.status).toBe(500)
+        expect(await bodyOf(res)).toEqual({
+          error: 'Failed to send email. Please try again later.',
+        })
       })
     })
 
@@ -2921,10 +2933,10 @@ describe('API routes POST endpoints', () => {
 
   describe('meetingLinkPOST', () => {
     const originalFetch = (global as any).fetch
-    const { env } = require('$env/dynamic/private')
+    const env = require('$app/env/private')
     const originalEnv = { ...env }
 
-    /** Replaces the Entra credentials in $env/dynamic/private for one test. */
+    /** Replaces the Entra credentials in $app/env/private for one test. */
     function setEnv(vars: Record<string, string | undefined>) {
       for (const key of [
         'MS_CLIENT_ID',
@@ -3009,8 +3021,10 @@ describe('API routes POST endpoints', () => {
         locals: instructorLocals,
       } as any)
 
-      expect(res.body).toEqual({ joinUrl: 'https://teams.example/join' })
-      expect(JSON.stringify(res.body)).not.toContain('abc123')
+      expect(await bodyOf(res)).toEqual({
+        joinUrl: 'https://teams.example/join',
+      })
+      expect(JSON.stringify(await bodyOf(res))).not.toContain('abc123')
       // The token is used as a bearer header server-side and goes no further.
       expect(fetchMock.mock.calls[1][1].headers.Authorization).toBe(
         'Bearer abc123',
@@ -3067,7 +3081,9 @@ describe('API routes POST endpoints', () => {
         locals: instructorLocals,
       } as any)
 
-      expect(res.body).toEqual({ joinUrl: 'https://teams.example/join' })
+      expect(await bodyOf(res)).toEqual({
+        joinUrl: 'https://teams.example/join',
+      })
     })
 
     it('allows a class that does not exist yet under the caller uid', async () => {
@@ -3080,7 +3096,9 @@ describe('API routes POST endpoints', () => {
         locals: instructorLocals,
       } as any)
 
-      expect(res.body).toEqual({ joinUrl: 'https://teams.example/join' })
+      expect(await bodyOf(res)).toEqual({
+        joinUrl: 'https://teams.example/join',
+      })
     })
 
     it('refuses a class the caller does not teach', async () => {
@@ -3248,7 +3266,9 @@ describe('API routes POST endpoints', () => {
           locals: instructorLocals,
         } as any)
 
-        expect(res.body).toEqual({ joinUrl: 'https://teams.example/join' })
+        expect(await bodyOf(res)).toEqual({
+          joinUrl: 'https://teams.example/join',
+        })
         const [tokenUrl, tokenInit] = fetchMock.mock.calls[0]
         expect(tokenUrl).toContain('/vite-tenant/')
         expect(tokenInit.body).toContain('client_id=vite-id')
@@ -3448,7 +3468,7 @@ describe('substitute session endpoints', () => {
         locals: substituteLocals,
         url: linkUrl,
       } as any)
-      expect(res.body).toEqual({ meetingLink: 'https://zoom.us/j/1' })
+      expect(await bodyOf(res)).toEqual({ meetingLink: 'https://zoom.us/j/1' })
       expect(mockAdminDb.runTransaction).not.toHaveBeenCalled()
     })
 
@@ -3470,7 +3490,7 @@ describe('substitute session endpoints', () => {
         locals: substituteLocals,
       } as any)
 
-      expect(res.body).toEqual({
+      expect(await bodyOf(res)).toEqual({
         meetingLink: 'https://zoom.us/j/1',
         alreadyRecorded: false,
       })
@@ -3507,7 +3527,7 @@ describe('substitute session endpoints', () => {
       } as any)
 
       // The link still comes back, so a dropped call can be rejoined.
-      expect(res.body).toEqual({
+      expect(await bodyOf(res)).toEqual({
         meetingLink: 'https://zoom.us/j/1',
         alreadyRecorded: true,
       })
@@ -3630,7 +3650,7 @@ describe('substitute session endpoints', () => {
         locals: substituteLocals,
       } as any)
 
-      expect(res.body.feedbackId).toMatch(/^owner-uid-1-\d+$/)
+      expect((await bodyOf(res)).feedbackId).toMatch(/^owner-uid-1-\d+$/)
       expect(mockAdminDb.runTransaction).toHaveBeenCalledTimes(1)
       expect(mockTransaction.get).toHaveBeenCalledTimes(2)
       const [, feedbackDoc] = mockTransaction.set.mock.calls[0]
@@ -3745,7 +3765,7 @@ describe('class feedback endpoints', () => {
         { uid: 'caller-uid' },
         body,
       )
-      expect(res.body).toEqual({ feedbackId: 'owner-uid-1-123' })
+      expect(await bodyOf(res)).toEqual({ feedbackId: 'owner-uid-1-123' })
     })
 
     it('drops the fields the server fills in itself', async () => {
@@ -3859,7 +3879,7 @@ describe('class feedback endpoints', () => {
         { uid: 'parent-uid' },
         body,
       )
-      expect(res.body).toEqual({ feedbackId: 'owner-uid-1-123' })
+      expect(await bodyOf(res)).toEqual({ feedbackId: 'owner-uid-1-123' })
     })
 
     it('drops the fields the server fills in itself', async () => {
@@ -3969,7 +3989,7 @@ describe('/api/classDetails', () => {
     const res: any = await classDetailsGET({ locals: instructorLocals } as any)
 
     expect(mockFetchInstructorClasses).toHaveBeenCalledWith('caller-uid')
-    expect(res.body).toEqual({
+    expect(await bodyOf(res)).toEqual({
       classes: { 'caller-uid-1': { course: 'Python 1' } },
     })
   })
@@ -3989,7 +4009,7 @@ describe('/api/classDetails', () => {
   it('POST saves as the signed-in instructor, with schedule dates as Dates', async () => {
     const res: any = await postWith(classDetailsBody)
 
-    expect(res.body).toEqual({ classId: 'caller-uid-1' })
+    expect(await bodyOf(res)).toEqual({ classId: 'caller-uid-1' })
     const [caller, classId, details, schedule] =
       mockSaveClassDetails.mock.calls[0]
     expect(caller).toEqual({ uid: 'caller-uid', email: 'caller@gbstem.org' })
@@ -4102,7 +4122,7 @@ describe('/api/classSchedule', () => {
       { uid: 'caller-uid' },
       'c-1',
     )
-    expect(res.body).toEqual({ classStatuses: ['ClassNotHeld'] })
+    expect(await bodyOf(res)).toEqual({ classStatuses: ['ClassNotHeld'] })
   })
 
   it('reschedules with the times as Dates, and nothing else from the client', async () => {
@@ -4135,7 +4155,7 @@ describe('/api/classSchedule', () => {
       { uid: 'caller-uid' },
       'c-1',
     )
-    expect(res.body).toEqual({ meetingLink: 'https://zoom.us/j/1' })
+    expect(await bodyOf(res)).toEqual({ meetingLink: 'https://zoom.us/j/1' })
   })
 
   it('refuses an unknown action, and a reschedule with no sessions', async () => {
@@ -4197,7 +4217,7 @@ describe('/api/subRequest', () => {
         notes: 'Loops.',
       },
     )
-    expect(res.body).toEqual({ subRequestId: 'c-1---2' })
+    expect(await bodyOf(res)).toEqual({ subRequestId: 'c-1---2' })
   })
 
   it('PATCH edits by document id and returns where the request now is', async () => {
@@ -4212,7 +4232,7 @@ describe('/api/subRequest', () => {
       'c-1---2',
       expect.objectContaining({ classNumber: 3 }),
     )
-    expect(res.body).toEqual({ subRequestId: 'c-1---3' })
+    expect(await bodyOf(res)).toEqual({ subRequestId: 'c-1---3' })
   })
 
   it('DELETE cancels by document id', async () => {

@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { user } from '$lib/client/firebase'
-  import { alert } from '$lib/stores'
+  import { user } from '#lib/client/firebase.js'
+  import { alert } from '#lib/stores.js'
   import {
     EmailAuthProvider,
     reauthenticateWithCredential,

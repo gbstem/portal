@@ -1,8 +1,8 @@
 <script lang="ts">
   import type { ActionRequestBody } from '../../../routes/api/action/+server'
-  import { alert } from '$lib/stores'
-  import Brand from '$lib/components/Brand.svelte'
-  import Link from '$lib/components/Link.svelte'
+  import { alert } from '#lib/stores.js'
+  import Brand from '#lib/components/Brand.svelte'
+  import Link from '#lib/components/Link.svelte'
   import Button from '../Button.svelte'
   import FormInput from '../FormInput.svelte'
   import { superForm, defaults } from 'sveltekit-superforms'

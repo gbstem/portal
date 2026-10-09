@@ -15,7 +15,7 @@ export type CourseTrack = 'cs' | 'math' | 'engineering' | 'science'
  *
  * `id` is the course's page on curriculum.gbstem.org, which is also the URL
  * segment (`/${track}/${id}`) and is case-sensitive there - see
- * `$lib/helpers/curriculumLink`. `name` is both the display string and the
+ * `#lib/helpers/curriculumLink`. `name` is both the display string and the
  * exact value stored on class, registration and application documents.
  *
  * `courses.json` is a verbatim copy of the admin repo's; edit it there and

@@ -1,17 +1,16 @@
-import { handleApiError, verifyInstructor } from '$lib/server/apiHelpers'
-import { sendEmail } from '$lib/server/email'
-import { renderEmail } from '$lib/emails/render'
-import { openableMeetingLink } from '$lib/helpers/meetingLink'
-import { formatDateInGbstemTime } from '$lib/utils'
-import { resolveCurrentInterviewerEmail } from '$lib/server/interviewerIdentity'
+import { handleApiError, verifyInstructor } from '#lib/server/apiHelpers.js'
+import { sendEmail } from '#lib/server/email.js'
+import { renderEmail } from '#lib/emails/render.js'
+import { openableMeetingLink } from '#lib/helpers/meetingLink.js'
+import { formatDateInGbstemTime } from '#lib/utils.js'
+import { resolveCurrentInterviewerEmail } from '#lib/server/interviewerIdentity.js'
 import {
   bookInterviewSlot,
   fetchInterviewData,
   type BookedInterview,
   type InterviewData,
   type ScheduledInterview,
-} from '$lib/server/interviewSlots'
-import { json } from '@sveltejs/kit'
+} from '#lib/server/interviewSlots.js'
 import { z } from 'zod'
 import type { RequestHandler } from './$types'
 
@@ -92,7 +91,7 @@ export const GET: RequestHandler = async ({ locals }) => {
   try {
     const user = verifyInstructor(locals)
     const response: InterviewDataResponse = await fetchInterviewData(user.uid)
-    return json(response)
+    return Response.json(response)
   } catch (err) {
     throw handleApiError('/api/interview', err)
   }
@@ -121,7 +120,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       },
       emailSent: await sendBookingConfirmation(user.email, booked),
     }
-    return json(response)
+    return Response.json(response)
   } catch (err) {
     throw handleApiError('/api/interview', err)
   }

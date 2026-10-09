@@ -1,10 +1,10 @@
 <script lang="ts">
   import Button from './Button.svelte'
-  import { formatDate } from '$lib/utils'
-  import { classService } from '$lib/services/classService'
-  import { registrationService } from '$lib/services/registrationService'
-  import { selectedStudentIdState } from '$lib/stores.svelte'
-  import { openableMeetingLink } from '$lib/helpers/meetingLink'
+  import { formatDate } from '#lib/utils.js'
+  import { classService } from '#lib/services/classService.js'
+  import { registrationService } from '#lib/services/registrationService.js'
+  import { selectedStudentIdState } from '#lib/stores.svelte.js'
+  import { openableMeetingLink } from '#lib/helpers/meetingLink.js'
   import { Icon } from '@steeze-ui/svelte-icon'
   import { Plus } from '@steeze-ui/heroicons'
 

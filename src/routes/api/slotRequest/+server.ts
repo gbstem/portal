@@ -1,9 +1,8 @@
-import { handleApiError, verifyInstructor } from '$lib/server/apiHelpers'
-import { sendEmail } from '$lib/server/email'
-import { recordSlotRequest } from '$lib/server/interviewSlots'
-import { renderEmail } from '$lib/emails/render'
-import { formatDateInGbstemTime } from '$lib/utils'
-import { json } from '@sveltejs/kit'
+import { handleApiError, verifyInstructor } from '#lib/server/apiHelpers.js'
+import { sendEmail } from '#lib/server/email.js'
+import { recordSlotRequest } from '#lib/server/interviewSlots.js'
+import { renderEmail } from '#lib/emails/render.js'
+import { formatDateInGbstemTime } from '#lib/utils.js'
 import { z } from 'zod'
 import type { RequestHandler } from './$types'
 
@@ -73,7 +72,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       console.error('[API /api/slotRequest] Notification not sent:', mailError)
       response.emailSent = false
     }
-    return json(response)
+    return Response.json(response)
   } catch (err) {
     throw handleApiError('/api/slotRequest', err)
   }

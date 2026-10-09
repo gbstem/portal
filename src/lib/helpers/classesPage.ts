@@ -1,4 +1,4 @@
-import { parseClassDocId } from '$lib/data/docIds'
+import { parseClassDocId } from '#lib/data/docIds.js'
 import type {} from '../../data.d.ts'
 
 export type ClassInfo = {

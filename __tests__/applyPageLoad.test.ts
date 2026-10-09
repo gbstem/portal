@@ -2,7 +2,7 @@ const mockLoadApplication = jest.fn()
 const mockLoadRegistration = jest.fn()
 const mockListChildren = jest.fn()
 
-jest.mock('$env/dynamic/private', () => ({ env: {} }), { virtual: true })
+jest.mock('$app/env/private', () => ({}), { virtual: true })
 
 // ESM-only, and unused before the redirect these tests cover.
 jest.mock('sveltekit-superforms', () => ({
@@ -11,13 +11,13 @@ jest.mock('sveltekit-superforms', () => ({
 }))
 jest.mock('sveltekit-superforms/adapters', () => ({ zod: jest.fn() }))
 
-jest.mock('$lib/server/instructorApplication', () => ({
+jest.mock('#lib/server/instructorApplication.js', () => ({
   loadApplication: (...args: any[]) => mockLoadApplication(...args),
   saveApplicationDraft: jest.fn(),
   submitApplication: jest.fn(),
 }))
 
-jest.mock('$lib/server/studentRegistration', () => ({
+jest.mock('#lib/server/studentRegistration.js', () => ({
   isOpenableChild: jest.fn(),
   listChildren: (...args: any[]) => mockListChildren(...args),
   loadRegistration: (...args: any[]) => mockLoadRegistration(...args),

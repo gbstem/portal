@@ -1,5 +1,5 @@
-import { verifyInstructor } from '$lib/server/apiHelpers'
-import { communityServiceSummary } from '$lib/server/communityService'
+import { verifyInstructor } from '#lib/server/apiHelpers.js'
+import { communityServiceSummary } from '#lib/server/communityService.js'
 import type { PageServerLoad } from './$types'
 
 export const load: PageServerLoad = async ({ locals }) => {

@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { format } from 'date-fns'
-  import PageLayout from '$lib/components/PageLayout.svelte'
-  import { announcementService } from '$lib/services/announcementService'
+  import PageLayout from '#lib/components/PageLayout.svelte'
+  import { announcementService } from '#lib/services/announcementService.js'
 
   let announcements: Array<Data.Announcement<'client'>> = $state([])
   onMount(() => {

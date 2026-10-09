@@ -4,7 +4,7 @@ const mockRunTransaction = jest.fn()
 const mockIsAcceptedInstructor = jest.fn()
 const mockIsAcceptedInstructorAccount = jest.fn()
 
-jest.mock('$lib/server/firebase', () => ({
+jest.mock('#lib/server/firebase.js', () => ({
   adminDb: {
     doc: (...args: any[]) => mockDoc(...args),
     collection: (...args: any[]) => mockCollection(...args),
@@ -12,7 +12,7 @@ jest.mock('$lib/server/firebase', () => ({
   },
 }))
 
-jest.mock('$lib/server/instructorDirectory', () => ({
+jest.mock('#lib/server/instructorDirectory.js', () => ({
   isAcceptedInstructor: (...args: any[]) => mockIsAcceptedInstructor(...args),
   isAcceptedInstructorAccount: (...args: any[]) =>
     mockIsAcceptedInstructorAccount(...args),
@@ -37,12 +37,12 @@ jest.mock(
   { virtual: true },
 )
 
-import { classesCollection, currentSemester } from '$lib/data/collections'
+import { classesCollection, currentSemester } from '#lib/data/collections.js'
 import {
   fetchInstructorClasses,
   saveClassDetails,
   type ClassDetailsFields,
-} from '$lib/server/instructorClasses'
+} from '#lib/server/instructorClasses.js'
 
 /** Every document the fake Firestore holds, by path. */
 let docs: Record<string, any>

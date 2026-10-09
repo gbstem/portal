@@ -1,7 +1,7 @@
-import { handleApiError, verifyInstructor } from '$lib/server/apiHelpers'
-import { getAuthorizedClass } from '$lib/server/classDirectory'
-import { resolveCoInstructorIdentities } from '$lib/server/instructorDirectory'
-import { error, json } from '@sveltejs/kit'
+import { handleApiError, verifyInstructor } from '#lib/server/apiHelpers.js'
+import { getAuthorizedClass } from '#lib/server/classDirectory.js'
+import { resolveCoInstructorIdentities } from '#lib/server/instructorDirectory.js'
+import { error } from '@sveltejs/kit'
 import { z } from 'zod'
 import type { RequestHandler } from './$types'
 
@@ -43,7 +43,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     }
 
     const instructors = await resolveCoInstructorIdentities(uids)
-    return json({ instructors })
+    return Response.json({ instructors })
   } catch (err) {
     throw handleApiError('/api/resolveCoInstructors', err)
   }

@@ -1,9 +1,9 @@
-import { semesterDates } from '$lib/data/collections'
+import { semesterDates } from '#lib/data/collections.js'
 import {
   applicationDeadline,
   REGISTRATION_GRACE_DAYS,
   registrationWindow,
-} from '$lib/server/semesterWindows'
+} from '#lib/server/semesterWindows.js'
 
 const EMULATOR = { FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080' }
 

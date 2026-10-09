@@ -1,9 +1,9 @@
 import {
   checkAccountDeletionEligibility,
   deleteAccount,
-} from '$lib/server/accountService'
-import { handleApiError, verifyAuthenticated } from '$lib/server/apiHelpers'
-import { error, json } from '@sveltejs/kit'
+} from '#lib/server/accountService.js'
+import { handleApiError, verifyAuthenticated } from '#lib/server/apiHelpers.js'
+import { error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 
 /**
@@ -26,7 +26,7 @@ export const GET: RequestHandler = async ({ locals }) => {
       user.uid,
       accountRole(user.role),
     )
-    return json(result)
+    return Response.json(result)
   } catch (err) {
     throw handleApiError('/api/account', err)
   }
@@ -43,7 +43,7 @@ export const DELETE: RequestHandler = async ({ locals }) => {
   try {
     const user = verifyAuthenticated(locals)
     await deleteAccount(user.uid, accountRole(user.role))
-    return json({ deleted: true })
+    return Response.json({ deleted: true })
   } catch (err) {
     throw handleApiError('/api/account', err)
   }

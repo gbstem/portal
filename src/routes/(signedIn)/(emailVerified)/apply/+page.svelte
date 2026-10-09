@@ -1,12 +1,12 @@
 <script lang="ts">
   import { goto } from '$app/navigation'
-  import Button from '$lib/components/Button.svelte'
-  import Card from '$lib/components/Card.svelte'
-  import ApplyForm from '$lib/components/forms/ApplyForm.svelte'
-  import RegistrationForm from '$lib/components/forms/RegistrationForm.svelte'
-  import Select from '$lib/components/Select.svelte'
-  import { semesterDates } from '$lib/data/collections'
-  import { alert } from '$lib/stores'
+  import Button from '#lib/components/Button.svelte'
+  import Card from '#lib/components/Card.svelte'
+  import ApplyForm from '#lib/components/forms/ApplyForm.svelte'
+  import RegistrationForm from '#lib/components/forms/RegistrationForm.svelte'
+  import Select from '#lib/components/Select.svelte'
+  import { semesterDates } from '#lib/data/collections.js'
+  import { alert } from '#lib/stores.js'
   import { ExclamationCircle } from '@steeze-ui/heroicons'
   import { Icon } from '@steeze-ui/svelte-icon'
   import type { PageProps } from './$types'
@@ -26,10 +26,10 @@
     if (data.page !== 'registration' || childNumber === data.childNumber) {
       return
     }
-    // keepFocus: when the other child's form lands, SvelteKit would otherwise
-    // move focus back to the page - away from the picker, or from a field the
-    // parent has gone on to in the meantime.
-    goto(`?child=${childNumber}`, { noScroll: true, keepFocus: true })
+    // reset: false - when the other child's form lands, SvelteKit would
+    // otherwise scroll to the top and move focus back to the page - away from
+    // the picker, or from a field the parent has gone on to in the meantime.
+    goto(`?child=${childNumber}`, { reset: false })
   }
 
   function selectChild(name: string) {

@@ -1,8 +1,10 @@
-import { resolveRegistrationParentEmails } from '$lib/server/accountEmails'
-import { handleApiError, verifyInstructor } from '$lib/server/apiHelpers'
-import { getAuthorizedClass, getStudentSnaps } from '$lib/server/classDirectory'
-import { authorizeSubstituteSession } from '$lib/server/substituteSessions'
-import { json } from '@sveltejs/kit'
+import { resolveRegistrationParentEmails } from '#lib/server/accountEmails.js'
+import { handleApiError, verifyInstructor } from '#lib/server/apiHelpers.js'
+import {
+  getAuthorizedClass,
+  getStudentSnaps,
+} from '#lib/server/classDirectory.js'
+import { authorizeSubstituteSession } from '#lib/server/substituteSessions.js'
 import { z } from 'zod'
 import type { RequestHandler } from './$types'
 
@@ -87,7 +89,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
       }
     })
 
-    return json({ students })
+    return Response.json({ students })
   } catch (err) {
     throw handleApiError('/api/classRoster', err)
   }

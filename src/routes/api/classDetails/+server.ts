@@ -1,14 +1,13 @@
 import {
   classSchema,
   otherInstructorUidsSchema,
-} from '$lib/components/forms/schemas'
-import { handleApiError, verifyInstructor } from '$lib/server/apiHelpers'
+} from '#lib/components/forms/schemas.js'
+import { handleApiError, verifyInstructor } from '#lib/server/apiHelpers.js'
 import {
   fetchInstructorClasses,
   saveClassDetails,
   type SerializedClass,
-} from '$lib/server/instructorClasses'
-import { json } from '@sveltejs/kit'
+} from '#lib/server/instructorClasses.js'
 import { z } from 'zod'
 import type { RequestHandler } from './$types'
 
@@ -50,7 +49,7 @@ export const GET: RequestHandler = async ({ locals }) => {
     const response: ClassDetailsResponse = {
       classes: await fetchInstructorClasses(user.uid),
     }
-    return json(response)
+    return Response.json(response)
   } catch (err) {
     throw handleApiError('/api/classDetails', err)
   }
@@ -70,7 +69,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       body.details,
       body.schedule,
     )
-    return json({ classId: body.classId })
+    return Response.json({ classId: body.classId })
   } catch (err) {
     throw handleApiError('/api/classDetails', err)
   }

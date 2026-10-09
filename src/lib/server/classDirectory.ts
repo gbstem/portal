@@ -1,8 +1,8 @@
 import {
   classesCollection,
   registrationsCollection,
-} from '$lib/data/collections'
-import { adminDb } from '$lib/server/firebase'
+} from '#lib/data/collections.js'
+import { adminDb } from '#lib/server/firebase.js'
 import { error } from '@sveltejs/kit'
 import type { DocumentSnapshot } from 'firebase-admin/firestore'
 

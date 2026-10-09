@@ -1,4 +1,4 @@
-import { semesterDates } from '$lib/data/collections'
+import { semesterDates } from '#lib/data/collections.js'
 
 /**
  * When the application and registration windows open and close, as the server

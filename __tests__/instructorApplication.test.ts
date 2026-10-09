@@ -4,7 +4,7 @@ const mockSendEmail = jest.fn()
 let docs: Record<string, any>
 let transaction: { get: jest.Mock; set: jest.Mock }
 
-jest.mock('$lib/server/firebase', () => ({
+jest.mock('#lib/server/firebase.js', () => ({
   adminDb: {
     doc: (path: string) => ({
       path,
@@ -13,10 +13,10 @@ jest.mock('$lib/server/firebase', () => ({
     runTransaction: (fn: (t: any) => Promise<any>) => fn(transaction),
   },
 }))
-jest.mock('$lib/server/email', () => ({
+jest.mock('#lib/server/email.js', () => ({
   sendEmail: (...args: any[]) => mockSendEmail(...args),
 }))
-jest.mock('$lib/emails/render', () => ({
+jest.mock('#lib/emails/render.js', () => ({
   renderEmail: (name: string) => `<html>${name}</html>`,
 }))
 jest.mock('firebase-admin/firestore', () => ({
@@ -34,13 +34,16 @@ jest.mock(
   { virtual: true },
 )
 
-import { applicationsCollection, currentSemester } from '$lib/data/collections'
-import { createEmptyApplication } from '$lib/helpers/applyForm'
+import {
+  applicationsCollection,
+  currentSemester,
+} from '#lib/data/collections.js'
+import { createEmptyApplication } from '#lib/helpers/applyForm.js'
 import {
   loadApplication,
   saveApplicationDraft,
   submitApplication,
-} from '$lib/server/instructorApplication'
+} from '#lib/server/instructorApplication.js'
 import type {} from '../src/data.d.ts'
 
 const CALLER = { uid: 'instructor-uid', email: 'now@example.com' }

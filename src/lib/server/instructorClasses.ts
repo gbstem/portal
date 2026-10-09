@@ -1,17 +1,17 @@
-import { toDateOrNull } from '$lib/shared/timestamps'
-import { isOwnClassId } from '$lib/data/docIds'
-import { classesCollection, withSemester } from '$lib/data/collections'
+import { toDateOrNull } from '#lib/shared/timestamps.js'
+import { isOwnClassId } from '#lib/data/docIds.js'
+import { classesCollection, withSemester } from '#lib/data/collections.js'
 import {
   canClaimClassOwnership,
   scheduleSourceChanged,
-} from '$lib/helpers/classDetailsForm'
-import { isInstructorOfClass } from '$lib/server/classDirectory'
-import { adminDb } from '$lib/server/firebase'
+} from '#lib/helpers/classDetailsForm.js'
+import { isInstructorOfClass } from '#lib/server/classDirectory.js'
+import { adminDb } from '#lib/server/firebase.js'
 import {
   isAcceptedInstructor,
   isAcceptedInstructorAccount,
   NOT_AN_ACCEPTED_INSTRUCTOR,
-} from '$lib/server/instructorDirectory'
+} from '#lib/server/instructorDirectory.js'
 import { error } from '@sveltejs/kit'
 import { FieldValue } from 'firebase-admin/firestore'
 

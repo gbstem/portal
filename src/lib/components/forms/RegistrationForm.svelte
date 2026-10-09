@@ -1,15 +1,15 @@
 <script lang="ts">
-  import { invalidateAll } from '$app/navigation'
-  import Card from '$lib/components/Card.svelte'
+  import { refreshAll } from '$app/navigation'
+  import Card from '#lib/components/Card.svelte'
   import {
     frlpJson,
     gendersJson,
     gradesJson,
     parentEducationJson,
     raceJson,
-  } from '$lib/data'
-  import { emptySemesterDates } from '$lib/data/collections'
-  import { alert } from '$lib/stores'
+  } from '#lib/data/index.js'
+  import { emptySemesterDates } from '#lib/data/collections.js'
+  import { alert } from '#lib/stores.js'
   import { onDestroy, onMount } from 'svelte'
   import { superForm, type SuperValidated } from 'sveltekit-superforms'
   import { zod } from 'sveltekit-superforms/adapters'
@@ -47,7 +47,7 @@
 
   // Posts to `/apply`'s `saveRegistration`/`submitRegistration` actions, which
   // do all the reading, writing and emailing with the Admin SDK - see
-  // `$lib/server/studentRegistration`. `&child=` says which of the parent's
+  // `#lib/server/studentRegistration`. `&child=` says which of the parent's
   // children; the server builds the document id from the parent's own uid.
   //
   // `invalidateAll` is off for the reason ApplyForm gives: a re-run `load`
@@ -78,7 +78,7 @@
         )
       }
       if (result.type === 'success' && lastAction === 'submit') {
-        await invalidateAll()
+        await refreshAll()
         window.scrollTo({ top: 0, behavior: 'smooth' })
       }
     },

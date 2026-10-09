@@ -1,9 +1,9 @@
 import {
   classesCollection,
   substituteRequestsCollection,
-} from '$lib/data/collections'
-import { isOwnRegistration } from '$lib/data/docIds'
-import { adminDb } from '$lib/server/firebase'
+} from '#lib/data/collections.js'
+import { isOwnRegistration } from '#lib/data/docIds.js'
+import { adminDb } from '#lib/server/firebase.js'
 import { error } from '@sveltejs/kit'
 import { z } from 'zod'
 

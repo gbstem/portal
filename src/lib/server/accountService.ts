@@ -1,5 +1,5 @@
-import { toDate } from '$lib/shared/timestamps'
-import { registrationDocId } from '$lib/data/docIds'
+import { toDate } from '#lib/shared/timestamps.js'
+import { registrationDocId } from '#lib/data/docIds.js'
 import {
   applicationsCollection,
   classesCollection,
@@ -8,13 +8,13 @@ import {
   maxChildrenPerAccount,
   registrationsCollection,
   substituteRequestsCollection,
-} from '$lib/data/collections'
+} from '#lib/data/collections.js'
 import {
   planInstructorAccountDeletion,
   planStudentAccountDeletion,
   type RegistrationForDeletion,
-} from '$lib/helpers/accountDeletion'
-import { adminAuth, adminDb } from '$lib/server/firebase'
+} from '#lib/helpers/accountDeletion.js'
+import { adminAuth, adminDb } from '#lib/server/firebase.js'
 import { error } from '@sveltejs/kit'
 import type {
   DocumentReference,

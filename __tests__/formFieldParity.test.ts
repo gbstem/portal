@@ -17,25 +17,25 @@ import {
   getApplyFormDefaults,
   getRegistrationFormDefaults,
   registrationSchema,
-} from '$lib/components/forms/schemas'
+} from '#lib/components/forms/schemas.js'
 import {
   APPLICATION_ADMIN_OWNED_FIELDS,
   applicationOwnedFields,
   createEmptyApplication,
   normalizeApplicationData,
   toApplyFormValues,
-} from '$lib/helpers/applyForm'
+} from '#lib/helpers/applyForm.js'
 import {
   getDefaultClassValues,
   toFormValues as toClassFormValues,
-} from '$lib/helpers/classDetailsForm'
+} from '#lib/helpers/classDetailsForm.js'
 import {
   createEmptyRegistration,
   normalizeRegistrationData,
   REGISTRATION_ADMIN_OWNED_FIELDS,
   registrationOwnedFields,
   toRegistrationFormValues,
-} from '$lib/helpers/registrationForm'
+} from '#lib/helpers/registrationForm.js'
 import { z } from 'zod'
 import type {} from '../src/data.d.ts'
 

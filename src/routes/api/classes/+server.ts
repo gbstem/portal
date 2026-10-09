@@ -1,7 +1,6 @@
-import type { ClassInfo } from '$lib/helpers/classesPage'
-import { handleApiError, verifyAuthenticated } from '$lib/server/apiHelpers'
-import { fetchClassListings } from '$lib/server/classListings'
-import { json } from '@sveltejs/kit'
+import type { ClassInfo } from '#lib/helpers/classesPage.js'
+import { handleApiError, verifyAuthenticated } from '#lib/server/apiHelpers.js'
+import { fetchClassListings } from '#lib/server/classListings.js'
 import type { RequestHandler } from './$types'
 
 export interface ClassesResponse {
@@ -18,7 +17,7 @@ export const GET: RequestHandler = async ({ locals }) => {
     const response: ClassesResponse = {
       classes: await fetchClassListings(user),
     }
-    return json(response)
+    return Response.json(response)
   } catch (err) {
     throw handleApiError('/api/classes', err)
   }

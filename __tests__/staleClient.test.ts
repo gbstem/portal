@@ -1,4 +1,4 @@
-import { shouldHardLoad } from '$lib/client/staleClient'
+import { shouldHardLoad } from '#lib/client/staleClient.js'
 
 // StaleClientBanner.svelte and staleClient.ts are byte-identical to admin's
 // copies. The component-mounting half of the coverage lives in admin's

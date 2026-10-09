@@ -1,16 +1,16 @@
 <script lang="ts">
   import { enhance } from '$app/forms'
-  import { user } from '$lib/client/firebase'
-  import { curriculumLink } from '$lib/helpers/curriculumLink'
-  import { openableMeetingLink } from '$lib/helpers/meetingLink'
-  import { parseSubRequestDocId } from '$lib/data/docIds'
+  import { user } from '#lib/client/firebase.js'
+  import { curriculumLink } from '#lib/helpers/curriculumLink.js'
+  import { openableMeetingLink } from '#lib/helpers/meetingLink.js'
+  import { parseSubRequestDocId } from '#lib/data/docIds.js'
   import {
     filterCheckedOffSubClasses,
     type OpenSubRequestSummary,
-  } from '$lib/helpers/subClasses'
-  import { substituteService } from '$lib/services/substituteService'
-  import { alert } from '$lib/stores'
-  import { formatDate, timestampToDate } from '$lib/utils'
+  } from '#lib/helpers/subClasses.js'
+  import { substituteService } from '#lib/services/substituteService.js'
+  import { alert } from '#lib/stores.js'
+  import { formatDate, timestampToDate } from '#lib/utils.js'
   import { onMount } from 'svelte'
   import Button from './Button.svelte'
   import Card from './Card.svelte'

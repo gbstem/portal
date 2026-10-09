@@ -1,4 +1,4 @@
-import { adminDb } from '$lib/server/firebase'
+import { adminDb } from '#lib/server/firebase.js'
 
 /**
  * The names on `users/{uid}`, `''` where missing. Forms that show or stamp the

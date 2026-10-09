@@ -1,11 +1,14 @@
-import { renderEmail } from '$lib/emails/render'
-import { resolveRegistrationParentEmails } from '$lib/server/accountEmails'
-import { handleApiError, verifyInstructor } from '$lib/server/apiHelpers'
-import { getAuthorizedClass, getStudentSnaps } from '$lib/server/classDirectory'
-import { sendEmail } from '$lib/server/email'
-import { resolveCoInstructorEmails } from '$lib/server/instructorDirectory'
-import { authorizeSubstituteSession } from '$lib/server/substituteSessions'
-import { error, json } from '@sveltejs/kit'
+import { renderEmail } from '#lib/emails/render.js'
+import { resolveRegistrationParentEmails } from '#lib/server/accountEmails.js'
+import { handleApiError, verifyInstructor } from '#lib/server/apiHelpers.js'
+import {
+  getAuthorizedClass,
+  getStudentSnaps,
+} from '#lib/server/classDirectory.js'
+import { sendEmail } from '#lib/server/email.js'
+import { resolveCoInstructorEmails } from '#lib/server/instructorDirectory.js'
+import { authorizeSubstituteSession } from '#lib/server/substituteSessions.js'
+import { error } from '@sveltejs/kit'
 import { z } from 'zod'
 import type { RequestHandler } from './$types'
 
@@ -63,7 +66,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     }
 
     if (targetUids.length === 0) {
-      return json(
+      return Response.json(
         { message: 'That class has no students to remind.', count: 0 },
         { status: 400 },
       )
@@ -123,7 +126,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       }
     }
 
-    return json({
+    return Response.json({
       message: 'Reminder emails were sent!',
       count: sentCount,
     })

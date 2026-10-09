@@ -6,7 +6,7 @@ import type {} from '../../data.d.ts'
  * they can change out from under a stored copy.
  *
  * Lives here rather than beside the server resolver that produces it so that
- * client code can name the type without importing `$lib/server/*`, which
+ * client code can name the type without importing `#lib/server/*`, which
  * SvelteKit refuses to bundle.
  */
 export type CoInstructor = {

@@ -1,10 +1,10 @@
-import { handleApiError, verifyInstructor } from '$lib/server/apiHelpers'
+import { handleApiError, verifyInstructor } from '#lib/server/apiHelpers.js'
 import {
   authorizeSubstituteSession,
   recordSubstituteSession,
   type RecordedSubstituteSession,
-} from '$lib/server/substituteSessions'
-import { error, json } from '@sveltejs/kit'
+} from '#lib/server/substituteSessions.js'
+import { error } from '@sveltejs/kit'
 import { z } from 'zod'
 import type { RequestHandler } from './$types'
 
@@ -44,7 +44,7 @@ export const GET: RequestHandler = async ({ locals, url }) => {
     const response: SubstituteSessionLinkResponse = {
       meetingLink: classData.meetingLink ?? '',
     }
-    return json(response)
+    return Response.json(response)
   } catch (err) {
     throw handleApiError('/api/substituteSession', err)
   }
@@ -62,7 +62,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       user.uid,
       body.subRequestId,
     )
-    return json(response)
+    return Response.json(response)
   } catch (err) {
     throw handleApiError('/api/substituteSession', err)
   }

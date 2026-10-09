@@ -1,32 +1,43 @@
-import { env } from '$env/dynamic/private'
+import {
+  E2E_INSTRUCTOR_APPS_DUE,
+  E2E_REGISTRATIONS_DUE,
+  FIRESTORE_EMULATOR_HOST,
+} from '$app/env/private'
 import {
   applicationDraftSchema,
   applicationSchema,
   registrationDraftSchema,
   registrationSchema,
-} from '$lib/components/forms/schemas'
-import { maxChildrenPerAccount } from '$lib/data/collections'
-import { verifyInstructor, verifyStudent } from '$lib/server/apiHelpers'
+} from '#lib/components/forms/schemas.js'
+import { maxChildrenPerAccount } from '#lib/data/collections.js'
+import { verifyInstructor, verifyStudent } from '#lib/server/apiHelpers.js'
 import {
   applicationDeadline,
   registrationWindow,
-} from '$lib/server/semesterWindows'
+} from '#lib/server/semesterWindows.js'
 import {
   loadApplication,
   saveApplicationDraft,
   submitApplication,
-} from '$lib/server/instructorApplication'
+} from '#lib/server/instructorApplication.js'
 import {
   isOpenableChild,
   listChildren,
   loadRegistration,
   saveRegistrationDraft,
   submitRegistration,
-} from '$lib/server/studentRegistration'
+} from '#lib/server/studentRegistration.js'
 import { error, fail, isHttpError, redirect } from '@sveltejs/kit'
 import { message, superValidate } from 'sveltekit-superforms'
 import { zod } from 'sveltekit-superforms/adapters'
 import type { Actions, PageServerLoad } from './$types'
+
+/** What `semesterWindows` reads to let Cypress move a due date. */
+const env = {
+  FIRESTORE_EMULATOR_HOST,
+  E2E_INSTRUCTOR_APPS_DUE,
+  E2E_REGISTRATIONS_DUE,
+}
 
 // Each form's two actions post the same form, so they share its id:
 // superforms only applies a result to the form whose id it carries.

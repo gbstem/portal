@@ -1,12 +1,11 @@
-import { verifyInstructor, handleApiError } from '$lib/server/apiHelpers'
+import { verifyInstructor, handleApiError } from '#lib/server/apiHelpers.js'
 import {
   COMMUNITY_SERVICE_SIGNATORIES,
   communityServiceSummary,
-} from '$lib/server/communityService'
-import { sendEmail } from '$lib/server/email'
-import { profileNames } from '$lib/server/userProfile'
-import { renderEmail } from '$lib/emails/render'
-import { json } from '@sveltejs/kit'
+} from '#lib/server/communityService.js'
+import { sendEmail } from '#lib/server/email.js'
+import { profileNames } from '#lib/server/userProfile.js'
+import { renderEmail } from '#lib/emails/render.js'
 import type { RequestHandler } from './$types'
 
 /**
@@ -53,13 +52,13 @@ export const POST: RequestHandler = async ({ locals }) => {
         html: htmlBody,
       })
     } catch (mailError) {
-      return json(
+      return Response.json(
         { error: 'Failed to send email. Please try again later.' },
         { status: 500 },
       )
     }
 
-    return json({ message: 'Email sent successfully.' })
+    return Response.json({ message: 'Email sent successfully.' })
   } catch (err) {
     throw handleApiError('/api/communityService', err)
   }

@@ -1,13 +1,13 @@
-import { ClassStatus } from '$lib/components/helpers/ClassStatus'
-import { SubRequestStatus } from '$lib/components/helpers/SubRequestStatus'
+import { ClassStatus } from '#lib/components/helpers/ClassStatus.js'
+import { SubRequestStatus } from '#lib/components/helpers/SubRequestStatus.js'
 import {
   classesCollection,
   instructorFeedbackCollection,
   substituteRequestsCollection,
   withSemester,
-} from '$lib/data/collections'
-import { parseSubRequestDocId } from '$lib/data/docIds'
-import { adminDb } from '$lib/server/firebase'
+} from '#lib/data/collections.js'
+import { parseSubRequestDocId } from '#lib/data/docIds.js'
+import { adminDb } from '#lib/server/firebase.js'
 import { error } from '@sveltejs/kit'
 import type {
   DocumentReference,

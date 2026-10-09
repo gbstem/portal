@@ -1,10 +1,10 @@
 import {
   classesCollection,
   registrationsCollection,
-} from '$lib/data/collections'
-import { isOwnRegistration } from '$lib/data/docIds'
-import { isGradeEligible } from '$lib/helpers/classesPage'
-import { adminDb } from '$lib/server/firebase'
+} from '#lib/data/collections.js'
+import { isOwnRegistration } from '#lib/data/docIds.js'
+import { isGradeEligible } from '#lib/helpers/classesPage.js'
+import { adminDb } from '#lib/server/firebase.js'
 import { error } from '@sveltejs/kit'
 
 /** The most classes one student may be enrolled in at once. */

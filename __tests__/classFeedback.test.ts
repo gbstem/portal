@@ -2,14 +2,14 @@ const mockDoc = jest.fn()
 const mockRunTransaction = jest.fn()
 const mockIsAcceptedInstructor = jest.fn()
 
-jest.mock('$lib/server/firebase', () => ({
+jest.mock('#lib/server/firebase.js', () => ({
   adminDb: {
     doc: (...args: any[]) => mockDoc(...args),
     runTransaction: (...args: any[]) => mockRunTransaction(...args),
   },
 }))
 
-jest.mock('$lib/server/instructorDirectory', () => ({
+jest.mock('#lib/server/instructorDirectory.js', () => ({
   isAcceptedInstructor: (...args: any[]) => mockIsAcceptedInstructor(...args),
 }))
 
@@ -31,13 +31,13 @@ import {
   instructorFeedbackCollection,
   registrationsCollection,
   studentFeedbackCollection,
-} from '$lib/data/collections'
+} from '#lib/data/collections.js'
 import {
   fileInstructorFeedback,
   fileStudentFeedback,
   type InstructorFeedback,
   type StudentFeedback,
-} from '$lib/server/classFeedback'
+} from '#lib/server/classFeedback.js'
 
 const NOW = 1_780_000_000_000
 const CLASS_ID = 'owner-uid-1'

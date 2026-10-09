@@ -1,5 +1,6 @@
-import { adminAuth } from '$lib/server/firebase'
-import { redirect, type Handle, type HandleServerError } from '@sveltejs/kit'
+import { redirect } from '@sveltejs/kit'
+import type { Handle, HandleServerError } from '@sveltejs/kit/hooks'
+import { adminAuth } from '#lib/server/firebase.js'
 
 export const handle = (async ({ event, resolve }) => {
   const sessionCookie = event.cookies.get('__session')
@@ -40,23 +41,27 @@ export const handle = (async ({ event, resolve }) => {
   // catch(err), which just resets locals.user and silently drops the
   // redirect instead of letting it propagate.
   if (shouldRedirectToAdmin) {
-    throw redirect(303, 'https://admin.gbstem.org')
+    throw redirect(303, 'https://admin.gbstem.org', { external: true })
   }
   return resolve(event)
 }) satisfies Handle
 
 /**
  * Shapes an *unexpected* error - anything not thrown with `error()` - for the
- * client. Only SvelteKit's own `message` ("Internal Error", "Not Found") goes
- * back, plus an id to quote when reporting it; the error itself is logged
- * here under that id. This used to return the stack trace and the raw
- * message, to any caller at all (a malformed POST to /api/auth was enough),
- * which exposed server paths, bundle layout and dependency details.
+ * client. Returning only an id leaves SvelteKit's own status and message
+ * ("Internal Error") in place, so nothing about the error itself goes back;
+ * it is logged here under that id for a user to quote when reporting it.
+ * Never return the stack or the raw message: unauthenticated callers reach
+ * this (a malformed POST to /api/auth is enough), and those exposed server
+ * paths, bundle layout and dependency details.
+ *
+ * Errors thrown with `error()` (kind `app`) and SvelteKit's own, such as a
+ * 404 (kind `framework`), already carry a message meant for the client, so
+ * they pass through unchanged and unlogged.
  */
-export const handleError = (({ error, status, message }) => {
+export const handleError = (({ kind, error }) => {
+  if (kind !== 'unknown') return
   const errorId = crypto.randomUUID()
-  if (status !== 404) {
-    console.error(`[SvelteKit Server Error ${errorId}]:`, error)
-  }
-  return { message, errorId }
+  console.error(`[SvelteKit Server Error ${errorId}]:`, error)
+  return { errorId }
 }) satisfies HandleServerError

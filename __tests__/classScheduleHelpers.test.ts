@@ -8,9 +8,9 @@ import {
   heldEarlierToday,
   buildSubRequestPayload,
   rescheduleSessions,
-} from '$lib/helpers/classSchedule'
-import { ClassStatus } from '$lib/components/helpers/ClassStatus'
-import { SubRequestStatus } from '$lib/components/helpers/SubRequestStatus'
+} from '#lib/helpers/classSchedule.js'
+import { ClassStatus } from '#lib/components/helpers/ClassStatus.js'
+import { SubRequestStatus } from '#lib/components/helpers/SubRequestStatus.js'
 
 describe('ClassSchedule Helpers', () => {
   describe('computeUpdatedClassStatuses', () => {

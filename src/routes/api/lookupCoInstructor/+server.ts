@@ -1,10 +1,10 @@
-import { handleApiError, verifyInstructor } from '$lib/server/apiHelpers'
+import { handleApiError, verifyInstructor } from '#lib/server/apiHelpers.js'
 import {
   isAcceptedInstructor,
   lookupAcceptedInstructorByEmail,
   NOT_AN_ACCEPTED_INSTRUCTOR,
-} from '$lib/server/instructorDirectory'
-import { json, error } from '@sveltejs/kit'
+} from '#lib/server/instructorDirectory.js'
+import { error } from '@sveltejs/kit'
 import { z } from 'zod'
 import type { RequestHandler } from './$types'
 
@@ -43,7 +43,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       throw error(404, NOT_AN_ACCEPTED_INSTRUCTOR)
     }
 
-    return json({ instructor })
+    return Response.json({ instructor })
   } catch (err) {
     throw handleApiError('/api/lookupCoInstructor', err)
   }

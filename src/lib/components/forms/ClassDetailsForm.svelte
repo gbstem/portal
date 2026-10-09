@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { nextClassDocId, parseClassDocId } from '$lib/data/docIds'
-  import { user } from '$lib/client/firebase'
-  import { classDetailsFormSchema } from '$lib/components/forms/schemas'
-  import { coursesJson, daysOfWeekJson } from '$lib/data'
+  import { nextClassDocId, parseClassDocId } from '#lib/data/docIds.js'
+  import { user } from '#lib/client/firebase.js'
+  import { classDetailsFormSchema } from '#lib/components/forms/schemas.js'
+  import { coursesJson, daysOfWeekJson } from '#lib/data/index.js'
   import {
     addCoInstructor,
     coInstructorAddError,
@@ -15,10 +15,10 @@
     scheduleSourceChanged,
     toFormValues,
     type CoInstructor,
-  } from '$lib/helpers/classDetailsForm'
-  import { classService } from '$lib/services/classService'
-  import { alert } from '$lib/stores'
-  import { cn } from '$lib/utils'
+  } from '#lib/helpers/classDetailsForm.js'
+  import { classService } from '#lib/services/classService.js'
+  import { alert } from '#lib/stores.js'
+  import { cn } from '#lib/utils.js'
   import { onMount, untrack } from 'svelte'
   import { defaults, superForm } from 'sveltekit-superforms'
   import { zod } from 'sveltekit-superforms/adapters'

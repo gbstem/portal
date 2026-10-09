@@ -150,15 +150,15 @@ jest.mock(
   { virtual: true },
 )
 
-// Mock $lib/stores
-jest.mock('$lib/stores', () => ({
+// Mock #lib/stores
+jest.mock('#lib/stores.js', () => ({
   alert: {
     trigger: jest.fn(),
   },
 }))
 
 // Import dependencies to test
-import { alert } from '$lib/stores'
+import { alert } from '#lib/stores.js'
 import { getDoc } from 'firebase/firestore'
 import { user } from '../src/lib/client/firebase'
 import { currentSemester } from '../src/lib/data/collections'

@@ -1,16 +1,15 @@
-import { handleApiError, verifyInstructor } from '$lib/server/apiHelpers'
-import { sendEmail } from '$lib/server/email'
-import { renderEmail } from '$lib/emails/render'
-import { formatDateInGbstemTime } from '$lib/utils'
-import { adminAuth } from '$lib/server/firebase'
+import { handleApiError, verifyInstructor } from '#lib/server/apiHelpers.js'
+import { sendEmail } from '#lib/server/email.js'
+import { renderEmail } from '#lib/emails/render.js'
+import { formatDateInGbstemTime } from '#lib/utils.js'
+import { adminAuth } from '#lib/server/firebase.js'
 import {
   claimSubRequest,
   fetchOpenSubRequests,
   serializeSubRequest,
   type OpenSubRequest,
   type SerializedSubRequest,
-} from '$lib/server/substituteRequests'
-import { json } from '@sveltejs/kit'
+} from '#lib/server/substituteRequests.js'
 import { z } from 'zod'
 import type { RequestHandler } from './$types'
 
@@ -53,7 +52,7 @@ export const GET: RequestHandler = async ({ locals }) => {
     const response: OpenSubRequestsResponse = {
       subRequests: await fetchOpenSubRequests(user.uid),
     }
-    return json(response)
+    return Response.json(response)
   } catch (err) {
     throw handleApiError('/api/substitute', err)
   }
@@ -79,7 +78,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       : undefined
 
     if (!originalInstructorEmail) {
-      return json(
+      return Response.json(
         { error: 'Original instructor email could not be resolved.' },
         { status: 400 },
       )
@@ -123,7 +122,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         replyTo: originalInstructorEmail,
       })
     } catch (mailError) {
-      return json(
+      return Response.json(
         { error: 'Failed to send email. Please try again later.' },
         { status: 500 },
       )
@@ -132,7 +131,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     const response: SubstituteClaimResponse = {
       subRequest: serializeSubRequest(claimed),
     }
-    return json(response)
+    return Response.json(response)
   } catch (err) {
     throw handleApiError('/api/substitute', err)
   }

@@ -1,16 +1,16 @@
-import { toDate } from '$lib/shared/timestamps'
-import { ClassStatus } from '$lib/components/helpers/ClassStatus'
-import { classesCollection } from '$lib/data/collections'
+import { toDate } from '#lib/shared/timestamps.js'
+import { ClassStatus } from '#lib/components/helpers/ClassStatus.js'
+import { classesCollection } from '#lib/data/collections.js'
 import {
   computeUpdatedClassStatuses,
   findTodaysSessionIndex,
   heldEarlierToday,
   rescheduleSessions,
-} from '$lib/helpers/classSchedule'
-import { isInstructorOfClass } from '$lib/server/classDirectory'
-import { adminDb } from '$lib/server/firebase'
-import { isAcceptedInstructor } from '$lib/server/instructorDirectory'
-import { GBSTEM_TIME_ZONE } from '$lib/utils'
+} from '#lib/helpers/classSchedule.js'
+import { isInstructorOfClass } from '#lib/server/classDirectory.js'
+import { adminDb } from '#lib/server/firebase.js'
+import { isAcceptedInstructor } from '#lib/server/instructorDirectory.js'
+import { GBSTEM_TIME_ZONE } from '#lib/utils.js'
 import { error } from '@sveltejs/kit'
 import type { DocumentReference, Transaction } from 'firebase-admin/firestore'
 

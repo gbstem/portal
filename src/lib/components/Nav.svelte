@@ -1,8 +1,8 @@
 <script lang="ts">
   import { navigating, page } from '$app/state'
-  import { user } from '$lib/client/firebase'
-  import { applicationService } from '$lib/services/applicationService'
-  import { cn } from '$lib/utils'
+  import { user } from '#lib/client/firebase.js'
+  import { applicationService } from '#lib/services/applicationService.js'
+  import { cn } from '#lib/utils.js'
   import { onMount } from 'svelte'
   import { cubicInOut } from 'svelte/easing'
   import { fade } from 'svelte/transition'

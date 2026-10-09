@@ -4,7 +4,7 @@ import {
   sortClassesBySpotsRemaining,
   isGradeEligible,
   type ClassInfo,
-} from '$lib/helpers/classesPage'
+} from '#lib/helpers/classesPage.js'
 
 describe('ClassesPage Helpers', () => {
   describe('parseClassInfoDoc', () => {

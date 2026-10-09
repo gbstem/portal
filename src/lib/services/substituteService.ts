@@ -1,9 +1,9 @@
-import { errorMessage } from '$lib/shared/apiErrors'
-import { db } from '$lib/client/firebase'
-import { SubRequestStatus } from '$lib/components/helpers/SubRequestStatus'
-import { substituteRequestsCollection } from '$lib/data/collections'
-import { accountEmailService } from '$lib/services/accountEmailService'
-import { type SubClassesDataResult } from '$lib/helpers/subClasses'
+import { errorMessage } from '#lib/shared/apiErrors.js'
+import { db } from '#lib/client/firebase.js'
+import { SubRequestStatus } from '#lib/components/helpers/SubRequestStatus.js'
+import { substituteRequestsCollection } from '#lib/data/collections.js'
+import { accountEmailService } from '#lib/services/accountEmailService.js'
+import { type SubClassesDataResult } from '#lib/helpers/subClasses.js'
 import {
   collection,
   getDocs,

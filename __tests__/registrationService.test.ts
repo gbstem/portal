@@ -1,5 +1,5 @@
-import { maxChildrenPerAccount } from '$lib/data/collections'
-import { registrationService } from '$lib/services/registrationService'
+import { maxChildrenPerAccount } from '#lib/data/collections.js'
+import { registrationService } from '#lib/services/registrationService.js'
 import * as firestore from 'firebase/firestore'
 import type {} from '../src/data.d.ts'
 

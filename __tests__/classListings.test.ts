@@ -1,6 +1,6 @@
 const mockCollection = jest.fn()
 
-jest.mock('$lib/server/firebase', () => ({
+jest.mock('#lib/server/firebase.js', () => ({
   adminDb: {
     collection: (...args: any[]) => mockCollection(...args),
   },
@@ -18,11 +18,11 @@ jest.mock(
   { virtual: true },
 )
 
-import { classesCollection } from '$lib/data/collections'
+import { classesCollection } from '#lib/data/collections.js'
 import {
   fetchClassListings,
   fetchStudentClasses,
-} from '$lib/server/classListings'
+} from '#lib/server/classListings.js'
 
 const PARENT = 'parent-uid'
 const timestamp = (iso: string) => ({ toDate: () => new Date(iso) })

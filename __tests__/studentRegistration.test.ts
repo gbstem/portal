@@ -4,7 +4,7 @@ const mockSendEmail = jest.fn()
 let docs: Record<string, any>
 let transaction: { get: jest.Mock; set: jest.Mock }
 
-jest.mock('$lib/server/firebase', () => ({
+jest.mock('#lib/server/firebase.js', () => ({
   adminDb: {
     doc: (path: string) => ({
       path,
@@ -13,10 +13,10 @@ jest.mock('$lib/server/firebase', () => ({
     runTransaction: (fn: (t: any) => Promise<any>) => fn(transaction),
   },
 }))
-jest.mock('$lib/server/email', () => ({
+jest.mock('#lib/server/email.js', () => ({
   sendEmail: (...args: any[]) => mockSendEmail(...args),
 }))
-jest.mock('$lib/emails/render', () => ({
+jest.mock('#lib/emails/render.js', () => ({
   renderEmail: (name: string) => `<html>${name}</html>`,
 }))
 jest.mock('firebase-admin/firestore', () => ({
@@ -38,15 +38,15 @@ import {
   currentSemester,
   maxChildrenPerAccount,
   registrationsCollection,
-} from '$lib/data/collections'
-import { createEmptyRegistration } from '$lib/helpers/registrationForm'
+} from '#lib/data/collections.js'
+import { createEmptyRegistration } from '#lib/helpers/registrationForm.js'
 import {
   isOpenableChild,
   listChildren,
   loadRegistration,
   saveRegistrationDraft,
   submitRegistration,
-} from '$lib/server/studentRegistration'
+} from '#lib/server/studentRegistration.js'
 import type {} from '../src/data.d.ts'
 
 const CALLER = { uid: 'parent-uid', email: 'now@example.com' }

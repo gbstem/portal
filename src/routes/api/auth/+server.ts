@@ -1,5 +1,5 @@
-import { adminAuth } from '$lib/server/firebase'
-import { error, json } from '@sveltejs/kit'
+import { adminAuth } from '#lib/server/firebase.js'
+import { error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
@@ -44,7 +44,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
       path: '/',
     }
     cookies.set('__session', cookie, options)
-    return json({ status: 'signedIn' })
+    return Response.json({ status: 'signedIn' })
   } else {
     throw error(401, 'Recent sign in required.')
   }
@@ -52,5 +52,5 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
 export const DELETE: RequestHandler = async ({ cookies }) => {
   cookies.delete('__session', { path: '/' })
-  return json({ status: 'signedOut' })
+  return Response.json({ status: 'signedOut' })
 }

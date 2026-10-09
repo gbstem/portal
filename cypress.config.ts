@@ -94,8 +94,16 @@ export default defineConfig({
         // documented there) instead of duplicating admin's seed script.
         // This is a cy.task() rather than the removed cy.exec() only because
         // Cypress 16 dropped cy.exec(); the underlying command is unchanged.
+        //
+        // Cypress loads this file through tsx and points TSX_TSCONFIG_PATH at
+        // portal's tsconfig.json; admin's seed runs under tsx too, so it must
+        // not inherit that, or it resolves admin's imports with portal's
+        // config instead of its own.
         async seed() {
-          const { stdout, stderr } = await exec('cd ../admin && yarn seed')
+          const { TSX_TSCONFIG_PATH: _, ...env } = process.env
+          const { stdout, stderr } = await exec('cd ../admin && yarn seed', {
+            env,
+          })
           if (stdout) console.log(stdout)
           if (stderr) console.error(stderr)
           return null

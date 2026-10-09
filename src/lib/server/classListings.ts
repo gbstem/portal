@@ -1,12 +1,12 @@
-import { toDateOrNull } from '$lib/shared/timestamps'
-import { classesCollection } from '$lib/data/collections'
-import { isOwnRegistration } from '$lib/data/docIds'
+import { toDateOrNull } from '#lib/shared/timestamps.js'
+import { classesCollection } from '#lib/data/collections.js'
+import { isOwnRegistration } from '#lib/data/docIds.js'
 import {
   parseClassInfoDoc,
   sortClassesBySpotsRemaining,
   type ClassInfo,
-} from '$lib/helpers/classesPage'
-import { adminDb } from '$lib/server/firebase'
+} from '#lib/helpers/classesPage.js'
+import { adminDb } from '#lib/server/firebase.js'
 import { error } from '@sveltejs/kit'
 
 // firestore.rules lets only admins and reviewers read a class directly: a

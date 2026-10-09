@@ -3,7 +3,7 @@ import {
   createEmptyApplication,
   toApplyFormValues,
   normalizeApplicationData,
-} from '$lib/helpers/applyForm'
+} from '#lib/helpers/applyForm.js'
 
 describe('ApplyForm Helpers', () => {
   describe('createEmptyApplication & normalizeApplicationData', () => {

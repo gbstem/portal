@@ -1,4 +1,4 @@
-import { announcementService } from '$lib/services/announcementService'
+import { announcementService } from '#lib/services/announcementService.js'
 import * as firestore from 'firebase/firestore'
 import type {} from '../src/data.d.ts'
 

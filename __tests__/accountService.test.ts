@@ -56,7 +56,7 @@ function makeQuery(
   }
 }
 
-jest.mock('$lib/server/firebase', () => ({
+jest.mock('#lib/server/firebase.js', () => ({
   adminDb: {
     doc: (path: string) => ({ path, get: async () => docSnapshot(path) }),
     collection: (name: string) => makeQuery(name, []),
@@ -86,11 +86,11 @@ import {
   interviewTimeRequestsCollection,
   registrationsCollection,
   substituteRequestsCollection,
-} from '$lib/data/collections'
+} from '#lib/data/collections.js'
 import {
   checkAccountDeletionEligibility,
   deleteAccount,
-} from '$lib/server/accountService'
+} from '#lib/server/accountService.js'
 import type {} from '../src/data.d.ts'
 
 const DAY = 24 * 60 * 60 * 1000

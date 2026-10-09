@@ -3,7 +3,7 @@ const mockGetUsers = jest.fn()
 const mockGetUserByEmail = jest.fn()
 const mockDoc = jest.fn()
 
-jest.mock('$lib/server/firebase', () => ({
+jest.mock('#lib/server/firebase.js', () => ({
   adminAuth: {
     getUser: (...args: any[]) => mockGetUser(...args),
     getUsers: (...args: any[]) => mockGetUsers(...args),
@@ -21,8 +21,8 @@ import {
   lookupAcceptedInstructorByEmail,
   resolveCoInstructorEmails,
   resolveCoInstructorIdentities,
-} from '$lib/server/instructorDirectory'
-import { decisionsCollection } from '$lib/data/collections'
+} from '#lib/server/instructorDirectory.js'
+import { decisionsCollection } from '#lib/data/collections.js'
 
 /**
  * Stands in for the two document reads every identity lookup makes: the
