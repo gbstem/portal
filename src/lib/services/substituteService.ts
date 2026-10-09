@@ -6,8 +6,6 @@ import { accountEmailService } from '$lib/services/accountEmailService'
 import { type SubClassesDataResult } from '$lib/helpers/subClasses'
 import {
   collection,
-  collectionGroup,
-  getCountFromServer,
   getDocs,
   query,
   where,
@@ -46,7 +44,6 @@ async function sendSubRequest(
 }
 
 /** The collection id every semester's sub requests share. */
-const SUB_REQUESTS_COLLECTION_ID = 'subRequests'
 
 /** Requests from one or more queries, each once, carrying its document id. */
 function toSubRequests(...snapshots: QuerySnapshot[]): Data.SubRequest[] {
@@ -134,25 +131,6 @@ export const substituteService = {
         context: { subRequestIds: ids },
       }),
     )
-  },
-
-  /**
-   * Counts substitute requests this user fully completed (including feedback)
-   * as the substitute instructor, in every semester - used for community
-   * service hour tallies. A collection-group query, because past semesters'
-   * requests are archived under `semesters/{id}/subRequests` (see admin's
-   * scripts/archive-past-sub-requests.ts) while the current semester's are
-   * top-level.
-   */
-  async countCompletedSubClasses(userId: string): Promise<number> {
-    const snapshot = await getCountFromServer(
-      query(
-        collectionGroup(db, SUB_REQUESTS_COLLECTION_ID),
-        where('subInstructorId', '==', userId),
-        where('subRequestStatus', '==', SubRequestStatus.NoSubstituteNeeded),
-      ),
-    )
-    return snapshot.data().count
   },
 
   /**

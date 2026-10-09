@@ -1,35 +1,43 @@
-import { verifyAuthenticated, handleApiError } from '$lib/server/apiHelpers'
+import { verifyInstructor, handleApiError } from '$lib/server/apiHelpers'
+import {
+  COMMUNITY_SERVICE_SIGNATORIES,
+  communityServiceSummary,
+} from '$lib/server/communityService'
 import { sendEmail } from '$lib/server/email'
+import { profileNames } from '$lib/server/userProfile'
 import { renderEmail } from '$lib/emails/render'
 import { json } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 
-export interface CommunityServiceRequestBody {
-  firstName: string
-  hours: number | string
-  season: string
-  year: number | string
-  course: string
-  presidents: string
-}
-
-export const POST: RequestHandler = async ({ request, locals }) => {
+/**
+ * Emails the signed-in instructor a confirmation of their community-service
+ * hours. Every figure in it is computed server-side (see
+ * communityServiceSummary): the email is an attestation from gbSTEM, so the
+ * request carries nothing but the session.
+ *
+ * Any instructor may ask, not only one accepted this semester, so someone who
+ * taught in an earlier semester can still get their substitute hours
+ * confirmed.
+ */
+export const POST: RequestHandler = async ({ locals }) => {
   try {
-    const user = verifyAuthenticated(locals)
-    const body = (await request.json()) as CommunityServiceRequestBody
-    const firstName = body.firstName
+    const user = verifyInstructor(locals)
+    const [summary, { firstName }] = await Promise.all([
+      communityServiceSummary(user.uid),
+      profileNames(user.uid),
+    ])
 
     const template = {
       name: 'communityServiceEmail',
       data: {
         subject: `gbSTEM Community Service Hours Confirmation for ${firstName}`,
         app: {
-          firstName: firstName,
-          hours: body.hours,
-          season: body.season,
-          year: body.year,
-          course: body.course,
-          presidents: body.presidents,
+          firstName,
+          hours: summary.totalHours,
+          season: summary.season,
+          year: summary.year,
+          course: summary.course,
+          presidents: COMMUNITY_SERVICE_SIGNATORIES,
           name: 'Portal',
           link: 'https://portal.gbstem.org',
         },

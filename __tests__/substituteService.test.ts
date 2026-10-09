@@ -1,17 +1,14 @@
-import { SubRequestStatus } from '$lib/components/helpers/SubRequestStatus'
 import { substituteService } from '$lib/services/substituteService'
 import * as firestore from 'firebase/firestore'
 import type {} from '../src/data.d.ts'
 
 jest.mock('firebase/firestore', () => ({
   collection: jest.fn(() => ({})),
-  collectionGroup: jest.fn(() => ({})),
   doc: jest.fn(() => ({})),
   query: jest.fn(() => ({})),
   where: jest.fn(() => ({})),
   getDoc: jest.fn(),
   getDocs: jest.fn(),
-  getCountFromServer: jest.fn(),
   setDoc: jest.fn(),
   updateDoc: jest.fn(),
   deleteDoc: jest.fn(),
@@ -114,42 +111,6 @@ describe('substituteService (Data Access Layer)', () => {
       await expect(substituteService.fetchUserSubRequests('u')).rejects.toThrow(
         '403',
       )
-    })
-  })
-
-  describe('countCompletedSubClasses', () => {
-    it('counts server-side, in every semester, only the sessions this user covered and closed out', async () => {
-      ;(firestore.getCountFromServer as jest.Mock).mockResolvedValueOnce({
-        data: () => ({ count: 3 }),
-      })
-
-      const count = await substituteService.countCompletedSubClasses('user123')
-
-      expect(count).toBe(3)
-      expect((firestore.collectionGroup as jest.Mock).mock.calls[0][1]).toBe(
-        'subRequests',
-      )
-      expect(firestore.where).toHaveBeenCalledWith(
-        'subInstructorId',
-        '==',
-        'user123',
-      )
-      expect(firestore.where).toHaveBeenCalledWith(
-        'subRequestStatus',
-        '==',
-        SubRequestStatus.NoSubstituteNeeded,
-      )
-      expect(firestore.getDocs).not.toHaveBeenCalled()
-    })
-
-    it('propagates errors from the count', async () => {
-      ;(firestore.getCountFromServer as jest.Mock).mockRejectedValueOnce(
-        new Error('permission-denied'),
-      )
-
-      await expect(
-        substituteService.countCompletedSubClasses('user123'),
-      ).rejects.toThrow('permission-denied')
     })
   })
 

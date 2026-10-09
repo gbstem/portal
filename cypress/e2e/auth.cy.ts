@@ -1,3 +1,5 @@
+import { registrationsCollection } from '../../src/lib/data/collections'
+import { registrationDocId } from '../../src/lib/data/docIds'
 import { generateDateHash } from '../support/utils'
 
 describe('Section A: Authentication and Navigation', () => {
@@ -156,6 +158,22 @@ describe('Section A: Authentication and Navigation', () => {
       cy.contains('a', 'Register').should('not.exist')
       cy.contains('a', 'Classes').should('not.exist')
 
+      // /apply's load creates the first child's draft registration, and the
+      // (emailVerified) layout's redirect doesn't stop it: SvelteKit runs the
+      // two together. Requested directly, it must still write nothing for an
+      // unverified account.
+      const firstDraft = () =>
+        cy
+          .task('getFirestoreUserId', email)
+          .then((uid) =>
+            cy.task(
+              'readFirestoreDoc',
+              `${registrationsCollection}/${registrationDocId(uid as string, 1)}`,
+            ),
+          )
+      cy.request({ url: '/apply/__data.json', failOnStatusCode: false })
+      firstDraft().should('equal', null)
+
       if (resend) {
         // Verify original OOB link exists but don't click it
         cy.getLatestOobLink(email, 'VERIFY_EMAIL').should('exist')
@@ -187,6 +205,11 @@ describe('Section A: Authentication and Navigation', () => {
 
       // Verify instructor navigation links are not visible
       cy.contains('a', 'Apply').should('not.exist')
+
+      // ...and once verified, the same request does create it - so the check
+      // above can't pass just because nothing would have been written anyway.
+      cy.request('/apply/__data.json')
+      firstDraft().should('not.equal', null)
     })
   })
 

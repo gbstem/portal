@@ -76,6 +76,27 @@ const MAX_TEXT = 2000
 const MAX_LIST_ITEMS = 50
 const MAX_LIST_ITEM = 200
 const textCap = [MAX_TEXT, `Max ${MAX_TEXT} characters`] as const
+// A person's name is greeted by name in emails, so it gets a tighter bound
+// than free text: room for any real name, none for a paragraph.
+const MAX_NAME = 100
+const nameCap = [MAX_NAME, `Max ${MAX_NAME} characters`] as const
+// The longest address SMTP can deliver to.
+const MAX_EMAIL = 254
+
+/**
+ * An optional email address, `''` when left blank. Checked here rather than
+ * only by the input's `type="email"`, which a hand-crafted request skips:
+ * the address it holds is sent mail.
+ */
+const optionalEmail = z
+  .string()
+  .trim()
+  .max(MAX_EMAIL, `Max ${MAX_EMAIL} characters`)
+  .refine(
+    (value) => value === '' || z.string().email().safeParse(value).success,
+    'Invalid email address',
+  )
+  .default('')
 const boundedList = () =>
   z.array(z.string().max(MAX_LIST_ITEM)).max(MAX_LIST_ITEMS)
 
@@ -190,6 +211,10 @@ const draftText = z
   .max(...textCap)
   .default('')
 const draftList = boundedList().default([])
+const draftName = z
+  .string()
+  .max(...nameCap)
+  .default('')
 export const applicationDraftSchema = z.object({
   personal: z.object({
     phoneNumber: draftText,
@@ -227,18 +252,15 @@ export const registrationSchema = z.object({
     studentFirstName: z
       .string()
       .min(1, 'First name is required')
-      .max(...textCap),
+      .max(...nameCap),
     studentLastName: z
       .string()
       .min(1, 'Last name is required')
-      .max(...textCap),
+      .max(...nameCap),
     // No `email`: the parent account's address is stamped by
     // registrationOwnedFields from the session, never taken from the form.
-    secondaryEmail: z
-      .string()
-      .max(...textCap)
-      .optional()
-      .default(''),
+    // A second guardian's address, copied on the confirmation email.
+    secondaryEmail: optionalEmail,
     phoneNumber: z
       .string()
       .min(1, 'Phone number is required')
@@ -331,9 +353,10 @@ export const registrationSchema = z.object({
  */
 export const registrationDraftSchema = z.object({
   personal: z.object({
-    studentFirstName: draftText,
-    studentLastName: draftText,
-    secondaryEmail: draftText,
+    studentFirstName: draftName,
+    studentLastName: draftName,
+    // Validated even in a draft: admin copies stored addresses into mail.
+    secondaryEmail: optionalEmail,
     phoneNumber: draftText,
     dateOfBirth: draftText,
     gender: draftText,
