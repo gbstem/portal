@@ -143,8 +143,28 @@ describe('Section D: Class Roster and Details View', () => {
 
   it('Test Case 9: Student View Enrolled Classes, Filtering, and Toggle', () => {
     cy.intercept('POST', '/api/resolveEmails').as('resolveEmails')
+    cy.intercept('GET', '/api/classes').as('classes')
     // Log in as student
     cy.signedInSession('student', { initialPage: '/classes' })
+
+    // Class documents aren't readable from the browser; the listing comes
+    // from /api/classes, which leaves out every roster and gives the meeting
+    // link of only the class this parent's student is in.
+    cy.wait('@classes')
+      .its('response.body.classes')
+      .then((classes: any[]) => {
+        expect(classes.length, 'classes listed').to.be.greaterThan(1)
+        for (const listing of classes) {
+          expect(listing, listing.id).not.to.have.property('students')
+          if (listing.id === SEEDED_CLASS_ID) {
+            expect(listing.meetingLink, 'enrolled class link').to.match(
+              /^https?:/,
+            )
+          } else {
+            expect(listing.meetingLink, `${listing.id} link`).to.equal('')
+          }
+        }
+      })
 
     // Verify enrolled class is visible (Python 1 is seeded for the demo student)
     cy.get('body').should('contain', 'Python 1')

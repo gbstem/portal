@@ -8,7 +8,6 @@
     filterCheckedOffSubClasses,
     type OpenSubRequestSummary,
   } from '$lib/helpers/subClasses'
-  import { classService } from '$lib/services/classService'
   import { substituteService } from '$lib/services/substituteService'
   import { alert } from '$lib/stores'
   import { formatDate, timestampToDate } from '$lib/utils'
@@ -190,14 +189,19 @@
   }
 
   async function recordClass(subRequest: Data.SubRequest) {
-    const classValues = await classService.fetchClassDetails(
-      parseSubRequestDocId(subRequest.id)?.classId ?? '',
-    )
-    if (!classValues) {
-      alert.trigger('error', 'That class could not be found. Please reload.')
+    let meetingLink: string
+    try {
+      meetingLink = await substituteService.fetchSubstituteMeetingLink(
+        subRequest.id,
+      )
+    } catch (err: any) {
+      alert.trigger(
+        'error',
+        err?.message || 'That class could not be found. Please reload.',
+      )
       return
     }
-    if (!openableMeetingLink(classValues.meetingLink)) {
+    if (!openableMeetingLink(meetingLink)) {
       alert.trigger(
         'error',
         'This class has no valid meeting link. Please ask the class instructor for the link.',
@@ -205,7 +209,7 @@
       return
     }
     const confirmHoldClass = confirm(
-      `Please confirm you are holding class now. Confirming will redirect you to ${classValues.meetingLink}`,
+      `Please confirm you are holding class now. Confirming will redirect you to ${meetingLink}`,
     )
     if (!confirmHoldClass) return
 
@@ -214,12 +218,12 @@
       // allowed to touch the class - see /api/substituteSession. The link
       // comes back from there rather than being reused from the read above,
       // so what opens is what the server actually recorded against.
-      const { meetingLink } = await substituteService.recordSubstituteSession(
+      const recorded = await substituteService.recordSubstituteSession(
         subRequest.id,
       )
       // Checked again: this is the copy the server returned, and the one
       // that opens.
-      const link = openableMeetingLink(meetingLink)
+      const link = openableMeetingLink(recorded.meetingLink)
       if (!link) {
         alert.trigger(
           'error',
