@@ -33,18 +33,33 @@
   ])
 
   // Only fetch document when user is loaded, has a uid, and is an instructor
+  // whose ID token says their email is verified - the decisions rule checks
+  // the token's email_verified claim, so any other read is denied. The extra
+  // pages are hidden until verification anyway.
   $effect(() => {
-    const uid = $user?.object?.uid
-    if (!uid || userRole !== 'instructor') return
+    const authUser = $user?.object
+    if (!authUser || !authUser.emailVerified || userRole !== 'instructor')
+      return
     let cancelled = false
     ;(async () => {
       try {
-        const decisionType = await applicationService.fetchDecisionType(uid)
+        // The SDK refreshes `emailVerified` from the Auth record on page
+        // load, but the cached token keeps the claim it was minted with, so
+        // right after verifying the two disagree until the token is renewed.
+        const { claims } = await authUser.getIdTokenResult()
+        if (!claims.email_verified) await authUser.getIdToken(true)
+        if (cancelled) return
+        const decisionType = await applicationService.fetchDecisionType(
+          authUser.uid,
+        )
         if (cancelled) return
         if (decisionType === 'accepted') {
           showAdditionalPages = true
         }
       } catch (error) {
+        // Signing out mid-read makes Firestore retry it signed out, and the
+        // rule denies that; the read no longer matters by then.
+        if (cancelled) return
         console.error('Error fetching document:', error)
       }
     })()
