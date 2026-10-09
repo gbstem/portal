@@ -1,6 +1,6 @@
 <script lang="ts">
   import Button from './Button.svelte'
-  import { formatDate, timestampToDate } from '$lib/utils'
+  import { formatDate } from '$lib/utils'
   import { classService } from '$lib/services/classService'
   import { registrationService } from '$lib/services/registrationService'
   import { selectedStudentIdState } from '$lib/stores.svelte'
@@ -18,14 +18,14 @@
   let selectedStudentUid = $derived(selectedStudentIdState.current)
   let selectedStudentName = $state('')
 
-  async function fetchClassSchedules(classIds: string[]) {
+  async function fetchClassSchedules(studentUid: string) {
     const fetchedClasses: ClassDate[] = []
-    const classesData = await classService.fetchClassesByIds(classIds)
+    const classesData = await classService.fetchStudentClasses(studentUid)
     classesData.forEach((data) => {
-      data.meetingTimes.forEach((date) => {
+      data.meetingTimes.forEach((meetingTime) => {
         fetchedClasses.push({
           course: data.course,
-          meetingTime: timestampToDate(date),
+          meetingTime,
           link: openableMeetingLink(data.meetingLink),
         })
       })
@@ -42,9 +42,8 @@
         const data = await registrationService.fetchRegistration(currentUid)
         if (cancelled) return
         if (data) {
-          const classIds = data.classes || []
           selectedStudentName = data.personal.studentFirstName
-          classes = await fetchClassSchedules(classIds)
+          classes = await fetchClassSchedules(currentUid)
           const now = new Date()
           const classesToday = classes.filter(
             (classDate) =>

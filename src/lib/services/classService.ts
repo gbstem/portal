@@ -1,14 +1,12 @@
 import { errorMessage } from '$lib/shared/apiErrors'
-import { db } from '$lib/client/firebase'
-import { classesCollection } from '$lib/data/collections'
 import type { CoInstructor } from '$lib/helpers/classDetailsForm'
-import {
-  parseClassInfoDoc,
-  sortClassesBySpotsRemaining,
-  type ClassInfo,
-} from '$lib/helpers/classesPage'
+import type { ClassInfo } from '$lib/helpers/classesPage'
 import { accountEmailService } from '$lib/services/accountEmailService'
-import { collection, doc, getDoc, getDocs } from 'firebase/firestore'
+import type { ClassesResponse } from '../../routes/api/classes/+server'
+import type {
+  StudentClass,
+  StudentClassesResponse,
+} from '../../routes/api/studentClasses/+server'
 import type {
   ClassDetailsRequestBody,
   ClassDetailsResponse,
@@ -83,15 +81,6 @@ export const classService = {
   ): Promise<string[]> {
     const roster = await this.fetchClassRoster(classId, subRequestId)
     return roster.map((s) => s.name)
-  },
-
-  /**
-   * Fetches full details for a single class by ID.
-   */
-  async fetchClassDetails(classId: string): Promise<Data.Class | null> {
-    const snap = await getDoc(doc(db, classesCollection, classId))
-    if (!snap.exists()) return null
-    return snap.data() as Data.Class
   },
 
   /**
@@ -301,32 +290,42 @@ export const classService = {
   },
 
   /**
-   * Fetches multiple class documents by ID, silently omitting any that don't exist.
+   * The classes one of the signed-in parent's students is enrolled in, with
+   * their schedules and meeting links - see /api/studentClasses.
    */
-  async fetchClassesByIds(
-    classIds: string[],
-  ): Promise<(Data.Class & { id: string })[]> {
-    const snaps = await Promise.all(
-      classIds.map((classId) => getDoc(doc(db, classesCollection, classId))),
-    )
-    const classes: (Data.Class & { id: string })[] = []
-    snaps.forEach((snap) => {
-      if (snap.exists()) {
-        classes.push({ ...(snap.data() as Data.Class), id: snap.id })
-      }
-    })
-    return classes
+  async fetchStudentClasses(
+    studentUid: string,
+  ): Promise<
+    (Omit<StudentClass, 'meetingTimes'> & { meetingTimes: Date[] })[]
+  > {
+    const params = new URLSearchParams({ studentUid })
+    const res = await fetch(`/api/studentClasses?${params.toString()}`)
+    if (!res.ok) {
+      throw new Error(
+        await errorMessage(res, `Failed to load classes (${res.status})`),
+      )
+    }
+    const { classes } = (await res.json()) as StudentClassesResponse
+    return classes.map((classData) => ({
+      ...classData,
+      meetingTimes: classData.meetingTimes.map((time) => new Date(time)),
+    }))
   },
 
   /**
-   * Fetches all class offerings, parsed and sorted by spots remaining.
+   * Every class this semester, sorted by spots remaining. A meeting link comes
+   * only with a class one of the caller's own students is enrolled in - see
+   * /api/classes.
    */
   async fetchAllClassesInfo(): Promise<ClassInfo[]> {
-    const querySnapshot = await getDocs(collection(db, classesCollection))
-    const rawClasses = querySnapshot.docs.map((classDoc) =>
-      parseClassInfoDoc(classDoc.id, classDoc.data()),
-    )
-    return sortClassesBySpotsRemaining(rawClasses)
+    const res = await fetch('/api/classes')
+    if (!res.ok) {
+      throw new Error(
+        await errorMessage(res, `Failed to load classes (${res.status})`),
+      )
+    }
+    const { classes } = (await res.json()) as ClassesResponse
+    return classes
   },
 
   /**

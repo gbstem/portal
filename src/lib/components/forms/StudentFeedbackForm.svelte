@@ -75,9 +75,9 @@
 
   const { form, enhance, reset, errors, submitting } = formResult
 
-  async function fetchCourseList(classIds: string[]) {
+  async function fetchCourseList(studentUid: string) {
     try {
-      const courseDocs = await classService.fetchClassesByIds(classIds)
+      const courseDocs = await classService.fetchStudentClasses(studentUid)
       selectedStudentCourses = courseDocs.map((data) => ({
         classId: data.id,
         course: data.course,
@@ -104,8 +104,7 @@
         if (data) {
           studentName =
             data.personal.studentFirstName + ' ' + data.personal.studentLastName
-          const classIds = data.classes || []
-          await fetchCourseList(classIds)
+          await fetchCourseList(currentUid)
         } else {
           studentName = ''
           selectedStudentCourses = []

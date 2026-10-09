@@ -15,46 +15,10 @@ jest.mock('firebase/firestore', () => ({
   runTransaction: jest.fn(),
 }))
 
-function mockQuerySnapshot(docs: any[]) {
-  return { docs, forEach: (cb: any) => docs.forEach(cb) }
-}
-
 describe('portal classService (Data Access Layer)', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     global.fetch = jest.fn() as jest.Mock
-  })
-
-  describe('fetchClassDetails', () => {
-    it('returns class data when the document exists', async () => {
-      const mockData = { course: 'Python 1', students: ['s-1'] }
-      ;(firestore.getDoc as jest.Mock).mockResolvedValueOnce({
-        exists: () => true,
-        data: () => mockData,
-      })
-
-      const res = await classService.fetchClassDetails('c-1')
-      expect(res).toEqual(mockData)
-    })
-
-    it('returns null when the class document does not exist', async () => {
-      ;(firestore.getDoc as jest.Mock).mockResolvedValueOnce({
-        exists: () => false,
-      })
-
-      const res = await classService.fetchClassDetails('c-1')
-      expect(res).toBeNull()
-    })
-
-    it('propagates errors from getDoc', async () => {
-      ;(firestore.getDoc as jest.Mock).mockRejectedValueOnce(
-        new Error('permission-denied'),
-      )
-
-      await expect(classService.fetchClassDetails('c-1')).rejects.toThrow(
-        'permission-denied',
-      )
-    })
   })
 
   // Every schedule change goes through /api/classSchedule: firestore.rules
@@ -413,65 +377,76 @@ describe('portal classService (Data Access Layer)', () => {
     })
   })
 
-  describe('fetchClassesByIds', () => {
-    it('fetches and attaches ids for existing class docs, omitting missing ones', async () => {
-      ;(firestore.getDoc as jest.Mock)
-        .mockResolvedValueOnce({
-          exists: () => true,
-          id: 'c-1',
-          data: () => ({ course: 'Python 1' }),
-        })
-        .mockResolvedValueOnce({ exists: () => false, id: 'c-2' })
+  // firestore.rules lets only admins and reviewers read a class, so these
+  // come from server routes and never from the client SDK.
+  describe('fetchStudentClasses', () => {
+    it("asks /api/studentClasses for the student's classes and revives their dates", async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          classes: [
+            {
+              id: 'c-1',
+              course: 'Python 1',
+              instructorFirstName: 'Ada',
+              instructorLastName: 'Lovelace',
+              meetingTimes: ['2026-10-10T19:00:00.000Z'],
+              meetingLink: 'https://teams.example/c-1',
+            },
+          ],
+        }),
+      })
 
-      const res = await classService.fetchClassesByIds(['c-1', 'c-2'])
-      expect(res).toEqual([{ course: 'Python 1', id: 'c-1' }])
-    })
+      const res = await classService.fetchStudentClasses('parent-uid-1')
 
-    it('returns an empty array for an empty input', async () => {
-      const res = await classService.fetchClassesByIds([])
-      expect(res).toEqual([])
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/studentClasses?studentUid=parent-uid-1',
+      )
+      expect(res[0].meetingTimes[0]).toEqual(
+        new Date('2026-10-10T19:00:00.000Z'),
+      )
+      expect(res[0].meetingLink).toBe('https://teams.example/c-1')
       expect(firestore.getDoc).not.toHaveBeenCalled()
     })
 
-    it('propagates errors from getDoc', async () => {
-      ;(firestore.getDoc as jest.Mock).mockRejectedValueOnce(
-        new Error('permission-denied'),
-      )
+    it("throws with the server's message on refusal", async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        json: async () => ({
+          message: 'You can only view your own students’ classes.',
+        }),
+      })
 
-      await expect(classService.fetchClassesByIds(['c-1'])).rejects.toThrow(
-        'permission-denied',
-      )
+      await expect(
+        classService.fetchStudentClasses('someone-else-1'),
+      ).rejects.toThrow('You can only view your own students’ classes.')
     })
   })
 
   describe('fetchAllClassesInfo', () => {
-    it('parses and sorts all class docs by spots remaining', async () => {
-      ;(firestore.getDocs as jest.Mock).mockResolvedValueOnce(
-        mockQuerySnapshot([
-          {
-            id: 'c-1',
-            data: () => ({
-              course: 'Full Class',
-              classCap: 2,
-              students: ['s-1', 's-2'],
-            }),
-          },
-          {
-            id: 'c-2',
-            data: () => ({
-              course: 'Open Class',
-              classCap: 5,
-              students: ['s-1'],
-            }),
-          },
-        ]),
-      )
+    it('returns the listing from /api/classes as given', async () => {
+      const classes = [{ id: 'c-2', course: 'Open Class', spotsRemaining: 4 }]
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ classes }),
+      })
 
       const res = await classService.fetchAllClassesInfo()
-      expect(res).toHaveLength(2)
-      // Open Class (4 spots left) sorts before Full Class (0 spots left)
-      expect(res[0].course).toBe('Open Class')
-      expect(res[1].course).toBe('Full Class')
+
+      expect(global.fetch).toHaveBeenCalledWith('/api/classes')
+      expect(res).toEqual(classes)
+      expect(firestore.getDocs).not.toHaveBeenCalled()
+    })
+
+    it('throws when the listing cannot be loaded', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: async () => ({}),
+      })
+
+      await expect(classService.fetchAllClassesInfo()).rejects.toThrow('500')
     })
   })
 

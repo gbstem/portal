@@ -245,6 +245,15 @@ jest.mock('$lib/server/userProfile', () => ({
   profileNames: (...args: any[]) => mockProfileNames(...args),
 }))
 
+// And the class reads (classListings.test.ts).
+const mockFetchClassListings = jest.fn()
+const mockFetchStudentClasses = jest.fn()
+jest.mock('$lib/server/classListings', () => ({
+  ...jest.requireActual('$lib/server/classListings'),
+  fetchClassListings: (...args: any[]) => mockFetchClassListings(...args),
+  fetchStudentClasses: (...args: any[]) => mockFetchStudentClasses(...args),
+}))
+
 import {
   DELETE as authDELETE,
   POST as authPOST,
@@ -280,7 +289,12 @@ import {
 import { POST as substituteFeedbackPOST } from '../src/routes/api/substituteFeedback/+server'
 import { POST as instructorFeedbackPOST } from '../src/routes/api/instructorFeedback/+server'
 import { POST as studentFeedbackPOST } from '../src/routes/api/studentFeedback/+server'
-import { POST as substituteSessionPOST } from '../src/routes/api/substituteSession/+server'
+import {
+  GET as substituteSessionGET,
+  POST as substituteSessionPOST,
+} from '../src/routes/api/substituteSession/+server'
+import { GET as classesGET } from '../src/routes/api/classes/+server'
+import { GET as studentClassesGET } from '../src/routes/api/studentClasses/+server'
 import { POST as meetingLinkPOST } from '../src/routes/api/meetingLink/+server'
 import {
   GET as classDetailsGET,
@@ -1364,6 +1378,76 @@ describe('API routes POST endpoints', () => {
         message: 'Recent sign in required.',
       }),
     )
+  })
+
+  // Class documents aren't readable from the browser (firestore.rules), so
+  // these routes are how portal pages get them.
+  describe('/api/classes', () => {
+    it('returns the listing for the signed-in caller', async () => {
+      mockFetchClassListings.mockReset().mockResolvedValue([{ id: 'c-1' }])
+      const user = {
+        uid: 'parent-uid',
+        email: 'parent@test.com',
+        role: 'student',
+        emailVerified: true,
+      }
+      const res: any = await classesGET({ locals: { user } } as any)
+      expect(res.body).toEqual({ classes: [{ id: 'c-1' }] })
+      expect(mockFetchClassListings).toHaveBeenCalledWith(user)
+    })
+
+    it('refuses a caller who is not signed in', async () => {
+      mockFetchClassListings.mockReset()
+      await expect(classesGET({ locals: {} } as any)).rejects.toMatchObject({
+        status: 401,
+      })
+      expect(mockFetchClassListings).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('/api/studentClasses', () => {
+    const PARENT = {
+      uid: 'parent-uid',
+      email: 'parent@test.com',
+      role: 'student',
+      emailVerified: true,
+    }
+    const url = (studentUid?: string) =>
+      new URL(
+        `https://portal.gbstem.org/api/studentClasses${studentUid ? `?studentUid=${studentUid}` : ''}`,
+      )
+
+    beforeEach(() => {
+      mockFetchStudentClasses.mockReset().mockResolvedValue([{ id: 'c-1' }])
+    })
+
+    it("returns the parent's student's classes", async () => {
+      const res: any = await studentClassesGET({
+        locals: { user: PARENT },
+        url: url('parent-uid-1'),
+      } as any)
+      expect(res.body).toEqual({ classes: [{ id: 'c-1' }] })
+      expect(mockFetchStudentClasses).toHaveBeenCalledWith(
+        'parent-uid',
+        'parent-uid-1',
+      )
+    })
+
+    it('refuses an instructor', async () => {
+      await expect(
+        studentClassesGET({
+          locals: { user: { ...PARENT, role: 'instructor' } },
+          url: url('parent-uid-1'),
+        } as any),
+      ).rejects.toMatchObject({ status: 403 })
+      expect(mockFetchStudentClasses).not.toHaveBeenCalled()
+    })
+
+    it('400s without a student', async () => {
+      await expect(
+        studentClassesGET({ locals: { user: PARENT }, url: url() } as any),
+      ).rejects.toMatchObject({ status: 400 })
+    })
   })
 
   describe('/api/communityService', () => {
@@ -3354,6 +3438,29 @@ describe('substitute session endpoints', () => {
   })
 
   describe('/api/substituteSession', () => {
+    const linkUrl = new URL(
+      `https://portal.gbstem.org/api/substituteSession?subRequestId=${SUB_REQUEST_ID}`,
+    )
+
+    it("GET gives the substitute the class's meeting link, writing nothing", async () => {
+      mockSubRequestAndClass({})
+      const res: any = await substituteSessionGET({
+        locals: substituteLocals,
+        url: linkUrl,
+      } as any)
+      expect(res.body).toEqual({ meetingLink: 'https://zoom.us/j/1' })
+      expect(mockAdminDb.runTransaction).not.toHaveBeenCalled()
+    })
+
+    it('GET refuses an instructor who is not the substitute for that class', async () => {
+      mockSubRequestAndClass({
+        subRequest: { subInstructorId: 'someone-else' },
+      })
+      await expect(
+        substituteSessionGET({ locals: substituteLocals, url: linkUrl } as any),
+      ).rejects.toMatchObject({ status: 403 })
+    })
+
     it('marks the session held and asks the substitute for feedback', async () => {
       mockSubRequestAndClass({})
       mockRequest.json.mockResolvedValue({ subRequestId: SUB_REQUEST_ID })

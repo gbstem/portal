@@ -25,6 +25,7 @@ import type {
   SubstituteFeedbackResponse,
 } from '../../routes/api/substituteFeedback/+server'
 import type {
+  SubstituteSessionLinkResponse,
   SubstituteSessionRequestBody,
   SubstituteSessionResponse,
 } from '../../routes/api/substituteSession/+server'
@@ -180,6 +181,23 @@ export const substituteService = {
     }
     const { subRequest } = body as SubstituteClaimResponse
     return { ...subRequest, dateOfClass: new Date(subRequest.dateOfClass) }
+  },
+
+  /**
+   * The meeting link of a session this substitute signed up to cover. Read
+   * server-side, which checks they are its substitute: class documents aren't
+   * readable from the browser. See /api/substituteSession.
+   */
+  async fetchSubstituteMeetingLink(subRequestId: string): Promise<string> {
+    const params = new URLSearchParams({ subRequestId })
+    const res = await fetch(`/api/substituteSession?${params.toString()}`)
+    const body = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      throw new Error(
+        body?.message || 'Could not load that class. Please reload.',
+      )
+    }
+    return (body as SubstituteSessionLinkResponse).meetingLink
   },
 
   /**

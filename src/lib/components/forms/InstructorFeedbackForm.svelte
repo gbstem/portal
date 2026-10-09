@@ -138,22 +138,21 @@
       subRequest === undefined
         ? classId || currentUser.object.uid
         : (parseSubRequestDocId(subRequest.id)?.classId ?? '')
-    const data = await classService.fetchClassDetails(id)
-    if (data) {
-      try {
-        const list = await classService.fetchStudentNamesForClass(
-          id,
-          subRequest?.id,
-        )
-        classList = list
-        const initialAttendance: Record<string, { present: boolean }> = {}
-        classList.forEach((student: string) => {
-          initialAttendance[student] = { present: false }
-        })
-        $form.attendanceList = initialAttendance
-      } catch (error) {
-        console.error('Error with class list:', error)
-      }
+    // /api/classRoster checks the caller teaches or covers the class, and
+    // refuses one that doesn't exist.
+    try {
+      const list = await classService.fetchStudentNamesForClass(
+        id,
+        subRequest?.id,
+      )
+      classList = list
+      const initialAttendance: Record<string, { present: boolean }> = {}
+      classList.forEach((student: string) => {
+        initialAttendance[student] = { present: false }
+      })
+      $form.attendanceList = initialAttendance
+    } catch (error) {
+      console.error('Error with class list:', error)
     }
   }
 </script>

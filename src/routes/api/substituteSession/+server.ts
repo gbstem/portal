@@ -1,9 +1,10 @@
 import { handleApiError, verifyInstructor } from '$lib/server/apiHelpers'
 import {
+  authorizeSubstituteSession,
   recordSubstituteSession,
   type RecordedSubstituteSession,
 } from '$lib/server/substituteSessions'
-import { json } from '@sveltejs/kit'
+import { error, json } from '@sveltejs/kit'
 import { z } from 'zod'
 import type { RequestHandler } from './$types'
 
@@ -19,6 +20,35 @@ export type SubstituteSessionRequestBody = z.infer<
 >
 
 export type SubstituteSessionResponse = RecordedSubstituteSession
+
+export interface SubstituteSessionLinkResponse {
+  meetingLink: string
+}
+
+/**
+ * The meeting link of a class session the caller is the substitute for, so
+ * they can check it before recording the session. Class documents aren't
+ * readable from the browser (see firestore.rules).
+ */
+export const GET: RequestHandler = async ({ locals, url }) => {
+  try {
+    const user = verifyInstructor(locals)
+    const subRequestId = url.searchParams.get('subRequestId')
+    if (!subRequestId) {
+      throw error(400, 'A substitute request is required')
+    }
+    const { classData } = await authorizeSubstituteSession(
+      user.uid,
+      subRequestId,
+    )
+    const response: SubstituteSessionLinkResponse = {
+      meetingLink: classData.meetingLink ?? '',
+    }
+    return json(response)
+  } catch (err) {
+    throw handleApiError('/api/substituteSession', err)
+  }
+}
 
 /**
  * Records that a substitute is holding a class they signed up to cover (see
