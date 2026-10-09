@@ -1,12 +1,12 @@
-import { decisionsCollection } from '$lib/data/collections'
-import type { CoInstructor } from '$lib/helpers/classDetailsForm'
-import { adminAuth, adminDb } from '$lib/server/firebase'
+import { decisionsCollection } from '#lib/data/collections.js'
+import type { CoInstructor } from '#lib/helpers/classDetailsForm.js'
+import { adminAuth, adminDb } from '#lib/server/firebase.js'
 import type { UserRecord } from 'firebase-admin/auth'
 
 const AUTH_LOOKUP_LIMIT = 100 // auth.getUsers() identifiers-per-call limit
 
 // The shape this module resolves *to* is declared in the client-safe helper
-// module, so components can name it without reaching into `$lib/server/*`.
+// module, so components can name it without reaching into `#lib/server/*`.
 export type { CoInstructor }
 
 function chunk<T>(items: T[], size: number): T[][] {

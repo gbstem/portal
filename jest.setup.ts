@@ -40,9 +40,9 @@ afterAll(() => {
   }
 })
 
-// Global mock for SvelteKit Public Env
+// Global mock for SvelteKit's public env (src/env.ts)
 jest.mock(
-  '$env/static/public',
+  '$app/env/public',
   () => ({
     PUBLIC_FIREBASE_API_KEY: 'apiKey',
     PUBLIC_FIREBASE_AUTH_DOMAIN: 'authDomain',
@@ -55,42 +55,31 @@ jest.mock(
   { virtual: true },
 )
 
-// Global mock for SvelteKit Private Env
+// Global mock for SvelteKit's private env (src/env.ts)
 jest.mock(
-  '$env/static/private',
-  () => ({
-    FIREBASE_PROJECT_ID: 'projectIdPrivate',
-    FIREBASE_CLIENT_EMAIL: 'clientEmail',
-    FIREBASE_PRIVATE_KEY: 'privateKey',
-    SENDGRID_API_TOKEN: 'sgToken',
-  }),
-  { virtual: true },
-)
-
-// Global mock for SvelteKit Dynamic Private Env
-jest.mock(
-  '$env/dynamic/private',
+  '$app/env/private',
   () => ({
     // A mutable object, not a frozen literal: /api/meetingLink reads its
     // Entra credentials from here and its tests rewrite them to exercise the
     // MS_* / VITE_* fallback.
-    env: {
-      FIREBASE_AUTH_EMULATOR_HOST:
-        process.env.FIREBASE_AUTH_EMULATOR_HOST || '',
-      FIRESTORE_EMULATOR_HOST: process.env.FIRESTORE_EMULATOR_HOST || '',
-      STORAGE_EMULATOR_HOST: process.env.STORAGE_EMULATOR_HOST || '',
-      MS_CLIENT_ID: 'msClientId',
-      MS_CLIENT_SECRET: 'msClientSecret',
-      MS_TENANT_ID: 'msTenantId',
-      MS_CALENDAR_USER: 'classes@gbstem.test',
-    },
+    FIREBASE_PROJECT_ID: 'projectIdPrivate',
+    FIREBASE_CLIENT_EMAIL: 'clientEmail',
+    FIREBASE_PRIVATE_KEY: 'privateKey',
+    SENDGRID_API_TOKEN: 'sgToken',
+    FIREBASE_AUTH_EMULATOR_HOST: process.env.FIREBASE_AUTH_EMULATOR_HOST,
+    FIRESTORE_EMULATOR_HOST: process.env.FIRESTORE_EMULATOR_HOST,
+    STORAGE_EMULATOR_HOST: process.env.STORAGE_EMULATOR_HOST,
+    MS_CLIENT_ID: 'msClientId',
+    MS_CLIENT_SECRET: 'msClientSecret',
+    MS_TENANT_ID: 'msTenantId',
+    MS_CALENDAR_USER: 'classes@gbstem.test',
   }),
   { virtual: true },
 )
 
 // Global mock for SvelteKit Environment Module
 jest.mock(
-  '$app/environment',
+  '$app/env',
   () => ({
     building: false,
     browser: false,
@@ -221,11 +210,6 @@ jest.mock(
         throw new Redirect(status, location)
       },
       isRedirect: (err: any): boolean => err instanceof Redirect,
-      json: (body: any, init?: any) => ({
-        body,
-        init,
-        __isSvelteKitJson: true,
-      }),
       fail: (status: number, data: any) => ({
         status,
         data,

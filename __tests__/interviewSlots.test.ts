@@ -6,7 +6,7 @@ let mockDev = false
 const DAY = 24 * 60 * 60 * 1000
 const HOUR = 60 * 60 * 1000
 
-jest.mock('$lib/server/firebase', () => ({
+jest.mock('#lib/server/firebase.js', () => ({
   adminDb: {
     doc: (...args: any[]) => mockDoc(...args),
     collection: (...args: any[]) => mockCollection(...args),
@@ -14,15 +14,15 @@ jest.mock('$lib/server/firebase', () => ({
   },
 }))
 
-jest.mock('$app/environment', () => ({
+jest.mock('$app/env', () => ({
   get dev() {
     return mockDev
   },
 }))
 
 // Anchored to now, so the tests hold whenever they run.
-jest.mock('$lib/data/collections', () => ({
-  ...jest.requireActual('$lib/data/collections'),
+jest.mock('#lib/data/collections.js', () => ({
+  ...jest.requireActual('#lib/data/collections.js'),
   semesterDates: {
     instructorOrientation: new Date(
       Date.now() + 30 * 24 * 60 * 60 * 1000,
@@ -46,12 +46,12 @@ import {
   applicationsCollection,
   interviewCollection,
   interviewTimeRequestsCollection,
-} from '$lib/data/collections'
+} from '#lib/data/collections.js'
 import {
   bookInterviewSlot,
   fetchInterviewData,
   recordSlotRequest,
-} from '$lib/server/interviewSlots'
+} from '#lib/server/interviewSlots.js'
 
 type Filter = [field: string, op: string, value: unknown]
 

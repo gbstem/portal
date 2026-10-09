@@ -1,4 +1,4 @@
-import { db } from '$lib/client/firebase'
+import { db } from '#lib/client/firebase.js'
 import { collection, getDocs } from 'firebase/firestore'
 
 /**

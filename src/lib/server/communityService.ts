@@ -1,8 +1,8 @@
-import { ClassStatus } from '$lib/components/helpers/ClassStatus'
-import { SubRequestStatus } from '$lib/components/helpers/SubRequestStatus'
-import { currentSemester } from '$lib/data/collections'
-import { adminDb } from '$lib/server/firebase'
-import { fetchInstructorClasses } from '$lib/server/instructorClasses'
+import { ClassStatus } from '#lib/components/helpers/ClassStatus.js'
+import { SubRequestStatus } from '#lib/components/helpers/SubRequestStatus.js'
+import { currentSemester } from '#lib/data/collections.js'
+import { adminDb } from '#lib/server/firebase.js'
+import { fetchInstructorClasses } from '#lib/server/instructorClasses.js'
 
 /**
  * Who signs the confirmation email. Update this when gbSTEM's presidents

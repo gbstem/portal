@@ -1,17 +1,17 @@
 import {
   applicationDraftSchema,
   applicationSchema,
-} from '$lib/components/forms/schemas'
-import { applicationsCollection, withSemester } from '$lib/data/collections'
+} from '#lib/components/forms/schemas.js'
+import { applicationsCollection, withSemester } from '#lib/data/collections.js'
 import {
   applicationOwnedFields,
   normalizeApplicationData,
   toApplyFormValues,
-} from '$lib/helpers/applyForm'
-import { renderEmail } from '$lib/emails/render'
-import { sendEmail } from '$lib/server/email'
-import { adminDb } from '$lib/server/firebase'
-import { profileNames } from '$lib/server/userProfile'
+} from '#lib/helpers/applyForm.js'
+import { renderEmail } from '#lib/emails/render.js'
+import { sendEmail } from '#lib/server/email.js'
+import { adminDb } from '#lib/server/firebase.js'
+import { profileNames } from '#lib/server/userProfile.js'
 import { error } from '@sveltejs/kit'
 import { FieldValue } from 'firebase-admin/firestore'
 import type { z } from 'zod'

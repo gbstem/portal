@@ -1,6 +1,5 @@
-import { handleApiError, verifyStudent } from '$lib/server/apiHelpers'
-import { fileStudentFeedback } from '$lib/server/classFeedback'
-import { json } from '@sveltejs/kit'
+import { handleApiError, verifyStudent } from '#lib/server/apiHelpers.js'
+import { fileStudentFeedback } from '#lib/server/classFeedback.js'
 import { z } from 'zod'
 import type { RequestHandler } from './$types'
 
@@ -35,7 +34,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     const response: StudentFeedbackResponse = {
       feedbackId: await fileStudentFeedback({ uid: user.uid }, body),
     }
-    return json(response)
+    return Response.json(response)
   } catch (err) {
     throw handleApiError('/api/studentFeedback', err)
   }

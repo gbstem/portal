@@ -1,18 +1,18 @@
-import { toDate } from '$lib/shared/timestamps'
-import { dev } from '$app/environment'
+import { toDate } from '#lib/shared/timestamps.js'
+import { dev } from '$app/env'
 import {
   applicationsCollection,
   interviewCollection,
   interviewTimeRequestsCollection,
   semesterDates,
-} from '$lib/data/collections'
-import { slotRequestDocId } from '$lib/data/docIds'
+} from '#lib/data/collections.js'
+import { slotRequestDocId } from '#lib/data/docIds.js'
 import {
   interviewIneligibility,
   interviewIneligibilityMessages,
   validateRequestedInterviewTime,
-} from '$lib/helpers/interviewForm'
-import { adminDb } from '$lib/server/firebase'
+} from '#lib/helpers/interviewForm.js'
+import { adminDb } from '#lib/server/firebase.js'
 import { error } from '@sveltejs/kit'
 import type { QueryDocumentSnapshot } from 'firebase-admin/firestore'
 

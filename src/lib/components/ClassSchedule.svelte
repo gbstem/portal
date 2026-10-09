@@ -1,25 +1,25 @@
 <script lang="ts">
-  import { parseClassDocId } from '$lib/data/docIds'
-  import { user } from '$lib/client/firebase'
-  import Button from '$lib/components/Button.svelte'
-  import Dialog from '$lib/components/Dialog.svelte'
-  import DialogActions from '$lib/components/DialogActions.svelte'
+  import { parseClassDocId } from '#lib/data/docIds.js'
+  import { user } from '#lib/client/firebase.js'
+  import Button from '#lib/components/Button.svelte'
+  import Dialog from '#lib/components/Dialog.svelte'
+  import DialogActions from '#lib/components/DialogActions.svelte'
   import {
     computeMeetingTimeChanges,
     findNextClassDateIndex,
-  } from '$lib/helpers/classSchedule'
-  import { curriculumLink } from '$lib/helpers/curriculumLink'
-  import { openableMeetingLink } from '$lib/helpers/meetingLink'
-  import type { RosterStudent } from '$lib/services/classService'
-  import { classService } from '$lib/services/classService'
-  import { alert } from '$lib/stores'
+  } from '#lib/helpers/classSchedule.js'
+  import { curriculumLink } from '#lib/helpers/curriculumLink.js'
+  import { openableMeetingLink } from '#lib/helpers/meetingLink.js'
+  import type { RosterStudent } from '#lib/services/classService.js'
+  import { classService } from '#lib/services/classService.js'
+  import { alert } from '#lib/stores.js'
   import {
     copyEmails,
     copyToClipboard,
     formatDateString,
     normalizeCapitals,
     toLocalISOString,
-  } from '$lib/utils'
+  } from '#lib/utils.js'
   import { onMount } from 'svelte'
   import Card from './Card.svelte'
   import DateTimeInput from './DateTimeInput.svelte'
@@ -38,7 +38,7 @@
     Plus,
     XMark,
   } from '@steeze-ui/heroicons'
-  import CircleIcon from '$lib/components/icons/CircleIcon.svelte'
+  import CircleIcon from '#lib/components/icons/CircleIcon.svelte'
 
   interface Props {
     semesterDates: Data.SemesterDates

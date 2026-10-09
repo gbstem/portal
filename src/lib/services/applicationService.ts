@@ -1,9 +1,9 @@
-import { db } from '$lib/client/firebase'
+import { db } from '#lib/client/firebase.js'
 import {
   applicationsCollection,
   decisionsCollection,
-} from '$lib/data/collections'
-import { retryTransient } from '$lib/services/retry'
+} from '#lib/data/collections.js'
+import { retryTransient } from '#lib/services/retry.js'
 import { doc, getDoc } from 'firebase/firestore'
 
 /**

@@ -1,7 +1,7 @@
-import { errorMessage } from '$lib/shared/apiErrors'
-import type { CoInstructor } from '$lib/helpers/classDetailsForm'
-import type { ClassInfo } from '$lib/helpers/classesPage'
-import { accountEmailService } from '$lib/services/accountEmailService'
+import { errorMessage } from '#lib/shared/apiErrors.js'
+import type { CoInstructor } from '#lib/helpers/classDetailsForm.js'
+import type { ClassInfo } from '#lib/helpers/classesPage.js'
+import { accountEmailService } from '#lib/services/accountEmailService.js'
 import type { ClassesResponse } from '../../routes/api/classes/+server'
 import type {
   StudentClass,

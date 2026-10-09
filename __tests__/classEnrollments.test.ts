@@ -1,7 +1,7 @@
 const mockDoc = jest.fn()
 const mockRunTransaction = jest.fn()
 
-jest.mock('$lib/server/firebase', () => ({
+jest.mock('#lib/server/firebase.js', () => ({
   adminDb: {
     doc: (...args: any[]) => mockDoc(...args),
     runTransaction: (...args: any[]) => mockRunTransaction(...args),
@@ -23,8 +23,8 @@ jest.mock(
 import {
   classesCollection,
   registrationsCollection,
-} from '$lib/data/collections'
-import { enrollStudent, unenrollStudent } from '$lib/server/classEnrollments'
+} from '#lib/data/collections.js'
+import { enrollStudent, unenrollStudent } from '#lib/server/classEnrollments.js'
 
 const PARENT = { uid: 'parent-uid' }
 const STUDENT = 'parent-uid-1'

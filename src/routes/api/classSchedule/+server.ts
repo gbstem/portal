@@ -1,11 +1,10 @@
-import { handleApiError, verifyInstructor } from '$lib/server/apiHelpers'
+import { handleApiError, verifyInstructor } from '#lib/server/apiHelpers.js'
 import {
   holdClassSession,
   refreshClassStatuses,
   rescheduleClass,
   type SerializedSchedule,
-} from '$lib/server/classSchedule'
-import { json } from '@sveltejs/kit'
+} from '#lib/server/classSchedule.js'
 import { z } from 'zod'
 import type { RequestHandler } from './$types'
 
@@ -36,7 +35,7 @@ export type ClassScheduleResponse =
 
 /**
  * Changes a class's schedule on behalf of one of its instructors - see
- * $lib/server/classSchedule for what each action does and who may take it.
+ * #lib/server/classSchedule for what each action does and who may take it.
  */
 export const POST: RequestHandler = async ({ request, locals }) => {
   try {
@@ -61,7 +60,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         response = await holdClassSession(caller, body.classId)
         break
     }
-    return json(response)
+    return Response.json(response)
   } catch (err) {
     throw handleApiError('/api/classSchedule', err)
   }

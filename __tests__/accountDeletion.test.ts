@@ -1,7 +1,7 @@
 import {
   planInstructorAccountDeletion,
   planStudentAccountDeletion,
-} from '$lib/helpers/accountDeletion'
+} from '#lib/helpers/accountDeletion.js'
 
 describe('planInstructorAccountDeletion', () => {
   it('allows deletion when the instructor owns no class and has no future sub request', () => {

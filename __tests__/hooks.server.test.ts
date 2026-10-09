@@ -1,5 +1,5 @@
 import { handle, handleError } from '../src/hooks.server'
-import { adminAuth } from '$lib/server/firebase'
+import { adminAuth } from '#lib/server/firebase.js'
 
 function createEvent(sessionCookie?: string) {
   return {
@@ -135,20 +135,20 @@ describe('hooks.server handleError', () => {
     errorSpy.mockRestore()
   })
 
-  const shape = (error: unknown, status = 500, message = 'Internal Error') =>
-    handleError({ error, event: {}, status, message } as any) as App.Error
+  const shape = (error: unknown) =>
+    handleError({ kind: 'unknown', error, event: {} } as any) as App.Error
 
   // Unauthenticated callers reach this (a malformed POST to /api/auth is
   // enough), so nothing about the server may leave in the response.
-  it('returns only the generic message and an id, never the stack or raw message', () => {
+  it('returns only an id, never the stack or raw message', () => {
     const err = new Error(
       'ENOENT: /var/task/.svelte-kit/output/server/secret.js',
     )
 
     const result = shape(err)
 
+    // SvelteKit fills in the omitted status and message: 500, "Internal Error".
     expect(result).toEqual({
-      message: 'Internal Error',
       errorId: expect.stringMatching(/^[0-9a-f-]{36}$/),
     })
     expect(JSON.stringify(result)).not.toContain('ENOENT')
@@ -172,10 +172,25 @@ describe('hooks.server handleError', () => {
     )
   })
 
-  it("passes a 404's message through without logging it", () => {
-    const result = shape(new Error('Not found: /nope'), 404, 'Not Found')
+  it('leaves a framework error such as a 404 as it is, without logging it', () => {
+    const result = handleError({
+      kind: 'framework',
+      error: { status: 404, message: 'Not Found' },
+      event: {},
+    } as any)
 
-    expect(result.message).toBe('Not Found')
+    expect(result).toBeUndefined()
+    expect(errorSpy).not.toHaveBeenCalled()
+  })
+
+  it('leaves an error() thrown by the app as it is, without logging it', () => {
+    const result = handleError({
+      kind: 'app',
+      error: { status: 403, message: 'Not your class.' },
+      event: {},
+    } as any)
+
+    expect(result).toBeUndefined()
     expect(errorSpy).not.toHaveBeenCalled()
   })
 })

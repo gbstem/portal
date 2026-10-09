@@ -4,7 +4,7 @@ import {
   createEmptyRegistration,
   normalizeRegistrationData,
   toRegistrationFormValues,
-} from '$lib/helpers/registrationForm'
+} from '#lib/helpers/registrationForm.js'
 
 describe('RegistrationForm Helpers', () => {
   describe('createEmptyRegistration & normalizeRegistrationData', () => {

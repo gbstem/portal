@@ -11,7 +11,7 @@
   import { uniqueId } from 'lodash-es'
   import { slide } from 'svelte/transition'
   import { quintOut } from 'svelte/easing'
-  import { cn } from '$lib/utils'
+  import { cn } from '#lib/utils.js'
   import { Icon } from '@steeze-ui/svelte-icon'
   import { ChevronDown } from '@steeze-ui/heroicons'
 

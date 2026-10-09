@@ -1,21 +1,21 @@
-import { toDate } from '$lib/shared/timestamps'
-import { SubRequestStatus } from '$lib/components/helpers/SubRequestStatus'
+import { toDate } from '#lib/shared/timestamps.js'
+import { SubRequestStatus } from '#lib/components/helpers/SubRequestStatus.js'
 import {
   classesCollection,
   substituteRequestsCollection,
-} from '$lib/data/collections'
+} from '#lib/data/collections.js'
 import {
   parseClassDocId,
   parseSubRequestDocId,
   subRequestDocId,
-} from '$lib/data/docIds'
-import { buildSubRequestPayload } from '$lib/helpers/classSchedule'
-import { isInstructorOfClass } from '$lib/server/classDirectory'
-import { adminDb } from '$lib/server/firebase'
+} from '#lib/data/docIds.js'
+import { buildSubRequestPayload } from '#lib/helpers/classSchedule.js'
+import { isInstructorOfClass } from '#lib/server/classDirectory.js'
+import { adminDb } from '#lib/server/firebase.js'
 import {
   canSubstitute,
   isAcceptedInstructor,
-} from '$lib/server/instructorDirectory'
+} from '#lib/server/instructorDirectory.js'
 import { error } from '@sveltejs/kit'
 import type { Transaction } from 'firebase-admin/firestore'
 

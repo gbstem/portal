@@ -16,10 +16,10 @@
     "format:check": "prettier . --check --cache .",
     "format": "prettier --write --cache --plugin prettier-plugin-svelte --plugin prettier-plugin-tailwindcss .",
     "test": "TZ=America/New_York jest",
-    "email:build": "npx tsx --import ./scripts/emails/alias-hook.mjs scripts/emails/build.ts",
-    "email:check": "npx tsx --import ./scripts/emails/alias-hook.mjs scripts/emails/build.ts --check",
-    "email:goldens": "npx tsx --import ./scripts/emails/alias-hook.mjs scripts/emails/goldens.ts",
-    "email:preview": "npx tsx --import ./scripts/emails/alias-hook.mjs scripts/emails/preview.ts",
+    "email:build": "npx tsx scripts/emails/build.ts",
+    "email:check": "npx tsx scripts/emails/build.ts --check",
+    "email:goldens": "npx tsx scripts/emails/goldens.ts",
+    "email:preview": "npx tsx scripts/emails/preview.ts",
     "cypress": "cypress run",
     "deploy": "yarn build && firebase deploy",
     "emulators": "firebase emulators:start --log-verbosity=quiet",
@@ -27,8 +27,8 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@sveltejs/adapter-vercel": "^6.3.4",
-    "@sveltejs/kit": "^2.70.3",
+    "@sveltejs/adapter-vercel": "^7.0.0",
+    "@sveltejs/kit": "^3.0.0",
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
     "@tailwindcss/vite": "^4.3.3",
     "@testing-library/dom": "^10.4.2",
@@ -112,5 +112,9 @@
       "built": true
     }
   },
-  "packageManager": "yarn@4.18.0"
+  "packageManager": "yarn@4.18.1",
+  "imports": {
+    "#lib": "./src/lib/index.js",
+    "#lib/*": "./src/lib/*"
+  }
 }

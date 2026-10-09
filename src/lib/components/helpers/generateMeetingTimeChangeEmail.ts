@@ -1,4 +1,4 @@
-import { formatDateString } from '$lib/utils'
+import { formatDateString } from '#lib/utils.js'
 
 /**
  * Generates email based on changes to meeting times

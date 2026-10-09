@@ -1,4 +1,4 @@
-import { adminAuth } from '$lib/server/firebase'
+import { adminAuth } from '#lib/server/firebase.js'
 
 /**
  * Resolves the interviewer's current email from Auth by uid.

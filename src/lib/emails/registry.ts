@@ -5,16 +5,16 @@
  * `yarn email:build`; this file lists them so the set of sendable emails is
  * one greppable place. `yarn email:build --check` fails if the two disagree.
  */
-import { actionEmailTemplate } from '$lib/data/emailTemplates/actionEmailTemplate'
-import { applicationSubmittedEmailTemplate } from '$lib/data/emailTemplates/applicationSubmittedEmailTemplate'
-import { classReminderEmailTemplate } from '$lib/data/emailTemplates/classReminderEmailTemplate'
-import { communityServiceEmailTemplate } from '$lib/data/emailTemplates/communityServiceEmailTemplate'
-import { inPersonClassEnrolledEmailTemplate } from '$lib/data/emailTemplates/inPersonClassEnrolledEmailTemplate'
-import { interviewRequestedEmailTemplate } from '$lib/data/emailTemplates/interviewRequestedEmailTemplate'
-import { interviewScheduledEmailTemplate } from '$lib/data/emailTemplates/interviewScheduledEmailTemplate'
-import { onlineClassEnrolledEmailTemplate } from '$lib/data/emailTemplates/onlineClassEnrolledEmailTemplate'
-import { registrationSubmittedEmailTemplate } from '$lib/data/emailTemplates/registrationSubmittedEmailTemplate'
-import { substituteClassEmailTemplate } from '$lib/data/emailTemplates/substituteClassEmailTemplate'
+import { actionEmailTemplate } from '#lib/data/emailTemplates/actionEmailTemplate.js'
+import { applicationSubmittedEmailTemplate } from '#lib/data/emailTemplates/applicationSubmittedEmailTemplate.js'
+import { classReminderEmailTemplate } from '#lib/data/emailTemplates/classReminderEmailTemplate.js'
+import { communityServiceEmailTemplate } from '#lib/data/emailTemplates/communityServiceEmailTemplate.js'
+import { inPersonClassEnrolledEmailTemplate } from '#lib/data/emailTemplates/inPersonClassEnrolledEmailTemplate.js'
+import { interviewRequestedEmailTemplate } from '#lib/data/emailTemplates/interviewRequestedEmailTemplate.js'
+import { interviewScheduledEmailTemplate } from '#lib/data/emailTemplates/interviewScheduledEmailTemplate.js'
+import { onlineClassEnrolledEmailTemplate } from '#lib/data/emailTemplates/onlineClassEnrolledEmailTemplate.js'
+import { registrationSubmittedEmailTemplate } from '#lib/data/emailTemplates/registrationSubmittedEmailTemplate.js'
+import { substituteClassEmailTemplate } from '#lib/data/emailTemplates/substituteClassEmailTemplate.js'
 
 export const EMAIL_TEMPLATES = {
   actionEmailTemplate,

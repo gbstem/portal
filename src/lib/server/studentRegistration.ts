@@ -1,24 +1,24 @@
 import {
   registrationDraftSchema,
   registrationSchema,
-} from '$lib/components/forms/schemas'
+} from '#lib/components/forms/schemas.js'
 import {
   maxChildrenPerAccount,
   registrationsCollection,
   semesterDates,
   withSemester,
-} from '$lib/data/collections'
-import { registrationDocId } from '$lib/data/docIds'
-import { renderEmail } from '$lib/emails/render'
+} from '#lib/data/collections.js'
+import { registrationDocId } from '#lib/data/docIds.js'
+import { renderEmail } from '#lib/emails/render.js'
 import {
   createBootstrapRegistration,
   normalizeRegistrationData,
   registrationOwnedFields,
   toRegistrationFormValues,
-} from '$lib/helpers/registrationForm'
-import { sendEmail } from '$lib/server/email'
-import { adminDb } from '$lib/server/firebase'
-import { profileNames } from '$lib/server/userProfile'
+} from '#lib/helpers/registrationForm.js'
+import { sendEmail } from '#lib/server/email.js'
+import { adminDb } from '#lib/server/firebase.js'
+import { profileNames } from '#lib/server/userProfile.js'
 import { error } from '@sveltejs/kit'
 import { FieldValue } from 'firebase-admin/firestore'
 import type { z } from 'zod'

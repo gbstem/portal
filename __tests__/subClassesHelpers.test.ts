@@ -1,5 +1,5 @@
 import type {} from '../src/data.d.ts'
-import { filterCheckedOffSubClasses } from '$lib/helpers/subClasses'
+import { filterCheckedOffSubClasses } from '#lib/helpers/subClasses.js'
 
 describe('SubClasses Helpers', () => {
   describe('filterCheckedOffSubClasses', () => {

@@ -1,6 +1,6 @@
-import { handleApiError } from '$lib/server/apiHelpers'
-import { adminAuth, adminDb } from '$lib/server/firebase'
-import { error, json } from '@sveltejs/kit'
+import { handleApiError } from '#lib/server/apiHelpers.js'
+import { adminAuth, adminDb } from '#lib/server/firebase.js'
+import { error } from '@sveltejs/kit'
 import { z } from 'zod'
 import type { RequestHandler } from './$types'
 
@@ -74,7 +74,7 @@ export const POST: RequestHandler = async ({ request }) => {
     // The caller must refresh its ID token before doing anything that
     // firestore.rules gates on the role - the token it holds was minted before
     // the claim existed. See SignUpForm.
-    return json({ role })
+    return Response.json({ role })
   } catch (err) {
     throw handleApiError('/api/signup', err)
   }

@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { auth, storage, user } from '$lib/client/firebase'
-  import Dialog from '$lib/components/Dialog.svelte'
-  import { userService } from '$lib/services/userService'
-  import { alert } from '$lib/stores'
+  import { auth, storage, user } from '#lib/client/firebase.js'
+  import Dialog from '#lib/components/Dialog.svelte'
+  import { userService } from '#lib/services/userService.js'
+  import { alert } from '#lib/stores.js'
   import {
     EmailAuthProvider,
     reauthenticateWithCredential,

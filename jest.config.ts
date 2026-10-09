@@ -28,7 +28,11 @@ const config: Config = {
   testEnvironment: 'jsdom',
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   moduleNameMapper: {
-    '^\\$lib/(.*)$': '<rootDir>/src/lib/$1',
+    // package.json's `imports` maps `#lib/*` to `./src/lib/*` verbatim, but
+    // imports name the compiled `.js` while the source is `.ts` - drop the
+    // extension so Jest's moduleFileExtensions search finds the source.
+    '^#lib/(.*)\\.js$': '<rootDir>/src/lib/$1',
+    '^#lib/(.*)$': '<rootDir>/src/lib/$1',
     '^@/(.*)$': '<rootDir>/$1',
     // Its `exports` map has no `require`/`default` condition, which Jest's
     // resolver needs - point straight at the entry.

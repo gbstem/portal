@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { user } from '$lib/client/firebase'
-  import Dialog from '$lib/components/Dialog.svelte'
-  import ReauthenticateForm from '$lib/components/forms/ReauthenticateForm.svelte'
-  import { alert } from '$lib/stores'
+  import { user } from '#lib/client/firebase.js'
+  import Dialog from '#lib/components/Dialog.svelte'
+  import ReauthenticateForm from '#lib/components/forms/ReauthenticateForm.svelte'
+  import { alert } from '#lib/stores.js'
   import { defaults, superForm } from 'sveltekit-superforms'
   import { zod } from 'sveltekit-superforms/adapters'
   import { z } from 'zod'

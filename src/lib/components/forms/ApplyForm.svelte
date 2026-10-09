@@ -1,9 +1,14 @@
 <script lang="ts">
-  import Card from '$lib/components/Card.svelte'
-  import { coursesJson, gendersJson, raceJson, reasonsJson } from '$lib/data'
-  import { emptySemesterDates } from '$lib/data/collections'
-  import { invalidateAll } from '$app/navigation'
-  import { alert } from '$lib/stores'
+  import Card from '#lib/components/Card.svelte'
+  import {
+    coursesJson,
+    gendersJson,
+    raceJson,
+    reasonsJson,
+  } from '#lib/data/index.js'
+  import { emptySemesterDates } from '#lib/data/collections.js'
+  import { refreshAll } from '$app/navigation'
+  import { alert } from '#lib/stores.js'
   import { onDestroy, onMount } from 'svelte'
   import { superForm, type SuperValidated } from 'sveltekit-superforms'
   import { zod } from 'sveltekit-superforms/adapters'
@@ -38,7 +43,7 @@
 
   // The form posts to `/apply`'s `saveApplication`/`submitApplication`
   // actions, which do all the reading, writing and emailing with the Admin
-  // SDK - see `$lib/server/instructorApplication`.
+  // SDK - see `#lib/server/instructorApplication.js`.
   //
   // `invalidateAll` is off because re-running `load` pushes the stored values
   // back into the form when it lands, overwriting anything typed while it was
@@ -64,7 +69,7 @@
         )
       }
       if (result.type === 'success' && lastAction === 'submit') {
-        await invalidateAll()
+        await refreshAll()
         window.scrollTo({ top: 0, behavior: 'smooth' })
       }
     },

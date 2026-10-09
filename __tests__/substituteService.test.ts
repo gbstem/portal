@@ -1,4 +1,4 @@
-import { substituteService } from '$lib/services/substituteService'
+import { substituteService } from '#lib/services/substituteService.js'
 import * as firestore from 'firebase/firestore'
 import type {} from '../src/data.d.ts'
 

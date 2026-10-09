@@ -1,10 +1,9 @@
-import { handleApiError, verifyInstructor } from '$lib/server/apiHelpers'
+import { handleApiError, verifyInstructor } from '#lib/server/apiHelpers.js'
 import {
   cancelSubRequest,
   editSubRequest,
   fileSubRequest,
-} from '$lib/server/substituteRequests'
-import { json } from '@sveltejs/kit'
+} from '#lib/server/substituteRequests.js'
 import { z } from 'zod'
 import type { RequestHandler } from './$types'
 
@@ -40,7 +39,7 @@ export interface SubRequestResponse {
 
 /**
  * The class instructor's side of a sub request: filing, editing and
- * cancelling one - see $lib/server/substituteRequests. The substitute's side
+ * cancelling one - see #lib/server/substituteRequests. The substitute's side
  * (finding and claiming one) is /api/substitute.
  */
 export const POST: RequestHandler = async ({ request, locals }) => {
@@ -50,7 +49,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     const response: SubRequestResponse = {
       subRequestId: await fileSubRequest({ uid: user.uid }, classId, input),
     }
-    return json(response)
+    return Response.json(response)
   } catch (err) {
     throw handleApiError('/api/subRequest', err)
   }
@@ -67,7 +66,7 @@ export const PATCH: RequestHandler = async ({ request, locals }) => {
         input,
       ),
     }
-    return json(response)
+    return Response.json(response)
   } catch (err) {
     throw handleApiError('/api/subRequest', err)
   }
@@ -79,7 +78,7 @@ export const DELETE: RequestHandler = async ({ request, locals }) => {
     const { subRequestId } = cancelSchema.parse(await request.json())
     await cancelSubRequest({ uid: user.uid }, subRequestId)
     const response: SubRequestResponse = { subRequestId }
-    return json(response)
+    return Response.json(response)
   } catch (err) {
     throw handleApiError('/api/subRequest', err)
   }

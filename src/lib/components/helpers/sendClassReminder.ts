@@ -1,5 +1,5 @@
-import { errorMessage } from '$lib/shared/apiErrors'
-import { alert } from '$lib/stores'
+import { errorMessage } from '#lib/shared/apiErrors.js'
+import { alert } from '#lib/stores.js'
 import type { ClassRemindStudentsRequestBody } from '../../../routes/api/remindStudents/+server'
 
 export interface SendClassReminderOptions {

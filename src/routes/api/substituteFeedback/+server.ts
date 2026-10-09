@@ -1,6 +1,5 @@
-import { handleApiError, verifyInstructor } from '$lib/server/apiHelpers'
-import { fileSubstituteFeedback } from '$lib/server/substituteSessions'
-import { json } from '@sveltejs/kit'
+import { handleApiError, verifyInstructor } from '#lib/server/apiHelpers.js'
+import { fileSubstituteFeedback } from '#lib/server/substituteSessions.js'
 import { z } from 'zod'
 import type { RequestHandler } from './$types'
 
@@ -34,7 +33,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     const response: SubstituteFeedbackResponse = {
       feedbackId: await fileSubstituteFeedback(user.uid, body),
     }
-    return json(response)
+    return Response.json(response)
   } catch (err) {
     throw handleApiError('/api/substituteFeedback', err)
   }

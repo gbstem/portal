@@ -1,7 +1,7 @@
 import type { Timestamp as ServerTimestamp } from 'firebase-admin/firestore'
 import type { Timestamp as ClientTimestamp } from 'firebase/firestore'
 import type { User as ClientUser } from 'firebase/auth'
-import { SubRequestStatus } from '$lib/components/helpers/SubRequestStatus'
+import { SubRequestStatus } from '#lib/components/helpers/SubRequestStatus.js'
 
 declare global {
   declare namespace Data {
@@ -26,7 +26,7 @@ declare global {
         role: Role
       }
       type Profile = {
-        // Patched in at read time by `$lib/client/firebase`'s user store; the
+        // Patched in at read time by `#lib/client/firebase`'s user store; the
         // `users` document itself is keyed by uid and stores no identifier.
         // Deliberately no role - branch on `page.data.user.role`, the claim
         // hooks.server.ts verified (see App.PageData).

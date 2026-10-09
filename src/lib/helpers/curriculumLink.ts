@@ -1,4 +1,4 @@
-import { coursesJson } from '$lib/data'
+import { coursesJson } from '#lib/data/index.js'
 
 const CURRICULUM_BASE = 'https://curriculum.gbstem.org'
 

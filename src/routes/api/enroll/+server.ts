@@ -1,15 +1,14 @@
-import { renderEmail } from '$lib/emails/render'
-import { parseClassInfoDoc } from '$lib/helpers/classesPage'
-import { handleApiError, verifyStudent } from '$lib/server/apiHelpers'
+import { renderEmail } from '#lib/emails/render.js'
+import { parseClassInfoDoc } from '#lib/helpers/classesPage.js'
+import { handleApiError, verifyStudent } from '#lib/server/apiHelpers.js'
 import {
   enrollStudent,
   unenrollStudent,
   type Enrollment,
-} from '$lib/server/classEnrollments'
-import { sendEmail } from '$lib/server/email'
-import { adminAuth, adminDb } from '$lib/server/firebase'
-import { formatTime24to12 } from '$lib/utils'
-import { json } from '@sveltejs/kit'
+} from '#lib/server/classEnrollments.js'
+import { sendEmail } from '#lib/server/email.js'
+import { adminAuth, adminDb } from '#lib/server/firebase.js'
+import { formatTime24to12 } from '#lib/utils.js'
 import { z } from 'zod'
 import type { RequestHandler } from './$types'
 
@@ -144,7 +143,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     const response: EnrollResponse = {
       emailSent: await sendEnrollmentConfirmation(user, classId, enrollment),
     }
-    return json(response)
+    return Response.json(response)
   } catch (err) {
     throw handleApiError('/api/enroll', err)
   }
@@ -157,7 +156,7 @@ export const DELETE: RequestHandler = async ({ request, locals }) => {
     const { classId, studentUid } = enrollmentSchema.parse(await request.json())
     await unenrollStudent({ uid: user.uid }, classId, studentUid)
     const response: UnenrollResponse = { message: 'Unenrolled from class.' }
-    return json(response)
+    return Response.json(response)
   } catch (err) {
     throw handleApiError('/api/enroll', err)
   }

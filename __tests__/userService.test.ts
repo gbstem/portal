@@ -1,4 +1,4 @@
-import { userService } from '$lib/services/userService'
+import { userService } from '#lib/services/userService.js'
 import * as auth from 'firebase/auth'
 import * as firestore from 'firebase/firestore'
 import type {} from '../src/data.d.ts'
@@ -19,7 +19,7 @@ jest.mock('firebase/auth', () => ({
 
 const newUser = { uid: 'uid-1' } as any
 
-// `$lib/client/firebase`'s `db`/`auth` handles are undefined under the mocked
+// `#lib/client/firebase`'s `db`/`auth` handles are undefined under the mocked
 // SDK, so assert on the path segments rather than the handle itself.
 function expectDocPaths(...paths: Array<[string, string]>) {
   expect(

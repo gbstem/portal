@@ -2,14 +2,14 @@ const mockDoc = jest.fn()
 const mockRunTransaction = jest.fn()
 const mockIsAcceptedInstructor = jest.fn()
 
-jest.mock('$lib/server/firebase', () => ({
+jest.mock('#lib/server/firebase.js', () => ({
   adminDb: {
     doc: (...args: any[]) => mockDoc(...args),
     runTransaction: (...args: any[]) => mockRunTransaction(...args),
   },
 }))
 
-jest.mock('$lib/server/instructorDirectory', () => ({
+jest.mock('#lib/server/instructorDirectory.js', () => ({
   isAcceptedInstructor: (...args: any[]) => mockIsAcceptedInstructor(...args),
 }))
 
@@ -25,14 +25,14 @@ jest.mock(
   { virtual: true },
 )
 
-import { ClassStatus } from '$lib/components/helpers/ClassStatus'
-import { classesCollection } from '$lib/data/collections'
+import { ClassStatus } from '#lib/components/helpers/ClassStatus.js'
+import { classesCollection } from '#lib/data/collections.js'
 import {
   holdClassSession,
   NO_SESSION_TODAY,
   refreshClassStatuses,
   rescheduleClass,
-} from '$lib/server/classSchedule'
+} from '#lib/server/classSchedule.js'
 
 const CLASS_ID = 'owner-uid-1'
 const CLASS_PATH = `${classesCollection}/${CLASS_ID}`

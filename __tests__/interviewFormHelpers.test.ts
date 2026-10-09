@@ -3,7 +3,7 @@ import {
   interviewIneligibility,
   isFinalDecision,
   validateRequestedInterviewTime,
-} from '$lib/helpers/interviewForm'
+} from '#lib/helpers/interviewForm.js'
 
 describe('InterviewForm Helpers', () => {
   // Admin's helpers/setInterviewTimes has the same rule and the same cases.

@@ -1,9 +1,9 @@
-import { handleApiError, verifyStudent } from '$lib/server/apiHelpers'
+import { handleApiError, verifyStudent } from '#lib/server/apiHelpers.js'
 import {
   fetchStudentClasses,
   type StudentClass,
-} from '$lib/server/classListings'
-import { error, json } from '@sveltejs/kit'
+} from '#lib/server/classListings.js'
+import { error } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
 
 export type { StudentClass }
@@ -26,7 +26,7 @@ export const GET: RequestHandler = async ({ locals, url }) => {
     const response: StudentClassesResponse = {
       classes: await fetchStudentClasses(user.uid, studentUid),
     }
-    return json(response)
+    return Response.json(response)
   } catch (err) {
     throw handleApiError('/api/studentClasses', err)
   }

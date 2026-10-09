@@ -19,13 +19,13 @@ jest.mock('firebase/firestore', () => {
   }
 })
 
-jest.mock('$lib/stores', () => ({
+jest.mock('#lib/stores.js', () => ({
   alert: {
     trigger: jest.fn(),
   },
 }))
 
-import { alert } from '$lib/stores'
+import { alert } from '#lib/stores.js'
 import {
   classTodayHeld,
   cleanEnvVar,

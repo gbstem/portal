@@ -1,4 +1,4 @@
-import { retryTransient } from '$lib/services/retry'
+import { retryTransient } from '#lib/services/retry.js'
 
 /** A Firestore-shaped error, which is what `retryTransient` keys off of. */
 function firestoreError(code: string) {

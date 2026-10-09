@@ -1,10 +1,10 @@
-import { registrationDocId } from '$lib/data/docIds'
-import { db } from '$lib/client/firebase'
+import { registrationDocId } from '#lib/data/docIds.js'
+import { db } from '#lib/client/firebase.js'
 import {
   maxChildrenPerAccount,
   registrationsCollection,
-} from '$lib/data/collections'
-import { retryTransient } from '$lib/services/retry'
+} from '#lib/data/collections.js'
+import { retryTransient } from '#lib/services/retry.js'
 import { doc, getDoc } from 'firebase/firestore'
 
 export interface ChildRegistrationSlot {

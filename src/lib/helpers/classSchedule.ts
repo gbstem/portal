@@ -1,8 +1,8 @@
-import { parseClassDocId } from '$lib/data/docIds'
-import { ClassStatus } from '$lib/components/helpers/ClassStatus'
-import { SubRequestStatus } from '$lib/components/helpers/SubRequestStatus'
-import generateMeetingTimeChangeEmail from '$lib/components/helpers/generateMeetingTimeChangeEmail'
-import { isClassUpcoming } from '$lib/utils'
+import { parseClassDocId } from '#lib/data/docIds.js'
+import { ClassStatus } from '#lib/components/helpers/ClassStatus.js'
+import { SubRequestStatus } from '#lib/components/helpers/SubRequestStatus.js'
+import generateMeetingTimeChangeEmail from '#lib/components/helpers/generateMeetingTimeChangeEmail.js'
+import { isClassUpcoming } from '#lib/utils.js'
 import type {} from '../../data.d.ts'
 
 /**

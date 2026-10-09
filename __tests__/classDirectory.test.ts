@@ -1,6 +1,6 @@
 const mockDoc = jest.fn()
 
-jest.mock('$lib/server/firebase', () => ({
+jest.mock('#lib/server/firebase.js', () => ({
   adminDb: {
     doc: (...args: any[]) => mockDoc(...args),
   },
@@ -25,12 +25,12 @@ jest.mock(
 import {
   classesCollection,
   registrationsCollection,
-} from '$lib/data/collections'
+} from '#lib/data/collections.js'
 import {
   getAuthorizedClass,
   getStudentSnaps,
   isInstructorOfClass,
-} from '$lib/server/classDirectory'
+} from '#lib/server/classDirectory.js'
 
 function mockFirestore(docs: Record<string, any>) {
   mockDoc.mockImplementation((path: string) => ({

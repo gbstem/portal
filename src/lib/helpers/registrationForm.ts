@@ -52,7 +52,7 @@ export function createEmptyRegistration(): Data.Registration {
 
 /**
  * Builds the registration document for a child's very first write, which
- * `$lib/server/studentRegistration` makes the first time the child is opened.
+ * `#lib/server/studentRegistration.js` makes the first time the child is opened.
  *
  * `timestamps.created` is stamped here because this is the only write that
  * sends the whole document: `registrationOwnedFields` fills `created` in only
@@ -189,7 +189,7 @@ export const REGISTRATION_ADMIN_OWNED_FIELDS = ['agreements.bypassAgeLimits']
 /**
  * The parts of the registration document this form owns, ready to be merged in.
  *
- * `$lib/server/studentRegistration` merges this into the stored document
+ * `#lib/server/studentRegistration.js` merges this into the stored document
  * (`{ merge: true }`), so what
  * this returns is exactly what reaches Firestore and anything omitted keeps
  * whatever the last writer left. That makes this the highest-consequence field

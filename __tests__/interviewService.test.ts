@@ -1,5 +1,5 @@
-import { interviewService } from '$lib/services/interviewService'
-import { formatDateLocal } from '$lib/utils'
+import { interviewService } from '#lib/services/interviewService.js'
+import { formatDateLocal } from '#lib/utils.js'
 import * as firestore from 'firebase/firestore'
 import type {} from '../src/data.d.ts'
 

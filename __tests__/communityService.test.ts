@@ -1,24 +1,24 @@
 const mockFetchInstructorClasses = jest.fn()
 const mockCollectionGroup = jest.fn()
 
-jest.mock('$lib/server/firebase', () => ({
+jest.mock('#lib/server/firebase.js', () => ({
   adminDb: {
     collectionGroup: (...args: any[]) => mockCollectionGroup(...args),
   },
 }))
 
-jest.mock('$lib/server/instructorClasses', () => ({
+jest.mock('#lib/server/instructorClasses.js', () => ({
   fetchInstructorClasses: (...args: any[]) =>
     mockFetchInstructorClasses(...args),
 }))
 
-import { ClassStatus } from '$lib/components/helpers/ClassStatus'
-import { SubRequestStatus } from '$lib/components/helpers/SubRequestStatus'
-import { currentSemester } from '$lib/data/collections'
+import { ClassStatus } from '#lib/components/helpers/ClassStatus.js'
+import { SubRequestStatus } from '#lib/components/helpers/SubRequestStatus.js'
+import { currentSemester } from '#lib/data/collections.js'
 import {
   communityServiceSummary,
   semesterSeasonAndYear,
-} from '$lib/server/communityService'
+} from '#lib/server/communityService.js'
 
 /** A fake collection-group query whose count() resolves to `count`. */
 function subRequestsCounting(count: number) {

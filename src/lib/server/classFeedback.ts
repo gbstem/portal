@@ -1,15 +1,15 @@
-import { ClassStatus } from '$lib/components/helpers/ClassStatus'
+import { ClassStatus } from '#lib/components/helpers/ClassStatus.js'
 import {
   classesCollection,
   instructorFeedbackCollection,
   registrationsCollection,
   studentFeedbackCollection,
   withSemester,
-} from '$lib/data/collections'
-import { isOwnRegistration } from '$lib/data/docIds'
-import { isInstructorOfClass } from '$lib/server/classDirectory'
-import { adminDb } from '$lib/server/firebase'
-import { isAcceptedInstructor } from '$lib/server/instructorDirectory'
+} from '#lib/data/collections.js'
+import { isOwnRegistration } from '#lib/data/docIds.js'
+import { isInstructorOfClass } from '#lib/server/classDirectory.js'
+import { adminDb } from '#lib/server/firebase.js'
+import { isAcceptedInstructor } from '#lib/server/instructorDirectory.js'
 import { error } from '@sveltejs/kit'
 
 export interface FeedbackCaller {

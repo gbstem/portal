@@ -141,7 +141,7 @@ export type OwnedApplicationFields = Omit<Data.Application, 'meta'>
 /**
  * The parts of the application document this form owns, ready to be merged in.
  *
- * `$lib/server/instructorApplication` merges this into the stored document
+ * `#lib/server/instructorApplication.js` merges this into the stored document
  * (`{ merge: true }`), so what
  * this returns is exactly what reaches Firestore and anything omitted keeps
  * whatever the last writer left.

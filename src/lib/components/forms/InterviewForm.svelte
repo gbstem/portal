@@ -1,17 +1,17 @@
 <script lang="ts">
-  import { user } from '$lib/client/firebase'
+  import { user } from '#lib/client/firebase.js'
   import {
     interviewService,
     type BookedInterviewDetails,
     type InterviewSlotOption,
-  } from '$lib/services/interviewService'
-  import { alert } from '$lib/stores'
-  import { validateRequestedInterviewTime } from '$lib/helpers/interviewForm'
-  import { cn, toLocalISOString } from '$lib/utils'
-  import { dev } from '$app/environment'
+  } from '#lib/services/interviewService.js'
+  import { alert } from '#lib/stores.js'
+  import { validateRequestedInterviewTime } from '#lib/helpers/interviewForm.js'
+  import { cn, toLocalISOString } from '#lib/utils.js'
+  import { dev } from '$app/env'
   import { onMount } from 'svelte'
   import Link from '../Link.svelte'
-  import { openableMeetingLink } from '$lib/helpers/meetingLink'
+  import { openableMeetingLink } from '#lib/helpers/meetingLink.js'
   import Loading from '../Loading.svelte'
   import Button from '../Button.svelte'
   import FormInput from '../FormInput.svelte'

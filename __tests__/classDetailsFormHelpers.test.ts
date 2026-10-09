@@ -13,7 +13,7 @@ import {
   getMeetingDates,
   scheduleSourceChanged,
   SCHEDULE_SOURCE_FIELDS,
-} from '$lib/helpers/classDetailsForm'
+} from '#lib/helpers/classDetailsForm.js'
 
 describe('ClassDetailsForm Helpers', () => {
   describe('getDefaultClassValues & toFormValues', () => {

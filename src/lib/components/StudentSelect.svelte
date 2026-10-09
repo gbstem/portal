@@ -1,10 +1,10 @@
 <script lang="ts">
   import { page } from '$app/state'
-  import { user } from '$lib/client/firebase'
-  import Loading from '$lib/components/Loading.svelte'
-  import Select from '$lib/components/Select.svelte'
-  import { registrationService } from '$lib/services/registrationService'
-  import { selectedStudentIdState } from '$lib/stores.svelte'
+  import { user } from '#lib/client/firebase.js'
+  import Loading from '#lib/components/Loading.svelte'
+  import Select from '#lib/components/Select.svelte'
+  import { registrationService } from '#lib/services/registrationService.js'
+  import { selectedStudentIdState } from '#lib/stores.svelte.js'
   import { onMount } from 'svelte'
 
   interface Props {

@@ -1,5 +1,5 @@
-import { errorMessage } from '$lib/shared/apiErrors'
-import { formatDateLocal } from '$lib/utils'
+import { errorMessage } from '#lib/shared/apiErrors.js'
+import { formatDateLocal } from '#lib/utils.js'
 import type {
   InterviewBookingRequestBody,
   InterviewBookingResponse,

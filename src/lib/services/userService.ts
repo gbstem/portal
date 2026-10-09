@@ -1,5 +1,5 @@
-import { errorMessage } from '$lib/shared/apiErrors'
-import { auth, db } from '$lib/client/firebase'
+import { errorMessage } from '#lib/shared/apiErrors.js'
+import { auth, db } from '#lib/client/firebase.js'
 import {
   createUserWithEmailAndPassword,
   deleteUser,
@@ -17,7 +17,7 @@ export interface AccountDeletionEligibility {
  * Service providing Data Access Layer for user account records.
  *
  * A user's identity is their Firebase Auth `uid`; there is no second
- * identifier. `$lib/client/firebase`'s user store patches the `uid` into the
+ * identifier. `#lib/client/firebase`'s user store patches the `uid` into the
  * profile at read time, so callers never have to carry it alongside the
  * profile.
  */
