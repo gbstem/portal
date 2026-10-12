@@ -6,9 +6,16 @@
     type InterviewSlotOption,
   } from '#lib/services/interviewService.js'
   import { alert } from '#lib/stores.js'
-  import { validateRequestedInterviewTime } from '#lib/helpers/interviewForm.js'
+  import {
+    formatInterviewWindow,
+    validateRequestedInterviewTime,
+  } from '#lib/helpers/interviewForm.js'
   import { cn, toLocalISOString } from '#lib/utils.js'
-  import { dev } from '$app/env'
+  import { localTimeZoneLabel } from '#lib/shared/gbstemTime.js'
+  import {
+    INTERVIEW_DURATION_MINUTES,
+    type InterviewWindow,
+  } from '#lib/shared/interviews.js'
   import { onMount } from 'svelte'
   import Link from '../Link.svelte'
   import { openableMeetingLink } from '#lib/helpers/meetingLink.js'
@@ -19,18 +26,14 @@
   import { zod } from 'sveltekit-superforms/adapters'
   import { z } from 'zod'
 
-  interface Props {
-    semesterDates: Data.SemesterDates
-  }
-
-  let { semesterDates }: Props = $props()
-
   let showValidation = false
   let scheduledInterview: BookedInterviewDetails | undefined = $state()
   let scheduled = $state(false)
   let data: InterviewSlotOption[] = $state([])
   let loading = $state(true)
   let showRequestNewTime = $state(false)
+  // The window the server accepts a time request in, sent with the slots.
+  let interviewWindow: InterviewWindow | undefined = $state()
 
   const bookingSchema = z.object({
     slotId: z.string().min(1, 'Please select an interview slot'),
@@ -73,10 +76,25 @@
     },
   )
 
-  // Earliest time the picker will offer, and the `min` attribute on the input.
-  // Computed once at mount: this form is opened, used, and dismissed in one
-  // sitting, so it doesn't need to track the clock.
-  const earliestRequestableTime = toLocalISOString(new Date())
+  // The picker's `min` and `max`: from now, or from when interviews open if
+  // later, to the last minute of the window. `now` is read once at mount:
+  // this form is opened, used, and dismissed in one sitting, so it doesn't
+  // need to track the clock.
+  const now = new Date()
+  let earliestRequestableTime = $derived(
+    toLocalISOString(
+      interviewWindow && interviewWindow.opens > now
+        ? interviewWindow.opens
+        : now,
+    ),
+  )
+  let latestRequestableTime = $derived(
+    interviewWindow
+      ? toLocalISOString(new Date(interviewWindow.closes.getTime() - 60_000))
+      : undefined,
+  )
+  // Every time on this page is shown in the viewer's own zone; this names it.
+  const timeZone = localTimeZoneLabel()
 
   // Deliberately empty rather than pre-filled. A pre-filled datetime invites
   // submitting it unread, and this field used to default to a hardcoded
@@ -92,15 +110,12 @@
       async onUpdate({ form: formVal }: { form: any }) {
         if (!formVal.valid) return
         const dateToAdd = formVal.data.dateToAdd
-        // `min` on the input is a convenience, not a control -- it is trivially
-        // bypassed, so this is the real check. Skipped wholesale in dev, as the
-        // deadline check always has been: fixture dates go stale.
-        const invalidReason = dev
-          ? null
-          : validateRequestedInterviewTime(
-              dateToAdd,
-              semesterDates.instructorOrientation,
-            )
+        // `min` and `max` on the input are a convenience, not a control --
+        // they are trivially bypassed, so this is the check, and
+        // /api/slotRequest repeats it.
+        const invalidReason = interviewWindow
+          ? validateRequestedInterviewTime(dateToAdd, interviewWindow)
+          : null
         if (invalidReason) {
           alert.trigger('error', invalidReason)
           return
@@ -153,6 +168,7 @@
 
   async function getData() {
     const result = await interviewService.fetchInterviewData()
+    interviewWindow = result.interviewWindow
     if (result.scheduledInterview) {
       scheduledInterview = result.scheduledInterview
       scheduled = true
@@ -168,6 +184,10 @@
     {#await data then value}
       {#if scheduled === false}
         <h2 class="mb-2 text-lg font-bold">Available Interview Slots</h2>
+        <p class="mb-4 text-sm font-medium text-gray-700">
+          Times shown in your local time ({timeZone}). Interviews usually take
+          about {INTERVIEW_DURATION_MINUTES} minutes.
+        </p>
 
         <form
           novalidate
@@ -229,13 +249,19 @@
             class={cn('mt-4 max-w-2xl space-y-4')}
             use:requestEnhance
           >
+            {#if interviewWindow}
+              <p class="text-sm text-gray-700">
+                Interviews run {formatInterviewWindow(interviewWindow)} (Eastern time).
+              </p>
+            {/if}
             <div class="mt-2 flex flex-col gap-1.5">
               <FormInput
                 form={requestFormResult}
                 name="dateToAdd"
-                label="Set Date (your local time)"
+                label="Set Date (your local time, {timeZone})"
                 type="datetime-local"
                 min={earliestRequestableTime}
+                max={latestRequestableTime}
                 bind:value={$requestForm.dateToAdd}
               />
             </div>
@@ -261,6 +287,9 @@
           <p class="font-bold">
             Your interview will be on {scheduledInterview?.date} with
             {scheduledInterview?.interviewerName}.
+          </p>
+          <p class="mt-1 text-sm">
+            It usually takes about {INTERVIEW_DURATION_MINUTES} minutes.
           </p>
           {#if openableMeetingLink(scheduledInterview?.meetingLink)}
             <p class="mt-2 text-sm">

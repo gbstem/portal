@@ -1,3 +1,4 @@
+import { GBSTEM_TIME_ZONE } from '#lib/shared/gbstemTime.js'
 import { toDate } from '#lib/shared/timestamps.js'
 import { alert } from '#lib/stores.js'
 import type { ClassValue } from 'clsx'
@@ -119,8 +120,7 @@ export function formatDateLocal(date: Date) {
   })
 }
 
-/** Where gbSTEM runs its classes and interviews. */
-export const GBSTEM_TIME_ZONE = 'America/New_York'
+export { GBSTEM_TIME_ZONE } from '#lib/shared/gbstemTime.js'
 
 /**
  * Formats a date in gbSTEM's time zone, naming the zone - for text built on

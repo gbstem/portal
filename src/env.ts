@@ -25,6 +25,7 @@ export const variables = defineEnvVars({
   // FIRESTORE_EMULATOR_HOST - see #lib/server/semesterWindows.
   E2E_INSTRUCTOR_APPS_DUE: { schema: optional },
   E2E_REGISTRATIONS_DUE: { schema: optional },
+  E2E_INTERVIEWS_END: { schema: optional },
   FIREBASE_CLIENT_EMAIL: { static: true },
   FIREBASE_PRIVATE_KEY: { static: true },
   FIREBASE_PROJECT_ID: { static: true },

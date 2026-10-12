@@ -1,8 +1,10 @@
+import { E2E_INTERVIEWS_END, FIRESTORE_EMULATOR_HOST } from '$app/env/private'
 import { handleApiError, verifyInstructor } from '#lib/server/apiHelpers.js'
 import { sendEmail } from '#lib/server/email.js'
 import { renderEmail } from '#lib/emails/render.js'
 import { openableMeetingLink } from '#lib/helpers/meetingLink.js'
 import { formatDateInGbstemTime } from '#lib/utils.js'
+import { INTERVIEW_DURATION_MINUTES } from '#lib/shared/interviews.js'
 import { resolveCurrentInterviewerEmail } from '#lib/server/interviewerIdentity.js'
 import {
   bookInterviewSlot,
@@ -11,8 +13,12 @@ import {
   type InterviewData,
   type ScheduledInterview,
 } from '#lib/server/interviewSlots.js'
+import { interviewSchedulingWindow } from '#lib/server/semesterWindows.js'
 import { z } from 'zod'
 import type { RequestHandler } from './$types'
+
+const schedulingWindow = () =>
+  interviewSchedulingWindow({ FIRESTORE_EMULATOR_HOST, E2E_INTERVIEWS_END })
 
 const bookingSchema = z.object({
   // Everything else - the interviewer, the time and the link - is read from
@@ -62,6 +68,7 @@ async function sendBookingConfirmation(
       name: booked.interviewerName,
       date: formatDateInGbstemTime(booked.date, 'long'),
       link: openableMeetingLink(booked.meetingLink) ?? '',
+      duration: INTERVIEW_DURATION_MINUTES,
     },
   })
 
@@ -90,7 +97,10 @@ async function sendBookingConfirmation(
 export const GET: RequestHandler = async ({ locals }) => {
   try {
     const user = verifyInstructor(locals)
-    const response: InterviewDataResponse = await fetchInterviewData(user.uid)
+    const response: InterviewDataResponse = await fetchInterviewData(
+      user.uid,
+      schedulingWindow(),
+    )
     return Response.json(response)
   } catch (err) {
     throw handleApiError('/api/interview', err)
@@ -108,6 +118,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     const booked = await bookInterviewSlot(
       { uid: user.uid, email: user.email },
       slotId,
+      schedulingWindow(),
     )
 
     const response: InterviewBookingResponse = {

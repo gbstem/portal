@@ -803,9 +803,14 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
     })
 
     cy.get('body').should('contain', 'Available Interview Slots')
+    // Times are the browser's own, so the page names its zone.
+    cy.contains(
+      /Times shown in your local time \([^)]+\)\. Interviews usually take about 15 minutes\./,
+    )
 
     // Scenario 1: Request time
     cy.contains('button', 'Request A Time').click()
+    cy.contains('label', /Set Date \(your local time, [^)]+\)/)
     const targetDate = new Date(Date.now() + 24 * 60 * 60 * 1000)
     const pad = (n: number) => String(n).padStart(2, '0')
     const formattedDate = `${targetDate.getFullYear()}-${pad(targetDate.getMonth() + 1)}-${pad(targetDate.getDate())}T${pad(targetDate.getHours())}:${pad(targetDate.getMinutes())}`
@@ -891,6 +896,7 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
           expect(application.meta.interview, 'meta.interview').to.equal(true)
         })
 
+        cy.contains('It usually takes about 15 minutes.')
         cy.get('body')
           .contains(/Your interview will be on/)
           .invoke('text')

@@ -1,8 +1,13 @@
 import { semesterDates } from '#lib/data/collections.js'
+import { gbstemMidnight } from '#lib/shared/gbstemTime.js'
+import {
+  interviewWindow,
+  type InterviewWindow,
+} from '#lib/shared/interviews.js'
 
 /**
- * When the application and registration windows open and close, as the server
- * enforces them. `semesterDates` holds calendar dates (`MM/DD/YY`); gbSTEM
+ * When the application, registration and interview windows open and close, as
+ * the server enforces them. `semesterDates` holds calendar dates (`MM/DD/YY`); gbSTEM
  * advertises its deadlines as 11:59 PM Eastern, so a window closes at a
  * midnight in New York, whatever time zone the server runs in.
  *
@@ -14,36 +19,6 @@ import { semesterDates } from '#lib/data/collections.js'
 
 type Env = Record<string, string | undefined>
 
-/** The UTC offset of New York at `at`, in minutes (e.g. -240 during EDT). */
-function newYorkOffsetMinutes(at: Date): number {
-  const name =
-    new Intl.DateTimeFormat('en-US', {
-      timeZone: 'America/New_York',
-      timeZoneName: 'shortOffset',
-    })
-      .formatToParts(at)
-      .find((part) => part.type === 'timeZoneName')?.value ?? 'GMT-5'
-  const match = /GMT([+-]\d+)(?::(\d+))?/.exec(name)
-  if (!match) return -300
-  const hours = Number(match[1])
-  const minutes = Number(match[2] ?? 0)
-  return hours * 60 + Math.sign(hours) * minutes
-}
-
-/**
- * Midnight in New York at the start of the day `daysAfter` days after the
- * calendar date `date`.
- */
-function newYorkMidnight(date: string, daysAfter: number): Date {
-  const day = new Date(date)
-  const midnightUtc = new Date(
-    Date.UTC(day.getFullYear(), day.getMonth(), day.getDate() + daysAfter),
-  )
-  return new Date(
-    midnightUtc.getTime() - newYorkOffsetMinutes(midnightUtc) * 60_000,
-  )
-}
-
 function dueDate(env: Env, overrideName: string, real: string): string {
   return (env.FIRESTORE_EMULATOR_HOST && env[overrideName]) || real
 }
@@ -54,7 +29,7 @@ function dueDate(env: Env, overrideName: string, real: string): string {
  * `E2E_INSTRUCTOR_APPS_DUE` replaces the due date under the emulator.
  */
 export function applicationDeadline(env: Env): Date {
-  return newYorkMidnight(
+  return gbstemMidnight(
     dueDate(env, 'E2E_INSTRUCTOR_APPS_DUE', semesterDates.newInstructorAppsDue),
     1,
   )
@@ -78,10 +53,27 @@ export const REGISTRATION_GRACE_DAYS = 7
  */
 export function registrationWindow(env: Env): { opens: Date; closes: Date } {
   return {
-    opens: newYorkMidnight(semesterDates.registrationsOpen, 0),
-    closes: newYorkMidnight(
+    opens: gbstemMidnight(semesterDates.registrationsOpen, 0),
+    closes: gbstemMidnight(
       dueDate(env, 'E2E_REGISTRATIONS_DUE', semesterDates.registrationsDue),
       REGISTRATION_GRACE_DAYS,
     ),
   }
+}
+
+/**
+ * When applicants can book or request an interview: `interviewsStart` through
+ * `interviewsEnd`, in New York time (see `interviewWindow`).
+ * `E2E_INTERVIEWS_END` replaces the last day under the emulator, where the
+ * seeded slots are dated from today rather than inside the real window.
+ */
+export function interviewSchedulingWindow(env: Env): InterviewWindow {
+  return interviewWindow({
+    interviewsStart: semesterDates.interviewsStart,
+    interviewsEnd: dueDate(
+      env,
+      'E2E_INTERVIEWS_END',
+      semesterDates.interviewsEnd,
+    ),
+  })
 }

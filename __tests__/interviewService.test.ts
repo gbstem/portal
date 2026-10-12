@@ -38,6 +38,10 @@ describe('interviewService (Data Access Layer)', () => {
               interviewerName: 'Ravi',
             },
           ],
+          interviewWindow: {
+            opens: '2026-09-01T04:00:00.000Z',
+            closes: '2026-09-20T04:00:00.000Z',
+          },
         }),
       })
 
@@ -63,15 +67,29 @@ describe('interviewService (Data Access Layer)', () => {
           interviewerName: 'Ravi',
         },
       ])
+      // The window the form checks a time request against, as instants.
+      expect(res.interviewWindow).toEqual({
+        opens: new Date('2026-09-01T04:00:00.000Z'),
+        closes: new Date('2026-09-20T04:00:00.000Z'),
+      })
     })
 
     it('passes a missing booking through as null', async () => {
       ;(global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ scheduledInterview: null, availableSlots: [] }),
+        json: async () => ({
+          scheduledInterview: null,
+          availableSlots: [],
+          interviewWindow: {
+            opens: '2026-09-01T04:00:00.000Z',
+            closes: '2026-09-20T04:00:00.000Z',
+          },
+        }),
       })
 
-      await expect(interviewService.fetchInterviewData()).resolves.toEqual({
+      await expect(
+        interviewService.fetchInterviewData(),
+      ).resolves.toMatchObject({
         scheduledInterview: null,
         availableSlots: [],
       })

@@ -1,7 +1,6 @@
 const mockDoc = jest.fn()
 const mockCollection = jest.fn()
 const mockRunTransaction = jest.fn()
-let mockDev = false
 
 const DAY = 24 * 60 * 60 * 1000
 const HOUR = 60 * 60 * 1000
@@ -11,22 +10,6 @@ jest.mock('#lib/server/firebase.js', () => ({
     doc: (...args: any[]) => mockDoc(...args),
     collection: (...args: any[]) => mockCollection(...args),
     runTransaction: (...args: any[]) => mockRunTransaction(...args),
-  },
-}))
-
-jest.mock('$app/env', () => ({
-  get dev() {
-    return mockDev
-  },
-}))
-
-// Anchored to now, so the tests hold whenever they run.
-jest.mock('#lib/data/collections.js', () => ({
-  ...jest.requireActual('#lib/data/collections.js'),
-  semesterDates: {
-    instructorOrientation: new Date(
-      Date.now() + 30 * 24 * 60 * 60 * 1000,
-    ).toISOString(),
   },
 }))
 
@@ -42,6 +25,7 @@ jest.mock(
   { virtual: true },
 )
 
+import type { InterviewWindow } from '#lib/shared/interviews.js'
 import {
   applicationsCollection,
   interviewCollection,
@@ -62,6 +46,10 @@ let transaction: { get: jest.Mock; update: jest.Mock }
 let ranQueries: { filters: Filter[]; orderBy?: string }[]
 
 const at = (offsetMs: number) => new Date(Date.now() + offsetMs)
+
+// Anchored to now, so the tests hold whenever they run: interviews opened ten
+// days ago and close in thirty. Reset before each test.
+let interviews: InterviewWindow
 const timestamp = (date: Date) => ({ toDate: () => date })
 const comparable = (value: any) =>
   value?.toDate
@@ -78,7 +66,7 @@ function snapshot(path: string) {
   }
 }
 
-/** A collection query that honours ==, > and < filters and one ascending orderBy. */
+/** A collection query that honours ==, >, >= and < filters and one ascending orderBy. */
 function makeQuery(
   collectionPath: string,
   filters: Filter[] = [],
@@ -99,6 +87,7 @@ function makeQuery(
             const expected = comparable(value)
             if (op === '==') return actual === expected
             if (op === '>') return actual > expected
+            if (op === '>=') return actual >= expected
             return actual < expected
           }),
         )
@@ -133,7 +122,7 @@ const APPLICANT = { uid: 'uid-1', email: 'grace@example.com' }
 
 beforeEach(() => {
   jest.clearAllMocks()
-  mockDev = false
+  interviews = { opens: at(-10 * DAY), closes: at(30 * DAY) }
   ranQueries = []
   docs = {
     'users/uid-1': { firstName: 'Grace', lastName: 'Hopper' },
@@ -166,10 +155,13 @@ describe('fetchInterviewData', () => {
       interviewSlotStatus: 'pending',
       intervieweeId: 'someone-else',
     })
-    slot('slot-after-orientation', { date: timestamp(at(60 * DAY)) })
+    slot('slot-after-window', { date: timestamp(at(60 * DAY)) })
 
-    const { availableSlots, scheduledInterview } =
-      await fetchInterviewData('uid-1')
+    const {
+      availableSlots,
+      scheduledInterview,
+      interviewWindow: sentWindow,
+    } = await fetchInterviewData('uid-1', interviews)
 
     expect(availableSlots.map((one) => one.id)).toEqual([
       'slot-soon',
@@ -182,24 +174,29 @@ describe('fetchInterviewData', () => {
       'interviewerName',
     ])
     expect(scheduledInterview).toBeNull()
+    // The form checks a time request against the same window.
+    expect(sentWindow).toEqual({
+      opens: interviews.opens.toISOString(),
+      closes: interviews.closes.toISOString(),
+    })
     const [, available] = ranQueries
     expect(available.filters.map(([field, op]) => `${field}${op}`)).toEqual([
       'interviewSlotStatus==',
       'date>',
+      'date>=',
       'date<',
     ])
     expect(available.orderBy).toBe('date')
   })
 
-  test('includes slots after orientation in dev, where fixture dates go stale', async () => {
-    mockDev = true
-    slot('slot-after-orientation', { date: timestamp(at(60 * DAY)) })
+  test('leaves out slots before interviews open', async () => {
+    interviews = { ...interviews, opens: at(10 * DAY) }
+    slot('slot-before-window', { date: timestamp(at(2 * DAY)) })
+    slot('slot-in-window', { date: timestamp(at(20 * DAY)) })
 
-    const { availableSlots } = await fetchInterviewData('uid-1')
+    const { availableSlots } = await fetchInterviewData('uid-1', interviews)
 
-    expect(availableSlots.map((one) => one.id)).toEqual([
-      'slot-after-orientation',
-    ])
+    expect(availableSlots.map((one) => one.id)).toEqual(['slot-in-window'])
   })
 
   test("returns the caller's booking, marked completed once its date has passed", async () => {
@@ -209,7 +206,7 @@ describe('fetchInterviewData', () => {
       intervieweeId: 'uid-1',
     })
 
-    const { scheduledInterview } = await fetchInterviewData('uid-1')
+    const { scheduledInterview } = await fetchInterviewData('uid-1', interviews)
 
     expect(scheduledInterview).toEqual({
       id: 'slot-mine',
@@ -226,7 +223,7 @@ describe('fetchInterviewData', () => {
       intervieweeId: 'uid-1',
     })
 
-    const { scheduledInterview } = await fetchInterviewData('uid-1')
+    const { scheduledInterview } = await fetchInterviewData('uid-1', interviews)
 
     expect(scheduledInterview?.interviewSlotStatus).toBe('pending')
   })
@@ -241,7 +238,7 @@ describe('fetchInterviewData', () => {
       intervieweeId: 'uid-1',
     })
 
-    const { scheduledInterview } = await fetchInterviewData('uid-1')
+    const { scheduledInterview } = await fetchInterviewData('uid-1', interviews)
 
     expect(scheduledInterview).toBeNull()
   })
@@ -258,7 +255,7 @@ describe('fetchInterviewData', () => {
       intervieweeId: 'uid-1',
     })
 
-    const { scheduledInterview } = await fetchInterviewData('uid-1')
+    const { scheduledInterview } = await fetchInterviewData('uid-1', interviews)
 
     expect(scheduledInterview?.id).toBe('slot-rebooked')
   })
@@ -270,7 +267,7 @@ describe('bookInterviewSlot', () => {
   test('books the slot for the caller and marks their application interviewed', async () => {
     slot('slot-1')
 
-    const booked = await bookInterviewSlot(APPLICANT, 'slot-1')
+    const booked = await bookInterviewSlot(APPLICANT, 'slot-1', interviews)
 
     expect(transaction.update).toHaveBeenCalledWith(
       expect.objectContaining({ path: slotPath }),
@@ -307,21 +304,35 @@ describe('bookInterviewSlot', () => {
   test('refuses a slot somebody else has already booked', async () => {
     slot('slot-1', { interviewSlotStatus: 'pending', intervieweeId: 'other' })
 
-    await expect(bookInterviewSlot(APPLICANT, 'slot-1')).rejects.toMatchObject({
+    await expect(
+      bookInterviewSlot(APPLICANT, 'slot-1', interviews),
+    ).rejects.toMatchObject({
       status: 409,
       message: expect.stringContaining('no longer available'),
     })
     expect(transaction.update).not.toHaveBeenCalled()
   })
 
-  test('refuses a slot that is now too soon, or after orientation', async () => {
+  test('refuses a slot that is now too soon, or outside the interview window', async () => {
     slot('slot-1', { date: timestamp(at(HOUR)) })
-    await expect(bookInterviewSlot(APPLICANT, 'slot-1')).rejects.toMatchObject({
+    await expect(
+      bookInterviewSlot(APPLICANT, 'slot-1', interviews),
+    ).rejects.toMatchObject({
       status: 409,
     })
 
     slot('slot-1', { date: timestamp(at(60 * DAY)) })
-    await expect(bookInterviewSlot(APPLICANT, 'slot-1')).rejects.toMatchObject({
+    await expect(
+      bookInterviewSlot(APPLICANT, 'slot-1', interviews),
+    ).rejects.toMatchObject({
+      status: 409,
+    })
+
+    interviews = { ...interviews, opens: at(10 * DAY) }
+    slot('slot-1', { date: timestamp(at(2 * DAY)) })
+    await expect(
+      bookInterviewSlot(APPLICANT, 'slot-1', interviews),
+    ).rejects.toMatchObject({
       status: 409,
     })
     expect(transaction.update).not.toHaveBeenCalled()
@@ -333,7 +344,9 @@ describe('bookInterviewSlot', () => {
     slot('slot-1')
     docs[`${applicationsCollection}/uid-1`].meta.interview = true
 
-    await expect(bookInterviewSlot(APPLICANT, 'slot-1')).rejects.toMatchObject({
+    await expect(
+      bookInterviewSlot(APPLICANT, 'slot-1', interviews),
+    ).rejects.toMatchObject({
       status: 409,
       message: 'You already have an interview scheduled.',
     })
@@ -344,7 +357,9 @@ describe('bookInterviewSlot', () => {
     slot('slot-1')
     docs[`${applicationsCollection}/uid-1`].meta.decisionType = 'rejected'
 
-    await expect(bookInterviewSlot(APPLICANT, 'slot-1')).rejects.toMatchObject({
+    await expect(
+      bookInterviewSlot(APPLICANT, 'slot-1', interviews),
+    ).rejects.toMatchObject({
       status: 409,
       message: 'A decision has already been made on your application.',
     })
@@ -355,7 +370,7 @@ describe('bookInterviewSlot', () => {
     slot('slot-1')
     docs[`${applicationsCollection}/uid-1`].meta.decisionType = 'interview'
 
-    await bookInterviewSlot(APPLICANT, 'slot-1')
+    await bookInterviewSlot(APPLICANT, 'slot-1', interviews)
 
     expect(transaction.update).toHaveBeenCalledWith(
       expect.objectContaining({ path: `${applicationsCollection}/uid-1` }),
@@ -374,14 +389,18 @@ describe('bookInterviewSlot', () => {
       delete docs[`${applicationsCollection}/uid-1`]
     }
 
-    await expect(bookInterviewSlot(APPLICANT, 'slot-1')).rejects.toMatchObject({
+    await expect(
+      bookInterviewSlot(APPLICANT, 'slot-1', interviews),
+    ).rejects.toMatchObject({
       status: 400,
     })
     expect(transaction.update).not.toHaveBeenCalled()
   })
 
   test('404s a slot that no longer exists', async () => {
-    await expect(bookInterviewSlot(APPLICANT, 'slot-1')).rejects.toMatchObject({
+    await expect(
+      bookInterviewSlot(APPLICANT, 'slot-1', interviews),
+    ).rejects.toMatchObject({
       status: 404,
     })
   })
@@ -395,7 +414,7 @@ describe('recordSlotRequest', () => {
     const date = at(2 * DAY)
 
     await expect(
-      recordSlotRequest('uid-1', '2026-10-05T14:00', date),
+      recordSlotRequest('uid-1', '2026-10-05T14:00', date, interviews),
     ).resolves.toEqual({ firstName: 'Grace' })
 
     // The name comes from the profile, never from the request.
@@ -421,7 +440,7 @@ describe('recordSlotRequest', () => {
       docs[`${applicationsCollection}/uid-1`] = { meta }
 
       await expect(
-        recordSlotRequest('uid-1', '2026-10-05T14:00', at(2 * DAY)),
+        recordSlotRequest('uid-1', '2026-10-05T14:00', at(2 * DAY), interviews),
       ).rejects.toMatchObject({ status })
       expect(docs[requestPath('2026-10-05T14:00')]).toBeUndefined()
     },
@@ -429,7 +448,7 @@ describe('recordSlotRequest', () => {
 
   test('refuses a time in the past, and saves nothing', async () => {
     await expect(
-      recordSlotRequest('uid-1', '2020-10-05T14:00', at(-DAY)),
+      recordSlotRequest('uid-1', '2020-10-05T14:00', at(-DAY), interviews),
     ).rejects.toMatchObject({
       status: 400,
       message: 'Please pick a time in the future.',
@@ -437,17 +456,18 @@ describe('recordSlotRequest', () => {
     expect(docs[requestPath('2020-10-05T14:00')]).toBeUndefined()
   })
 
-  test('refuses a time after interviews close', async () => {
+  test('refuses a future time before interviews open', async () => {
+    interviews = { ...interviews, opens: at(10 * DAY) }
+
     await expect(
-      recordSlotRequest('uid-1', '2099-10-05T14:00', at(60 * DAY)),
+      recordSlotRequest('uid-1', '2026-10-05T14:00', at(2 * DAY), interviews),
     ).rejects.toMatchObject({ status: 400 })
+    expect(docs[requestPath('2026-10-05T14:00')]).toBeUndefined()
   })
 
-  test('skips the time checks in dev, as the form does - fixture dates go stale', async () => {
-    mockDev = true
-
-    await recordSlotRequest('uid-1', '2020-10-05T14:00', at(-DAY))
-
-    expect(docs[requestPath('2020-10-05T14:00')]).toBeDefined()
+  test('refuses a time after interviews close', async () => {
+    await expect(
+      recordSlotRequest('uid-1', '2099-10-05T14:00', at(60 * DAY), interviews),
+    ).rejects.toMatchObject({ status: 400 })
   })
 })
