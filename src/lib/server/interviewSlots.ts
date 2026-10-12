@@ -1,10 +1,8 @@
 import { toDate } from '#lib/shared/timestamps.js'
-import { dev } from '$app/env'
 import {
   applicationsCollection,
   interviewCollection,
   interviewTimeRequestsCollection,
-  semesterDates,
 } from '#lib/data/collections.js'
 import { slotRequestDocId } from '#lib/data/docIds.js'
 import {
@@ -13,6 +11,10 @@ import {
   validateRequestedInterviewTime,
 } from '#lib/helpers/interviewForm.js'
 import { adminDb } from '#lib/server/firebase.js'
+import {
+  isWithinInterviewWindow,
+  type InterviewWindow,
+} from '#lib/shared/interviews.js'
 import { error } from '@sveltejs/kit'
 import type { QueryDocumentSnapshot } from 'firebase-admin/firestore'
 
@@ -41,6 +43,8 @@ export interface ScheduledInterview {
 export interface InterviewData {
   scheduledInterview: ScheduledInterview | null
   availableSlots: AvailableInterviewSlot[]
+  /** The window a time request must fall in, as ISO strings. */
+  interviewWindow: { opens: string; closes: string }
 }
 
 /** A slot as booked, with what the confirmation email needs. */
@@ -59,11 +63,10 @@ export interface InterviewCaller {
 }
 
 /** Whether a slot at `date` can still be booked. */
-function isBookable(date: Date, now: Date): boolean {
+function isBookable(date: Date, now: Date, window: InterviewWindow): boolean {
   return (
     date.getTime() > now.getTime() + BOOKING_NOTICE_MS &&
-    // Fixture slot dates go stale in dev, so dev skips the orientation cutoff.
-    (dev || date < new Date(semesterDates.instructorOrientation))
+    isWithinInterviewWindow(date, window)
   )
 }
 
@@ -91,27 +94,25 @@ function currentBooking(
 
 /**
  * The signed-in applicant's interview for this cycle, if booked, and the
- * slots they could book: available, far enough ahead, and before instructor
- * orientation, soonest first.
+ * slots they could book: available, far enough ahead, and inside `window`,
+ * soonest first. The window comes back too, for the time-request form.
  *
  * The status and date bounds are filtered in the query itself (see the
  * `interviewSlotStatus`/`date` index in admin's firestore.indexes.json). A
  * slot's interviewer email and uid, and anyone else's booking, never leave
  * the server.
  */
-export async function fetchInterviewData(uid: string): Promise<InterviewData> {
+export async function fetchInterviewData(
+  uid: string,
+  window: InterviewWindow,
+): Promise<InterviewData> {
   const now = new Date()
-  let availableQuery = adminDb
+  const availableQuery = adminDb
     .collection(interviewCollection)
     .where('interviewSlotStatus', '==', 'available')
     .where('date', '>', new Date(now.getTime() + BOOKING_NOTICE_MS))
-  if (!dev) {
-    availableQuery = availableQuery.where(
-      'date',
-      '<',
-      new Date(semesterDates.instructorOrientation),
-    )
-  }
+    .where('date', '>=', window.opens)
+    .where('date', '<', window.closes)
 
   const [bookingsSnap, availableSnap] = await Promise.all([
     bookingsQuery(uid).get(),
@@ -139,6 +140,10 @@ export async function fetchInterviewData(uid: string): Promise<InterviewData> {
       date: toDate(slot.data().date).toISOString(),
       interviewerName: slot.data().interviewerName ?? '',
     })),
+    interviewWindow: {
+      opens: window.opens.toISOString(),
+      closes: window.closes.toISOString(),
+    },
   }
 }
 
@@ -146,15 +151,17 @@ export async function fetchInterviewData(uid: string): Promise<InterviewData> {
  * Books `slotId` for the caller, in a transaction, so two applicants choosing
  * the same slot at once can't both get it.
  *
- * Refused when the slot is gone, already booked, too soon or past orientation,
- * or when the caller doesn't need an interview: no submitted application,
- * an interview already booked or held, or a decision already made (see
+ * Refused when the slot is gone, already booked, too soon or outside the
+ * interview window, or when the caller doesn't need an interview: no
+ * submitted application, an interview already booked or held, or a decision
+ * already made (see
  * interviewIneligibility). `meta.interview` says whether they have one, as
  * every slot write sets it in the same transaction, and it is set here too.
  */
 export async function bookInterviewSlot(
   caller: InterviewCaller,
   slotId: string,
+  window: InterviewWindow,
 ): Promise<BookedInterview> {
   const profile = (await adminDb.doc(`users/${caller.uid}`).get()).data() ?? {}
   const slotRef = adminDb.doc(`${interviewCollection}/${slotId}`)
@@ -182,7 +189,7 @@ export async function bookInterviewSlot(
     const date = toDate(slot.date)
     if (
       slot.interviewSlotStatus !== 'available' ||
-      !isBookable(date, new Date())
+      !isBookable(date, new Date(), window)
     ) {
       throw error(
         409,
@@ -217,22 +224,20 @@ export async function bookInterviewSlot(
  * `requestedTime` is the `YYYY-MM-DDTHH:mm` the applicant picked, which names
  * the document (see slotRequestDocId); `date` is that same moment as an
  * instant. The name is read from the applicant's own profile, and the time is
- * checked here - the form's own check is a convenience anyone can skip.
- * Skipped in dev, as the form's is: fixture dates go stale. Refused, like a
- * booking, when the applicant doesn't need an interview (see
+ * checked here against `window` - the form's own check is a convenience
+ * anyone can skip. Refused, like a booking, when the applicant doesn't need an interview (see
  * interviewIneligibility): admins would never see the request anyway.
  */
 export async function recordSlotRequest(
   uid: string,
   requestedTime: string,
   date: Date,
+  window: InterviewWindow,
 ): Promise<{ firstName: string }> {
-  const invalidReason = dev
-    ? null
-    : validateRequestedInterviewTime(
-        date.toISOString(),
-        semesterDates.instructorOrientation,
-      )
+  const invalidReason = validateRequestedInterviewTime(
+    date.toISOString(),
+    window,
+  )
   if (invalidReason) {
     throw error(400, invalidReason)
   }

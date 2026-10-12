@@ -1,4 +1,5 @@
 import { errorMessage } from '#lib/shared/apiErrors.js'
+import type { InterviewWindow } from '#lib/shared/interviews.js'
 import { formatDateLocal } from '#lib/utils.js'
 import type {
   InterviewBookingRequestBody,
@@ -26,6 +27,8 @@ export interface BookedInterviewDetails {
 export interface InterviewFetchResult {
   scheduledInterview: BookedInterviewDetails | null
   availableSlots: InterviewSlotOption[]
+  /** The window the server will accept a time request in. */
+  interviewWindow: InterviewWindow
 }
 
 const localDate = (iso: string) => formatDateLocal(new Date(iso))
@@ -56,6 +59,10 @@ export const interviewService = {
         ...slot,
         date: localDate(slot.date),
       })),
+      interviewWindow: {
+        opens: new Date(data.interviewWindow.opens),
+        closes: new Date(data.interviewWindow.closes),
+      },
     }
   },
 

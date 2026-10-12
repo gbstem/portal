@@ -1,6 +1,8 @@
+import { E2E_INTERVIEWS_END, FIRESTORE_EMULATOR_HOST } from '$app/env/private'
 import { handleApiError, verifyInstructor } from '#lib/server/apiHelpers.js'
 import { sendEmail } from '#lib/server/email.js'
 import { recordSlotRequest } from '#lib/server/interviewSlots.js'
+import { interviewSchedulingWindow } from '#lib/server/semesterWindows.js'
 import { renderEmail } from '#lib/emails/render.js'
 import { formatDateInGbstemTime } from '#lib/utils.js'
 import { z } from 'zod'
@@ -35,6 +37,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       user.uid,
       body.requestedTime,
       body.date,
+      interviewSchedulingWindow({
+        FIRESTORE_EMULATOR_HOST,
+        E2E_INTERVIEWS_END,
+      }),
     )
 
     const template = {

@@ -297,6 +297,7 @@ import { POST as resolveCoInstructorsPOST } from '../src/routes/api/resolveCoIns
 import { POST as resolveEmailsPOST } from '../src/routes/api/resolveEmails/+server'
 import { EMAIL_LOOKUP_REFUSED } from '#lib/server/emailIntents.js'
 import { POST as slotRequestPOST } from '../src/routes/api/slotRequest/+server'
+import { interviewSchedulingWindow } from '#lib/server/semesterWindows.js'
 import {
   GET as substituteGET,
   POST as substitutePOST,
@@ -1848,7 +1849,11 @@ describe('API routes POST endpoints', () => {
 
       const res: any = await interviewGET({ locals: applicantLocals } as any)
 
-      expect(mockFetchInterviewData).toHaveBeenCalledWith('applicant-uid')
+      // The real window: Jest runs with no emulator, so no e2e override.
+      expect(mockFetchInterviewData).toHaveBeenCalledWith(
+        'applicant-uid',
+        interviewSchedulingWindow({}),
+      )
       expect(await bodyOf(res)).toEqual(data)
     })
 
@@ -1880,6 +1885,7 @@ describe('API routes POST endpoints', () => {
       expect(mockBookInterviewSlot).toHaveBeenCalledWith(
         { uid: 'applicant-uid', email: 'applicant@test.com' },
         'slot-1',
+        interviewSchedulingWindow({}),
       )
       expect(mockAdminAuth.getUser).toHaveBeenCalledWith('interviewer-uid-1')
       expect(MailService.send).toHaveBeenCalledWith(
@@ -1891,6 +1897,9 @@ describe('API routes POST endpoints', () => {
             'Student, your interview with Interviewer has been scheduled',
         }),
       )
+      expect(
+        (MailService.send as jest.Mock).mock.calls.at(-1)[0].html,
+      ).toContain('usually take about 15 minutes')
       // No interviewer address or uid goes back to the applicant.
       expect(await bodyOf(res)).toEqual({
         interview: {
@@ -2611,6 +2620,7 @@ describe('API routes POST endpoints', () => {
         'applicant-uid',
         '2026-06-01T10:00',
         new Date('2026-06-01T14:00:00.000Z'),
+        interviewSchedulingWindow({}),
       )
       expect(await bodyOf(res)).toEqual({ emailSent: true })
       expect(MailService.send).toHaveBeenCalledWith(

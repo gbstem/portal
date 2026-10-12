@@ -69,6 +69,8 @@ declare global {
       instructorOrientation: string
       instructorOrientationLink: string
       instructorOrientationTime: string
+      interviewsStart: string
+      interviewsEnd: string
       newInstructorAppsOpen: string
       returningInstructorAppsOpen: string
       studentOrientation: string

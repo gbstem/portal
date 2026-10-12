@@ -1,9 +1,11 @@
 import { semesterDates } from '#lib/data/collections.js'
 import {
   applicationDeadline,
+  interviewSchedulingWindow,
   REGISTRATION_GRACE_DAYS,
   registrationWindow,
 } from '#lib/server/semesterWindows.js'
+import { interviewWindow } from '#lib/shared/interviews.js'
 
 const EMULATOR = { FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080' }
 
@@ -63,5 +65,29 @@ describe('registrationWindow', () => {
     expect(
       registrationWindow({ E2E_REGISTRATIONS_DUE: '12/31/2099' }).closes,
     ).toEqual(registrationWindow({}).closes)
+  })
+})
+
+describe('interviewSchedulingWindow', () => {
+  it("is semesterDates.json's interview window", () => {
+    expect(interviewSchedulingWindow({})).toEqual(
+      interviewWindow(semesterDates),
+    )
+  })
+
+  it('moves only the last day under the emulator', () => {
+    const window = interviewSchedulingWindow({
+      ...EMULATOR,
+      E2E_INTERVIEWS_END: '12/31/2099',
+    })
+    expect(window.opens).toEqual(interviewWindow(semesterDates).opens)
+    // The midnight after 12/31/2099, EST.
+    expect(window.closes.toISOString()).toBe('2100-01-01T05:00:00.000Z')
+  })
+
+  it('ignores the e2e override outside the emulator', () => {
+    expect(
+      interviewSchedulingWindow({ E2E_INTERVIEWS_END: '12/31/2099' }),
+    ).toEqual(interviewSchedulingWindow({}))
   })
 })

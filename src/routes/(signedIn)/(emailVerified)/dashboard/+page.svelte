@@ -342,7 +342,7 @@
               <Icon src={Clock} class="mr-2 size-6 text-pink-500" />
               <h2 class="text-xl font-bold text-gray-900">Interview</h2>
             </div>
-            <InterviewForm {semesterDates} />
+            <InterviewForm />
           </Card>
         {/if}
       </div>

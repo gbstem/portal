@@ -1,4 +1,9 @@
 import type {} from '../../data.d.ts'
+import { GBSTEM_TIME_ZONE } from '#lib/shared/gbstemTime.js'
+import {
+  isWithinInterviewWindow,
+  type InterviewWindow,
+} from '#lib/shared/interviews.js'
 
 type ApplicationMeta = Partial<Data.Application['meta']>
 
@@ -44,12 +49,28 @@ export const interviewIneligibilityMessages: Record<
 }
 
 /**
+ * The days of `window` in gbSTEM's time zone, e.g. "Tue, Sep 1 – Sat, Sep 19".
+ */
+export function formatInterviewWindow({ opens, closes }: InterviewWindow) {
+  const day = (date: Date) =>
+    date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      timeZone: GBSTEM_TIME_ZONE,
+    })
+  // `closes` is the midnight after the last day.
+  return `${day(opens)} – ${day(new Date(closes.getTime() - 1))}`
+}
+
+/**
  * Validates a time a candidate has asked us to add as an interview slot.
  *
- * Returns the message to show them, or `null` if the time is acceptable.
+ * Returns the message to show them, or `null` if the time is acceptable: in
+ * the future, and inside `window`.
  *
  * The lower bound exists because there was none: the only date check used to be
- * the closing deadline below, so any past time passed. That mattered because the
+ * the closing deadline, so any past time passed. That mattered because the
  * request field defaulted to a hardcoded `'2024-09-20T12:00'` -- a candidate who
  * submitted without editing it filed a request two years stale, got the success
  * toast, and was never seen, since the admin request list only renders requests
@@ -59,7 +80,7 @@ export const interviewIneligibilityMessages: Record<
  */
 export function validateRequestedInterviewTime(
   dateToAdd: string,
-  interviewsCloseOn: string,
+  window: InterviewWindow,
   now: Date = new Date(),
 ): string | null {
   const requested = new Date(dateToAdd)
@@ -70,8 +91,8 @@ export function validateRequestedInterviewTime(
   if (requested.getTime() <= now.getTime()) {
     return 'Please pick a time in the future.'
   }
-  if (requested > new Date(interviewsCloseOn)) {
-    return `Instructor interviews close on ${interviewsCloseOn}. Please pick a time before then.`
+  if (!isWithinInterviewWindow(requested, window)) {
+    return `Instructor interviews run ${formatInterviewWindow(window)} (Eastern time). Please pick a time in that range.`
   }
   return null
 }

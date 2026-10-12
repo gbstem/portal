@@ -1,9 +1,11 @@
 import type {} from '../src/data.d.ts'
 import {
+  formatInterviewWindow,
   interviewIneligibility,
   isFinalDecision,
   validateRequestedInterviewTime,
 } from '#lib/helpers/interviewForm.js'
+import { interviewWindow } from '#lib/shared/interviews.js'
 
 describe('InterviewForm Helpers', () => {
   // Admin's helpers/setInterviewTimes has the same rule and the same cases.
@@ -49,13 +51,29 @@ describe('InterviewForm Helpers', () => {
     })
   })
 
+  describe('formatInterviewWindow', () => {
+    test('names the first and last days in Eastern time, in any runtime zone', () => {
+      expect(
+        formatInterviewWindow(
+          interviewWindow({
+            interviewsStart: '09/01/26',
+            interviewsEnd: '09/19/26',
+          }),
+        ),
+      ).toBe('Tue, Sep 1 – Sat, Sep 19')
+    })
+  })
+
   describe('validateRequestedInterviewTime', () => {
-    const closesOn = '09/20/26'
+    const interviews = interviewWindow({
+      interviewsStart: '08/25/26',
+      interviewsEnd: '09/19/26',
+    })
     const now = new Date('2026-09-02T12:00:00')
 
     test('accepts a time between now and the closing date', () => {
       expect(
-        validateRequestedInterviewTime('2026-09-10T15:00', closesOn, now),
+        validateRequestedInterviewTime('2026-09-10T15:00', interviews, now),
       ).toBeNull()
     })
 
@@ -63,62 +81,88 @@ describe('InterviewForm Helpers', () => {
     // to a hardcoded '2024-09-20T12:00', which passed every check there was.
     test('rejects the stale hardcoded default that used to pre-fill the field', () => {
       expect(
-        validateRequestedInterviewTime('2024-09-20T12:00', closesOn, now),
+        validateRequestedInterviewTime('2024-09-20T12:00', interviews, now),
       ).toBe('Please pick a time in the future.')
     })
 
     test('rejects a time in the past', () => {
       expect(
-        validateRequestedInterviewTime('2026-09-01T09:00', closesOn, now),
+        validateRequestedInterviewTime('2026-09-01T09:00', interviews, now),
       ).toBe('Please pick a time in the future.')
     })
 
     test('rejects a time that has only just passed', () => {
       expect(
-        validateRequestedInterviewTime('2026-09-02T11:59', closesOn, now),
+        validateRequestedInterviewTime('2026-09-02T11:59', interviews, now),
       ).toBe('Please pick a time in the future.')
     })
 
     test('rejects the present instant, since a slot needs lead time', () => {
       expect(
-        validateRequestedInterviewTime('2026-09-02T12:00', closesOn, now),
+        validateRequestedInterviewTime('2026-09-02T12:00', interviews, now),
       ).toBe('Please pick a time in the future.')
     })
 
     test('accepts a time one minute from now', () => {
       expect(
-        validateRequestedInterviewTime('2026-09-02T12:01', closesOn, now),
+        validateRequestedInterviewTime('2026-09-02T12:01', interviews, now),
       ).toBeNull()
     })
 
-    test('rejects a time after interviews close, naming the date', () => {
+    const outsideWindow =
+      'Instructor interviews run Tue, Aug 25 – Sat, Sep 19 (Eastern time). Please pick a time in that range.'
+
+    test('rejects a time after interviews close, naming the window', () => {
       expect(
-        validateRequestedInterviewTime('2026-10-01T15:00', closesOn, now),
-      ).toBe(
-        'Instructor interviews close on 09/20/26. Please pick a time before then.',
-      )
+        validateRequestedInterviewTime('2026-10-01T15:00', interviews, now),
+      ).toBe(outsideWindow)
+    })
+
+    test('rejects a future time before interviews open', () => {
+      const early = new Date('2026-08-01T12:00:00')
+      expect(
+        validateRequestedInterviewTime('2026-08-20T15:00', interviews, early),
+      ).toBe(outsideWindow)
+    })
+
+    // The window ends at midnight in New York, wherever the check runs: it
+    // used to be `new Date('09/20/26')`, midnight in the runtime's own zone,
+    // which put the cutoff hours apart on the server and in each browser.
+    test('closes at midnight Eastern on the last day, in any runtime zone', () => {
+      expect(
+        validateRequestedInterviewTime('2026-09-20T03:30:00Z', interviews, now),
+      ).toBeNull()
+      expect(
+        validateRequestedInterviewTime('2026-09-20T04:30:00Z', interviews, now),
+      ).toBe(outsideWindow)
     })
 
     test('rejects an unparseable date rather than passing it through to Firestore', () => {
-      expect(validateRequestedInterviewTime('', closesOn, now)).toBe(
+      expect(validateRequestedInterviewTime('', interviews, now)).toBe(
         'Please select a date and time.',
       )
-      expect(validateRequestedInterviewTime('not a date', closesOn, now)).toBe(
-        'Please select a date and time.',
-      )
+      expect(
+        validateRequestedInterviewTime('not a date', interviews, now),
+      ).toBe('Please select a date and time.')
     })
 
     // Past-ness is checked before the deadline, so a stale date reads as stale
     // rather than as being after a deadline it in fact precedes.
     test('reports a past date as past even when it also precedes the deadline', () => {
       expect(
-        validateRequestedInterviewTime('2024-01-01T12:00', closesOn, now),
+        validateRequestedInterviewTime('2024-01-01T12:00', interviews, now),
       ).toBe('Please pick a time in the future.')
     })
 
     test('defaults `now` to the current clock when not supplied', () => {
       expect(
-        validateRequestedInterviewTime('2020-01-01T12:00', '01/01/99'),
+        validateRequestedInterviewTime(
+          '2020-01-01T12:00',
+          interviewWindow({
+            interviewsStart: '01/01/20',
+            interviewsEnd: '01/01/99',
+          }),
+        ),
       ).toBe('Please pick a time in the future.')
     })
   })
