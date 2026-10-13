@@ -13,7 +13,6 @@
   import { alert } from '#lib/stores.js'
   import { writeToClipboard } from '#lib/utils.js'
   import { fade } from 'svelte/transition'
-  import type { ActionRequestBody } from '../../api/action/+server'
   import type { PageData } from './$types'
   import { Icon } from '@steeze-ui/svelte-icon'
   import { DocumentDuplicate, ExclamationCircle } from '@steeze-ui/heroicons'
@@ -31,16 +30,7 @@
   async function handleVerificationEmail() {
     if ($user) {
       disabled = true
-      const payload: ActionRequestBody = {
-        type: 'verifyEmail',
-      }
-      fetch('/api/action', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      }).then(async (res) => {
+      fetch('/api/verifyEmail', { method: 'POST' }).then(async (res) => {
         if (res.ok) {
           alert.trigger('info', 'Verification email was sent.')
         } else {

@@ -24,9 +24,11 @@ export type LookupCoInstructorRequestBody = z.infer<
  * still an oracle for "is this address an accepted instructor", and that is
  * the narrowest audience that can use the feature at all.
  *
- * TODO(rate limiting): nothing in this codebase rate limits anything yet, so
- * the only thing bounding enumeration here is the accepted-instructor session
- * gate. If a general rate limiter ever lands, this endpoint wants it.
+ * TODO(rate limiting): the only rate limit is a Vercel WAF rule on the
+ * anonymous /api/resetPassword (see there), so the only thing bounding enumeration
+ * here is the accepted-instructor session gate - judged enough, since every
+ * caller is a named, vetted account. If an in-code limiter with a shared store
+ * ever lands, this endpoint wants it.
  */
 export const POST: RequestHandler = async ({ request, locals }) => {
   try {

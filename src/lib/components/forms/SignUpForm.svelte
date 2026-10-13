@@ -1,5 +1,4 @@
 <script lang="ts">
-  import type { ActionRequestBody } from '../../../routes/api/action/+server'
   import type { SignupRequestBody } from '../../../routes/api/signup/+server'
   import { goto } from '$app/navigation'
   import Brand from '#lib/components/Brand.svelte'
@@ -96,15 +95,8 @@
    * user, since a silent failure leaves them trusting an email that was never
    * sent.
    */
-  async function sendVerificationEmail(email: string): Promise<boolean> {
-    const payload: ActionRequestBody = { type: 'verifyEmail', email }
-    const res = await fetch('/api/action', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    })
+  async function sendVerificationEmail(): Promise<boolean> {
+    const res = await fetch('/api/verifyEmail', { method: 'POST' })
     if (!res.ok) {
       const data = await res.json().catch(() => ({}))
       console.error(
@@ -161,7 +153,7 @@
           })
           await createProfile(createdUser, accountType, firstName, lastName)
           await syncSession(createdUser)
-          const emailSent = await sendVerificationEmail(formVal.data.email)
+          const emailSent = await sendVerificationEmail()
           if (!emailSent) {
             alert.trigger(
               'error',
