@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { ActionRequestBody } from '../../../routes/api/action/+server'
+  import type { ResetPasswordRequestBody } from '../../../routes/api/resetPassword/+server'
   import { alert } from '#lib/stores.js'
   import Brand from '#lib/components/Brand.svelte'
   import Link from '#lib/components/Link.svelte'
@@ -20,12 +20,11 @@
       validators: zod(schema as any) as any,
       async onUpdate({ form: formVal }: { form: any }) {
         if (!formVal.valid) return
-        const payload: ActionRequestBody = {
-          type: 'resetPassword',
+        const payload: ResetPasswordRequestBody = {
           email: formVal.data.email,
         }
         try {
-          const res = await fetch('/api/action', {
+          const res = await fetch('/api/resetPassword', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
