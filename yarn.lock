@@ -1614,7 +1614,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@humanfs/node@npm:^0.16.6":
+"@humanfs/node@npm:^0.16.8":
   version: 0.16.8
   resolution: "@humanfs/node@npm:0.16.8"
   dependencies:
@@ -2663,9 +2663,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@sveltejs/kit@npm:^3.1.0":
-  version: 3.1.0
-  resolution: "@sveltejs/kit@npm:3.1.0"
+"@sveltejs/kit@npm:^3.1.1":
+  version: 3.1.1
+  resolution: "@sveltejs/kit@npm:3.1.1"
   dependencies:
     "@rolldown/pluginutils": "npm:^1.0.1"
     "@standard-schema/spec": "npm:^1.1.0"
@@ -2688,7 +2688,7 @@ __metadata:
       optional: true
   bin:
     svelte-kit: svelte-kit.js
-  checksum: 10c0/b20b3b5b1ef925044d81402c2dae9280516d7a73f0618490dd0e074f435806a68caec5a837ac89efa3cd1c7559c8f1d8644a036c9a0c274a357d6d158fd64d79
+  checksum: 10c0/f7f86a3788f1f952749990baaeeb92a19885269879db6e44435410ef8698019f2dcb006b6b997b9953f3eda8cd9e23291d98998148d1b0237800e0cdb474b759
   languageName: node
   linkType: hard
 
@@ -4913,9 +4913,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"cypress@npm:^16.2.0":
-  version: 16.2.0
-  resolution: "cypress@npm:16.2.0"
+"cypress@npm:^16.2.1":
+  version: 16.2.1
+  resolution: "cypress@npm:16.2.1"
   dependencies:
     "@cypress/request": "npm:^4.0.0"
     "@cypress/xvfb": "npm:^1.2.4"
@@ -4958,7 +4958,7 @@ __metadata:
     yauzl: "npm:^3.3.1"
   bin:
     cypress: bin/cypress
-  checksum: 10c0/ebc26bb60dd5441421232e5bc290dd13ee98d30d5aa7e6c1931311a59b142d4359c72f7c46a8b7fbb950c950a1808fe5c884d2652def7e60512b5f05c2d229e4
+  checksum: 10c0/a809756d44bbfff21ccb487a3115197551b9164103e9258f4a535993d819f1c035ced31b4024a02d673aa88a1f33ccbf15e96566339847a628cb0916a84b9a36
   languageName: node
   linkType: hard
 
@@ -5641,9 +5641,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"eslint@npm:^10.13.0":
-  version: 10.13.0
-  resolution: "eslint@npm:10.13.0"
+"eslint@npm:^10.14.0":
+  version: 10.14.0
+  resolution: "eslint@npm:10.14.0"
   dependencies:
     "@eslint-community/eslint-utils": "npm:^4.8.0"
     "@eslint-community/regexpp": "npm:^4.12.2"
@@ -5651,7 +5651,7 @@ __metadata:
     "@eslint/config-helpers": "npm:^0.7.0"
     "@eslint/core": "npm:^1.2.1"
     "@eslint/plugin-kit": "npm:^0.7.3"
-    "@humanfs/node": "npm:^0.16.6"
+    "@humanfs/node": "npm:^0.16.8"
     "@humanwhocodes/module-importer": "npm:^1.0.1"
     "@humanwhocodes/retry": "npm:^0.4.2"
     "@types/estree": "npm:^1.0.6"
@@ -5672,7 +5672,7 @@ __metadata:
     imurmurhash: "npm:^0.1.4"
     is-glob: "npm:^4.0.0"
     json-stable-stringify-without-jsonify: "npm:^1.0.1"
-    minimatch: "npm:^10.2.5"
+    minimatch: "npm:^10.2.6"
     natural-compare: "npm:^1.4.0"
     optionator: "npm:^0.9.3"
   peerDependencies:
@@ -5682,7 +5682,7 @@ __metadata:
       optional: true
   bin:
     eslint: bin/eslint.js
-  checksum: 10c0/4a28e85de458f13306d30f07df21b58109056bd8bd691b6158952d95e126cf742db2eb09562e3f1c1cc0154ee44dedc789f8ced8d0d8da48e82a689aa9cb1c0d
+  checksum: 10c0/738cdd0a1aa37b8bddefb5c89206f9f202540e8fce57f7ef82649b5bdf0acd67f7b9f2724f538b11149bd9bfdd14605125568cf73b319baec007866677af72dd
   languageName: node
   linkType: hard
 
@@ -8622,7 +8622,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"minimatch@npm:^10.2.2, minimatch@npm:^10.2.4, minimatch@npm:^10.2.5, minimatch@npm:^10.2.6, minimatch@npm:~10.2.4":
+"minimatch@npm:^10.2.2, minimatch@npm:^10.2.4, minimatch@npm:^10.2.6, minimatch@npm:~10.2.4":
   version: 10.2.6
   resolution: "minimatch@npm:10.2.6"
   dependencies:
@@ -9614,7 +9614,7 @@ __metadata:
     "@steeze-ui/heroicons": "npm:^2.4.2"
     "@steeze-ui/svelte-icon": "npm:^1.6.2"
     "@sveltejs/adapter-vercel": "npm:^7.0.2"
-    "@sveltejs/kit": "npm:^3.1.0"
+    "@sveltejs/kit": "npm:^3.1.1"
     "@sveltejs/vite-plugin-svelte": "npm:^7.3.1"
     "@tailwindcss/vite": "npm:^4.3.3"
     "@testing-library/dom": "npm:^10.4.2"
@@ -9629,11 +9629,11 @@ __metadata:
     "@typescript-eslint/parser": "npm:^8.72.1"
     bits-ui: "npm:^2.20.2"
     clsx: "npm:^2.1.1"
-    cypress: "npm:^16.2.0"
+    cypress: "npm:^16.2.1"
     cypress-terminal-report: "npm:^7.4.0"
     date-fns: "npm:^4.4.0"
     dotenv: "npm:^18.0.9"
-    eslint: "npm:^10.13.0"
+    eslint: "npm:^10.14.0"
     eslint-config-prettier: "npm:^10.1.8"
     eslint-plugin-cypress: "npm:^7.0.2"
     eslint-plugin-jest: "npm:^29.17.0"
@@ -9658,11 +9658,11 @@ __metadata:
     prettier-plugin-tailwindcss: "npm:^0.8.1"
     svelte: "npm:^5.57.3"
     svelte-check: "npm:^4.7.7"
-    sveltekit-superforms: "npm:^3.0.0"
+    sveltekit-superforms: "npm:^3.1.0"
     tailwind-merge: "npm:^3.7.0"
     tailwindcss: "npm:^4.3.3"
     ts-jest: "npm:^29.4.15"
-    tslib: "npm:^2.8.1"
+    tslib: "npm:^2.9.1"
     typescript: "npm:^6.0.3"
     typescript-eslint: "npm:^8.72.1"
     vite: "npm:^8.3.5"
@@ -11097,9 +11097,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"sveltekit-superforms@npm:^3.0.0":
-  version: 3.0.0
-  resolution: "sveltekit-superforms@npm:3.0.0"
+"sveltekit-superforms@npm:^3.1.0":
+  version: 3.1.0
+  resolution: "sveltekit-superforms@npm:3.1.0"
   dependencies:
     "@exodus/schemasafe": "npm:^1.3.0"
     "@standard-schema/spec": "npm:^1.1.0"
@@ -11194,7 +11194,7 @@ __metadata:
       optional: true
     zod:
       optional: true
-  checksum: 10c0/52a18f9ac08cbe55ef40d5373995a8997333494758df821944932f80715959366c4a1edac533ef9dba666c42f600a2b9d566215d003d343c546831a31d6a711c
+  checksum: 10c0/58d9c989b8240a56dcd7dad1ffde1d2dc05405893a137688e786dbb0d8b73f57acba841e3d0fdeeccf3b73ac3964216831668b0a6a03348e26c015589f45d1ee
   languageName: node
   linkType: hard
 
@@ -11519,6 +11519,13 @@ __metadata:
   version: 2.8.1
   resolution: "tslib@npm:2.8.1"
   checksum: 10c0/9c4759110a19c53f992d9aae23aac5ced636e99887b51b9e61def52611732872ff7668757d4e4c61f19691e36f4da981cd9485e869b4a7408d689f6bf1f14e62
+  languageName: node
+  linkType: hard
+
+"tslib@npm:^2.9.1":
+  version: 2.9.1
+  resolution: "tslib@npm:2.9.1"
+  checksum: 10c0/8ff46e7a4d19fa62c23483c89cf5ccc3906e742ef6e6d60bd3826b686143b300b4f6f04161cc1cf31a6b11fe70e1058ae4d4e4a108b5c68326d469684736a83c
   languageName: node
   linkType: hard
 
