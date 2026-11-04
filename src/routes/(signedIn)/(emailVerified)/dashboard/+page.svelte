@@ -96,7 +96,7 @@
 </svelte:head>
 <h1 class="mb-4 text-5xl font-bold md:text-6xl">Dashboard</h1>
 
-<div class="mx-auto flex max-w-6xl flex-col items-center px-2 py-8 md:px-8">
+<div class="flex flex-col items-center px-2 py-8 md:px-8">
   {#if loading}
     <div class="w-full max-w-155 animate-pulse space-y-8">
       <!-- Card Skeleton 1 -->
@@ -129,7 +129,7 @@
   {:else}
     <div
       class="grid w-full gap-8 {hasRightColumn
-        ? 'md:grid-cols-2'
+        ? 'max-w-6xl md:grid-cols-2'
         : 'max-w-155 grid-cols-1'}"
     >
       <div class="flex flex-col gap-8">
@@ -336,15 +336,6 @@
             <SubClasses subInstructor={true} />
           </Card>
         {/if}
-        {#if data.application.status === 'interview'}
-          <Card class="rounded-xl bg-white p-6 shadow-lg">
-            <div class="mb-4 flex items-center">
-              <Icon src={Clock} class="mr-2 size-6 text-pink-500" />
-              <h2 class="text-xl font-bold text-gray-900">Interview</h2>
-            </div>
-            <InterviewForm />
-          </Card>
-        {/if}
       </div>
       {#if hasRightColumn}
         <div class="flex flex-col gap-8">
@@ -373,5 +364,19 @@
         </div>
       {/if}
     </div>
+    <!-- Outside the column above, which stays narrow for its text: the
+         calendar takes the window's width, as admin's grids do. -->
+    {#if data.application.status === 'interview'}
+      <Card
+        class="mt-8 scroll-mt-24 rounded-xl bg-white p-6 shadow-lg"
+        data-scroll-anchor
+      >
+        <div class="mb-4 flex items-center">
+          <Icon src={Clock} class="mr-2 size-6 text-pink-500" />
+          <h2 class="text-xl font-bold text-gray-900">Interview</h2>
+        </div>
+        <InterviewForm />
+      </Card>
+    {/if}
   {/if}
 </div>

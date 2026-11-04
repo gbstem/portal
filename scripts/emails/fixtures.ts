@@ -74,7 +74,8 @@ export const TEMPLATE_FIELDS: Record<string, string[]> = {
     'app.name',
     'interview.email',
     'interview.firstName',
-    'interview.timeSlot',
+    'interview.summary',
+    'interview.times',
   ],
   interviewScheduledEmailTemplate: [
     'app.link',
@@ -84,6 +85,14 @@ export const TEMPLATE_FIELDS: Record<string, string[]> = {
     'interview.interviewee',
     'interview.link',
     'interview.name',
+  ],
+  interviewWithdrawnEmailTemplate: [
+    'app.link',
+    'app.name',
+    'interview.date',
+    'interview.interviewee',
+    'interview.name',
+    'interview.rescheduled',
   ],
   onlineClassEnrolledEmailTemplate: [
     'app.class1Time',
@@ -182,8 +191,21 @@ const typical: Record<string, TemplateData> = {
       app: { name: 'Admin', link: 'https://admin.gbstem.org' },
       interview: {
         firstName: 'Ada',
-        timeSlot: 'Monday, March 2nd at 6:30 PM EST',
         email: 'ada@example.com',
+        summary: '6 times between Mon, Mar 2 and Tue, Mar 3 (Eastern time)',
+        times:
+          'Mon, Mar 2: 6:30 PM – 7:15 PM; Tue, Mar 3: 4:00 PM – 4:15 PM, 7:00 PM – 7:30 PM',
+      },
+    },
+  },
+  interviewWithdrawnEmailTemplate: {
+    data: {
+      app: { name: 'Admin', link: 'https://admin.gbstem.org' },
+      interview: {
+        interviewee: 'Ada Lovelace',
+        name: 'Grace Hopper',
+        date: 'Monday, March 2nd at 6:30 PM EST',
+        rescheduled: false,
       },
     },
   },

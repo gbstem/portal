@@ -12,6 +12,7 @@ import { communityServiceEmailTemplate } from '#lib/data/emailTemplates/communit
 import { inPersonClassEnrolledEmailTemplate } from '#lib/data/emailTemplates/inPersonClassEnrolledEmailTemplate.js'
 import { interviewRequestedEmailTemplate } from '#lib/data/emailTemplates/interviewRequestedEmailTemplate.js'
 import { interviewScheduledEmailTemplate } from '#lib/data/emailTemplates/interviewScheduledEmailTemplate.js'
+import { interviewWithdrawnEmailTemplate } from '#lib/data/emailTemplates/interviewWithdrawnEmailTemplate.js'
 import { onlineClassEnrolledEmailTemplate } from '#lib/data/emailTemplates/onlineClassEnrolledEmailTemplate.js'
 import { registrationSubmittedEmailTemplate } from '#lib/data/emailTemplates/registrationSubmittedEmailTemplate.js'
 import { substituteClassEmailTemplate } from '#lib/data/emailTemplates/substituteClassEmailTemplate.js'
@@ -24,6 +25,7 @@ export const EMAIL_TEMPLATES = {
   inPersonClassEnrolledEmailTemplate,
   interviewRequestedEmailTemplate,
   interviewScheduledEmailTemplate,
+  interviewWithdrawnEmailTemplate,
   onlineClassEnrolledEmailTemplate,
   registrationSubmittedEmailTemplate,
   substituteClassEmailTemplate,

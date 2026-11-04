@@ -1,11 +1,13 @@
 title: 
-heading: New Interview Timeslot Request From </p><script>alert('xss')</script><p x="
-text: New Interview Timeslot Request From </p><script>alert('xss')</script><p x="
-text: </p><script>alert('xss')</script><p x=", email </p><script>alert('xss')</script><p x=", is requesting a new interview timeslot at </p><script>alert('xss')</script><p x=". You can set the slot and assign them through the admin portal, which will notify them.
+heading: Interview Availability From </p><script>alert('xss')</script><p x="
+text: Interview Availability From </p><script>alert('xss')</script><p x="
+text: </p><script>alert('xss')</script><p x=", email </p><script>alert('xss')</script><p x=", found no open interview slot that works and has painted the times they're free: </p><script>alert('xss')</script><p x=".
+text: </p><script>alert('xss')</script><p x="
+text: Any interviewer can pick one of these times on the admin site's Interviews page, which schedules the interview and emails them.
 text: Access Portal
 text: Main | </p><script>alert('xss')</script><p x="
 text: gbSTEM © 2026
-link: Access Portal -> https://admin.gbstem.org/dashboard
+link: Access Portal -> https://admin.gbstem.org/interviews
 link: Main -> https://gbstem.org
 link: </p><script>alert('xss')</script><p x=" -> 
 image: https://firebasestorage.googleapis.com/v0/b/gbstem-public/o/logoNOBACKGROUND.png?alt=media&token=ccf22ae8-323e-44a6-981c-a314b9563c45 (alt= width=550)

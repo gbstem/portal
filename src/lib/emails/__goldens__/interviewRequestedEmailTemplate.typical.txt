@@ -1,11 +1,13 @@
 title: 
-heading: New Interview Timeslot Request From Ada
-text: New Interview Timeslot Request From Ada
-text: Ada, email ada@example.com, is requesting a new interview timeslot at Monday, March 2nd at 6:30 PM EST. You can set the slot and assign them through the admin portal, which will notify them.
+heading: Interview Availability From Ada
+text: Interview Availability From Ada
+text: Ada, email ada@example.com, found no open interview slot that works and has painted the times they're free: 6 times between Mon, Mar 2 and Tue, Mar 3 (Eastern time).
+text: Mon, Mar 2: 6:30 PM – 7:15 PM; Tue, Mar 3: 4:00 PM – 4:15 PM, 7:00 PM – 7:30 PM
+text: Any interviewer can pick one of these times on the admin site's Interviews page, which schedules the interview and emails them.
 text: Access Portal
 text: Main | Admin
 text: gbSTEM © 2026
-link: Access Portal -> https://admin.gbstem.org/dashboard
+link: Access Portal -> https://admin.gbstem.org/interviews
 link: Main -> https://gbstem.org
 link: Admin -> https://admin.gbstem.org
 image: https://firebasestorage.googleapis.com/v0/b/gbstem-public/o/logoNOBACKGROUND.png?alt=media&token=ccf22ae8-323e-44a6-981c-a314b9563c45 (alt= width=550)

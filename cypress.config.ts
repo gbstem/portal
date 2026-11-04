@@ -3,11 +3,15 @@ import { defineConfig } from 'cypress'
 import installLogsPrinter from 'cypress-terminal-report/src/installLogsPrinter'
 import { getApps, initializeApp } from 'firebase-admin/app'
 import { getAuth } from 'firebase-admin/auth'
-import { getFirestore } from 'firebase-admin/firestore'
+import { Timestamp, getFirestore } from 'firebase-admin/firestore'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { promisify } from 'util'
+import {
+  currentSemester,
+  interviewCollection,
+} from './src/lib/data/collections'
 
 const exec = promisify(execCallback)
 
@@ -175,6 +179,39 @@ export default defineConfig({
             })
           }
           await getFirestore().doc(docPath).set(data, { merge: true })
+          return null
+        },
+        // Writes an open interview slot, its `date` a Timestamp as admin
+        // writes one: task arguments arrive as JSON, which `mergeFirestoreDoc`
+        // would store as a string no query could match.
+        async setInterviewSlot({
+          id,
+          date,
+          interviewerUid,
+        }: {
+          id: string
+          date: string
+          interviewerUid: string
+        }) {
+          if (getApps().length === 0) {
+            initializeApp({
+              projectId: process.env.FIREBASE_PROJECT_ID || 'demo-gbstem',
+            })
+          }
+          await getFirestore()
+            .doc(`${interviewCollection}/${id}`)
+            .set({
+              id,
+              date: Timestamp.fromDate(new Date(date)),
+              interviewerName: 'Demo Admin',
+              interviewerUid,
+              intervieweeFirstName: '',
+              intervieweeLastName: '',
+              intervieweeId: '',
+              interviewSlotStatus: 'available',
+              meetingLink: 'https://zoom.us/j/8888888888',
+              semester: currentSemester,
+            })
           return null
         },
       })

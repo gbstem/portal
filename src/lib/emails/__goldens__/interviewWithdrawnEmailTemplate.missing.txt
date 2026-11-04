@@ -1,0 +1,15 @@
+title: 
+heading: Interview Canceled
+text: Interview Canceled
+text: Hi ,
+text: has canceled their interview with you on . That time is open for booking again; delete it on the admin site's Interviews page if you no longer want to offer it.
+text: If you have any questions or concerns, you can reach us at contact@gbstem.org.
+text: With love 🤍,The gbSTEM Team
+text: Your Interviews
+text: Main |
+text: gbSTEM © 2026
+link: contact@gbstem.org -> mailto:contact@gbstem.org
+link: Your Interviews -> https://admin.gbstem.org/interviews
+link: Main -> https://gbstem.org
+link:  -> 
+image: https://firebasestorage.googleapis.com/v0/b/gbstem-public/o/logoNOBACKGROUND.png?alt=media&token=ccf22ae8-323e-44a6-981c-a314b9563c45 (alt= width=550)
