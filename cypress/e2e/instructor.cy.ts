@@ -5,7 +5,7 @@ import {
   currentSemester,
   instructorFeedbackCollection,
   interviewCollection,
-  interviewTimeRequestsCollection,
+  interviewAvailabilityCollection,
   substituteRequestsCollection,
 } from '../../src/lib/data/collections'
 import semesterDates from '../../src/lib/data/semesterDates.json'
@@ -27,7 +27,8 @@ import {
   subRequestRow,
 } from '../support/fixtures'
 import { generateDateHash, prepareDocForCompare } from '../support/utils'
-import { slotRequestDocId, subRequestDocId } from '../../src/lib/data/docIds'
+import { subRequestDocId } from '../../src/lib/data/docIds'
+import { parseCellKey } from '../../src/lib/shared/availabilityGrid'
 
 /** Every field the instructor application form renders. */
 interface ApplicationInput {
@@ -797,78 +798,79 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
     })
   })
 
-  it('Test Case 8e: Instructor Interview Slot Booking & Time Request', () => {
+  it('Test Case 8e: Instructor Interview - Painting Availability, Then Booking A Time', () => {
+    // A retry starts from nothing painted.
+    cy.task(
+      'deleteFirestoreDoc',
+      `${interviewAvailabilityCollection}/instructor-interview-uid`,
+    )
     cy.signedInSession('instructor', {
       email: 'instructor-interview@gbstem.org',
     })
 
-    cy.get('body').should('contain', 'Available Interview Slots')
+    cy.get('body').should('contain', 'Available Interview Times')
     // Times are the browser's own, so the page names its zone.
     cy.contains(
-      /Times shown in your local time \([^)]+\)\. Interviews usually take about 15 minutes\./,
+      /Times shown in your local time \([^)]+\)\. Interviews usually take\s+about 15 minutes\./,
     )
+    // The seeded slot's time, offered as a time: no interviewer is named.
+    openCell().should('exist')
+    cy.get('body').should('not.contain', 'Demo Admin')
 
-    // Scenario 1: Request time
-    cy.contains('button', 'Request A Time').click()
-    cy.contains('label', /Set Date \(your local time, [^)]+\)/)
-    const targetDate = new Date(Date.now() + 24 * 60 * 60 * 1000)
-    const pad = (n: number) => String(n).padStart(2, '0')
-    const formattedDate = `${targetDate.getFullYear()}-${pad(targetDate.getMonth() + 1)}-${pad(targetDate.getDate())}T${pad(targetDate.getHours())}:${pad(targetDate.getMinutes())}`
-    cy.fillInput('input[name="dateToAdd"]', formattedDate)
-    cy.get('input[name="dateToAdd"]')
-      .closest('form')
-      .contains('button', 'Submit')
-      .click()
-    cy.waitForNotification('Thank you for requesting a new timeslot!')
-    cy.verifyEmailSent(
-      'admin@gbstem.org',
-      'New Interview Timeslot Request From',
+    // Scenario 1: none of the open times work, so paint when they're free -
+    // the open time itself and an hour off it, the same day.
+    cy.contains('button', 'None of these work for me').click()
+    cy.contains('h2', 'When are you free?')
+    openCell()
+      .invoke('attr', 'data-cell')
+      .then((key) => {
+        const { day, minute } = parseCellKey(key as string)
+        const other = `${day}:${minute >= 9 * 60 ? minute - 60 : minute + 60}`
+        cy.get(`[data-cell="${key}"]`).click()
+        cy.get(`[data-cell="${other}"]`).click()
+      })
+    cy.get('[data-testid="painted-count"]').should(
+      'contain.text',
+      '2 times painted',
     )
-    // The request itself is what admins work from, and /api/slotRequest now
-    // saves it - firestore.rules gives applicants no write access to it. The
-    // name is the applicant's profile, not anything the form sent.
+    // One of them is open already: they're nudged to book it instead.
+    cy.get('[data-testid="offered-nudge"]').should('exist')
+    cy.contains('button', 'Save my availability').click()
+    cy.waitForNotification("Thanks! We've let our interviewers know")
+    cy.verifyEmailSent('admin@gbstem.org', 'Interview Availability From')
+    // One document for the applicant, of instants, written by
+    // /api/availability - firestore.rules gives applicants no write access.
     cy.task(
       'readFirestoreDoc',
-      `${interviewTimeRequestsCollection}/${slotRequestDocId('instructor-interview-uid', formattedDate)}`,
-    ).then((request: any) => {
-      expect(request, 'the saved time request').to.not.equal(null)
-      expect(request.uid).to.equal('instructor-interview-uid')
-      expect(request.firstName).to.equal('Interview')
-      expect(request.lastName).to.equal('Instructor')
-      expect(
-        (request.date._seconds ?? request.date.seconds) * 1000,
-        'the requested time',
-      ).to.equal(new Date(formattedDate).getTime())
+      `${interviewAvailabilityCollection}/instructor-interview-uid`,
+    ).then((availability: any) => {
+      expect(availability, 'the saved availability').to.not.equal(null)
+      expect(availability.uid).to.equal('instructor-interview-uid')
+      expect(availability.times).to.have.length(2)
     })
-    cy.get('input[name="dateToAdd"]').should('not.exist')
-    cy.contains('button', 'Request A Time').should('be.visible')
+    cy.get('[data-testid="saved-availability"]')
+      .invoke('text')
+      .should('match', /free at 2\s+times/)
 
-    // Scenario 2: Book slot
+    // Scenario 2: book the open time after all.
     cy.intercept('POST', '/api/interview').as('bookInterview')
     cy.visit('/dashboard')
-    cy.get('input[type="radio"]')
-      .first()
-      .parent()
+    openCell().click()
+    cy.contains('button', /^Book /)
       .invoke('text')
-      .then((labelText) => {
-        const expectedDate = labelText.split(' (')[0].trim()
-
-        cy.get('input[type="radio"]').first().check({ force: true })
-        cy.get('input[type="radio"]')
-          .closest('form')
-          .contains('button', 'Submit')
-          .click()
+      .then((label) => {
+        const expectedDate = label.replace(/^Book\s+/, '').trim()
+        cy.contains('button', /^Book /).click()
         cy.waitForNotification('Thank you for signing up for an interview!')
         cy.verifyEmailSent(
           'instructor-interview@gbstem.org',
           'your interview with',
         )
 
-        // Both halves of what bookInterviewSlot writes in one transaction: the
-        // slot, claimed for this applicant from their profile, and their
+        // Both halves of what bookInterviewTime writes in one transaction:
+        // the slot, claimed for this applicant from their profile, and their
         // application, flagged so admin stops listing them as needing an
-        // interview. The confirmation text below is rendered from the
-        // response, so on its own it shows neither write.
+        // interview.
         cy.wait('@bookInterview')
           .its('response.body.interview')
           .then((booked: any) => {
@@ -881,7 +883,6 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
               expect(slot.intervieweeId).to.equal('instructor-interview-uid')
               expect(slot.intervieweeFirstName).to.equal('Interview')
               expect(slot.intervieweeLastName).to.equal('Instructor')
-              // The slot's own details are left as the interviewer set them.
               expect(slot.meetingLink).to.equal(booked.meetingLink)
               expect(slot.interviewerName).to.equal(booked.interviewerName)
               expect(adminTimestampMs(slot.date), 'the slot time').to.equal(
@@ -896,16 +897,104 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
           expect(application.meta.interview, 'meta.interview').to.equal(true)
         })
 
-        cy.contains('It usually takes about 15 minutes.')
         cy.get('body')
           .contains(/Your interview will be on/)
           .invoke('text')
           .then((text) => {
             const match = text.match(/Your interview will be on (.*?) with/)
-            const capturedDate = match ? match[1].trim() : ''
-            expect(capturedDate).to.equal(expectedDate)
+            expect(match ? match[1].trim() : '').to.equal(expectedDate)
           })
       })
+    cy.signOutViaUi()
+  })
+
+  it('Test Case 8h: Instructor Interview - Rescheduling, Then Cancelling', () => {
+    // Booked on the seeded slot, as Test Case 8e leaves them; a second
+    // open slot gives them somewhere to move to.
+    const SECOND = 'cypress-8f-second-slot'
+    const secondAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
+    secondAt.setHours(14, 0, 0, 0)
+    cy.task('mergeFirestoreDoc', {
+      docPath: `${interviewCollection}/slot-1`,
+      data: {
+        interviewSlotStatus: 'pending',
+        intervieweeId: 'instructor-interview-uid',
+        intervieweeFirstName: 'Interview',
+        intervieweeLastName: 'Instructor',
+      },
+    })
+    cy.task('mergeFirestoreDoc', {
+      docPath: `${applicationsCollection}/instructor-interview-uid`,
+      data: { meta: { interview: true } },
+    })
+    cy.task('readFirestoreDoc', `${interviewCollection}/slot-1`).then(
+      (slot: any) =>
+        cy.task('setInterviewSlot', {
+          id: SECOND,
+          date: secondAt.toISOString(),
+          interviewerUid: slot.interviewerUid,
+        }),
+    )
+    cy.signedInSession('instructor', {
+      email: 'instructor-interview@gbstem.org',
+    })
+
+    // Reschedule: the booking stands until the new time is confirmed.
+    cy.contains('button', 'Reschedule').click()
+    cy.contains('h2', 'Choose a new interview time')
+    cy.get('body').then(($body) => {
+      // The second slot may be a week further on.
+      if (
+        !$body.find(`[data-cell="${cellKeyOf(secondAt)}"]:contains("Open")`)
+          .length
+      ) {
+        cy.contains('button', 'Next week →').click()
+      }
+    })
+    cy.get(`[data-cell="${cellKeyOf(secondAt)}"]`).click()
+    cy.contains('button', /^Move my interview to/).click()
+    cy.waitForNotification('Thank you for signing up for an interview!')
+    // To the interviewer, copying the applicant.
+    cy.verifyEmailSent('demo@gbstem.org', 'has rescheduled their interview', {
+      cc: ['instructor-interview@gbstem.org'],
+    })
+    // One transaction: the old slot open again, the new one theirs.
+    cy.task('readFirestoreDoc', `${interviewCollection}/slot-1`).then(
+      (slot: any) => {
+        expect(slot.interviewSlotStatus).to.equal('available')
+        expect(slot.intervieweeId).to.equal('')
+      },
+    )
+    cy.task('readFirestoreDoc', `${interviewCollection}/${SECOND}`).then(
+      (slot: any) => {
+        expect(slot.interviewSlotStatus).to.equal('pending')
+        expect(slot.intervieweeId).to.equal('instructor-interview-uid')
+      },
+    )
+
+    // Cancel: the slot opens again and they're free to book another.
+    cy.on('window:confirm', () => true)
+    cy.contains('button', 'Cancel my interview').click()
+    cy.waitForNotification('Your interview has been canceled.')
+    // To the interviewer, copying the applicant.
+    cy.verifyEmailSent('demo@gbstem.org', 'has canceled their interview', {
+      cc: ['instructor-interview@gbstem.org'],
+    })
+    cy.task('readFirestoreDoc', `${interviewCollection}/${SECOND}`).then(
+      (slot: any) => {
+        expect(slot.interviewSlotStatus).to.equal('available')
+        expect(slot.intervieweeId).to.equal('')
+      },
+    )
+    cy.task(
+      'readFirestoreDoc',
+      `${applicationsCollection}/instructor-interview-uid`,
+    ).then((application: any) => {
+      expect(application.meta.interview, 'meta.interview').to.equal(false)
+    })
+    cy.contains('h2', 'Available Interview Times')
+
+    cy.task('deleteFirestoreDoc', `${interviewCollection}/${SECOND}`)
     cy.signOutViaUi()
   })
 
@@ -923,34 +1012,38 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
       email: 'instructor-rejected@gbstem.org',
     })
 
-    const requestedTime = '2030-01-15T10:00'
     cy.request({
-      method: 'POST',
-      url: '/api/slotRequest',
-      body: { requestedTime, date: new Date(requestedTime).toISOString() },
+      method: 'PUT',
+      url: '/api/availability',
+      body: { times: [new Date('2030-01-15T15:00:00.000Z').toISOString()] },
       failOnStatusCode: false,
     }).then((res) => {
-      expect(res.status, '/api/slotRequest').to.equal(409)
+      expect(res.status, '/api/availability').to.equal(409)
       expect(res.body.message).to.equal(
         'A decision has already been made on your application.',
       )
     })
     cy.task(
       'checkFirestoreDocExists',
-      `${interviewTimeRequestsCollection}/${slotRequestDocId('instructor-rejected-uid', requestedTime)}`,
+      `${interviewAvailabilityCollection}/instructor-rejected-uid`,
     ).should('eq', false)
 
-    cy.request({
-      method: 'POST',
-      url: '/api/interview',
-      body: { slotId: 'slot-1' },
-      failOnStatusCode: false,
-    }).then((res) => {
-      expect(res.status, '/api/interview').to.equal(409)
-      expect(res.body.message).to.equal(
-        'A decision has already been made on your application.',
-      )
-    })
+    // The seeded slot's own time, so only the decision is in the way.
+    cy.task('readFirestoreDoc', `${interviewCollection}/slot-1`).then(
+      (slot: any) => {
+        cy.request({
+          method: 'POST',
+          url: '/api/interview',
+          body: { date: new Date(adminTimestampMs(slot.date)).toISOString() },
+          failOnStatusCode: false,
+        }).then((res) => {
+          expect(res.status, '/api/interview').to.equal(409)
+          expect(res.body.message).to.equal(
+            'A decision has already been made on your application.',
+          )
+        })
+      },
+    )
     cy.task('readFirestoreDoc', applicationPath).then((application: any) => {
       expect(application.meta.interview, 'meta.interview').to.equal(false)
     })
@@ -2139,3 +2232,13 @@ describe('Section G: Co-Instructor Access To A Shared Class', () => {
     )
   })
 })
+
+/** The first open time on the interview calendar on show. */
+function openCell(): Cypress.Chainable<JQuery<HTMLElement>> {
+  return cy.contains('[data-cell]', 'Open').first()
+}
+
+/** `date`'s cell on the interview calendar, in the browser's own zone. */
+function cellKeyOf(date: Date): string {
+  return `${date.getDay()}:${date.getHours() * 60 + date.getMinutes()}`
+}

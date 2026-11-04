@@ -229,7 +229,7 @@ export const interviewRequestedEmailTemplate = `<!doctype html>
               font-size: 34px;
             "
           >
-            New Interview Timeslot Request From {{ interview.firstName }}
+            Interview Availability From {{ interview.firstName }}
           </h1></div>
     
                 </td>
@@ -244,10 +244,14 @@ export const interviewRequestedEmailTemplate = `<!doctype html>
          style="font-family:Open Sans, Helvetica, Arial, sans-serif;font-size:16px;line-height:22px;text-align:left;color:#000000;"
       ><p style="margin: 20px 0"></p>
           <p style="margin: 0 0">
-            {{ interview.firstName }}, email {{ interview.email }}, is
-            requesting a new interview timeslot at {{ interview.timeSlot }}. You
-            can set the slot and assign them through the admin portal, which
-            will notify them.
+            {{ interview.firstName }}, email {{ interview.email }}, found no
+            open interview slot that works and has painted the times they're
+            free: {{ interview.summary }}.
+          </p>
+          <p style="margin: 20px 0">{{ interview.times }}</p>
+          <p style="margin: 20px 0">
+            Any interviewer can pick one of these times on the admin site's
+            Interviews page, which schedules the interview and emails them.
           </p></div>
     
                 </td>
@@ -267,7 +271,7 @@ export const interviewRequestedEmailTemplate = `<!doctype html>
                align="center" bgcolor="darkblue" role="presentation" style="border:none;border-radius:100px;cursor:auto;mso-padding-alt:15px 25px 15px 25px;background:darkblue;" valign="middle"
             >
               <a
-                 href="https://admin.gbstem.org/dashboard" style="display:inline-block;background:darkblue;color:#ffffff;font-family:Open Sans, Helvetica, Arial, sans-serif;font-size:14px;font-weight:normal;line-height:120%;margin:0;text-decoration:none;text-transform:none;padding:15px 25px 15px 25px;mso-padding-alt:0px;border-radius:100px;" target="_blank"
+                 href="https://admin.gbstem.org/interviews" style="display:inline-block;background:darkblue;color:#ffffff;font-family:Open Sans, Helvetica, Arial, sans-serif;font-size:14px;font-weight:normal;line-height:120%;margin:0;text-decoration:none;text-transform:none;padding:15px 25px 15px 25px;mso-padding-alt:0px;border-radius:100px;" target="_blank"
               >
                 <b style="font-weight: 700"
             ><b style="font-weight: 700">Access Portal </b></b

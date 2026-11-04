@@ -7,10 +7,12 @@ import { formatDateInGbstemTime } from '#lib/utils.js'
 import { INTERVIEW_DURATION_MINUTES } from '#lib/shared/interviews.js'
 import { resolveCurrentInterviewerEmail } from '#lib/server/interviewerIdentity.js'
 import {
-  bookInterviewSlot,
+  bookInterviewTime,
+  cancelInterview,
   fetchInterviewData,
   type BookedInterview,
   type InterviewData,
+  type ReleasedInterview,
   type ScheduledInterview,
 } from '#lib/server/interviewSlots.js'
 import { interviewSchedulingWindow } from '#lib/server/semesterWindows.js'
@@ -21,9 +23,11 @@ const schedulingWindow = () =>
   interviewSchedulingWindow({ FIRESTORE_EMULATOR_HOST, E2E_INTERVIEWS_END })
 
 const bookingSchema = z.object({
-  // Everything else - the interviewer, the time and the link - is read from
-  // the slot, not taken from the caller.
-  slotId: z.string().min(1, 'Please select an interview slot'),
+  // The time chosen. Which interviewer's slot it books, and its link, are
+  // decided server-side, not taken from the caller.
+  date: z.string().datetime({ message: 'Please choose an interview time' }),
+  // Give up the caller's current booking for this one, in the same write.
+  reschedule: z.boolean().optional(),
 })
 
 export type InterviewBookingRequestBody = z.infer<typeof bookingSchema>
@@ -33,6 +37,11 @@ export type InterviewDataResponse = InterviewData
 export interface InterviewBookingResponse {
   interview: ScheduledInterview
   /** False when the slot was booked but its confirmation email wasn't sent. */
+  emailSent: boolean
+}
+
+export interface InterviewCancelResponse {
+  /** False when the interview was canceled but its interviewer wasn't told. */
   emailSent: boolean
 }
 
@@ -91,8 +100,56 @@ async function sendBookingConfirmation(
 }
 
 /**
- * The signed-in applicant's interview this cycle, if booked, and the slots
- * they could book. See fetchInterviewData.
+ * Tells `released`'s interviewer that the applicant gave the interview up,
+ * copying the applicant. Reports failure rather than throwing: the change is
+ * already written.
+ */
+async function sendWithdrawnNotice(
+  applicantEmail: string,
+  released: ReleasedInterview,
+  rescheduled: boolean,
+): Promise<boolean> {
+  const interviewerEmail = await resolveCurrentInterviewerEmail(
+    released.interviewerUid,
+    '/api/interview',
+  )
+  if (!interviewerEmail) return false
+  const subject = `${released.intervieweeName || 'A candidate'} has ${rescheduled ? 'rescheduled' : 'canceled'} their interview`
+  const date = formatDateInGbstemTime(released.date, 'long')
+  try {
+    await sendEmail({
+      to: interviewerEmail,
+      cc: applicantEmail,
+      replyTo: applicantEmail,
+      subject,
+      html: renderEmail('interviewWithdrawnEmailTemplate', {
+        subject,
+        app: { name: 'Admin', link: 'https://admin.gbstem.org' },
+        // Worded here rather than with {{#if}} in the template: Prettier's
+        // HTML formatter mangles Handlebars blocks, and never settles on them.
+        interview: {
+          title: rescheduled ? 'Interview Rescheduled' : 'Interview Canceled',
+          interviewee: released.intervieweeName,
+          name: released.interviewerName,
+          change: rescheduled
+            ? `moved their interview with you on ${date} to another time`
+            : `canceled their interview with you on ${date}`,
+        },
+      }),
+    })
+    return true
+  } catch (err) {
+    console.error(
+      `[API /api/interview] Failed to tell the interviewer of slot ${released.id}:`,
+      err,
+    )
+    return false
+  }
+}
+
+/**
+ * The signed-in applicant's interview this cycle, if booked, the times they
+ * could book, and what they last painted as free. See fetchInterviewData.
  */
 export const GET: RequestHandler = async ({ locals }) => {
   try {
@@ -108,19 +165,26 @@ export const GET: RequestHandler = async ({ locals }) => {
 }
 
 /**
- * Books one slot for the signed-in applicant (see bookInterviewSlot), then
- * sends the confirmation.
+ * Books the signed-in applicant an interview at the time they chose (see
+ * bookInterviewTime), or with `reschedule` moves their current one there,
+ * then sends the confirmation - and, when rescheduling, tells the previous
+ * interviewer.
  */
 export const POST: RequestHandler = async ({ request, locals }) => {
   try {
     const user = verifyInstructor(locals)
-    const { slotId } = bookingSchema.parse(await request.json())
-    const booked = await bookInterviewSlot(
+    const { date, reschedule } = bookingSchema.parse(await request.json())
+    const { booked, released } = await bookInterviewTime(
       { uid: user.uid, email: user.email },
-      slotId,
+      new Date(date),
       schedulingWindow(),
+      { reschedule },
     )
 
+    const [emailSent] = await Promise.all([
+      sendBookingConfirmation(user.email, booked),
+      released ? sendWithdrawnNotice(user.email, released, true) : true,
+    ])
     const response: InterviewBookingResponse = {
       interview: {
         id: booked.id,
@@ -129,7 +193,27 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         meetingLink: booked.meetingLink,
         interviewSlotStatus: 'pending',
       },
-      emailSent: await sendBookingConfirmation(user.email, booked),
+      emailSent,
+    }
+    return Response.json(response)
+  } catch (err) {
+    throw handleApiError('/api/interview', err)
+  }
+}
+
+/**
+ * Cancels the signed-in applicant's interview (see cancelInterview), which
+ * frees them to book again, and tells its interviewer.
+ */
+export const DELETE: RequestHandler = async ({ locals }) => {
+  try {
+    const user = verifyInstructor(locals)
+    const released = await cancelInterview({
+      uid: user.uid,
+      email: user.email,
+    })
+    const response: InterviewCancelResponse = {
+      emailSent: await sendWithdrawnNotice(user.email, released, false),
     }
     return Response.json(response)
   } catch (err) {

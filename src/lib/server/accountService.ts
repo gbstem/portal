@@ -4,7 +4,7 @@ import {
   applicationsCollection,
   classesCollection,
   decisionsCollection,
-  interviewTimeRequestsCollection,
+  interviewAvailabilityCollection,
   maxChildrenPerAccount,
   registrationsCollection,
   substituteRequestsCollection,
@@ -133,8 +133,8 @@ export async function checkAccountDeletionEligibility(
  * that's already gone.
  *
  * Instructor: `applications/{uid}` and `decisions/{uid}` (the Admin SDK
- * bypasses the admin/reviewer-only write rule), each only if it exists, and
- * every interview time request they filed this semester.
+ * bypasses the admin/reviewer-only write rule) and their painted
+ * `interviewAvailability/{uid}`, each only if it exists.
  *
  * Student: every existing child registration. `checkIns` is deliberately
  * never touched: a record only exists for a student enrolled in a class this
@@ -158,18 +158,12 @@ export async function deleteAccount(
       }
       const applicationRef = adminDb.doc(`${applicationsCollection}/${uid}`)
       const decisionRef = adminDb.doc(`${decisionsCollection}/${uid}`)
-      const [applicationSnap, decisionSnap] = await transaction.getAll(
-        applicationRef,
-        decisionRef,
+      const availabilityRef = adminDb.doc(
+        `${interviewAvailabilityCollection}/${uid}`,
       )
-      const timeRequests = await transaction.get(
-        adminDb
-          .collection(interviewTimeRequestsCollection)
-          .where('uid', '==', uid),
-      )
-      for (const request of timeRequests.docs) {
-        transaction.delete(request.ref)
-      }
+      const [applicationSnap, decisionSnap, availabilitySnap] =
+        await transaction.getAll(applicationRef, decisionRef, availabilityRef)
+      if (availabilitySnap.exists) transaction.delete(availabilityRef)
       if (applicationSnap.exists) transaction.delete(applicationRef)
       if (decisionSnap.exists) transaction.delete(decisionRef)
     } else {

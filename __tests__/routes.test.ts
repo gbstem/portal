@@ -204,13 +204,15 @@ jest.mock('#lib/server/classFeedback.js', () => ({
 
 // And the booking transaction (interviewSlots.test.ts).
 const mockFetchInterviewData = jest.fn()
-const mockBookInterviewSlot = jest.fn()
-const mockRecordSlotRequest = jest.fn()
+const mockBookInterviewTime = jest.fn()
+const mockCancelInterview = jest.fn()
+const mockSaveAvailability = jest.fn()
 jest.mock('#lib/server/interviewSlots.js', () => ({
   ...jest.requireActual('#lib/server/interviewSlots.js'),
   fetchInterviewData: (...args: any[]) => mockFetchInterviewData(...args),
-  bookInterviewSlot: (...args: any[]) => mockBookInterviewSlot(...args),
-  recordSlotRequest: (...args: any[]) => mockRecordSlotRequest(...args),
+  bookInterviewTime: (...args: any[]) => mockBookInterviewTime(...args),
+  cancelInterview: (...args: any[]) => mockCancelInterview(...args),
+  saveAvailability: (...args: any[]) => mockSaveAvailability(...args),
 }))
 
 // Mocks for firebase/app, auth, firestore, storage
@@ -281,6 +283,7 @@ import {
   POST as enrollPOST,
 } from '../src/routes/api/enroll/+server'
 import {
+  DELETE as interviewDELETE,
   GET as interviewGET,
   POST as interviewPOST,
 } from '../src/routes/api/interview/+server'
@@ -297,7 +300,7 @@ import { POST as remindStudentsPOST } from '../src/routes/api/remindStudents/+se
 import { POST as resolveCoInstructorsPOST } from '../src/routes/api/resolveCoInstructors/+server'
 import { POST as resolveEmailsPOST } from '../src/routes/api/resolveEmails/+server'
 import { EMAIL_LOOKUP_REFUSED } from '#lib/server/emailIntents.js'
-import { POST as slotRequestPOST } from '../src/routes/api/slotRequest/+server'
+import { PUT as availabilityPUT } from '../src/routes/api/availability/+server'
 import { interviewSchedulingWindow } from '#lib/server/semesterWindows.js'
 import {
   GET as substituteGET,
@@ -1792,7 +1795,7 @@ describe('API routes POST endpoints', () => {
       },
     }
 
-    /** The slot as bookInterviewSlot returns it; `overrides` edits it. */
+    /** The slot as bookInterviewTime books it; `overrides` edits it. */
     const booked = (overrides: Record<string, unknown> = {}) => ({
       id: 'slot-1',
       date: new Date('2026-10-01T18:00:00.000Z'),
@@ -1803,25 +1806,31 @@ describe('API routes POST endpoints', () => {
       ...overrides,
     })
 
-    const bookAs = (locals: any = applicantLocals) => {
-      mockRequest.json.mockResolvedValue({ slotId: 'slot-1' })
+    const WHEN = '2026-10-01T18:00:00.000Z'
+    const bookAs = (
+      locals: any = applicantLocals,
+      body: unknown = { date: WHEN },
+    ) => {
+      mockRequest.json.mockResolvedValue(body)
       return interviewPOST({ request: mockRequest as any, locals } as any)
+    }
+    const released = {
+      id: 'slot-old',
+      date: new Date('2026-09-30T18:00:00.000Z'),
+      interviewerName: 'Old Interviewer',
+      interviewerUid: 'old-interviewer-uid',
+      intervieweeName: 'Student Applicant',
     }
 
     beforeEach(() => {
       jest.clearAllMocks()
     })
 
-    it("GET returns the applicant's interview and the slots they could book", async () => {
+    it("GET returns the applicant's interview and the times they could book", async () => {
       const data = {
         scheduledInterview: null,
-        availableSlots: [
-          {
-            id: 'slot-1',
-            date: '2026-10-01T18:00:00.000Z',
-            interviewerName: 'Interviewer',
-          },
-        ],
+        availableTimes: ['2026-10-01T18:00:00.000Z'],
+        availability: null,
       }
       mockFetchInterviewData.mockResolvedValueOnce(data)
 
@@ -1852,7 +1861,7 @@ describe('API routes POST endpoints', () => {
     })
 
     it("POST books as the caller and emails them, copying the interviewer's current address", async () => {
-      mockBookInterviewSlot.mockResolvedValueOnce(booked())
+      mockBookInterviewTime.mockResolvedValueOnce({ booked: booked() })
       mockAdminAuth.getUser.mockResolvedValueOnce({
         uid: 'interviewer-uid-1',
         email: 'updated-interviewer@test.com',
@@ -1860,10 +1869,11 @@ describe('API routes POST endpoints', () => {
 
       const res: any = await bookAs()
 
-      expect(mockBookInterviewSlot).toHaveBeenCalledWith(
+      expect(mockBookInterviewTime).toHaveBeenCalledWith(
         { uid: 'applicant-uid', email: 'applicant@test.com' },
-        'slot-1',
+        new Date(WHEN),
         interviewSchedulingWindow({}),
+        { reschedule: undefined },
       )
       expect(mockAdminAuth.getUser).toHaveBeenCalledWith('interviewer-uid-1')
       expect(MailService.send).toHaveBeenCalledWith(
@@ -1892,7 +1902,7 @@ describe('API routes POST endpoints', () => {
     })
 
     it('POST names the interview time in gbSTEM’s time zone, not the server’s', async () => {
-      mockBookInterviewSlot.mockResolvedValueOnce(booked())
+      mockBookInterviewTime.mockResolvedValueOnce({ booked: booked() })
       mockAdminAuth.getUser.mockResolvedValueOnce({
         uid: 'interviewer-uid-1',
         email: 'interviewer@test.com',
@@ -1906,9 +1916,9 @@ describe('API routes POST endpoints', () => {
     })
 
     it('POST strips an invalid meeting link from the confirmation email', async () => {
-      mockBookInterviewSlot.mockResolvedValueOnce(
-        booked({ meetingLink: 'javascript:alert(1)' }),
-      )
+      mockBookInterviewTime.mockResolvedValueOnce({
+        booked: booked({ meetingLink: 'javascript:alert(1)' }),
+      })
       mockAdminAuth.getUser.mockResolvedValueOnce({
         uid: 'interviewer-uid-1',
         email: 'interviewer@test.com',
@@ -1922,9 +1932,9 @@ describe('API routes POST endpoints', () => {
 
     // The slot is booked by then, so the applicant is told so either way.
     it('POST still returns the booking, unconfirmed, for a slot with no interviewer uid', async () => {
-      mockBookInterviewSlot.mockResolvedValueOnce(
-        booked({ interviewerUid: undefined }),
-      )
+      mockBookInterviewTime.mockResolvedValueOnce({
+        booked: booked({ interviewerUid: undefined }),
+      })
 
       const res: any = await bookAs()
 
@@ -1935,7 +1945,7 @@ describe('API routes POST endpoints', () => {
     })
 
     it('POST still returns the booking, unconfirmed, when the interviewer uid names no account', async () => {
-      mockBookInterviewSlot.mockResolvedValueOnce(booked())
+      mockBookInterviewTime.mockResolvedValueOnce({ booked: booked() })
       mockAdminAuth.getUser.mockRejectedValueOnce(new Error('user-not-found'))
 
       const res: any = await bookAs()
@@ -1947,7 +1957,7 @@ describe('API routes POST endpoints', () => {
 
     it('POST still returns the booking when the email fails to send', async () => {
       await withRejectedSend(async () => {
-        mockBookInterviewSlot.mockResolvedValueOnce(booked())
+        mockBookInterviewTime.mockResolvedValueOnce({ booked: booked() })
         mockAdminAuth.getUser.mockResolvedValueOnce({
           uid: 'interviewer-uid-1',
           email: 'interviewer@test.com',
@@ -1959,7 +1969,7 @@ describe('API routes POST endpoints', () => {
     })
 
     it('POST passes a refused booking straight through and sends nothing', async () => {
-      mockBookInterviewSlot.mockRejectedValueOnce({
+      mockBookInterviewTime.mockRejectedValueOnce({
         status: 409,
         message:
           'The interview slot you selected is no longer available. Please select another slot.',
@@ -1972,9 +1982,9 @@ describe('API routes POST endpoints', () => {
       expect(MailService.send).not.toHaveBeenCalled()
     })
 
-    it('POST rejects a body with no slot id', async () => {
+    it('POST rejects a body with no instant to book', async () => {
       mockRequest.json.mockResolvedValue({
-        interviewerUid: 'interviewer-uid-1',
+        slotId: 'slot-1',
         date: '2026-06-01',
       })
 
@@ -1984,7 +1994,7 @@ describe('API routes POST endpoints', () => {
           locals: applicantLocals,
         } as any),
       ).rejects.toEqual(expect.objectContaining({ status: 400 }))
-      expect(mockBookInterviewSlot).not.toHaveBeenCalled()
+      expect(mockBookInterviewTime).not.toHaveBeenCalled()
     })
 
     it('POST rejects a student with a 403', async () => {
@@ -1998,13 +2008,93 @@ describe('API routes POST endpoints', () => {
           },
         }),
       ).rejects.toEqual(expect.objectContaining({ status: 403 }))
-      expect(mockBookInterviewSlot).not.toHaveBeenCalled()
+      expect(mockBookInterviewTime).not.toHaveBeenCalled()
     })
 
     it('POST propagates the auth error when the user is not signed in', async () => {
       await expect(bookAs({})).rejects.toEqual(
         expect.objectContaining({ status: 401, __isSvelteKitError: true }),
       )
+    })
+
+    it('POST reschedules, confirming the new interview and telling the previous interviewer', async () => {
+      mockBookInterviewTime.mockResolvedValueOnce({
+        booked: booked(),
+        released,
+      })
+      mockAdminAuth.getUser.mockImplementation(async (uid: string) => ({
+        uid,
+        email: `${uid}@test.com`,
+      }))
+
+      const res: any = await bookAs(applicantLocals, {
+        date: WHEN,
+        reschedule: true,
+      })
+
+      expect(mockBookInterviewTime).toHaveBeenCalledWith(
+        expect.anything(),
+        new Date(WHEN),
+        expect.anything(),
+        { reschedule: true },
+      )
+      expect(MailService.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: ['old-interviewer-uid@test.com'],
+          cc: ['applicant@test.com'],
+          subject: 'Student Applicant has rescheduled their interview',
+        }),
+      )
+      expect(MailService.send).toHaveBeenCalledWith(
+        expect.objectContaining({ to: ['applicant@test.com'] }),
+      )
+      expect((await bodyOf(res)).emailSent).toBe(true)
+      mockAdminAuth.getUser.mockReset()
+    })
+
+    it('DELETE cancels the caller’s interview and tells its interviewer', async () => {
+      mockCancelInterview.mockResolvedValueOnce(released)
+      mockAdminAuth.getUser.mockResolvedValueOnce({
+        uid: 'old-interviewer-uid',
+        email: 'old@test.com',
+      })
+
+      const res: any = await interviewDELETE({ locals: applicantLocals } as any)
+
+      expect(mockCancelInterview).toHaveBeenCalledWith({
+        uid: 'applicant-uid',
+        email: 'applicant@test.com',
+      })
+      const [message] = (MailService.send as jest.Mock).mock.calls[0]
+      expect(message).toMatchObject({
+        to: ['old@test.com'],
+        cc: ['applicant@test.com'],
+        subject: 'Student Applicant has canceled their interview',
+      })
+      expect(message.html).toMatch(/canceled their interview\s+with you/)
+      expect(await bodyOf(res)).toEqual({ emailSent: true })
+    })
+
+    it('DELETE passes a refusal through, telling nobody', async () => {
+      mockCancelInterview.mockRejectedValueOnce({
+        status: 409,
+        message: 'You have no interview booked to change.',
+        __isSvelteKitError: true,
+      })
+
+      await expect(
+        interviewDELETE({ locals: applicantLocals } as any),
+      ).rejects.toEqual(expect.objectContaining({ status: 409 }))
+      expect(MailService.send).not.toHaveBeenCalled()
+    })
+
+    it('DELETE rejects a student with a 403', async () => {
+      await expect(
+        interviewDELETE({
+          locals: { user: { uid: 's', role: 'student', emailVerified: true } },
+        } as any),
+      ).rejects.toEqual(expect.objectContaining({ status: 403 }))
+      expect(mockCancelInterview).not.toHaveBeenCalled()
     })
   })
 
@@ -2562,11 +2652,8 @@ describe('API routes POST endpoints', () => {
     })
   })
 
-  describe('slotRequestPOST', () => {
-    const slotRequestBody = {
-      requestedTime: '2026-06-01T10:00',
-      date: '2026-06-01T14:00:00.000Z',
-    }
+  describe('/api/availability', () => {
+    const TIMES = ['2026-10-05T22:30:00.000Z', '2026-10-05T22:45:00.000Z']
     const applicantLocals = {
       user: {
         uid: 'applicant-uid',
@@ -2575,84 +2662,81 @@ describe('API routes POST endpoints', () => {
         emailVerified: true,
       },
     }
+    const put = (locals: any = applicantLocals) =>
+      availabilityPUT({ request: mockRequest as any, locals } as any)
 
     beforeEach(() => {
-      mockRecordSlotRequest
-        .mockClear()
-        .mockResolvedValue({ firstName: 'Grace' })
+      ;(MailService.send as jest.Mock).mockClear()
+      mockSaveAvailability
+        .mockReset()
+        .mockImplementation(async (_uid: string, times: Date[]) => ({
+          firstName: 'Grace',
+          times,
+        }))
     })
 
-    it('saves the request as the signed-in applicant, then emails admins', async () => {
-      mockRequest.json.mockResolvedValue({
-        ...slotRequestBody,
-        // Ignored: the uid and name come from the session and the profile.
-        uid: 'someone-else',
-        firstName: 'Mallory',
-      })
-      const res: any = await slotRequestPOST({
-        request: mockRequest as any,
-        locals: applicantLocals,
-      } as any)
+    it('saves the times as the signed-in applicant, then emails admins once with a summary', async () => {
+      // The uid and name come from the session and the profile.
+      mockRequest.json.mockResolvedValue({ times: TIMES, uid: 'someone-else' })
 
-      expect(mockRecordSlotRequest).toHaveBeenCalledWith(
+      const res: any = await put()
+
+      expect(mockSaveAvailability).toHaveBeenCalledWith(
         'applicant-uid',
-        '2026-06-01T10:00',
-        new Date('2026-06-01T14:00:00.000Z'),
+        TIMES.map((time) => new Date(time)),
         interviewSchedulingWindow({}),
       )
-      expect(await bodyOf(res)).toEqual({ emailSent: true })
-      expect(MailService.send).toHaveBeenCalledWith(
-        expect.objectContaining({
-          to: ['admin@gbstem.org'],
-          cc: ['contact@gbstem.org'],
-          subject: expect.stringContaining('Grace'),
-        }),
-      )
+      expect(await bodyOf(res)).toEqual({ times: TIMES, emailSent: true })
+      expect(MailService.send).toHaveBeenCalledTimes(1)
+      const [message] = (MailService.send as jest.Mock).mock.calls[0]
+      expect(message).toMatchObject({
+        to: ['admin@gbstem.org'],
+        cc: ['contact@gbstem.org'],
+        subject: 'Interview Availability From Grace',
+      })
+      expect(message.html).toContain('Mon, Oct 5: 6:30 PM – 7:00 PM')
     })
 
-    // Admins work from the saved request, so a failed email doesn't fail it.
+    it('emails nobody when the availability was cleared', async () => {
+      mockRequest.json.mockResolvedValue({ times: [] })
+
+      const res: any = await put()
+
+      expect(await bodyOf(res)).toEqual({ times: [], emailSent: true })
+      expect(MailService.send).not.toHaveBeenCalled()
+    })
+
+    // Interviewers work from the saved times, so a failed email doesn't fail it.
     it('still succeeds when the email fails, saying it was not sent', async () => {
       await withRejectedSend(async () => {
-        mockRequest.json.mockResolvedValue(slotRequestBody)
-        const res: any = await slotRequestPOST({
-          request: mockRequest as any,
-          locals: applicantLocals,
-        } as any)
-        expect(mockRecordSlotRequest).toHaveBeenCalled()
-        expect(await bodyOf(res)).toEqual({ emailSent: false })
+        mockRequest.json.mockResolvedValue({ times: TIMES })
+        const res: any = await put()
+        expect(mockSaveAvailability).toHaveBeenCalled()
+        expect((await bodyOf(res)).emailSent).toBe(false)
       })
     })
 
-    it('refuses a malformed time without saving', async () => {
-      mockRequest.json.mockResolvedValue({
-        ...slotRequestBody,
-        requestedTime: '../../users/x',
-      })
-      await expect(
-        slotRequestPOST({
-          request: mockRequest as any,
-          locals: applicantLocals,
-        } as any),
-      ).rejects.toEqual(expect.objectContaining({ status: 400 }))
-      expect(mockRecordSlotRequest).not.toHaveBeenCalled()
+    it.each([
+      ['a local time rather than an instant', { times: ['2026-10-05T18:30'] }],
+      ['no list at all', {}],
+      ['more times than a grid holds', { times: Array(1001).fill(TIMES[0]) }],
+    ])('refuses %s without saving', async (_, body) => {
+      mockRequest.json.mockResolvedValue(body)
+      await expect(put()).rejects.toEqual(
+        expect.objectContaining({ status: 400 }),
+      )
+      expect(mockSaveAvailability).not.toHaveBeenCalled()
     })
 
     it('refuses a parent with a 403 and a signed-out caller with a 401', async () => {
-      mockRequest.json.mockResolvedValue(slotRequestBody)
+      mockRequest.json.mockResolvedValue({ times: TIMES })
       await expect(
-        slotRequestPOST({
-          request: mockRequest as any,
-          locals: {
-            user: { uid: 's-1', role: 'student', emailVerified: true },
-          },
-        } as any),
+        put({ user: { uid: 's-1', role: 'student', emailVerified: true } }),
       ).rejects.toEqual(expect.objectContaining({ status: 403 }))
-      await expect(
-        slotRequestPOST({ request: mockRequest as any, locals: {} } as any),
-      ).rejects.toEqual(
+      await expect(put({})).rejects.toEqual(
         expect.objectContaining({ status: 401, __isSvelteKitError: true }),
       )
-      expect(mockRecordSlotRequest).not.toHaveBeenCalled()
+      expect(mockSaveAvailability).not.toHaveBeenCalled()
     })
   })
 

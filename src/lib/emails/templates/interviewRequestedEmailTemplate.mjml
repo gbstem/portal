@@ -20,7 +20,7 @@
               font-size: 34px;
             "
           >
-            New Interview Timeslot Request From {{ interview.firstName }}
+            Interview Availability From {{ interview.firstName }}
           </h1>
         </mj-text>
         <mj-text
@@ -31,14 +31,18 @@
         >
           <p style="margin: 20px 0"></p>
           <p style="margin: 0 0">
-            {{ interview.firstName }}, email {{ interview.email }}, is
-            requesting a new interview timeslot at {{ interview.timeSlot }}. You
-            can set the slot and assign them through the admin portal, which
-            will notify them.
+            {{ interview.firstName }}, email {{ interview.email }}, found no
+            open interview slot that works and has painted the times they're
+            free: {{ interview.summary }}.
+          </p>
+          <p style="margin: 20px 0">{{ interview.times }}</p>
+          <p style="margin: 20px 0">
+            Any interviewer can pick one of these times on the admin site's
+            Interviews page, which schedules the interview and emails them.
           </p>
         </mj-text>
         <mj-button
-          href="https://admin.gbstem.org/dashboard"
+          href="https://admin.gbstem.org/interviews"
           background-color="darkblue"
           color="#ffffff"
           font-size="14px"

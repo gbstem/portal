@@ -8,6 +8,21 @@ jest.mock('firebase/firestore', () => ({
   setDoc: jest.fn(),
 }))
 
+const respond = (body: unknown, ok = true) =>
+  (global.fetch as jest.Mock).mockResolvedValueOnce({
+    ok,
+    status: ok ? 200 : 409,
+    json: async () => body,
+  })
+const sent = () => {
+  const [url, init] = (global.fetch as jest.Mock).mock.calls[0]
+  return {
+    url,
+    method: init?.method,
+    body: init?.body === undefined ? undefined : JSON.parse(init.body),
+  }
+}
+
 describe('interviewService (Data Access Layer)', () => {
   beforeEach(() => {
     jest.clearAllMocks()
@@ -15,87 +30,74 @@ describe('interviewService (Data Access Layer)', () => {
   })
 
   describe('fetchInterviewData', () => {
-    it('loads from /api/interview, formatting dates in local time and keeping the server’s order', async () => {
-      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          scheduledInterview: {
-            id: 'slot-mine',
-            date: '2026-10-01T14:00:00.000Z',
-            interviewerName: 'Jane',
-            meetingLink: 'https://zoom.us/1',
-            interviewSlotStatus: 'pending',
-          },
-          availableSlots: [
-            {
-              id: 'slot-soon',
-              date: '2026-10-02T14:00:00.000Z',
-              interviewerName: 'Jane',
-            },
-            {
-              id: 'slot-later',
-              date: '2026-10-03T14:00:00.000Z',
-              interviewerName: 'Ravi',
-            },
-          ],
-          interviewWindow: {
-            opens: '2026-09-01T04:00:00.000Z',
-            closes: '2026-09-20T04:00:00.000Z',
-          },
-        }),
+    it('loads from /api/interview, reading times as Dates in the server’s order', async () => {
+      respond({
+        scheduledInterview: {
+          id: 'slot-mine',
+          date: '2026-10-01T14:00:00.000Z',
+          interviewerName: 'Jane',
+          meetingLink: 'https://zoom.us/1',
+          interviewSlotStatus: 'pending',
+        },
+        availableTimes: [
+          '2026-10-02T14:00:00.000Z',
+          '2026-10-03T14:00:00.000Z',
+        ],
+        interviewWindow: {
+          opens: '2026-09-01T04:00:00.000Z',
+          closes: '2026-09-20T04:00:00.000Z',
+        },
+        availability: {
+          times: ['2026-10-04T14:00:00.000Z'],
+          updated: '2026-09-28T12:00:00.000Z',
+        },
       })
 
-      const res = await interviewService.fetchInterviewData()
+      const result = await interviewService.fetchInterviewData()
 
-      expect(global.fetch).toHaveBeenCalledWith('/api/interview')
-      expect(res.scheduledInterview).toEqual({
+      expect(sent().url).toBe('/api/interview')
+      expect(result.scheduledInterview).toEqual({
         id: 'slot-mine',
+        at: new Date('2026-10-01T14:00:00.000Z'),
         date: formatDateLocal(new Date('2026-10-01T14:00:00.000Z')),
         interviewerName: 'Jane',
         meetingLink: 'https://zoom.us/1',
         interviewSlotStatus: 'pending',
       })
-      expect(res.availableSlots).toEqual([
-        {
-          id: 'slot-soon',
-          date: formatDateLocal(new Date('2026-10-02T14:00:00.000Z')),
-          interviewerName: 'Jane',
-        },
-        {
-          id: 'slot-later',
-          date: formatDateLocal(new Date('2026-10-03T14:00:00.000Z')),
-          interviewerName: 'Ravi',
-        },
+      expect(result.availableTimes).toEqual([
+        new Date('2026-10-02T14:00:00.000Z'),
+        new Date('2026-10-03T14:00:00.000Z'),
       ])
-      // The window the form checks a time request against, as instants.
-      expect(res.interviewWindow).toEqual({
-        opens: new Date('2026-09-01T04:00:00.000Z'),
-        closes: new Date('2026-09-20T04:00:00.000Z'),
+      expect(result.interviewWindow.closes).toEqual(
+        new Date('2026-09-20T04:00:00.000Z'),
+      )
+      expect(result.availability).toEqual({
+        times: [new Date('2026-10-04T14:00:00.000Z')],
+        updated: new Date('2026-09-28T12:00:00.000Z'),
       })
     })
 
-    it('passes a missing booking through as null', async () => {
-      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          scheduledInterview: null,
-          availableSlots: [],
-          interviewWindow: {
-            opens: '2026-09-01T04:00:00.000Z',
-            closes: '2026-09-20T04:00:00.000Z',
-          },
-        }),
+    it('reads no booking and no availability as null', async () => {
+      respond({
+        scheduledInterview: null,
+        availableTimes: [],
+        interviewWindow: {
+          opens: '2026-09-01T04:00:00.000Z',
+          closes: '2026-09-20T04:00:00.000Z',
+        },
+        availability: null,
       })
 
       await expect(
         interviewService.fetchInterviewData(),
       ).resolves.toMatchObject({
         scheduledInterview: null,
-        availableSlots: [],
+        availableTimes: [],
+        availability: null,
       })
     })
 
-    it('throws when the slots cannot be loaded', async () => {
+    it('throws when the server refuses', async () => {
       ;(global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: false,
         status: 403,
@@ -105,7 +107,7 @@ describe('interviewService (Data Access Layer)', () => {
     })
   })
 
-  describe('bookInterviewSlot', () => {
+  describe('bookInterview', () => {
     const booked = {
       id: 'slot-1',
       date: '2026-10-02T14:00:00.000Z',
@@ -113,109 +115,88 @@ describe('interviewService (Data Access Layer)', () => {
       meetingLink: 'https://zoom.us/1',
       interviewSlotStatus: 'pending',
     }
+    const at = new Date('2026-10-02T14:00:00.000Z')
 
-    it('posts only the slot id and returns the booked interview', async () => {
-      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ interview: booked, emailSent: true }),
+    it('posts only the time chosen and returns the booked interview', async () => {
+      respond({ interview: booked, emailSent: true })
+
+      const interview = await interviewService.bookInterview(at)
+
+      expect(sent()).toEqual({
+        url: '/api/interview',
+        method: 'POST',
+        body: { date: at.toISOString() },
       })
-
-      const interview = await interviewService.bookInterviewSlot('slot-1')
-
-      expect(global.fetch).toHaveBeenCalledWith(
-        '/api/interview',
-        expect.objectContaining({
-          method: 'POST',
-          body: JSON.stringify({ slotId: 'slot-1' }),
-        }),
-      )
       expect(interview).toEqual({
         ...booked,
-        date: formatDateLocal(new Date(booked.date)),
+        at,
+        date: formatDateLocal(at),
       })
     })
 
+    it('asks to give up the current interview when rescheduling', async () => {
+      respond({ interview: booked, emailSent: true })
+
+      await interviewService.bookInterview(at, { reschedule: true })
+
+      expect(sent().body).toEqual({ date: at.toISOString(), reschedule: true })
+    })
+
     it('logs but still resolves when the booking saved and its email did not', async () => {
-      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ interview: booked, emailSent: false }),
-      })
+      respond({ interview: booked, emailSent: false })
       const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
 
-      await expect(
-        interviewService.bookInterviewSlot('slot-1'),
-      ).resolves.toMatchObject({ id: 'slot-1' })
-
+      await expect(interviewService.bookInterview(at)).resolves.toMatchObject({
+        id: 'slot-1',
+      })
       expect(errorSpy).toHaveBeenCalledWith(
         '[interviewService] The confirmation email for interview slot-1 was not sent.',
       )
       errorSpy.mockRestore()
     })
 
-    it('throws the server’s message, e.g. when somebody booked the slot first', async () => {
-      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
-        ok: false,
-        json: async () => ({
-          message:
-            'The interview slot you selected is no longer available. Please select another slot.',
-        }),
-      })
+    it('throws the server’s message, e.g. when somebody took the time first', async () => {
+      respond({ message: 'That interview time is no longer available.' }, false)
 
-      await expect(
-        interviewService.bookInterviewSlot('slot-1'),
-      ).rejects.toThrow('no longer available')
-    })
-
-    it('falls back to a generic message when the refusal has no body', async () => {
-      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
-        ok: false,
-        json: async () => {
-          throw new Error('not json')
-        },
-      })
-
-      await expect(
-        interviewService.bookInterviewSlot('slot-1'),
-      ).rejects.toThrow('Failed to book interview')
+      await expect(interviewService.bookInterview(at)).rejects.toThrow(
+        'no longer available',
+      )
     })
   })
 
-  describe('requestInterviewSlot', () => {
-    it('posts the picked time to /api/slotRequest rather than writing Firestore', async () => {
-      ;(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true })
+  describe('cancelInterview', () => {
+    it('deletes through /api/interview', async () => {
+      respond({ emailSent: true })
 
-      await interviewService.requestInterviewSlot('2026-06-01T10:00')
-
-      expect(firestore.setDoc).not.toHaveBeenCalled()
-      expect(global.fetch).toHaveBeenCalledWith(
-        '/api/slotRequest',
-        expect.objectContaining({ method: 'POST' }),
-      )
+      await expect(interviewService.cancelInterview()).resolves.toEqual({
+        emailSent: true,
+      })
+      expect(sent()).toMatchObject({ url: '/api/interview', method: 'DELETE' })
     })
+  })
 
-    it('sends the picked time and the instant it means, and nothing about the applicant', async () => {
-      ;(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true })
+  describe('saveAvailability', () => {
+    it('puts the painted times as instants to /api/availability, not Firestore', async () => {
+      const times = [new Date('2026-10-06T19:00:00.000Z')]
+      respond({ times: ['2026-10-06T19:00:00.000Z'], emailSent: true })
 
-      await interviewService.requestInterviewSlot('2026-06-01T10:00')
-
-      const [, options] = (global.fetch as jest.Mock).mock.calls[0]
-      // The name and uid are read server-side, the address from the session.
-      expect(JSON.parse(options.body)).toEqual({
-        requestedTime: '2026-06-01T10:00',
-        date: new Date('2026-06-01T10:00').toISOString(),
+      await expect(interviewService.saveAvailability(times)).resolves.toEqual(
+        times,
+      )
+      expect(firestore.setDoc).not.toHaveBeenCalled()
+      expect(sent()).toEqual({
+        url: '/api/availability',
+        method: 'PUT',
+        body: { times: ['2026-10-06T19:00:00.000Z'] },
       })
     })
 
     it("throws with the server's message on refusal", async () => {
-      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
-        ok: false,
-        json: () =>
-          Promise.resolve({ message: 'Please pick a time in the future.' }),
-      })
+      respond({ message: 'You already have an interview scheduled.' }, false)
 
-      await expect(
-        interviewService.requestInterviewSlot('2026-06-01T10:00'),
-      ).rejects.toThrow('Please pick a time in the future.')
+      await expect(interviewService.saveAvailability([])).rejects.toThrow(
+        'You already have an interview scheduled.',
+      )
     })
   })
 })

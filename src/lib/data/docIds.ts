@@ -116,26 +116,6 @@ export function parseSubRequestDocId(
   return match ? { classId: match[1], sessionNumber: Number(match[2]) } : null
 }
 
-// -------------------------------------------------- interview time requests
-
-/**
- * `semesters/{id}/interviewTimeRequests/{id}`: `${uid}-${date}`, where `date` is the
- * `YYYY-MM-DDTHH:mm` value the applicant picked.
- */
-export function slotRequestDocId(uid: string, date: string): string {
-  return `${uid}-${date}`
-}
-
-/**
- * The applicant who filed an interview time request, or null for an id in
- * another shape. Every request carries its own `uid` field, which is what to
- * read; this mirrors admin's, whose backfill-interview-scheduling.ts fills
- * that field in on requests written before it existed.
- */
-export function slotRequestUid(id: string): string | null {
-  return id.match(/^(.+?)-\d{4}-\d{2}-\d{2}/)?.[1] ?? null
-}
-
 // ---------------------------------------------------------- interview slots
 
 /**

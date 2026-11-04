@@ -3,7 +3,8 @@ import {
   formatInterviewWindow,
   interviewIneligibility,
   isFinalDecision,
-  validateRequestedInterviewTime,
+  summarizeAvailability,
+  usableAvailabilityTimes,
 } from '#lib/helpers/interviewForm.js'
 import { interviewWindow } from '#lib/shared/interviews.js'
 
@@ -64,106 +65,62 @@ describe('InterviewForm Helpers', () => {
     })
   })
 
-  describe('validateRequestedInterviewTime', () => {
-    const interviews = interviewWindow({
-      interviewsStart: '08/25/26',
-      interviewsEnd: '09/19/26',
-    })
-    const now = new Date('2026-09-02T12:00:00')
+  describe('usableAvailabilityTimes', () => {
+    const window = {
+      opens: new Date('2026-10-01T04:00:00.000Z'),
+      closes: new Date('2026-10-20T04:00:00.000Z'),
+    }
+    const now = new Date('2026-10-05T12:00:00.000Z')
+    const at = (iso: string) => new Date(iso)
 
-    test('accepts a time between now and the closing date', () => {
+    it('keeps times to come, in the window and on a row, soonest first, once each', () => {
       expect(
-        validateRequestedInterviewTime('2026-09-10T15:00', interviews, now),
-      ).toBeNull()
-    })
-
-    // The regression this helper exists for: the request field used to default
-    // to a hardcoded '2024-09-20T12:00', which passed every check there was.
-    test('rejects the stale hardcoded default that used to pre-fill the field', () => {
-      expect(
-        validateRequestedInterviewTime('2024-09-20T12:00', interviews, now),
-      ).toBe('Please pick a time in the future.')
-    })
-
-    test('rejects a time in the past', () => {
-      expect(
-        validateRequestedInterviewTime('2026-09-01T09:00', interviews, now),
-      ).toBe('Please pick a time in the future.')
-    })
-
-    test('rejects a time that has only just passed', () => {
-      expect(
-        validateRequestedInterviewTime('2026-09-02T11:59', interviews, now),
-      ).toBe('Please pick a time in the future.')
-    })
-
-    test('rejects the present instant, since a slot needs lead time', () => {
-      expect(
-        validateRequestedInterviewTime('2026-09-02T12:00', interviews, now),
-      ).toBe('Please pick a time in the future.')
-    })
-
-    test('accepts a time one minute from now', () => {
-      expect(
-        validateRequestedInterviewTime('2026-09-02T12:01', interviews, now),
-      ).toBeNull()
-    })
-
-    const outsideWindow =
-      'Instructor interviews run Tue, Aug 25 – Sat, Sep 19 (Eastern time). Please pick a time in that range.'
-
-    test('rejects a time after interviews close, naming the window', () => {
-      expect(
-        validateRequestedInterviewTime('2026-10-01T15:00', interviews, now),
-      ).toBe(outsideWindow)
-    })
-
-    test('rejects a future time before interviews open', () => {
-      const early = new Date('2026-08-01T12:00:00')
-      expect(
-        validateRequestedInterviewTime('2026-08-20T15:00', interviews, early),
-      ).toBe(outsideWindow)
-    })
-
-    // The window ends at midnight in New York, wherever the check runs: it
-    // used to be `new Date('09/20/26')`, midnight in the runtime's own zone,
-    // which put the cutoff hours apart on the server and in each browser.
-    test('closes at midnight Eastern on the last day, in any runtime zone', () => {
-      expect(
-        validateRequestedInterviewTime('2026-09-20T03:30:00Z', interviews, now),
-      ).toBeNull()
-      expect(
-        validateRequestedInterviewTime('2026-09-20T04:30:00Z', interviews, now),
-      ).toBe(outsideWindow)
-    })
-
-    test('rejects an unparseable date rather than passing it through to Firestore', () => {
-      expect(validateRequestedInterviewTime('', interviews, now)).toBe(
-        'Please select a date and time.',
-      )
-      expect(
-        validateRequestedInterviewTime('not a date', interviews, now),
-      ).toBe('Please select a date and time.')
-    })
-
-    // Past-ness is checked before the deadline, so a stale date reads as stale
-    // rather than as being after a deadline it in fact precedes.
-    test('reports a past date as past even when it also precedes the deadline', () => {
-      expect(
-        validateRequestedInterviewTime('2024-01-01T12:00', interviews, now),
-      ).toBe('Please pick a time in the future.')
-    })
-
-    test('defaults `now` to the current clock when not supplied', () => {
-      expect(
-        validateRequestedInterviewTime(
-          '2020-01-01T12:00',
-          interviewWindow({
-            interviewsStart: '01/01/20',
-            interviewsEnd: '01/01/99',
-          }),
+        usableAvailabilityTimes(
+          [
+            at('2026-10-06T19:15:00.000Z'),
+            at('2026-10-06T19:00:00.000Z'),
+            at('2026-10-06T19:00:00.000Z'),
+          ],
+          window,
+          now,
         ),
-      ).toBe('Please pick a time in the future.')
+      ).toEqual([
+        at('2026-10-06T19:00:00.000Z'),
+        at('2026-10-06T19:15:00.000Z'),
+      ])
+    })
+
+    it.each([
+      ['already past', '2026-10-05T11:45:00.000Z'],
+      ['before the window opens', '2026-09-30T19:00:00.000Z'],
+      ['once it closes', '2026-10-20T04:00:00.000Z'],
+      ['off a row', '2026-10-06T19:05:00.000Z'],
+      ['not a date at all', 'nonsense'],
+    ])('drops a time %s', (_, iso) => {
+      expect(usableAvailabilityTimes([at(iso)], window, now)).toEqual([])
+    })
+  })
+
+  describe('summarizeAvailability', () => {
+    it("runs back-to-back times together, by day, in gbSTEM's time", () => {
+      // 6:30, 6:45 and 7:00 PM, then 4:00 PM the next day (EDT).
+      const times = [
+        '2026-10-05T22:30:00.000Z',
+        '2026-10-05T22:45:00.000Z',
+        '2026-10-05T23:00:00.000Z',
+        '2026-10-06T20:00:00.000Z',
+      ].map((iso) => new Date(iso))
+
+      expect(summarizeAvailability(times)).toEqual({
+        summary: '4 times between Mon, Oct 5 and Tue, Oct 6 (Eastern time)',
+        times: 'Mon, Oct 5: 6:30 PM – 7:15 PM; Tue, Oct 6: 4:00 PM – 4:15 PM',
+      })
+    })
+
+    it('names one day once', () => {
+      expect(
+        summarizeAvailability([new Date('2026-10-05T22:30:00.000Z')]).summary,
+      ).toBe('1 time on Mon, Oct 5 (Eastern time)')
     })
   })
 })
