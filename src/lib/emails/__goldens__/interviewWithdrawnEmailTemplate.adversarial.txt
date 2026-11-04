@@ -1,8 +1,8 @@
 title: 
-heading: Interview Rescheduled
-text: Interview Rescheduled
+heading: </p><script>alert('xss')</script><p x="
+text: </p><script>alert('xss')</script><p x="
 text: Hi </p><script>alert('xss')</script><p x=",
-text: </p><script>alert('xss')</script><p x=" has moved their interview with you on </p><script>alert('xss')</script><p x=" to another time. That time is open for booking again; delete it on the admin site's Interviews page if you no longer want to offer it.
+text: </p><script>alert('xss')</script><p x=" has </p><script>alert('xss')</script><p x=". That time is open for booking again; delete it on the admin site's Interviews page if you no longer want to offer it.
 text: If you have any questions or concerns, you can reach us at contact@gbstem.org.
 text: With love 🤍,The gbSTEM Team
 text: Your Interviews

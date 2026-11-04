@@ -89,10 +89,10 @@ export const TEMPLATE_FIELDS: Record<string, string[]> = {
   interviewWithdrawnEmailTemplate: [
     'app.link',
     'app.name',
-    'interview.date',
+    'interview.change',
     'interview.interviewee',
     'interview.name',
-    'interview.rescheduled',
+    'interview.title',
   ],
   onlineClassEnrolledEmailTemplate: [
     'app.class1Time',
@@ -202,10 +202,11 @@ const typical: Record<string, TemplateData> = {
     data: {
       app: { name: 'Admin', link: 'https://admin.gbstem.org' },
       interview: {
+        title: 'Interview Canceled',
         interviewee: 'Ada Lovelace',
         name: 'Grace Hopper',
-        date: 'Monday, March 2nd at 6:30 PM EST',
-        rescheduled: false,
+        change:
+          'canceled their interview with you on Monday, March 2nd at 6:30 PM EST',
       },
     },
   },

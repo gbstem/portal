@@ -1,8 +1,7 @@
 title: 
-heading: Interview Canceled
-text: Interview Canceled
+heading: 
 text: Hi ,
-text: has canceled their interview with you on . That time is open for booking again; delete it on the admin site's Interviews page if you no longer want to offer it.
+text: has . That time is open for booking again; delete it on the admin site's Interviews page if you no longer want to offer it.
 text: If you have any questions or concerns, you can reach us at contact@gbstem.org.
 text: With love 🤍,The gbSTEM Team
 text: Your Interviews

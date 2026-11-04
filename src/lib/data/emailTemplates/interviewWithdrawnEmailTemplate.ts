@@ -229,8 +229,7 @@ export const interviewWithdrawnEmailTemplate = `<!doctype html>
               font-size: 34px;
             "
           >
-            {{#if interview.rescheduled}}Interview Rescheduled{{else}}Interview
-            Canceled{{/if}}
+            {{ interview.title }}
           </h1></div>
     
                 </td>
@@ -245,11 +244,9 @@ export const interviewWithdrawnEmailTemplate = `<!doctype html>
          style="font-family:Open Sans, Helvetica, Arial, sans-serif;font-size:16px;line-height:22px;text-align:left;color:#000000;"
       ><p style="margin: 20px 0">Hi {{ interview.name }},</p>
           <p style="margin: 20px 0">
-            {{ interview.interviewee }} has {{#if interview.rescheduled}}moved
-            their interview with you on {{ interview.date }} to another time{{else
-            }}canceled their interview with you on {{ interview.date }}{{/if}}.
-            That time is open for booking again; delete it on the admin site's
-            Interviews page if you no longer want to offer it.
+            {{ interview.interviewee }} has {{ interview.change }}. That time is
+            open for booking again; delete it on the admin site's Interviews
+            page if you no longer want to offer it.
           </p>
           <p style="margin: 30px 0">
             If you have any questions or concerns, you can reach us at

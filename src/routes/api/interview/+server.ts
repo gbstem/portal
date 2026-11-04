@@ -115,6 +115,7 @@ async function sendWithdrawnNotice(
   )
   if (!interviewerEmail) return false
   const subject = `${released.intervieweeName || 'A candidate'} has ${rescheduled ? 'rescheduled' : 'canceled'} their interview`
+  const date = formatDateInGbstemTime(released.date, 'long')
   try {
     await sendEmail({
       to: interviewerEmail,
@@ -124,11 +125,15 @@ async function sendWithdrawnNotice(
       html: renderEmail('interviewWithdrawnEmailTemplate', {
         subject,
         app: { name: 'Admin', link: 'https://admin.gbstem.org' },
+        // Worded here rather than with {{#if}} in the template: Prettier's
+        // HTML formatter mangles Handlebars blocks, and never settles on them.
         interview: {
+          title: rescheduled ? 'Interview Rescheduled' : 'Interview Canceled',
           interviewee: released.intervieweeName,
           name: released.interviewerName,
-          date: formatDateInGbstemTime(released.date, 'long'),
-          rescheduled,
+          change: rescheduled
+            ? `moved their interview with you on ${date} to another time`
+            : `canceled their interview with you on ${date}`,
         },
       }),
     })
