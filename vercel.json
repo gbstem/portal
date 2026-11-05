@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "installCommand": "COREPACK_HOME=/tmp/corepack yarn install --immutable",
-  "buildCommand": "COREPACK_HOME=/tmp/corepack yarn run build"
+  "buildCommand": "COREPACK_HOME=/tmp/corepack yarn run build",
+  "ignoreCommand": "test -z \"$GBSTEM_CANONICAL_VERCEL_PROJECT\""
 }
