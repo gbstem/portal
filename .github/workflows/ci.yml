@@ -76,7 +76,7 @@ jobs:
           path: portal
 
       # A change that spans both repos ships as two PRs on a same-named branch
-      # (see CLAUDE.md's "Tightly coupled with ../admin"), and portal's e2e
+      # (see docs/cross-repo.md), and portal's e2e
       # suite runs against admin's seed data. Pinning admin to `main` meant a
       # portal PR whose tests need a new seed fixture could not go green until
       # the admin PR merged - so CI stopped being a merge gate for exactly the

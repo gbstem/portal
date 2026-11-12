@@ -269,7 +269,7 @@ Below is an alphabetical list of the top-level directories and significant confi
 - **`.prettierignore`**: Specifies which files and directories Prettier should ignore when formatting.
 - **`.yarnrc.yml`**: Configuration file for Yarn Berry (v4 package manager), defining package management settings.
 - **`AGENTS.md`**: Custom rules and guidelines for AI coding agents interacting with the repository.
-- **`CLAUDE.md`**: Quick reference guide and developer instructions for AI coding assistants.
+- **`CLAUDE.md`**: The conventions every AI coding session needs, linking to topic guides in `docs/` for the details.
 - **`cypress.config.ts`**: The configuration file for the Cypress e2e testing interface and environmental triggers.
 - **`eslint.config.js`**: ESLint configuration mapping coding rules and checks (replacing the legacy `.eslintrc.cjs`).
 - **`jest-transform-esm-to-cjs.cjs`**: Custom Jest transformer that transpiles ESM JavaScript files from `node_modules/svelte` into CommonJS for the Jest testing environment.
