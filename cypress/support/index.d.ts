@@ -10,7 +10,7 @@ declare namespace Cypress {
     ): Chainable<any>
     signOutViaUi(): Chainable<any>
     fillInput(selector: string, text: string): Chainable<any>
-    selectOption(
+    selectComboboxOption(
       selector: string,
       text: string,
       options?: Partial<Cypress.Timeoutable>,

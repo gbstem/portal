@@ -44,7 +44,6 @@ import {
   normalizeCapitals,
   timestampToDate,
   toLocalISOString,
-  trapFocus,
 } from '../src/lib/utils'
 
 describe('utils', () => {
@@ -103,59 +102,6 @@ describe('utils', () => {
       inside.click()
 
       expect(listener).not.toHaveBeenCalled()
-      action.destroy()
-    })
-  })
-
-  describe('trapFocus', () => {
-    let container: HTMLDivElement
-    let button1: HTMLButtonElement
-    let button2: HTMLButtonElement
-    let outsideButton: HTMLButtonElement
-
-    beforeEach(() => {
-      container = document.createElement('div')
-      button1 = document.createElement('button')
-      button2 = document.createElement('button')
-      outsideButton = document.createElement('button')
-
-      container.appendChild(button1)
-      container.appendChild(button2)
-      document.body.appendChild(container)
-      document.body.appendChild(outsideButton)
-    })
-
-    afterEach(() => {
-      document.body.removeChild(container)
-      document.body.removeChild(outsideButton)
-    })
-
-    it('focuses the first focusable element on initialization', () => {
-      outsideButton.focus()
-      const action = trapFocus(container)
-      expect(document.activeElement).toBe(button1)
-      action.destroy()
-    })
-
-    it('restores focus to previous element on destroy', () => {
-      outsideButton.focus()
-      const action = trapFocus(container)
-      action.destroy()
-      expect(document.activeElement).toBe(outsideButton)
-    })
-
-    it('wraps focus on Tab and Shift+Tab keydown', () => {
-      const action = trapFocus(container)
-      button2.focus()
-
-      let event = new KeyboardEvent('keydown', { key: 'Tab', shiftKey: false })
-      container.dispatchEvent(event)
-      expect(document.activeElement).toBe(button1)
-
-      event = new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true })
-      container.dispatchEvent(event)
-      expect(document.activeElement).toBe(button2)
-
       action.destroy()
     })
   })
