@@ -41,7 +41,7 @@ function fillRegistrationForm(input: RegistrationInput) {
   cy.fillInput('input[name="personal.secondaryEmail"]', input.secondaryEmail)
   cy.fillInput('input[name="personal.phoneNumber"]', input.phoneNumber)
   cy.fillInput('input[name="personal.dateOfBirth"]', input.dateOfBirth)
-  cy.selectOption('input[name="personal.gender"]', input.gender)
+  cy.get('select[name="personal.gender"]').select(input.gender)
 
   // Race is a checkbox group, so clear the current selection before applying
   // the new one - otherwise the modify pass would add to it rather than
@@ -57,14 +57,13 @@ function fillRegistrationForm(input: RegistrationInput) {
     cy.get(`[id="race-${race}"]`).check({ force: true })
   })
 
-  cy.selectOption('input[name="personal.frlp"]', input.frlp)
-  cy.selectOption(
-    'input[name="personal.parentEducation"]',
+  cy.get('select[name="personal.frlp"]').select(input.frlp)
+  cy.get('select[name="personal.parentEducation"]').select(
     input.parentEducation,
   )
 
   cy.fillInput('input[name="academic.school"]', input.school)
-  cy.selectOption('input[name="student-grade"]', input.grade)
+  cy.get('select[name="student-grade"]').select(input.grade)
 
   const setCheckbox = (name: string, checked: boolean) => {
     const selector = `input[name="agreements.${name}"]`
@@ -195,10 +194,8 @@ describe('Section B: Student Registration & Account Management', () => {
     // Sign up a brand new parent account to guarantee zero existing children
     const email = `${generateDateHash('parent')}@gbstem.org`
     cy.loadSignupPage()
-    cy.selectOption(
-      'input[name="role"]',
+    cy.get('select[name="role"]', { timeout: 10000 }).select(
       'Parent registering my child for classes',
-      { timeout: 10000 },
     )
     cy.fillInput('input[name="firstName"]', 'Parent')
     cy.fillInput('input[name="lastName"]', 'Test')

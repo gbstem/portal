@@ -27,7 +27,7 @@
   import Dialog from '../Dialog.svelte'
   import FormCheckbox from '../FormCheckbox.svelte'
   import FormInput from '../FormInput.svelte'
-  import FormSelect from '../FormSelect.svelte'
+  import FormNativeSelect from '../FormNativeSelect.svelte'
   import Loading from '../Loading.svelte'
   import { ClassStatus } from '../helpers/ClassStatus'
   import type { MeetingLinkRequestBody } from '../../../routes/api/meetingLink/+server'
@@ -604,13 +604,17 @@
                 </h2>
 
                 <div class="mt-2 flex flex-col gap-1.5">
-                  <FormSelect
+                  <FormNativeSelect
                     form={formResult}
                     name="course"
                     label="Course"
-                    options={coursesJson}
                     bind:value={$form.course}
-                  />
+                  >
+                    <option value="" disabled>Select course</option>
+                    {#each coursesJson as item (item.name)}
+                      <option value={item.name}>{item.name}</option>
+                    {/each}
+                  </FormNativeSelect>
                 </div>
 
                 <div class="mt-2 flex flex-col gap-1.5">
@@ -633,13 +637,17 @@
 
                   <div class="grid gap-1 sm:grid-cols-3 sm:gap-3">
                     <div class="flex flex-col gap-1.5 sm:col-span-2">
-                      <FormSelect
+                      <FormNativeSelect
                         form={formResult}
                         name="classDay1"
                         label="Meeting day 1"
-                        options={daysOfWeekJson}
                         bind:value={$form.classDay1}
-                      />
+                      >
+                        <option value="" disabled>Select day</option>
+                        {#each daysOfWeekJson as item (item.name)}
+                          <option value={item.name}>{item.name}</option>
+                        {/each}
+                      </FormNativeSelect>
                     </div>
                     <div class="flex flex-col gap-1.5">
                       <FormInput
@@ -657,13 +665,17 @@
                       .includes('math') && $form.online}
                     <div class="grid gap-1 sm:grid-cols-3 sm:gap-3">
                       <div class="flex flex-col gap-1.5 sm:col-span-2">
-                        <FormSelect
+                        <FormNativeSelect
                           form={formResult}
                           name="classDay2"
                           label="Meeting day 2"
-                          options={daysOfWeekJson}
                           bind:value={$form.classDay2}
-                        />
+                        >
+                          <option value="" disabled>Select day</option>
+                          {#each daysOfWeekJson as item (item.name)}
+                            <option value={item.name}>{item.name}</option>
+                          {/each}
+                        </FormNativeSelect>
                       </div>
                       <div class="flex flex-col gap-1.5">
                         <FormInput
@@ -806,13 +818,17 @@
         </h2>
 
         <div class="mt-2 flex flex-col gap-1.5">
-          <FormSelect
+          <FormNativeSelect
             form={formResult}
             name="course"
             label="Course"
-            options={coursesJson}
             bind:value={$form.course}
-          />
+          >
+            <option value="" disabled>Select course</option>
+            {#each coursesJson as item (item.name)}
+              <option value={item.name}>{item.name}</option>
+            {/each}
+          </FormNativeSelect>
         </div>
 
         <div class="mt-2 flex flex-col gap-1.5">
@@ -835,13 +851,17 @@
 
           <div class="grid gap-1 sm:grid-cols-3 sm:gap-3">
             <div class="flex flex-col gap-1.5 sm:col-span-2">
-              <FormSelect
+              <FormNativeSelect
                 form={formResult}
                 name="classDay1"
                 label="Meeting day 1"
-                options={daysOfWeekJson}
                 bind:value={$form.classDay1}
-              />
+              >
+                <option value="" disabled>Select day</option>
+                {#each daysOfWeekJson as item (item.name)}
+                  <option value={item.name}>{item.name}</option>
+                {/each}
+              </FormNativeSelect>
             </div>
             <div class="flex flex-col gap-1.5">
               <FormInput
@@ -859,13 +879,17 @@
               .includes('math') && $form.online}
             <div class="grid gap-1 sm:grid-cols-3 sm:gap-3">
               <div class="flex flex-col gap-1.5 sm:col-span-2">
-                <FormSelect
+                <FormNativeSelect
                   form={formResult}
                   name="classDay2"
                   label="Meeting day 2"
-                  options={daysOfWeekJson}
                   bind:value={$form.classDay2}
-                />
+                >
+                  <option value="" disabled>Select day</option>
+                  {#each daysOfWeekJson as item (item.name)}
+                    <option value={item.name}>{item.name}</option>
+                  {/each}
+                </FormNativeSelect>
               </div>
               <div class="flex flex-col gap-1.5">
                 <FormInput

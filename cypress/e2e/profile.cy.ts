@@ -18,10 +18,8 @@ describe('Section F: Profile Customization & Account Management', () => {
 
     // 1. Sign up a new user to prevent breaking demo seed accounts
     cy.loadSignupPage()
-    cy.selectOption(
-      'input[name="role"]',
+    cy.get('select[name="role"]', { timeout: 10000 }).select(
       'Parent registering my child for classes',
-      { timeout: 10000 },
     )
     cy.fillInput('input[name="firstName"]', 'Profile')
     cy.fillInput('input[name="lastName"]', 'Test')
@@ -191,10 +189,8 @@ describe('Section F: Profile Customization & Account Management', () => {
     const password = 'password123'
 
     cy.loadSignupPage()
-    cy.selectOption(
-      'input[name="role"]',
+    cy.get('select[name="role"]', { timeout: 10000 }).select(
       'High school/college student applying to be an instructor',
-      { timeout: 10000 },
     )
     cy.fillInput('input[name="firstName"]', 'DeleteMe')
     cy.fillInput('input[name="lastName"]', 'Instructor')
@@ -270,10 +266,8 @@ describe('Section F: Profile Customization & Account Management', () => {
     const password = 'password123'
 
     cy.loadSignupPage()
-    cy.selectOption(
-      'input[name="role"]',
+    cy.get('select[name="role"]', { timeout: 10000 }).select(
       'High school/college student applying to be an instructor',
-      { timeout: 10000 },
     )
     cy.fillInput('input[name="firstName"]', 'Blocked')
     cy.fillInput('input[name="lastName"]', 'Instructor')
@@ -319,10 +313,8 @@ describe('Section F: Profile Customization & Account Management', () => {
     const password = 'password123'
 
     cy.loadSignupPage()
-    cy.selectOption(
-      'input[name="role"]',
+    cy.get('select[name="role"]', { timeout: 10000 }).select(
       'High school/college student applying to be an instructor',
-      { timeout: 10000 },
     )
     cy.fillInput('input[name="firstName"]', 'Blocked')
     cy.fillInput('input[name="lastName"]', 'Substitute')
@@ -367,10 +359,8 @@ describe('Section F: Profile Customization & Account Management', () => {
     const password = 'password123'
 
     cy.loadSignupPage()
-    cy.selectOption(
-      'input[name="role"]',
+    cy.get('select[name="role"]', { timeout: 10000 }).select(
       'Parent registering my child for classes',
-      { timeout: 10000 },
     )
     cy.fillInput('input[name="firstName"]', 'DeleteMe')
     cy.fillInput('input[name="lastName"]', 'Parent')
@@ -425,10 +415,8 @@ describe('Section F: Profile Customization & Account Management', () => {
     const password = 'password123'
 
     cy.loadSignupPage()
-    cy.selectOption(
-      'input[name="role"]',
+    cy.get('select[name="role"]', { timeout: 10000 }).select(
       'Parent registering my child for classes',
-      { timeout: 10000 },
     )
     cy.fillInput('input[name="firstName"]', 'Blocked')
     cy.fillInput('input[name="lastName"]', 'Parent')

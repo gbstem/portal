@@ -134,10 +134,8 @@ describe('Section A: Authentication and Navigation', () => {
       const email = `${generateDateHash(`charlie.brown.${resend ? 'resend' : 'orig'}`)}@gmail.com`
 
       cy.loadSignupPage()
-      cy.selectOption(
-        'input[name="role"]',
+      cy.get('select[name="role"]', { timeout: 10000 }).select(
         'Parent registering my child for classes',
-        { timeout: 10000 },
       )
       cy.fillInput('input[name="firstName"]', first)
       cy.fillInput('input[name="lastName"]', last)
@@ -223,10 +221,8 @@ describe('Section A: Authentication and Navigation', () => {
       const email = `${generateDateHash(`jane.doe.${resend ? 'resend' : 'orig'}`)}@gmail.com`
 
       cy.loadSignupPage()
-      cy.selectOption(
-        'input[name="role"]',
+      cy.get('select[name="role"]', { timeout: 10000 }).select(
         'High school/college student applying to be an instructor',
-        { timeout: 10000 },
       )
       cy.fillInput('input[name="firstName"]', first)
       cy.fillInput('input[name="lastName"]', last)
@@ -313,7 +309,7 @@ describe('Section A: Authentication and Navigation', () => {
   ].forEach(({ label, email, role }) => {
     it(`Test Case 6: Sign Up Rejected for Existing Account - ${label}`, () => {
       cy.loadSignupPage()
-      cy.selectOption('input[name="role"]', role, { timeout: 10000 })
+      cy.get('select[name="role"]', { timeout: 10000 }).select(role)
       cy.fillInput('input[name="firstName"]', 'Duplicate')
       cy.fillInput('input[name="lastName"]', generateDateHash('Account'))
       cy.fillInput('input[name="email"]', email)
@@ -348,10 +344,8 @@ describe('Section A: Authentication and Navigation', () => {
     const email = 'instructor@gbstem.org'
 
     cy.loadSignupPage()
-    cy.selectOption(
-      'input[name="role"]',
+    cy.get('select[name="role"]', { timeout: 10000 }).select(
       'Parent registering my child for classes',
-      { timeout: 10000 },
     )
     cy.fillInput('input[name="firstName"]', 'Duplicate')
     cy.fillInput('input[name="lastName"]', generateDateHash('Retry'))
@@ -365,7 +359,7 @@ describe('Section A: Authentication and Navigation', () => {
     // Let the submit cycle fully settle before reading the form back - the
     // reset used to land after the toast appeared, not with it.
     cy.get('fieldset').should('not.be.disabled')
-    cy.get('input[name="role"]').should(
+    cy.get('select[name="role"]').should(
       'have.value',
       'Parent registering my child for classes',
     )
