@@ -305,7 +305,8 @@
                 : '2-hour class'})
             </h4>
             <div class="space-y-2">
-              {#each formatClassTimes(dialogClassDetails.classDays, dialogClassDetails.classTimes) as classTime (classTime)}
+              <!-- By position: nothing stops a class listing one slot twice. -->
+              {#each formatClassTimes(dialogClassDetails.classDays, dialogClassDetails.classTimes) as classTime, slot (slot)}
                 <div class="flex items-center text-blue-800">
                   <Icon
                     src={ArrowUpCircle}
@@ -476,7 +477,7 @@
                     : '2-hour class'})
                 </h4>
                 <div class="space-y-1">
-                  {#each formatClassTimes(classInfo.classDays, classInfo.classTimes) as classTime (classTime)}
+                  {#each formatClassTimes(classInfo.classDays, classInfo.classTimes) as classTime, slot (slot)}
                     <div class="flex items-center text-sm text-gray-600">
                       <Icon
                         src={ArrowUpCircle}

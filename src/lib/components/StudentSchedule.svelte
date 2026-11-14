@@ -9,6 +9,7 @@
   import { Plus } from '@steeze-ui/heroicons'
 
   type ClassDate = {
+    classId: string
     course: string
     meetingTime: Date
     link: string | undefined
@@ -24,6 +25,7 @@
     classesData.forEach((data) => {
       data.meetingTimes.forEach((meetingTime) => {
         fetchedClasses.push({
+          classId: data.id,
           course: data.course,
           meetingTime,
           link: openableMeetingLink(data.meetingLink),
@@ -115,7 +117,7 @@
       {/if}
       <div class="mb-2 font-bold">{selectedStudentName}'s Class Schedule</div>
       <ul class="space-y-3">
-        {#each classes as classSession (classSession.course + classSession.meetingTime.getTime())}
+        {#each classes as classSession (`${classSession.classId}@${classSession.meetingTime.getTime()}`)}
           <li
             class="flex items-center rounded-lg bg-blue-50 px-4 py-3 shadow-xs"
           >
