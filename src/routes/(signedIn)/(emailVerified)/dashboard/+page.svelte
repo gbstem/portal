@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte'
   import { page } from '$app/state'
   import { user } from '#lib/client/firebase.js'
   import Button from '#lib/components/Button.svelte'
@@ -52,38 +53,41 @@
 
   const isStudent = $derived(page.data.user?.role === 'student')
 
-  user.subscribe((userObj) => {
-    if (userObj) {
-      ;(async () => {
-        try {
-          if (!isStudent) {
-            data.application.status = null
-            data.application.status =
-              await applicationService.fetchApplicationDashboardStatus(
-                userObj.object.uid,
-              )
-            data = data
-          } else {
-            const slots = await registrationService.fetchChildRegistrationSlots(
-              userObj.object.uid,
-            )
+  onMount(() =>
+    user.subscribe((userObj) => {
+      if (userObj) {
+        ;(async () => {
+          try {
+            if (!isStudent) {
+              data.application.status = null
+              data.application.status =
+                await applicationService.fetchApplicationDashboardStatus(
+                  userObj.object.uid,
+                )
+              data = data
+            } else {
+              const slots =
+                await registrationService.fetchChildRegistrationSlots(
+                  userObj.object.uid,
+                )
 
-            numSubmitted = slots.filter(
-              (slot) => slot.exists && slot.data?.meta?.submitted,
-            ).length
+              numSubmitted = slots.filter(
+                (slot) => slot.exists && slot.data?.meta?.submitted,
+              ).length
+            }
+          } catch (err) {
+            console.error('Error fetching dashboard data:', err)
+            alert.trigger(
+              'error',
+              'Could not load your dashboard. Please reload the page to try again.',
+            )
+          } finally {
+            loading = false
           }
-        } catch (err) {
-          console.error('Error fetching dashboard data:', err)
-          alert.trigger(
-            'error',
-            'Could not load your dashboard. Please reload the page to try again.',
-          )
-        } finally {
-          loading = false
-        }
-      })()
-    }
-  })
+        })()
+      }
+    }),
+  )
 
   let hasRightColumn = $derived(
     data.application.status === 'accepted' ||

@@ -7,16 +7,12 @@
   import { onMount } from 'svelte'
 
   interface Props {
-    selectedStudent?: string
     selectedStudentUid?: string
     preloadedStudents?: { uid: string; name: string }[]
   }
 
-  let {
-    selectedStudent = $bindable(''),
-    selectedStudentUid = $bindable(''),
-    preloadedStudents = [],
-  }: Props = $props()
+  let { selectedStudentUid = $bindable(''), preloadedStudents = [] }: Props =
+    $props()
 
   let fetchedStudents = $state<{ uid: string; name: string }[]>([])
   let fetchingLoading = $state(true)
@@ -26,38 +22,20 @@
     preloadedStudents.length > 0 ? preloadedStudents : fetchedStudents,
   )
 
-  const studentsOptions = $derived(
-    studentsList.map((student) => ({
-      name: student.name,
-    })),
-  )
-
-  const nameToUid = $derived(
-    studentsList.reduce<Record<string, string>>((acc, student) => {
-      acc[student.name] = student.uid
-      return acc
-    }, {}),
-  )
-
   const loading = $derived(
     preloadedStudents.length > 0 ? false : fetchingLoading,
   )
 
+  // Students are told apart by uid: two registrations can carry one name.
+  // Falls back to the first student when nothing (or a student no longer
+  // listed) is selected, and reports the choice to the bound prop and the
+  // shared selection.
   $effect(() => {
-    // Set the selected student to the first student if available and not already set
-    if (studentsOptions.length > 0 && !selectedStudent) {
-      selectedStudent = studentsOptions[0].name
+    if (studentsList.length === 0) return
+    if (!studentsList.some((student) => student.uid === selectedStudentUid)) {
+      selectedStudentUid = studentsList[0].uid
     }
-  })
-
-  $effect(() => {
-    if (selectedStudent && nameToUid[selectedStudent]) {
-      const targetUid = nameToUid[selectedStudent]
-      if (selectedStudentUid !== targetUid) {
-        selectedStudentUid = targetUid
-      }
-      selectedStudentIdState.current = targetUid
-    }
+    selectedStudentIdState.current = selectedStudentUid
   })
 
   const fetchData = async (user: Data.User.Store) => {
@@ -119,13 +97,13 @@
     <div class="text-sm text-red-700">
       Couldn't load your students. Please reload the page.
     </div>
-  {:else if studentsOptions.length === 1}
+  {:else if studentsList.length === 1}
     <div
       class="rounded-sm bg-blue-50 px-4 py-2 text-center font-semibold text-blue-900"
     >
-      {studentsOptions[0].name}
+      {studentsList[0].name}
     </div>
-  {:else if studentsOptions.length === 0}
+  {:else if studentsList.length === 0}
     <div class="text-gray-500 italic">No students found.</div>
   {:else}
     <div class="relative mt-2 w-full">
@@ -135,11 +113,11 @@
       <select
         id="select-a-child"
         name="select-a-child"
-        bind:value={selectedStudent}
+        bind:value={selectedStudentUid}
         class="mt-1 block h-12 w-full rounded-md border border-gray-400 bg-white px-3 transition-colors focus:border-gray-600 focus:outline-hidden"
       >
-        {#each studentsOptions as student (student.name)}
-          <option value={student.name}>{student.name}</option>
+        {#each studentsList as student (student.uid)}
+          <option value={student.uid}>{student.name}</option>
         {/each}
       </select>
     </div>
