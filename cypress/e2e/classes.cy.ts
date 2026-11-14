@@ -183,29 +183,29 @@ describe('Section D: Class Roster and Details View', () => {
 
     // 1. Select course filter
     cy.get('select[aria-label="Filter by course"]').select('Python 1')
-    cy.get('body').should('contain', 'Python 1')
+    cy.contains('h2', 'Python 1').should('exist')
     // We should not see other courses if we filter by Python 1
-    cy.contains('body', 'Scratch 1').should('not.exist')
+    cy.contains('h2', 'Scratch 1').should('not.exist')
 
     // Remove filter
     cy.get('select[aria-label="Filter by course"]').select('all')
-    cy.get('body').should('contain', 'Python 1')
-    cy.get('body').should('contain', 'Mathematics 2a')
+    cy.contains('h2', 'Python 1').should('exist')
+    cy.contains('h2', 'Mathematics 2a').should('exist')
 
     // 2. Toggle showing only enrolled classes
     cy.contains('button', 'Show all enrolled classes').click()
     cy.contains('button', 'Show all classes').should('be.visible')
     // Python 1 (enrolled class) should still be visible
-    cy.get('body').should('contain', 'Python 1')
+    cy.contains('h2', 'Python 1').should('exist')
     // Mathematics 2a (not enrolled) should be removed
-    cy.contains('body', 'Mathematics 2a').should('not.exist')
+    cy.contains('h2', 'Mathematics 2a').should('not.exist')
 
     // Toggle back to show all classes
     cy.contains('button', 'Show all classes').click()
     cy.contains('button', 'Show all enrolled classes').should('be.visible')
     // Both Python 1 and Mathematics 2a should reappear
-    cy.get('body').should('contain', 'Python 1')
-    cy.get('body').should('contain', 'Mathematics 2a')
+    cy.contains('h2', 'Python 1').should('exist')
+    cy.contains('h2', 'Mathematics 2a').should('exist')
   })
 
   it('Test Case 9b: Student Enroll in a Class', () => {
@@ -363,13 +363,13 @@ describe('Section D: Class Roster and Details View', () => {
 
     // 1. Select course filter
     cy.get('select[aria-label="Filter by course"]').select('Python 1')
-    cy.get('body').should('contain', 'Python 1')
-    cy.contains('body', 'Scratch 1').should('not.exist')
+    cy.contains('h2', 'Python 1').should('exist')
+    cy.contains('h2', 'Scratch 1').should('not.exist')
 
     // Remove filter
     cy.get('select[aria-label="Filter by course"]').select('all')
-    cy.get('body').should('contain', 'Python 1')
-    cy.get('body').should('contain', 'Scratch 1')
+    cy.contains('h2', 'Python 1').should('exist')
+    cy.contains('h2', 'Scratch 1').should('exist')
   })
 
   it('Test Case 10b: Instructor Send Class Reminder to Students', () => {
