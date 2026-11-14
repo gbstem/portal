@@ -221,7 +221,7 @@ describe('Section B: Student Registration & Account Management', () => {
     cy.get('h1').should('contain', 'Student Account Creation')
 
     // Assert Child 1 exists by default
-    cy.get('input[name="select-a-child"]', { timeout: 10000 }).should(
+    cy.get('select[name="select-a-child"]', { timeout: 10000 }).should(
       'have.value',
       'Child 1',
     )
@@ -232,7 +232,7 @@ describe('Section B: Student Registration & Account Management', () => {
     // Click "Add Child Account" to add new children up to maxChildrenPerAccount
     for (let i = 2; i <= maxChildrenPerAccount; i++) {
       cy.contains('button', 'Add Child Account').click()
-      cy.get('input[name="select-a-child"]').should('have.value', `Child ${i}`)
+      cy.get('select[name="select-a-child"]').should('have.value', `Child ${i}`)
     }
 
     // Try to click one more time and assert blocked
@@ -300,7 +300,7 @@ describe('Section B: Student Registration & Account Management', () => {
     cy.get('h1').should('contain', 'Student Account Creation')
 
     // Select Child 1 to register
-    cy.get('input[name="select-a-child"]', { timeout: 10000 }).should(
+    cy.get('select[name="select-a-child"]', { timeout: 10000 }).should(
       'have.value',
       'Child 1',
     )
@@ -323,10 +323,8 @@ describe('Section B: Student Registration & Account Management', () => {
 
     // Reload the page and select Child 1
     cy.visit('/apply')
-    cy.selectOption(
-      'input[name="select-a-child"]',
+    cy.get('select[name="select-a-child"]', { timeout: 10000 }).select(
       `${input.studentFirstName} ${input.studentLastName}`,
-      { timeout: 10000 },
     )
 
     // Verify submitted values persist (should display the submitted account card layout)
@@ -424,7 +422,7 @@ describe('Section B: Student Registration & Account Management', () => {
     // pushed into the form, and where a field missing from either mapper would
     // come back empty and then be written back over the stored value.
     cy.visit('/apply')
-    cy.get('input[name="select-a-child"]', { timeout: 10000 }).should(
+    cy.get('select[name="select-a-child"]', { timeout: 10000 }).should(
       'have.value',
       `${initial.studentFirstName} ${initial.studentLastName}`,
     )
