@@ -9,7 +9,7 @@
   import Button from '../Button.svelte'
   import Loading from '../Loading.svelte'
   import FormInput from '../FormInput.svelte'
-  import FormSelect from '../FormSelect.svelte'
+  import FormNativeSelect from '../FormNativeSelect.svelte'
   import { superForm, defaults } from 'sveltekit-superforms'
   import { zod } from 'sveltekit-superforms/adapters'
   import { z } from 'zod'
@@ -189,18 +189,22 @@
     <h1 class="text-2xl font-bold">Sign up</h1>
     <div class="relative space-y-4">
       <div class="flex flex-col gap-1.5">
-        <FormSelect
+        <FormNativeSelect
           form={formResult}
           name="role"
           label="I am a..."
-          options={[
-            {
-              name: 'High school/college student applying to be an instructor',
-            },
-            { name: 'Parent registering my child for classes' },
-          ]}
           bind:value={$form.role}
-        />
+        >
+          <option value="" disabled>Select an option</option>
+          <option
+            value="High school/college student applying to be an instructor"
+          >
+            High school/college student applying to be an instructor
+          </option>
+          <option value="Parent registering my child for classes">
+            Parent registering my child for classes
+          </option>
+        </FormNativeSelect>
       </div>
 
       {#if $form.role === 'Parent registering my child for classes'}

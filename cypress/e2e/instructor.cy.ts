@@ -59,10 +59,8 @@ const APPLICATION_ARRAY_FIELDS = ['personal.race', 'program.courses']
 function signUpInstructor(): string {
   const email = `${generateDateHash('inst')}@gbstem.org`
   cy.loadSignupPage()
-  cy.selectOption(
-    'input[name="role"]',
+  cy.get('select[name="role"]', { timeout: 10000 }).select(
     'High school/college student applying to be an instructor',
-    { timeout: 10000 },
   )
   cy.fillInput('input[name="firstName"]', 'Instructor')
   cy.fillInput('input[name="lastName"]', 'Test')
@@ -89,7 +87,7 @@ function signUpInstructor(): string {
 function fillApplicationForm(input: ApplicationInput) {
   cy.fillInput('input[name="personal.phoneNumber"]', input.phoneNumber)
   cy.fillInput('input[name="personal.dateOfBirth"]', input.dateOfBirth)
-  cy.selectOption('input[name="personal.gender"]', input.gender)
+  cy.get('select[name="personal.gender"]').select(input.gender)
 
   // Race and courses are checkbox groups: clear the current selection before
   // applying the new one, or the modify pass would add to it rather than
@@ -128,7 +126,7 @@ function fillApplicationForm(input: ApplicationInput) {
     }
   }
   setCheckbox('input[name="program.inPerson"]', input.programInPerson)
-  cy.selectOption('input[name="program.reason"]', input.reason)
+  cy.get('select[name="program.reason"]').select(input.reason)
 
   setCheckbox('input[name="essay.taughtBefore"]', input.taughtBefore)
   cy.fillInput(
@@ -362,15 +360,15 @@ function setCoInstructors(emails: string[]) {
  * a maths course taught online, so the caller has to pick one to reach them.
  */
 function fillClassDetailsForm(input: ClassDetailsInput) {
-  cy.selectOption('input[name="course"]', input.course)
+  cy.get('select[name="course"]').select(input.course)
   cy.fillInput('input[name="gradeRecommendation"]', input.gradeRecommendation)
-  cy.selectOption('input[name="classDay1"]', input.classDay1)
+  cy.get('select[name="classDay1"]').select(input.classDay1)
   cy.fillInput('input[name="classTime1"]', input.classTime1)
 
   const showsSecondDay =
     input.course.toLowerCase().includes('math') && input.online
   if (showsSecondDay) {
-    cy.selectOption('input[name="classDay2"]', input.classDay2)
+    cy.get('select[name="classDay2"]').select(input.classDay2)
     cy.fillInput('input[name="classTime2"]', input.classTime2)
   }
 
@@ -1229,7 +1227,7 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
 
     // Only one class details form is mounted at a time, so these selectors
     // don't need the card scoping the `Edit` lookup above required.
-    cy.get('input[name="course"]')
+    cy.get('select[name="course"]')
       .should('not.be.disabled')
       .and('not.have.value', '')
     fillClassDetailsForm(input)
@@ -1282,7 +1280,7 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
 
     // Only one class details form is mounted at a time, so these selectors
     // don't need the card scoping the `Edit` lookup above required.
-    cy.get('input[name="course"]')
+    cy.get('select[name="course"]')
       .should('not.be.disabled')
       .and('not.have.value', '')
     fillClassDetailsForm(initial)
@@ -1355,7 +1353,7 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
       .within(() => {
         cy.contains('button', 'Edit class details').click()
       })
-    cy.get('input[name="course"]')
+    cy.get('select[name="course"]')
       .should('not.be.disabled')
       .and('not.have.value', '')
 
@@ -1396,13 +1394,13 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
       .within(() => {
         cy.contains('button', 'Edit class details').click()
       })
-    cy.get('input[name="course"]')
+    cy.get('select[name="course"]')
       .should('not.be.disabled')
       .and('not.have.value', '')
 
     cy.then(() => {
       const otherDay = before.classDay1 === 'Monday' ? 'Wednesday' : 'Monday'
-      cy.selectOption('input[name="classDay1"]', otherDay)
+      cy.get('select[name="classDay1"]').select(otherDay)
       cy.fillInput('input[name="classCap"]', '21')
     })
     cy.get('input[name="confirmation"]').check({ force: true })
@@ -1437,7 +1435,7 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
       .within(() => {
         cy.contains('button', 'Edit class details').click()
       })
-    cy.get('input[name="course"]')
+    cy.get('select[name="course"]')
       .should('not.be.disabled')
       .and('not.have.value', '')
 
@@ -1489,7 +1487,7 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
       .within(() => {
         cy.contains('button', 'Edit class details').click()
       })
-    cy.get('input[name="course"]')
+    cy.get('select[name="course"]')
       .should('not.be.disabled')
       .and('not.have.value', '')
 
@@ -1586,7 +1584,7 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
       .within(() => {
         cy.contains('button', 'Edit class details').click()
       })
-    cy.get('input[name="course"]').should('not.be.disabled')
+    cy.get('select[name="course"]').should('not.be.disabled')
 
     refused.forEach((email) => {
       cy.fillInput('input[name="coInstructorEmail"]', email)
@@ -1626,7 +1624,7 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
       .within(() => {
         cy.contains('button', 'Edit class details').click()
       })
-    cy.get('input[name="course"]').should('not.be.disabled')
+    cy.get('select[name="course"]').should('not.be.disabled')
 
     setCoInstructors(['cohost@gbstem.org'])
     cy.get('input[name="confirmation"]').check({ force: true })
@@ -1642,7 +1640,7 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
       .within(() => {
         cy.contains('button', 'Edit class details').click()
       })
-    cy.get('input[name="course"]').should('not.be.disabled')
+    cy.get('select[name="course"]').should('not.be.disabled')
 
     setCoInstructors([])
     cy.get('input[name="confirmation"]').check({ force: true })
@@ -1668,7 +1666,7 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
       .within(() => {
         cy.contains('button', 'Edit class details').click()
       })
-    cy.get('input[name="course"]').should('not.be.disabled')
+    cy.get('select[name="course"]').should('not.be.disabled')
     setCoInstructors(['cohost@gbstem.org'])
     cy.get('input[name="confirmation"]').check({ force: true })
     saveClassDetails()
@@ -1681,7 +1679,7 @@ describe('Section C & E: Instructor Applications & Community Service', () => {
       .within(() => {
         cy.contains('button', 'Edit class details').click()
       })
-    cy.get('input[name="course"]')
+    cy.get('select[name="course"]')
       .should('not.be.disabled')
       .and('not.have.value', '')
     cy.fillInput('input[name="classCap"]', '17')
@@ -2143,7 +2141,7 @@ describe('Section G: Co-Instructor Access To A Shared Class', () => {
       .within(() => {
         cy.contains('button', 'Edit class details').click()
       })
-    cy.get('input[name="course"]')
+    cy.get('select[name="course"]')
       .should('not.be.disabled')
       .and('not.have.value', '')
 
@@ -2176,7 +2174,7 @@ describe('Section G: Co-Instructor Access To A Shared Class', () => {
       .within(() => {
         cy.contains('button', 'Edit class details').click()
       })
-    cy.get('input[name="course"]')
+    cy.get('select[name="course"]')
       .should('not.be.disabled')
       .and('not.have.value', '')
 
