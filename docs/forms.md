@@ -17,7 +17,7 @@ New and migrated forms follow that shape:
 
 ## SPA Superforms (legacy)
 
-Every other form still runs Superforms in `SPA: true` mode (see `ChangeNameForm.svelte`): `onUpdate` calls `setDoc(doc(db, collection, id), withSemester(values))` directly against the client Firestore SDK, then optionally hits a plain `/api/*/+server.ts` endpoint only for side effects that need the Admin SDK (e.g. sending email). Schemas live in `src/lib/components/forms/schemas.ts`. Field wrapper components (`FormInput`, `FormSelect`, `FormCheckbox`, `FormTextarea`) wrap the `superForm` `form` object; errors surface via `alert.trigger('error', ...)`.
+Every other form still runs Superforms in `SPA: true` mode (see `ChangeNameForm.svelte`): `onUpdate` calls `setDoc(doc(db, collection, id), withSemester(values))` directly against the client Firestore SDK, then optionally hits a plain `/api/*/+server.ts` endpoint only for side effects that need the Admin SDK (e.g. sending email). Schemas live in `src/lib/components/forms/schemas.ts`. Field wrapper components (`FormInput`, `FormNativeSelect`, `FormCheckbox`, `FormTextarea`) wrap the `superForm` `form` object; errors surface via `alert.trigger('error', ...)`.
 
 No instructor form or button writes Firestore from the browser any more (see [roles.md](roles.md)). The exception for everyone is:
 

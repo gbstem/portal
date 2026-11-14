@@ -2,7 +2,6 @@
   import { page } from '$app/state'
   import { user } from '#lib/client/firebase.js'
   import Loading from '#lib/components/Loading.svelte'
-  import Select from '#lib/components/Select.svelte'
   import { registrationService } from '#lib/services/registrationService.js'
   import { selectedStudentIdState } from '#lib/stores.svelte.js'
   import { onMount } from 'svelte'
@@ -129,11 +128,20 @@
   {:else if studentsOptions.length === 0}
     <div class="text-gray-500 italic">No students found.</div>
   {:else}
-    <Select
-      bind:value={selectedStudent}
-      options={studentsOptions}
-      label="Select a child"
-      class="w-full"
-    />
+    <div class="relative mt-2 w-full">
+      <label for="select-a-child" class="text-sm font-bold">
+        <span>Select a child</span>
+      </label>
+      <select
+        id="select-a-child"
+        name="select-a-child"
+        bind:value={selectedStudent}
+        class="mt-1 block h-12 w-full rounded-md border border-gray-400 bg-white px-3 transition-colors focus:border-gray-600 focus:outline-hidden"
+      >
+        {#each studentsOptions as student (student.name)}
+          <option value={student.name}>{student.name}</option>
+        {/each}
+      </select>
+    </div>
   {/if}
 </div>
