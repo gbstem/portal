@@ -44,40 +44,44 @@
   let classFilter = $state('')
   let onlyShowEnrolled = $state(false)
 
-  const studentUidToClassIds: {
+  let studentUidToClassIds: {
     [studentUid: string]: string[]
   } = $state({})
 
-  const uidToName: Record<string, string> = $state({})
+  let uidToName: Record<string, string> = $state({})
 
   // classId -> the instructor's current address, for "Contact Instructor".
   const instructorEmails: Record<string, string> = $state({})
 
   // Preload student data for the StudentSelect component
-  let preloadedStudents: { uid: string; name: string }[] = []
+  let preloadedStudents: { uid: string; name: string }[] = $state([])
+
+  let currentUser: Data.User.Store | null | undefined
 
   const isStudent = $derived(page.data.user?.role === 'student')
 
+  // Runs again after every add/drop, so it builds each map afresh and
+  // replaces the old one rather than adding to it.
   const determineStudentEnrollment = async (user: Data.User.Store) => {
     const uid = user.object.uid
     const slots = await registrationService.fetchChildRegistrationSlots(uid)
+    const classIdsByStudent: typeof studentUidToClassIds = {}
+    const names: typeof uidToName = {}
+    const students: typeof preloadedStudents = []
     slots.forEach((slot, index) => {
       if (slot.exists && slot.data?.meta.submitted) {
         const studentUid = slot.uid
-        const studentClassIds = slot.data.classes ?? []
-        studentUidToClassIds[studentUid] = studentClassIds
+        classIdsByStudent[studentUid] = slot.data.classes ?? []
         const name =
           `${slot.data.personal.studentFirstName} ${slot.data.personal.studentLastName}`.trim() ||
           `Child ${index + 1}`
-        uidToName[studentUid] = name
-
-        // Add to preloaded students for StudentSelect component
-        preloadedStudents.push({
-          uid: studentUid,
-          name: name,
-        })
+        names[studentUid] = name
+        students.push({ uid: studentUid, name })
       }
     })
+    studentUidToClassIds = classIdsByStudent
+    uidToName = names
+    preloadedStudents = students
   }
 
   // Resolved from each enrolled class's instructorUid, never read off the class
@@ -107,36 +111,38 @@
     )
   }
 
-  const getData = () => {
-    return user.subscribe(async (user) => {
-      // `loading` is cleared in `finally` so a failed read leaves the page in an
-      // error state the user can act on rather than a spinner that never stops.
-      try {
-        classes = await classService.fetchAllClassesInfo()
+  const getData = async () => {
+    const user = currentUser
+    // `loading` is cleared in `finally` so a failed read leaves the page in an
+    // error state the user can act on rather than a spinner that never stops.
+    try {
+      classes = await classService.fetchAllClassesInfo()
 
-        if (user && isStudent) {
-          // Enrollment loading used to be gated on `object.displayName` being
-          // truthy, standing in for "the profile is loaded". A parent whose
-          // displayName was blank silently got no children and no error.
-          await determineStudentEnrollment(user)
-          // Not awaited: the cards needn't wait on their contact links.
-          void loadInstructorEmails()
-        }
-      } catch (err) {
-        console.error('[classes] Failed to load class data:', err)
-        alert.trigger(
-          'error',
-          'Could not load classes. Please reload the page to try again.',
-        )
-      } finally {
-        loading = false
+      if (user && isStudent) {
+        // Enrollment loading used to be gated on `object.displayName` being
+        // truthy, standing in for "the profile is loaded". A parent whose
+        // displayName was blank silently got no children and no error.
+        await determineStudentEnrollment(user)
+        // Not awaited: the cards needn't wait on their contact links.
+        void loadInstructorEmails()
       }
-    })
+    } catch (err) {
+      console.error('[classes] Failed to load class data:', err)
+      alert.trigger(
+        'error',
+        'Could not load classes. Please reload the page to try again.',
+      )
+    } finally {
+      loading = false
+    }
   }
 
-  onMount(() => {
-    getData()
-  })
+  onMount(() =>
+    user.subscribe((user) => {
+      currentUser = user
+      void getData()
+    }),
+  )
 
   const isEnrolled = (classId: string, studentUid: string): boolean => {
     if (!studentUid || !studentUidToClassIds[studentUid]) {
@@ -155,7 +161,7 @@
     } else {
       await enrollInClass(classId)
     }
-    getData()
+    await getData()
   }
 
   // Capacity, the two-class limit and grade eligibility are all checked by

@@ -308,6 +308,58 @@ describe('Section D: Class Roster and Details View', () => {
     })
   })
 
+  it('Test Case 9c2: Student Makes a Second Add/Drop Change', () => {
+    // Svelte reports a duplicate key on the console rather than failing the
+    // page, so the spy is what catches it.
+    cy.on('window:before:load', (win) => {
+      cy.spy(win.console, 'error').as('consoleError')
+    })
+    visitClassesAsParent()
+
+    openAddDrop('Mathematics 2a')
+    cy.get('[role="dialog"]')
+      .contains('button', 'Enroll Student')
+      .click({ force: true })
+    cy.waitForNotification('Thank you for enrolling!')
+    cy.get('[role="dialog"]').should('not.exist')
+    // A second card (beside the seeded Python 1) lists the student once the
+    // page has refetched the enrollment, which is when the student list used
+    // to double. Matched by count: the cards reorder after an enrollment.
+    cy.get('.group:contains("Your Enrolled Students")').should('have.length', 2)
+
+    // The refresh after a change must replace the student list, not append
+    // to it: a doubled list put the one student in the picker twice, and the
+    // next dialog threw each_key_duplicate. Python 1 is the seeded class; the
+    // filter keeps other Python 1 sections from matching first.
+    cy.contains('button', 'Show all enrolled classes').click()
+    openAddDrop('Python 1')
+    cy.get('[role="dialog"]').within(() => {
+      cy.get('#select-a-child').should('not.exist')
+      cy.contains(SEEDED_STUDENT_NAME).should('be.visible')
+      cy.contains('button', 'Unenroll Student').click({ force: true })
+    })
+    cy.waitForNotification('Unenrolled from class!')
+    cy.get('[role="dialog"]').should('not.exist')
+    cy.get('@consoleError').then((spy: any) => {
+      const messages = spy.args.flat().map(String).join('\n')
+      expect(messages, 'console errors').to.not.include('each_key_duplicate')
+    })
+
+    cy.task('readFirestoreDoc', REGISTRATION_PATH).then((registration: any) => {
+      expect(registration.classes, 'Python 1 dropped').to.not.include(
+        SEEDED_CLASS_ID,
+      )
+      expect(registration.classes, 'Mathematics 2a kept').to.have.length(1)
+    })
+    cy.task('readFirestoreDoc', classPath(SEEDED_CLASS_ID)).then(
+      (classDoc: any) => {
+        expect(classDoc.students, 'off the Python 1 roster').to.not.include(
+          SEEDED_STUDENT_UID,
+        )
+      },
+    )
+  })
+
   it('Test Case 9d: Student Cannot Enroll in a Full Class', () => {
     // Fill Scratch 1 to its cap, without the demo student.
     cy.task('mergeFirestoreDoc', {
