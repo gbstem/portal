@@ -5,7 +5,7 @@
   import { substituteService } from '#lib/services/substituteService.js'
   import { alert } from '#lib/stores.js'
   import { cn } from '#lib/utils.js'
-  import { untrack } from 'svelte'
+  import { onMount, untrack } from 'svelte'
   import { defaults, superForm } from 'sveltekit-superforms'
   import { zod } from 'sveltekit-superforms/adapters'
   import { z } from 'zod'
@@ -115,23 +115,25 @@
 
   const { form, enhance, submitting } = formResult
 
-  user.subscribe(async (user) => {
-    if (user) {
-      currentUser = user
-      try {
-        await getData()
-      } catch (err) {
-        console.error(
-          '[InstructorFeedbackForm] Error fetching initial data:',
-          err,
-        )
-        loadError = true
-        alert.trigger('error', 'Failed to load class details.')
-      } finally {
-        loading = false
+  onMount(() =>
+    user.subscribe(async (user) => {
+      if (user) {
+        currentUser = user
+        try {
+          await getData()
+        } catch (err) {
+          console.error(
+            '[InstructorFeedbackForm] Error fetching initial data:',
+            err,
+          )
+          loadError = true
+          alert.trigger('error', 'Failed to load class details.')
+        } finally {
+          loading = false
+        }
       }
-    }
-  })
+    }),
+  )
 
   async function getData() {
     let id =
