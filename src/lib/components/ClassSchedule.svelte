@@ -575,7 +575,10 @@
     </Card>
   {/if}
   <ul class="list-none space-y-4">
-    {#each editedMeetingTimes as classTime, classNumber (classTime)}
+    <!-- Keyed by position: each row is the class number, edited in place,
+         so keying by its time would remount the row on every edit and
+         collide when two rows hold the same time. -->
+    {#each editedMeetingTimes as classTime, classNumber (classNumber)}
       <li
         class="relative flex flex-wrap items-center justify-between gap-4 rounded-xl border bg-white p-4 shadow-sm transition hover:shadow-lg"
       >
