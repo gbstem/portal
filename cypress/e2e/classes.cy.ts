@@ -182,13 +182,13 @@ describe('Section D: Class Roster and Details View', () => {
       .should('deep.equal', { 'instructor-demo-uid': OWNER_EMAIL })
 
     // 1. Select course filter
-    cy.selectOption('input[placeholder="Filter by course"]', 'Python 1')
+    cy.get('select[aria-label="Filter by course"]').select('Python 1')
     cy.get('body').should('contain', 'Python 1')
     // We should not see other courses if we filter by Python 1
     cy.contains('body', 'Scratch 1').should('not.exist')
 
     // Remove filter
-    cy.selectOption('input[placeholder="Filter by course"]', 'all')
+    cy.get('select[aria-label="Filter by course"]').select('all')
     cy.get('body').should('contain', 'Python 1')
     cy.get('body').should('contain', 'Mathematics 2a')
 
@@ -362,12 +362,12 @@ describe('Section D: Class Roster and Details View', () => {
     cy.get('body').should('contain', 'Demo Instructor')
 
     // 1. Select course filter
-    cy.selectOption('input[placeholder="Filter by course"]', 'Python 1')
+    cy.get('select[aria-label="Filter by course"]').select('Python 1')
     cy.get('body').should('contain', 'Python 1')
     cy.contains('body', 'Scratch 1').should('not.exist')
 
     // Remove filter
-    cy.selectOption('input[placeholder="Filter by course"]', 'all')
+    cy.get('select[aria-label="Filter by course"]').select('all')
     cy.get('body').should('contain', 'Python 1')
     cy.get('body').should('contain', 'Scratch 1')
   })

@@ -4,7 +4,6 @@
   import Card from '#lib/components/Card.svelte'
   import ApplyForm from '#lib/components/forms/ApplyForm.svelte'
   import RegistrationForm from '#lib/components/forms/RegistrationForm.svelte'
-  import Select from '#lib/components/Select.svelte'
   import { semesterDates } from '#lib/data/collections.js'
   import { alert } from '#lib/stores.js'
   import { ExclamationCircle } from '@steeze-ui/heroicons'
@@ -73,15 +72,22 @@
         <div class="font-bold">Your Existing Accounts</div>
         <div class="grid gap-1 sm:grid-cols-3 sm:gap-3">
           <div class="sm:col-span-2">
-            {#key data.children.map((child) => child.name).join('\n')}
-              <Select
+            <div class="relative mt-2 mr-2 w-full">
+              <label for="select-a-child" class="text-sm font-bold">
+                <span>Select a child</span>
+              </label>
+              <select
+                id="select-a-child"
+                name="select-a-child"
                 value={selectedName}
-                onchange={selectChild}
-                class="mr-2 w-full"
-                label="Select a child"
-                options={data.children.map((child) => ({ name: child.name }))}
-              />
-            {/key}
+                onchange={(e) => selectChild(e.currentTarget.value)}
+                class="mt-1 block h-12 w-full rounded-md border border-gray-400 bg-white px-3 transition-colors focus:border-gray-600 focus:outline-hidden"
+              >
+                {#each data.children as child (child.number)}
+                  <option value={child.name}>{child.name}</option>
+                {/each}
+              </select>
+            </div>
           </div>
           <div class="flex justify-end">
             <Button

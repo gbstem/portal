@@ -7,7 +7,6 @@
   import DialogActions from '#lib/components/DialogActions.svelte'
   import Link from '#lib/components/Link.svelte'
   import Loading from '#lib/components/Loading.svelte'
-  import Select from '#lib/components/Select.svelte'
   import StudentSelect from '#lib/components/StudentSelect.svelte'
   import { coursesJson } from '#lib/data/index.js'
   import { semesterDates } from '#lib/data/collections.js'
@@ -386,11 +385,18 @@
   {:else}
     <div class="mb-5 flex items-center justify-between">
       <div class="flex items-center gap-2">
-        <Select
+        <select
+          name="course-filter"
+          aria-label="Filter by course"
           bind:value={classFilter}
-          placeholder="Filter by course"
-          options={[{ name: 'all' }, ...coursesJson]}
-        />
+          class="mt-1 block h-12 w-full rounded-md border border-gray-400 bg-white px-3 transition-colors focus:border-gray-600 focus:outline-hidden"
+        >
+          <option value="" disabled>Filter by course</option>
+          <option value="all">all</option>
+          {#each coursesJson as course (course.name)}
+            <option value={course.name}>{course.name}</option>
+          {/each}
+        </select>
       </div>
       {#if isStudent}
         <Button
