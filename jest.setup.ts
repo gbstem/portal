@@ -143,12 +143,11 @@ jest.mock('firebase/storage', () => ({
   getStorage: jest.fn(),
 }))
 
-// Global mock for firebase-admin
-jest.mock('firebase-admin', () => ({
+// Global mock for firebase-admin/app
+jest.mock('firebase-admin/app', () => ({
+  getApps: jest.fn(() => []),
   initializeApp: jest.fn(),
-  credential: {
-    cert: jest.fn(),
-  },
+  cert: jest.fn(),
 }))
 
 // Global mock for firebase-admin/auth
